@@ -143,7 +143,13 @@ export default function Dashboard() {
   });
 
   // Callback-Handler für alle Kacheln
-  const onManagerClick = () => navigate('/projects');
+  const onManagerClick = () => {
+    if (projects.length > 0) {
+      navigate(`/project/${projects[currentProjectIndex].id}`);
+    } else {
+      navigate('/');
+    }
+  };
   const onDocsClick = () => navigate('/documents');
   const onTodoClick = () => navigate('/tasks');
   const onFinanceClick = () => navigate('/finance');

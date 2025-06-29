@@ -31,9 +31,11 @@ import {
   Settings,
   MoreHorizontal,
   User,
-  FileText
+  FileText,
+  Wallet
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import ProjectBreadcrumb from '../components/ProjectBreadcrumb';
 
 interface Expense {
   id: number;
@@ -376,446 +378,450 @@ export default function Finance() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539]">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-[#3d4952]/95 to-[#51646f]/95 backdrop-blur-lg text-white px-8 py-6 shadow-2xl border-b border-[#ffbd59]/20">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => navigate(-1)}
-              className="p-2 bg-[#51646f] hover:bg-[#607583] rounded-xl transition-colors duration-300"
-            >
-              <ArrowLeft size={20} className="text-[#ffbd59]" />
-            </button>
-            <div>
-              <h1 className="text-3xl font-bold text-[#ffbd59]">Finanzen</h1>
-              <p className="text-gray-300">Budget- und Ausgabenverwaltung</p>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowBudgetModal(true)}
-              className="flex items-center gap-2 px-4 py-3 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all duration-300"
-            >
-              <Target size={20} />
-              Budget bearbeiten
-            </button>
-            <button
-              onClick={() => setShowExpenseModal(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold"
-            >
-              <PlusCircle size={20} />
-              Ausgabe hinzufügen
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Error Banner */}
-      {error && (
-        <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <AlertTriangle size={20} />
-            <span>{error}</span>
-          </div>
-          <button onClick={() => setError('')} className="text-red-300 hover:text-red-100">
-            <XCircle size={20} />
-          </button>
-        </div>
-      )}
-
-      <div className="p-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Budget Overview */}
-          {budget && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-gradient-to-br from-green-400 to-green-600 rounded-xl">
-                    <Target size={24} className="text-white" />
-                  </div>
-                  <span className="text-sm text-gray-400">Gesamtbudget</span>
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-1">{formatCurrency(budget.total_budget)}</h3>
-                <p className="text-sm text-gray-400">Verfügbares Budget</p>
-              </div>
-
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-gradient-to-br from-red-400 to-red-600 rounded-xl">
-                    <TrendingDown size={24} className="text-white" />
-                  </div>
-                  <span className="text-sm text-gray-400">Ausgegeben</span>
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-1">{formatCurrency(budget.spent_amount)}</h3>
-                <p className="text-sm text-gray-400">Bereits verbraucht</p>
-              </div>
-
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl">
-                    <TrendingUp size={24} className="text-white" />
-                  </div>
-                  <span className="text-sm text-gray-400">Verbleibend</span>
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-1">{formatCurrency(budget.remaining_amount)}</h3>
-                <p className="text-sm text-gray-400">Noch verfügbar</p>
-              </div>
-
-              <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl">
-                    <PieChart size={24} className="text-white" />
-                  </div>
-                  <span className="text-sm text-gray-400">Auslastung</span>
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-1">{getBudgetProgress().toFixed(1)}%</h3>
-                <div className="w-full bg-gray-700/50 rounded-full h-2 mt-2">
-                  <div 
-                    className={`h-2 rounded-full transition-all duration-1000 ${
-                      getBudgetStatus() === 'critical' ? 'bg-red-500' :
-                      getBudgetStatus() === 'warning' ? 'bg-yellow-500' : 'bg-green-500'
-                    }`}
-                    style={{ width: `${Math.min(getBudgetProgress(), 100)}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Search and Filter */}
-          <div className="flex flex-col md:flex-row gap-4 mb-8">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Ausgaben durchsuchen..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-              />
-            </div>
-            
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <select
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                className="pl-10 pr-8 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent appearance-none cursor-pointer"
+    <div className="min-h-screen bg-gray-50">
+      <ProjectBreadcrumb />
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <header className="bg-gradient-to-r from-[#3d4952]/95 to-[#51646f]/95 backdrop-blur-lg text-white px-8 py-6 shadow-2xl border-b border-[#ffbd59]/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => navigate(-1)}
+                className="p-2 bg-[#51646f] hover:bg-[#607583] rounded-xl transition-colors duration-300"
               >
-                <option value="all">Alle Kategorien</option>
-                <option value="material">Material</option>
-                <option value="labor">Arbeitskräfte</option>
-                <option value="equipment">Geräte</option>
-                <option value="services">Dienstleistungen</option>
-                <option value="permits">Genehmigungen</option>
-                <option value="other">Sonstiges</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Expenses List */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">Ausgaben</h2>
-              <div className="text-sm text-gray-400">
-                {filteredExpenses.length} von {expenses.length} Ausgaben
+                <ArrowLeft size={20} className="text-[#ffbd59]" />
+              </button>
+              <div>
+                <h1 className="text-3xl font-bold text-[#ffbd59]">Finanzen</h1>
+                <p className="text-gray-300">Budget- und Ausgabenverwaltung</p>
               </div>
             </div>
-
-            <div className="space-y-4">
-              {filteredExpenses.map((expense) => (
-                <div key={expense.id} className="group bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all duration-300">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl">
-                        {getCategoryIcon(expense.category)}
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-white group-hover:text-[#ffbd59] transition-colors">
-                          {expense.title}
-                        </h3>
-                        <p className="text-sm text-gray-400">{expense.description}</p>
-                        <div className="flex items-center gap-4 mt-2">
-                          <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium backdrop-blur-md border ${getCategoryColor(expense.category)}`}>
-                            {getCategoryLabel(expense.category)}
-                          </div>
-                          <div className="flex items-center gap-1 text-xs text-gray-400">
-                            <Calendar size={12} />
-                            <span>{new Date(expense.date).toLocaleDateString('de-DE')}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-white">{formatCurrency(expense.amount)}</div>
-                        <div className="text-xs text-gray-400">
-                          {((expense.amount / (budget?.total_budget || 1)) * 100).toFixed(1)}% vom Budget
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => openEditExpenseModal(expense)}
-                          className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
-                        >
-                          <Edit size={16} className="text-gray-400" />
-                        </button>
-                        <button
-                          onClick={() => setDeletingExpense(expense.id)}
-                          className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors"
-                        >
-                          <Trash2 size={16} className="text-red-400" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Empty State */}
-            {filteredExpenses.length === 0 && !loading && (
-              <div className="text-center py-16">
-                <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Receipt size={40} className="text-[#ffbd59]" />
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-2">Keine Ausgaben gefunden</h3>
-                <p className="text-gray-400 mb-6">
-                  {searchTerm || filterCategory !== 'all' 
-                    ? 'Versuchen Sie andere Suchkriterien oder Filter.'
-                    : 'Fügen Sie Ihre erste Ausgabe hinzu, um loszulegen.'
-                  }
-                </p>
-                {!searchTerm && filterCategory === 'all' && (
-                  <button
-                    onClick={() => setShowExpenseModal(true)}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold mx-auto"
-                  >
-                    <PlusCircle size={20} />
-                    Erste Ausgabe hinzufügen
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Add/Edit Expense Modal */}
-      {showExpenseModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">
-                {editingExpense ? 'Ausgabe bearbeiten' : 'Neue Ausgabe hinzufügen'}
-              </h2>
+            <div className="flex gap-3">
               <button
-                onClick={() => {
-                  setShowExpenseModal(false);
-                  setEditingExpense(null);
-                  resetExpenseForm();
-                }}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                onClick={() => setShowBudgetModal(true)}
+                className="flex items-center gap-2 px-4 py-3 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all duration-300"
               >
-                <XCircle size={24} className="text-gray-400" />
+                <Target size={20} />
+                Budget bearbeiten
+              </button>
+              <button
+                onClick={() => setShowExpenseModal(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold"
+              >
+                <PlusCircle size={20} />
+                Ausgabe hinzufügen
               </button>
             </div>
-            
-            <form onSubmit={editingExpense ? handleUpdateExpense : handleAddExpense} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Titel *</label>
-                  <input
-                    type="text"
-                    required
-                    value={expenseForm.title}
-                    onChange={(e) => setExpenseForm({...expenseForm, title: e.target.value})}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    placeholder="z.B. Beton für Fundament"
-                  />
+          </div>
+        </header>
+
+        {/* Error Banner */}
+        {error && (
+          <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertTriangle size={20} />
+              <span>{error}</span>
+            </div>
+            <button onClick={() => setError('')} className="text-red-300 hover:text-red-100">
+              <XCircle size={20} />
+            </button>
+          </div>
+        )}
+
+        <div className="p-8">
+          <div className="max-w-7xl mx-auto">
+            {/* Budget Overview */}
+            {budget && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-gradient-to-br from-green-400 to-green-600 rounded-xl">
+                      <Target size={24} className="text-white" />
+                    </div>
+                    <span className="text-sm text-gray-400">Gesamtbudget</span>
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-1">{formatCurrency(budget.total_budget)}</h3>
+                  <p className="text-sm text-gray-400">Verfügbares Budget</p>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Kategorie *</label>
-                  <select
-                    required
-                    value={expenseForm.category}
-                    onChange={(e) => setExpenseForm({...expenseForm, category: e.target.value as any})}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                  >
-                    <option value="material">Material</option>
-                    <option value="labor">Arbeitskräfte</option>
-                    <option value="equipment">Geräte</option>
-                    <option value="services">Dienstleistungen</option>
-                    <option value="permits">Genehmigungen</option>
-                    <option value="other">Sonstiges</option>
-                  </select>
+
+                <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-gradient-to-br from-red-400 to-red-600 rounded-xl">
+                      <TrendingDown size={24} className="text-white" />
+                    </div>
+                    <span className="text-sm text-gray-400">Ausgegeben</span>
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-1">{formatCurrency(budget.spent_amount)}</h3>
+                  <p className="text-sm text-gray-400">Bereits verbraucht</p>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl">
+                      <TrendingUp size={24} className="text-white" />
+                    </div>
+                    <span className="text-sm text-gray-400">Verbleibend</span>
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-1">{formatCurrency(budget.remaining_amount)}</h3>
+                  <p className="text-sm text-gray-400">Noch verfügbar</p>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl">
+                      <PieChart size={24} className="text-white" />
+                    </div>
+                    <span className="text-sm text-gray-400">Auslastung</span>
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-1">{getBudgetProgress().toFixed(1)}%</h3>
+                  <div className="w-full bg-gray-700/50 rounded-full h-2 mt-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all duration-1000 ${
+                        getBudgetStatus() === 'critical' ? 'bg-red-500' :
+                        getBudgetStatus() === 'warning' ? 'bg-yellow-500' : 'bg-green-500'
+                      }`}
+                      style={{ width: `${Math.min(getBudgetProgress(), 100)}%` }}
+                    />
+                  </div>
                 </div>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Beschreibung</label>
-                <textarea
-                  value={expenseForm.description}
-                  onChange={(e) => setExpenseForm({...expenseForm, description: e.target.value})}
-                  rows={3}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                  placeholder="Beschreiben Sie die Ausgabe..."
+            )}
+
+            {/* Search and Filter */}
+            <div className="flex flex-col md:flex-row gap-4 mb-8">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type="text"
+                  placeholder="Ausgaben durchsuchen..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                 />
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Betrag (€) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    required
-                    value={expenseForm.amount}
-                    onChange={(e) => setExpenseForm({...expenseForm, amount: e.target.value})}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    placeholder="0.00"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Datum *</label>
-                  <input
-                    type="date"
-                    required
-                    value={expenseForm.date}
-                    onChange={(e) => setExpenseForm({...expenseForm, date: e.target.value})}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                  />
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <select
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  className="pl-10 pr-8 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent appearance-none cursor-pointer"
+                >
+                  <option value="all">Alle Kategorien</option>
+                  <option value="material">Material</option>
+                  <option value="labor">Arbeitskräfte</option>
+                  <option value="equipment">Geräte</option>
+                  <option value="services">Dienstleistungen</option>
+                  <option value="permits">Genehmigungen</option>
+                  <option value="other">Sonstiges</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Expenses List */}
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-white">Ausgaben</h2>
+                <div className="text-sm text-gray-400">
+                  {filteredExpenses.length} von {expenses.length} Ausgaben
                 </div>
               </div>
-              
-              <div className="flex gap-4 pt-6">
+
+              <div className="space-y-4">
+                {filteredExpenses.map((expense) => (
+                  <div key={expense.id} className="group bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all duration-300">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl">
+                          {getCategoryIcon(expense.category)}
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-white group-hover:text-[#ffbd59] transition-colors">
+                            {expense.title}
+                          </h3>
+                          <p className="text-sm text-gray-400">{expense.description}</p>
+                          <div className="flex items-center gap-4 mt-2">
+                            <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium backdrop-blur-md border ${getCategoryColor(expense.category)}`}>
+                              {getCategoryLabel(expense.category)}
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-gray-400">
+                              <Calendar size={12} />
+                              <span>{new Date(expense.date).toLocaleDateString('de-DE')}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-white">{formatCurrency(expense.amount)}</div>
+                          <div className="text-xs text-gray-400">
+                            {((expense.amount / (budget?.total_budget || 1)) * 100).toFixed(1)}% vom Budget
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => openEditExpenseModal(expense)}
+                            className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                          >
+                            <Edit size={16} className="text-gray-400" />
+                          </button>
+                          <button
+                            onClick={() => setDeletingExpense(expense.id)}
+                            className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={16} className="text-red-400" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Empty State */}
+              {filteredExpenses.length === 0 && !loading && (
+                <div className="text-center py-16">
+                  <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Receipt size={40} className="text-[#ffbd59]" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-2">Keine Ausgaben gefunden</h3>
+                  <p className="text-gray-400 mb-6">
+                    {searchTerm || filterCategory !== 'all' 
+                      ? 'Versuchen Sie andere Suchkriterien oder Filter.'
+                      : 'Fügen Sie Ihre erste Ausgabe hinzu, um loszulegen.'
+                    }
+                  </p>
+                  {!searchTerm && filterCategory === 'all' && (
+                    <button
+                      onClick={() => setShowExpenseModal(true)}
+                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold mx-auto"
+                    >
+                      <PlusCircle size={20} />
+                      Erste Ausgabe hinzufügen
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Add/Edit Expense Modal */}
+        {showExpenseModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-white">
+                  {editingExpense ? 'Ausgabe bearbeiten' : 'Neue Ausgabe hinzufügen'}
+                </h2>
                 <button
-                  type="submit"
-                  className="flex-1 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] font-bold py-3 rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105"
-                >
-                  {editingExpense ? 'Änderungen speichern' : 'Ausgabe hinzufügen'}
-                </button>
-                <button
-                  type="button"
                   onClick={() => {
                     setShowExpenseModal(false);
                     setEditingExpense(null);
                     resetExpenseForm();
                   }}
-                  className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                 >
-                  Abbrechen
+                  <XCircle size={24} className="text-gray-400" />
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Budget Modal */}
-      {showBudgetModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-md">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">Budget bearbeiten</h2>
-              <button
-                onClick={() => {
-                  setShowBudgetModal(false);
-                  resetBudgetForm();
-                }}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <XCircle size={24} className="text-gray-400" />
-              </button>
+              
+              <form onSubmit={editingExpense ? handleUpdateExpense : handleAddExpense} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Titel *</label>
+                    <input
+                      type="text"
+                      required
+                      value={expenseForm.title}
+                      onChange={(e) => setExpenseForm({...expenseForm, title: e.target.value})}
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                      placeholder="z.B. Beton für Fundament"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Kategorie *</label>
+                    <select
+                      required
+                      value={expenseForm.category}
+                      onChange={(e) => setExpenseForm({...expenseForm, category: e.target.value as any})}
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                    >
+                      <option value="material">Material</option>
+                      <option value="labor">Arbeitskräfte</option>
+                      <option value="equipment">Geräte</option>
+                      <option value="services">Dienstleistungen</option>
+                      <option value="permits">Genehmigungen</option>
+                      <option value="other">Sonstiges</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Beschreibung</label>
+                  <textarea
+                    value={expenseForm.description}
+                    onChange={(e) => setExpenseForm({...expenseForm, description: e.target.value})}
+                    rows={3}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                    placeholder="Beschreiben Sie die Ausgabe..."
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Betrag (€) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      required
+                      value={expenseForm.amount}
+                      onChange={(e) => setExpenseForm({...expenseForm, amount: e.target.value})}
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Datum *</label>
+                    <input
+                      type="date"
+                      required
+                      value={expenseForm.date}
+                      onChange={(e) => setExpenseForm({...expenseForm, date: e.target.value})}
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex gap-4 pt-6">
+                  <button
+                    type="submit"
+                    className="flex-1 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] font-bold py-3 rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105"
+                  >
+                    {editingExpense ? 'Änderungen speichern' : 'Ausgabe hinzufügen'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowExpenseModal(false);
+                      setEditingExpense(null);
+                      resetExpenseForm();
+                    }}
+                    className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
+                  >
+                    Abbrechen
+                  </button>
+                </div>
+              </form>
             </div>
-            
-            <form onSubmit={handleUpdateBudget} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Gesamtbudget (€) *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  required
-                  value={budgetForm.total_budget}
-                  onChange={(e) => setBudgetForm({...budgetForm, total_budget: e.target.value})}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                  placeholder="280000.00"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Währung</label>
-                <select
-                  value={budgetForm.currency}
-                  onChange={(e) => setBudgetForm({...budgetForm, currency: e.target.value})}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                >
-                  <option value="EUR">EUR (€)</option>
-                  <option value="USD">USD ($)</option>
-                  <option value="CHF">CHF (CHF)</option>
-                </select>
-              </div>
-              
-              <div className="flex gap-4 pt-6">
+          </div>
+        )}
+
+        {/* Budget Modal */}
+        {showBudgetModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-md">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-white">Budget bearbeiten</h2>
                 <button
-                  type="submit"
-                  className="flex-1 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] font-bold py-3 rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105"
-                >
-                  Budget speichern
-                </button>
-                <button
-                  type="button"
                   onClick={() => {
                     setShowBudgetModal(false);
                     resetBudgetForm();
                   }}
-                  className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                 >
-                  Abbrechen
+                  <XCircle size={24} className="text-gray-400" />
                 </button>
               </div>
-            </form>
+              
+              <form onSubmit={handleUpdateBudget} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Gesamtbudget (€) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={budgetForm.total_budget}
+                    onChange={(e) => setBudgetForm({...budgetForm, total_budget: e.target.value})}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                    placeholder="280000.00"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Währung</label>
+                  <select
+                    value={budgetForm.currency}
+                    onChange={(e) => setBudgetForm({...budgetForm, currency: e.target.value})}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  >
+                    <option value="EUR">EUR (€)</option>
+                    <option value="USD">USD ($)</option>
+                    <option value="CHF">CHF (CHF)</option>
+                  </select>
+                </div>
+                
+                <div className="flex gap-4 pt-6">
+                  <button
+                    type="submit"
+                    className="flex-1 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] font-bold py-3 rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105"
+                  >
+                    Budget speichern
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowBudgetModal(false);
+                      resetBudgetForm();
+                    }}
+                    className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
+                  >
+                    Abbrechen
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Delete Confirmation Modal */}
-      {deletingExpense && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-md">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Trash2 size={32} className="text-red-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Ausgabe löschen</h3>
-              <p className="text-gray-400 mb-6">
-                Sind Sie sicher, dass Sie diese Ausgabe löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.
-              </p>
-              <div className="flex gap-4">
-                <button
-                  onClick={() => handleDeleteExpense(deletingExpense)}
-                  className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition-all duration-300"
-                >
-                  Löschen
-                </button>
-                <button
-                  onClick={() => setDeletingExpense(null)}
-                  className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
-                >
-                  Abbrechen
-                </button>
+        {/* Delete Confirmation Modal */}
+        {deletingExpense && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-md">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Trash2 size={32} className="text-red-400" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">Ausgabe löschen</h3>
+                <p className="text-gray-400 mb-6">
+                  Sind Sie sicher, dass Sie diese Ausgabe löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.
+                </p>
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => handleDeleteExpense(deletingExpense)}
+                    className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition-all duration-300"
+                  >
+                    Löschen
+                  </button>
+                  <button
+                    onClick={() => setDeletingExpense(null)}
+                    className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
+                  >
+                    Abbrechen
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 } 

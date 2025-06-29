@@ -4,7 +4,6 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
-import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import ProjectMessages from './pages/ProjectMessages';
 import ProjectAnalytics from './pages/ProjectAnalytics';
@@ -71,22 +70,17 @@ function AppContent() {
             <Dashboard />
           </ProtectedRoute>
         } />
-        <Route path="/projects" element={
-          <ProtectedRoute>
-            <Projects />
-          </ProtectedRoute>
-        } />
-        <Route path="/projects/:id" element={
+        <Route path="/project/:id" element={
           <ProtectedRoute>
             <ProjectDetail />
           </ProtectedRoute>
         } />
-        <Route path="/projects/:id/messages" element={
+        <Route path="/project/:id/messages" element={
           <ProtectedRoute>
             <ProjectMessages />
           </ProtectedRoute>
         } />
-        <Route path="/projects/:id/analytics" element={
+        <Route path="/project/:id/analytics" element={
           <ProtectedRoute>
             <ProjectAnalytics />
           </ProtectedRoute>

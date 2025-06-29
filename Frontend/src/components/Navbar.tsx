@@ -10,7 +10,8 @@ import {
   Moon,
   User,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  Building
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -33,12 +34,34 @@ export default function Navbar() {
     document.documentElement.classList.toggle('dark');
   };
 
+  // Extrahiere Projekt-ID aus der URL
+  const getProjectIdFromPath = () => {
+    const match = pathname.match(/\/project\/(\d+)/);
+    return match ? match[1] : null;
+  };
+
+  const currentProjectId = getProjectIdFromPath();
+
   return (
     <nav className="bg-[#3d4952] text-white px-6 py-3 flex items-center justify-between shadow-md relative">
       <div className="flex items-center gap-3">
         <Link to="/" className="hover:opacity-80 transition-opacity">
           <span className="font-bold text-xl tracking-wide text-[#ffbd59] cursor-pointer">BuildWise</span>
         </Link>
+        
+        {/* Projekt-Anzeige */}
+        {currentProjectId && (
+          <div className="flex items-center gap-2 ml-6 pl-6 border-l border-white/20">
+            <Building size={16} className="text-[#ffbd59]" />
+            <span className="text-sm text-gray-300">Projekt:</span>
+            <Link 
+              to={`/project/${currentProjectId}`}
+              className="text-sm font-medium text-[#ffbd59] hover:text-[#ffa726] transition-colors"
+            >
+              #{currentProjectId}
+            </Link>
+          </div>
+        )}
       </div>
       
       <div className="flex gap-6 items-center">
@@ -51,10 +74,10 @@ export default function Navbar() {
               Dashboard
             </Link>
             <Link
-              to="/projects"
-              className={`hover:text-[#ffbd59] transition ${pathname === '/projects' ? 'text-[#ffbd59] font-semibold' : ''}`}
+              to={currentProjectId ? `/project/${currentProjectId}` : "/"}
+              className={`hover:text-[#ffbd59] transition ${pathname.includes('/project/') ? 'text-[#ffbd59] font-semibold' : ''}`}
             >
-              Projekte
+              Manager
             </Link>
             <Link
               to="/tasks"
