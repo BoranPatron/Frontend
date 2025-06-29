@@ -26,7 +26,9 @@ import {
   Target,
   BarChart3,
   FolderOpen,
-  Home
+  Home,
+  ClipboardList,
+  TrendingUp
 } from 'lucide-react';
 import { getTasks, createTask, updateTask, deleteTask, getTaskStatistics } from '../api/taskService';
 import { useAuth } from '../context/AuthContext';
@@ -314,22 +316,22 @@ export default function Tasks() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'todo': return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
-      case 'in_progress': return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
-      case 'review': return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
-      case 'completed': return 'bg-green-500/20 text-green-300 border-green-500/30';
-      case 'cancelled': return 'bg-red-500/20 text-red-300 border-red-500/30';
-      default: return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+      case 'todo': return 'bg-gray-100 text-gray-700 border-gray-200';
+      case 'in_progress': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'review': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+      case 'completed': return 'bg-green-100 text-green-700 border-green-200';
+      case 'cancelled': return 'bg-red-100 text-red-700 border-red-200';
+      default: return 'bg-gray-100 text-gray-700 border-gray-200';
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'low': return 'bg-green-500/20 text-green-300 border-green-500/30';
-      case 'medium': return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
-      case 'high': return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
-      case 'urgent': return 'bg-red-500/20 text-red-300 border-red-500/30';
-      default: return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+      case 'low': return 'bg-green-100 text-green-700 border-green-200';
+      case 'medium': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+      case 'high': return 'bg-orange-100 text-orange-700 border-orange-200';
+      case 'urgent': return 'bg-red-100 text-red-700 border-red-200';
+      default: return 'bg-gray-100 text-gray-700 border-gray-200';
     }
   };
 
@@ -345,10 +347,35 @@ export default function Tasks() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539] flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <RefreshCw className="w-12 h-12 text-[#ffbd59] animate-spin mx-auto mb-4" />
-          <p className="text-white text-lg">Lade Aufgaben...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Lade Aufgaben...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-8">
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-6 mb-6">
+            <h2 className="text-xl font-bold text-red-800 mb-4">Fehler beim Laden</h2>
+            <p className="text-red-600 mb-4">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+            >
+              Seite neu laden
+            </button>
+          </div>
+          <button
+            onClick={() => navigate('/')}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
+          >
+            Zurück zum Dashboard
+          </button>
         </div>
       </div>
     );
@@ -358,572 +385,578 @@ export default function Tasks() {
     <div className="min-h-screen bg-gray-50">
       <ProjectBreadcrumb />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <header className="mb-10 flex items-center gap-4">
-          <ListTodo size={32} className="text-[#ffbd59]" />
-          <h1 className="text-3xl font-bold text-white">Aufgaben</h1>
-          
-          {/* Zurück zum Projekt Button */}
-          {selectedProject && (
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <header className="mb-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate(-1)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ArrowLeft size={20} className="text-gray-600" />
+              </button>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Aufgaben</h1>
+                <p className="text-gray-600">
+                  Aufgabenverwaltung & Projektplanung
+                  {selectedProject && (
+                    <span className="block text-sm text-blue-600 mt-1">
+                      Projekt-ID: {selectedProject}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
             <button
-              onClick={() => navigate(`/projects/${selectedProject}`)}
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition"
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold"
             >
-              <Home size={16} />
-              Zurück zum Projekt
+              <Plus size={20} />
+              Aufgabe erstellen
             </button>
-          )}
-          
-          <button
-            className="ml-auto flex items-center gap-2 px-5 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition"
-            onClick={() => setShowCreateModal(true)}
-          >
-            <Plus size={18} /> Neue Aufgabe
-          </button>
+          </div>
         </header>
 
         {/* Error Banner */}
         {error && (
-          <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-6 py-4 flex items-center justify-between">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 flex items-center justify-between mb-6 rounded-xl">
             <div className="flex items-center gap-3">
               <AlertTriangle size={20} />
               <span>{error}</span>
             </div>
-            <button onClick={() => setError('')} className="text-red-300 hover:text-red-100">
+            <button onClick={() => setError('')} className="text-red-500 hover:text-red-700">
               <XCircle size={20} />
             </button>
           </div>
         )}
 
-        {/* Search and Filter */}
-        <div className="p-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex flex-col md:flex-row gap-4 mb-8">
-              {/* Search */}
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                  type="text"
-                  placeholder="Aufgaben durchsuchen..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                />
-              </div>
-              
-              {/* Project Filter */}
-              <div className="relative">
-                <FolderOpen className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                <select
-                  value={selectedProject || ''}
-                  onChange={(e) => setSelectedProject(e.target.value ? parseInt(e.target.value) : null)}
-                  className="pl-10 pr-8 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent appearance-none cursor-pointer min-w-[200px]"
-                >
-                  <option value="">Alle Projekte</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              {/* Status Filter */}
-              <div className="relative">
-                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="pl-10 pr-8 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent appearance-none cursor-pointer"
-                >
-                  <option value="all">Alle Status</option>
-                  <option value="todo">To Do</option>
-                  <option value="in_progress">In Bearbeitung</option>
-                  <option value="review">In Prüfung</option>
-                  <option value="completed">Abgeschlossen</option>
-                  <option value="cancelled">Abgebrochen</option>
-                </select>
-              </div>
+        {/* Success Banner */}
+        {success && (
+          <div className="bg-green-50 border border-green-200 text-green-700 px-6 py-4 flex items-center justify-between mb-6 rounded-xl">
+            <div className="flex items-center gap-3">
+              <CheckCircle size={20} />
+              <span>{success}</span>
+            </div>
+            <button onClick={() => setSuccess('')} className="text-green-500 hover:text-green-700">
+              <XCircle size={20} />
+            </button>
+          </div>
+        )}
 
-              {/* Priority Filter */}
-              <div className="relative">
-                <Flag className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                <select
-                  value={filterPriority}
-                  onChange={(e) => setFilterPriority(e.target.value)}
-                  className="pl-10 pr-8 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent appearance-none cursor-pointer"
-                >
-                  <option value="all">Alle Prioritäten</option>
-                  <option value="low">Niedrig</option>
-                  <option value="medium">Mittel</option>
-                  <option value="high">Hoch</option>
-                  <option value="urgent">Dringend</option>
-                </select>
+        <div className="max-w-7xl mx-auto">
+          {/* Statistics */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-blue-100 rounded-xl">
+                  <ClipboardList size={24} className="text-blue-600" />
+                </div>
+                <span className="text-sm text-gray-500">Gesamt</span>
               </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-1">{tasks.length}</h3>
+              <p className="text-sm text-gray-500">Aufgaben</p>
             </div>
 
-            {/* Kanban Board */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {Object.entries(groupedTasks).map(([status, statusTasks]) => (
-                <div key={status} className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl">
-                      {getStatusIcon(status)}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-green-100 rounded-xl">
+                  <CheckCircle size={24} className="text-green-600" />
+                </div>
+                <span className="text-sm text-gray-500">Erledigt</span>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-1">
+                {tasks.filter(t => t.status === 'completed').length}
+              </h3>
+              <p className="text-sm text-gray-500">Abgeschlossen</p>
+            </div>
+
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-yellow-100 rounded-xl">
+                  <Clock size={24} className="text-yellow-600" />
+                </div>
+                <span className="text-sm text-gray-500">In Bearbeitung</span>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-1">
+                {tasks.filter(t => t.status === 'in_progress').length}
+              </h3>
+              <p className="text-sm text-gray-500">Aktiv</p>
+            </div>
+
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-red-100 rounded-xl">
+                  <AlertTriangle size={24} className="text-red-600" />
+                </div>
+                <span className="text-sm text-gray-500">Überfällig</span>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-1">
+                {tasks.filter(t => t.due_date && new Date(t.due_date) < new Date()).length}
+              </h3>
+              <p className="text-sm text-gray-500">Fällig</p>
+            </div>
+          </div>
+
+          {/* Search and Filter */}
+          <div className="flex flex-col md:flex-row gap-4 mb-8">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="Aufgaben durchsuchen..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+              />
+            </div>
+            
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="pl-10 pr-8 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none cursor-pointer shadow-sm"
+              >
+                <option value="all">Alle Status</option>
+                <option value="todo">Zu erledigen</option>
+                <option value="in_progress">In Bearbeitung</option>
+                <option value="review">In Prüfung</option>
+                <option value="completed">Abgeschlossen</option>
+                <option value="cancelled">Abgebrochen</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Tasks Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredTasks.map((task) => (
+              <div key={task.id} className="group bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gray-100 rounded-xl">
+                      {getStatusIcon(task.status)}
                     </div>
                     <div>
-                      <h3 className="font-bold text-white text-lg">{getStatusLabel(status)}</h3>
-                      <p className="text-sm text-gray-400">{statusTasks.length} Aufgaben</p>
+                      <h3 className="font-bold text-gray-900 text-lg group-hover:text-blue-600 transition-colors">
+                        {task.title}
+                      </h3>
+                      <p className="text-sm text-gray-500">{task.description}</p>
                     </div>
                   </div>
-
-                  <div className="space-y-4">
-                    {statusTasks.map((task) => (
-                      <div key={task.id} className="group bg-white/5 backdrop-blur-lg rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all duration-300">
-                        {/* Task Header */}
-                        <div className="flex items-start justify-between mb-3">
-                          <h4 className="font-semibold text-white text-sm group-hover:text-[#ffbd59] transition-colors line-clamp-2">
-                            {task.title}
-                          </h4>
-                          
-                          {/* Actions Menu */}
-                          <div className="relative">
-                            <button className="p-1 hover:bg-white/10 rounded transition-colors">
-                              <MoreHorizontal size={14} className="text-gray-400" />
-                            </button>
-                            <div className="absolute right-0 top-full mt-1 w-40 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10">
-                              <button
-                                onClick={() => openEditModal(task)}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/10 transition-colors rounded-t-xl text-sm"
-                              >
-                                <Edit size={14} />
-                                <span>Bearbeiten</span>
-                              </button>
-                              <button
-                                onClick={() => setDeletingTask(task.id)}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-red-500/20 text-red-300 transition-colors rounded-b-xl text-sm"
-                              >
-                                <Trash2 size={14} />
-                                <span>Löschen</span>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Task Description */}
-                        {task.description && (
-                          <p className="text-gray-300 text-xs mb-3 line-clamp-2">
-                            {task.description}
-                          </p>
-                        )}
-
-                        {/* Task Details */}
-                        <div className="space-y-2 mb-3">
-                          {/* Priority Badge */}
-                          <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium backdrop-blur-md border ${getPriorityColor(task.priority)}`}>
-                            <Flag size={10} />
-                            {getPriorityLabel(task.priority)}
-                          </div>
-
-                          {/* Due Date */}
-                          {task.due_date && (
-                            <div className="flex items-center gap-1 text-xs text-gray-400">
-                              <Calendar size={10} />
-                              <span>{new Date(task.due_date).toLocaleDateString('de-DE')}</span>
-                            </div>
-                          )}
-
-                          {/* Estimated Hours */}
-                          {task.estimated_hours && (
-                            <div className="flex items-center gap-1 text-xs text-gray-400">
-                              <Clock size={10} />
-                              <span>{task.estimated_hours}h geschätzt</span>
-                            </div>
-                          )}
-
-                          {/* Milestone Indicator */}
-                          {task.is_milestone && (
-                            <div className="flex items-center gap-1 text-xs text-[#ffbd59]">
-                              <Target size={10} />
-                              <span>Meilenstein</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Progress Bar */}
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-xs text-gray-400">
-                            <span>Fortschritt</span>
-                            <span className="text-[#ffbd59] font-bold">{task.progress_percentage}%</span>
-                          </div>
-                          <div className="relative w-full bg-gray-700/50 rounded-full h-2 backdrop-blur-sm border border-gray-600/30">
-                            <div 
-                              className="absolute inset-0 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-2 rounded-full transition-all duration-1000 ease-out shadow-lg"
-                              style={{ width: `${task.progress_percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                  
+                  {/* Actions Menu */}
+                  <div className="relative">
+                    <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                      <MoreHorizontal size={16} className="text-gray-400" />
+                    </button>
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10">
+                      <button
+                        onClick={() => openEditModal(task)}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors rounded-t-xl"
+                      >
+                        <Edit size={16} />
+                        <span>Bearbeiten</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-red-50 text-red-600 transition-colors rounded-b-xl"
+                      >
+                        <Trash2 size={16} />
+                        <span>Löschen</span>
+                      </button>
+                    </div>
                   </div>
+                </div>
 
-                  {/* Empty State for Column */}
-                  {statusTasks.length === 0 && (
-                    <div className="text-center py-8">
-                      <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3">
-                        {getStatusIcon(status)}
-                      </div>
-                      <p className="text-gray-400 text-sm">Keine Aufgaben</p>
+                {/* Task Details */}
+                <div className="space-y-3 mb-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Status</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
+                        {getStatusLabel(task.status)}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-1">
+                      <Calendar size={14} className="text-gray-400" />
+                      <span className="text-gray-500">Fällig:</span>
+                      <span className="text-gray-900 ml-1">
+                        {task.due_date ? new Date(task.due_date).toLocaleDateString('de-DE') : 'Kein Datum'}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-1">
+                      <TrendingUp size={14} className="text-gray-400" />
+                      <span className="text-gray-500">Fortschritt:</span>
+                      <span className="text-gray-900 ml-1">{task.progress_percentage}%</span>
+                    </div>
+                  </div>
+                  
+                  {task.is_milestone && (
+                    <div className="flex items-center gap-2 p-2 bg-purple-50 border border-purple-200 rounded-lg">
+                      <Target size={14} className="text-purple-500" />
+                      <span className="text-sm text-purple-700 font-medium">Meilenstein</span>
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
 
-            {/* Empty State */}
-            {filteredTasks.length === 0 && !loading && (
-              <div className="text-center py-16">
-                <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <ListTodo size={40} className="text-[#ffbd59]" />
+                {/* Priority */}
+                <div className="flex flex-wrap gap-2">
+                  <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
+                    <span>{getPriorityLabel(task.priority)}</span>
+                  </div>
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-2">Keine Aufgaben gefunden</h3>
-                <p className="text-gray-400 mb-6">
-                  {searchTerm || filterStatus !== 'all' || filterPriority !== 'all'
+              </div>
+            ))}
+          </div>
+
+          {/* Empty State */}
+          {filteredTasks.length === 0 && (
+            <div className="text-center py-12">
+              <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200 max-w-md mx-auto">
+                <ClipboardList size={48} className="text-gray-400 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Keine Aufgaben gefunden</h3>
+                <p className="text-gray-500 mb-6">
+                  {searchTerm || filterStatus !== 'all' 
                     ? 'Versuchen Sie andere Suchkriterien oder Filter.'
-                    : 'Erstellen Sie Ihre erste Aufgabe, um loszulegen.'
+                    : 'Erstellen Sie Ihre erste Aufgabe, um zu beginnen.'
                   }
                 </p>
-                {!searchTerm && filterStatus === 'all' && filterPriority === 'all' && (
+                {!searchTerm && filterStatus === 'all' && (
                   <button
                     onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold mx-auto"
+                    className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-300 font-semibold"
                   >
-                    <PlusCircle size={20} />
                     Erste Aufgabe erstellen
                   </button>
                 )}
               </div>
-            )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Create Task Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white">Neue Aufgabe erstellen</h2>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <XCircle size={24} className="text-gray-400" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateTask} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Aufgabentitel *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.title}
+                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                    placeholder="z.B. Elektroinstallation planen"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Status *</label>
+                  <select
+                    required
+                    value={formData.status}
+                    onChange={(e) => setFormData({...formData, status: e.target.value as any})}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  >
+                    <option value="todo">To Do</option>
+                    <option value="in_progress">In Bearbeitung</option>
+                    <option value="review">In Prüfung</option>
+                    <option value="completed">Abgeschlossen</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Beschreibung</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  rows={3}
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  placeholder="Beschreiben Sie die Aufgabe..."
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Priorität *</label>
+                  <select
+                    required
+                    value={formData.priority}
+                    onChange={(e) => setFormData({...formData, priority: e.target.value as any})}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  >
+                    <option value="low">Niedrig</option>
+                    <option value="medium">Mittel</option>
+                    <option value="high">Hoch</option>
+                    <option value="urgent">Dringend</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Projekt *</label>
+                  <select
+                    required
+                    value={formData.project_id}
+                    onChange={(e) => setFormData({...formData, project_id: e.target.value})}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  >
+                    <option value="">Projekt auswählen...</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Fälligkeitsdatum</label>
+                  <input
+                    type="date"
+                    value={formData.due_date}
+                    onChange={(e) => setFormData({...formData, due_date: e.target.value})}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Geschätzte Stunden</label>
+                  <input
+                    type="number"
+                    value={formData.estimated_hours}
+                    onChange={(e) => setFormData({...formData, estimated_hours: e.target.value})}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                    placeholder="8"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="is_milestone"
+                  checked={formData.is_milestone}
+                  onChange={(e) => setFormData({...formData, is_milestone: e.target.checked})}
+                  className="w-4 h-4 text-[#ffbd59] bg-white/10 border-white/20 rounded focus:ring-[#ffbd59] focus:ring-2"
+                />
+                <label htmlFor="is_milestone" className="text-sm text-gray-300">
+                  Als Meilenstein markieren
+                </label>
+              </div>
+              
+              <div className="flex gap-4 pt-6">
+                <button
+                  type="submit"
+                  className="flex-1 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] font-bold py-3 rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105"
+                >
+                  Aufgabe erstellen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
+                >
+                  Abbrechen
+                </button>
+              </div>
+            </form>
           </div>
         </div>
+      )}
 
-        {/* Create Task Modal */}
-        {showCreateModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-white">Neue Aufgabe erstellen</h2>
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                >
-                  <XCircle size={24} className="text-gray-400" />
-                </button>
-              </div>
-              
-              <form onSubmit={handleCreateTask} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Aufgabentitel *</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.title}
-                      onChange={(e) => setFormData({...formData, title: e.target.value})}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                      placeholder="z.B. Elektroinstallation planen"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Status *</label>
-                    <select
-                      required
-                      value={formData.status}
-                      onChange={(e) => setFormData({...formData, status: e.target.value as any})}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    >
-                      <option value="todo">To Do</option>
-                      <option value="in_progress">In Bearbeitung</option>
-                      <option value="review">In Prüfung</option>
-                      <option value="completed">Abgeschlossen</option>
-                    </select>
-                  </div>
+      {/* Edit Task Modal */}
+      {showEditModal && editingTask && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white">Aufgabe bearbeiten</h2>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <XCircle size={24} className="text-gray-400" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleUpdateTask} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Aufgabentitel *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.title}
+                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Beschreibung</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    rows={3}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    placeholder="Beschreiben Sie die Aufgabe..."
-                  />
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Status *</label>
+                  <select
+                    required
+                    value={formData.status}
+                    onChange={(e) => setFormData({...formData, status: e.target.value as any})}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  >
+                    <option value="todo">To Do</option>
+                    <option value="in_progress">In Bearbeitung</option>
+                    <option value="review">In Prüfung</option>
+                    <option value="completed">Abgeschlossen</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Beschreibung</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  rows={3}
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Priorität *</label>
+                  <select
+                    required
+                    value={formData.priority}
+                    onChange={(e) => setFormData({...formData, priority: e.target.value as any})}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  >
+                    <option value="low">Niedrig</option>
+                    <option value="medium">Mittel</option>
+                    <option value="high">Hoch</option>
+                    <option value="urgent">Dringend</option>
+                  </select>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Priorität *</label>
-                    <select
-                      required
-                      value={formData.priority}
-                      onChange={(e) => setFormData({...formData, priority: e.target.value as any})}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    >
-                      <option value="low">Niedrig</option>
-                      <option value="medium">Mittel</option>
-                      <option value="high">Hoch</option>
-                      <option value="urgent">Dringend</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Projekt *</label>
-                    <select
-                      required
-                      value={formData.project_id}
-                      onChange={(e) => setFormData({...formData, project_id: e.target.value})}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    >
-                      <option value="">Projekt auswählen...</option>
-                      {projects.map((project) => (
-                        <option key={project.id} value={project.id}>
-                          {project.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Projekt *</label>
+                  <select
+                    required
+                    value={formData.project_id}
+                    onChange={(e) => setFormData({...formData, project_id: e.target.value})}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  >
+                    <option value="">Projekt auswählen...</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Fälligkeitsdatum</label>
-                    <input
-                      type="date"
-                      value={formData.due_date}
-                      onChange={(e) => setFormData({...formData, due_date: e.target.value})}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Geschätzte Stunden</label>
-                    <input
-                      type="number"
-                      value={formData.estimated_hours}
-                      onChange={(e) => setFormData({...formData, estimated_hours: e.target.value})}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                      placeholder="8"
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3">
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Fälligkeitsdatum</label>
                   <input
-                    type="checkbox"
-                    id="is_milestone"
-                    checked={formData.is_milestone}
-                    onChange={(e) => setFormData({...formData, is_milestone: e.target.checked})}
-                    className="w-4 h-4 text-[#ffbd59] bg-white/10 border-white/20 rounded focus:ring-[#ffbd59] focus:ring-2"
+                    type="date"
+                    value={formData.due_date}
+                    onChange={(e) => setFormData({...formData, due_date: e.target.value})}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                   />
-                  <label htmlFor="is_milestone" className="text-sm text-gray-300">
-                    Als Meilenstein markieren
-                  </label>
                 </div>
                 
-                <div className="flex gap-4 pt-6">
-                  <button
-                    type="submit"
-                    className="flex-1 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] font-bold py-3 rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105"
-                  >
-                    Aufgabe erstellen
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateModal(false)}
-                    className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
-                  >
-                    Abbrechen
-                  </button>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Geschätzte Stunden</label>
+                  <input
+                    type="number"
+                    value={formData.estimated_hours}
+                    onChange={(e) => setFormData({...formData, estimated_hours: e.target.value})}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  />
                 </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Edit Task Modal */}
-        {showEditModal && editingTask && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-white">Aufgabe bearbeiten</h2>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="edit_is_milestone"
+                  checked={formData.is_milestone}
+                  onChange={(e) => setFormData({...formData, is_milestone: e.target.checked})}
+                  className="w-4 h-4 text-[#ffbd59] bg-white/10 border-white/20 rounded focus:ring-[#ffbd59] focus:ring-2"
+                />
+                <label htmlFor="edit_is_milestone" className="text-sm text-gray-300">
+                  Als Meilenstein markieren
+                </label>
+              </div>
+              
+              <div className="flex gap-4 pt-6">
                 <button
+                  type="submit"
+                  className="flex-1 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] font-bold py-3 rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105"
+                >
+                  Änderungen speichern
+                </button>
+                <button
+                  type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
                 >
-                  <XCircle size={24} className="text-gray-400" />
+                  Abbrechen
                 </button>
               </div>
-              
-              <form onSubmit={handleUpdateTask} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Aufgabentitel *</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.title}
-                      onChange={(e) => setFormData({...formData, title: e.target.value})}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Status *</label>
-                    <select
-                      required
-                      value={formData.status}
-                      onChange={(e) => setFormData({...formData, status: e.target.value as any})}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    >
-                      <option value="todo">To Do</option>
-                      <option value="in_progress">In Bearbeitung</option>
-                      <option value="review">In Prüfung</option>
-                      <option value="completed">Abgeschlossen</option>
-                    </select>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Beschreibung</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    rows={3}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Priorität *</label>
-                    <select
-                      required
-                      value={formData.priority}
-                      onChange={(e) => setFormData({...formData, priority: e.target.value as any})}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    >
-                      <option value="low">Niedrig</option>
-                      <option value="medium">Mittel</option>
-                      <option value="high">Hoch</option>
-                      <option value="urgent">Dringend</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Projekt *</label>
-                    <select
-                      required
-                      value={formData.project_id}
-                      onChange={(e) => setFormData({...formData, project_id: e.target.value})}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    >
-                      <option value="">Projekt auswählen...</option>
-                      {projects.map((project) => (
-                        <option key={project.id} value={project.id}>
-                          {project.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Fälligkeitsdatum</label>
-                    <input
-                      type="date"
-                      value={formData.due_date}
-                      onChange={(e) => setFormData({...formData, due_date: e.target.value})}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Geschätzte Stunden</label>
-                    <input
-                      type="number"
-                      value={formData.estimated_hours}
-                      onChange={(e) => setFormData({...formData, estimated_hours: e.target.value})}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="edit_is_milestone"
-                    checked={formData.is_milestone}
-                    onChange={(e) => setFormData({...formData, is_milestone: e.target.checked})}
-                    className="w-4 h-4 text-[#ffbd59] bg-white/10 border-white/20 rounded focus:ring-[#ffbd59] focus:ring-2"
-                  />
-                  <label htmlFor="edit_is_milestone" className="text-sm text-gray-300">
-                    Als Meilenstein markieren
-                  </label>
-                </div>
-                
-                <div className="flex gap-4 pt-6">
-                  <button
-                    type="submit"
-                    className="flex-1 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] font-bold py-3 rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105"
-                  >
-                    Änderungen speichern
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowEditModal(false)}
-                    className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
-                  >
-                    Abbrechen
-                  </button>
-                </div>
-              </form>
-            </div>
+            </form>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Delete Confirmation Modal */}
-        {deletingTask && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-md">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Trash2 size={32} className="text-red-400" />
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">Aufgabe löschen</h3>
-                <p className="text-gray-400 mb-6">
-                  Sind Sie sicher, dass Sie diese Aufgabe löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.
-                </p>
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => handleDeleteTask(deletingTask)}
-                    className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition-all duration-300"
-                  >
-                    Löschen
-                  </button>
-                  <button
-                    onClick={() => setDeletingTask(null)}
-                    className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
-                  >
-                    Abbrechen
-                  </button>
-                </div>
+      {/* Delete Confirmation Modal */}
+      {deletingTask && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-md">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 size={32} className="text-red-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Aufgabe löschen</h3>
+              <p className="text-gray-400 mb-6">
+                Sind Sie sicher, dass Sie diese Aufgabe löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.
+              </p>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => handleDeleteTask(deletingTask)}
+                  className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition-all duration-300"
+                >
+                  Löschen
+                </button>
+                <button
+                  onClick={() => setDeletingTask(null)}
+                  className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
+                >
+                  Abbrechen
+                </button>
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 } 

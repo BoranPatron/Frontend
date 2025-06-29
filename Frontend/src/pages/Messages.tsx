@@ -1,19 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Send, 
+  MessageCircle, 
+  Clock, 
   Search, 
   Filter, 
-  MoreHorizontal, 
-  User, 
-  Clock, 
+  Check, 
+  X, 
+  ArrowLeft,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
   FileText,
-  Check,
-  X,
-  MessageCircle
+  User
 } from 'lucide-react';
 import { getMessages, createMessage, markMessageRead } from '../api/messageService';
 import { useAuth } from '../context/AuthContext';
+import ProjectBreadcrumb from '../components/ProjectBreadcrumb';
 
 interface Message {
   id: number;
@@ -49,6 +53,8 @@ export default function Messages() {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'unread' | 'read'>('all');
+  const [success, setSuccess] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (projectId) {
@@ -146,8 +152,33 @@ export default function Messages() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ffbd59] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Lade Nachrichten...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Lade Nachrichten...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-8">
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-6 mb-6">
+            <h2 className="text-xl font-bold text-red-800 mb-4">Fehler beim Laden</h2>
+            <p className="text-red-600 mb-4">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+            >
+              Seite neu laden
+            </button>
+          </div>
+          <button
+            onClick={() => navigate('/')}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
+          >
+            Zurück zum Dashboard
+          </button>
         </div>
       </div>
     );
@@ -155,146 +186,128 @@ export default function Messages() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+      <ProjectBreadcrumb />
+      
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <header className="mb-8">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold text-gray-900">Nachrichten</h1>
-              {project && (
-                <div className="text-sm text-gray-500">
-                  Projekt: <span className="font-medium text-gray-700">{project.name}</span>
+              <button
+                onClick={() => navigate(-1)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ArrowLeft size={20} className="text-gray-600" />
+              </button>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Nachrichten</h1>
+                <p className="text-gray-600">
+                  Projektkommunikation & Chat
+                  {projectId && (
+                    <span className="block text-sm text-blue-600 mt-1">
+                      Projekt-ID: {projectId}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Error Banner */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 flex items-center justify-between mb-6 rounded-xl">
+            <div className="flex items-center gap-3">
+              <AlertTriangle size={20} />
+              <span>{error}</span>
+            </div>
+            <button onClick={() => setError('')} className="text-red-500 hover:text-red-700">
+              <XCircle size={20} />
+            </button>
+          </div>
+        )}
+
+        {/* Success Banner */}
+        {success && (
+          <div className="bg-green-50 border border-green-200 text-green-700 px-6 py-4 flex items-center justify-between mb-6 rounded-xl">
+            <div className="flex items-center gap-3">
+              <CheckCircle size={20} />
+              <span>{success}</span>
+            </div>
+            <button onClick={() => setSuccess('')} className="text-green-500 hover:text-green-700">
+              <XCircle size={20} />
+            </button>
+          </div>
+        )}
+
+        <div className="max-w-4xl mx-auto">
+          {/* Chat Container */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            {/* Chat Header */}
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Projekt Chat</h2>
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Online</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div className="h-96 overflow-y-auto p-6 space-y-4">
+              {messages.map((message) => (
+                <div key={message.id} className={`flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-xs lg:max-w-md ${message.sender_id === user?.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'} rounded-2xl px-4 py-2 shadow-sm`}>
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0">
+                        {getMessageTypeIcon(message.message_type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm">{message.content}</p>
+                        <div className={`flex items-center gap-2 mt-1 text-xs ${message.sender_id === user?.id ? 'text-blue-100' : 'text-gray-500'}`}>
+                          <span>{formatDate(message.created_at)}</span>
+                          {message.is_read && (
+                            <CheckCircle size={12} className="text-green-400" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {messages.length === 0 && (
+                <div className="text-center py-8">
+                  <MessageCircle size={48} className="text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Keine Nachrichten</h3>
+                  <p className="text-gray-500">Senden Sie die erste Nachricht, um zu beginnen.</p>
                 </div>
               )}
             </div>
-            
-            {/* Search and Filter */}
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+
+            {/* Message Input */}
+            <div className="px-6 py-4 border-t border-gray-200">
+              <form onSubmit={handleSendMessage} className="flex gap-3">
                 <input
                   type="text"
-                  placeholder="Nachrichten durchsuchen..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Nachricht eingeben..."
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-              </div>
-              
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value as any)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-              >
-                <option value="all">Alle Nachrichten</option>
-                <option value="unread">Ungelesen</option>
-                <option value="read">Gelesen</option>
-              </select>
+                <button
+                  type="submit"
+                  disabled={!newMessage.trim()}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Send size={20} />
+                </button>
+              </form>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Messages Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          {/* Messages List */}
-          <div className="h-96 overflow-y-auto p-6">
-            {filteredMessages.length === 0 ? (
-              <div className="text-center py-12">
-                <MessageCircle className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">Keine Nachrichten</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  {searchTerm || filterType !== 'all' 
-                    ? 'Keine Nachrichten gefunden.' 
-                    : 'Noch keine Nachrichten in diesem Projekt.'}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredMessages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex gap-4 p-4 rounded-lg border ${
-                      message.is_read ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'
-                    } ${message.sender_id === user?.id ? 'flex-row-reverse' : ''}`}
-                  >
-                    {/* Avatar */}
-                    <div className={`flex-shrink-0 w-10 h-10 rounded-full bg-[#ffbd59] flex items-center justify-center ${
-                      message.sender_id === user?.id ? 'order-2' : ''
-                    }`}>
-                      <span className="text-white font-medium text-sm">
-                        {message.sender?.first_name?.[0]}{message.sender?.last_name?.[0]}
-                      </span>
-                    </div>
-
-                    {/* Message Content */}
-                    <div className={`flex-1 ${message.sender_id === user?.id ? 'text-right' : ''}`}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-gray-900">
-                          {message.sender?.first_name} {message.sender?.last_name}
-                        </span>
-                        {getMessageTypeIcon(message.message_type)}
-                        <span className="text-xs text-gray-500 flex items-center gap-1">
-                          <Clock size={12} />
-                          {formatDate(message.created_at)}
-                        </span>
-                        {!message.is_read && message.sender_id !== user?.id && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                            Neu
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="text-gray-700 whitespace-pre-wrap">
-                        {message.content}
-                      </div>
-                      
-                      {!message.is_read && message.sender_id !== user?.id && (
-                        <button
-                          onClick={() => handleMarkAsRead(message.id)}
-                          className="mt-2 text-xs text-blue-600 hover:text-blue-800"
-                        >
-                          Als gelesen markieren
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Message Input */}
-          <div className="border-t border-gray-200 p-6">
-            <form onSubmit={handleSendMessage} className="flex gap-4">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Nachricht eingeben..."
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                disabled={!projectId}
-              />
-              <button
-                type="submit"
-                disabled={!newMessage.trim() || !projectId}
-                className="px-6 py-3 bg-[#ffbd59] text-white rounded-lg hover:bg-[#e6a800] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-              >
-                <Send size={16} />
-                Senden
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      {/* Error Message */}
-      {error && (
-        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg">
-          {error}
-        </div>
-      )}
     </div>
   );
 } 

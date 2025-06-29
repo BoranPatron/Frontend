@@ -1,43 +1,81 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getProject, getProjectDashboard, updateProject } from '../api/projectService';
+import { 
+  ArrowLeft, 
+  Edit, 
+  Plus, 
+  Search, 
+  Filter,
+  PlayCircle,
+  PauseCircle,
+  User,
+  Euro,
+  Building2,
+  ListTodo,
+  Clock,
+  Eye,
+  CheckCircle,
+  AlertTriangle,
+  FileText,
+  FileCheck,
+  Receipt,
+  File,
+  Camera,
+  Wrench,
+  BarChart3,
+  Calendar,
+  DollarSign,
+  Users,
+  ChevronDown,
+  ChevronUp,
+  Settings,
+  MessageCircle,
+  FolderOpen,
+  TrendingUp,
+  Target,
+  Zap,
+  Star,
+  Award,
+  Shield,
+  Heart,
+  Sparkles,
+  Rocket,
+  Crown,
+  Gem,
+  Trophy,
+  Medal,
+  Badge,
+  Flag,
+  Anchor,
+  Compass,
+  Map,
+  Navigation,
+  Home,
+  Building,
+  Factory,
+  Warehouse,
+  Store,
+  Hospital,
+  School,
+  University,
+  Church,
+  Theater,
+  Library,
+  Mountain,
+  Sun,
+  Moon,
+  Cloud,
+  Wind,
+  Tornado,
+  X
+} from 'lucide-react';
+import { getProjectDashboard, updateProject } from '../api/projectService';
 import { getTasks } from '../api/taskService';
 import { getDocuments } from '../api/documentService';
 import { getQuotes } from '../api/quoteService';
-import { 
-  ArrowLeft, 
-  Home, 
-  FileText, 
-  ListTodo, 
-  Calendar, 
-  DollarSign, 
-  MapPin, 
-  Ruler,
-  Plus,
-  Edit,
-  Trash2,
-  Download,
-  Eye,
-  CheckCircle,
-  Clock,
-  AlertTriangle,
-  TrendingUp,
-  Users,
-  MessageSquare,
-  Settings,
-  BarChart3,
-  FolderOpen,
-  File,
-  Image,
-  Receipt,
-  FileCheck,
-  Camera,
-  XCircle,
-  X,
-  Wrench,
-  Search,
-  Filter
-} from 'lucide-react';
+import { getMilestones } from '../api/milestoneService';
+import ProjectBreadcrumb from '../components/ProjectBreadcrumb';
+import TradesCard from '../components/TradesCard';
 
 interface Project {
   id: number;
@@ -141,7 +179,7 @@ interface Quote {
 
 interface Trade {
   id: number;
-  name: string;
+  title: string;
   description: string;
   status: 'planned' | 'in_progress' | 'completed' | 'delayed' | 'cancelled';
   contractor?: string;
@@ -151,6 +189,7 @@ interface Trade {
   actual_costs?: number;
   progress_percentage: number;
   priority: 'low' | 'medium' | 'high' | 'critical';
+  category?: string;
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -197,10 +236,10 @@ export default function ProjectDetail() {
     documents: boolean;
     analytics: boolean;
   }>({
-    projectDetails: false,
-    tasks: false,
+    projectDetails: true,
+    tasks: true,
     phases: false,
-    trades: false,
+    trades: true, // Gewerke standardmäßig expandiert
     budgetTimeline: false,
     quotes: false,
     documents: false,
@@ -261,74 +300,32 @@ export default function ProjectDetail() {
       const projectQuotes = quotesData.filter((quote: Quote) => quote.project_id === projectId);
       setQuotes(projectQuotes);
       
-      // Beispieldaten für Gewerke (später über Backend-API)
-      const sampleTrades: Trade[] = [
-        {
-          id: 1,
-          name: 'Maurerarbeiten',
-          description: 'Fundament und Mauerwerk',
-          status: 'completed',
-          contractor: 'Bauunternehmen Schmidt',
-          start_date: '2024-01-15',
-          end_date: '2024-03-20',
-          budget: 45000,
-          actual_costs: 43200,
-          progress_percentage: 100,
-          priority: 'high',
-          notes: 'Fundament erfolgreich erstellt, Mauerwerk nach Plan',
-          created_at: '2024-01-10T10:00:00Z',
-          updated_at: '2024-03-20T16:30:00Z'
-        },
-        {
-          id: 2,
-          name: 'Elektroinstallation',
-          description: 'Elektrische Anlagen und Beleuchtung',
-          status: 'in_progress',
-          contractor: 'Elektro Meyer GmbH',
-          start_date: '2024-03-25',
-          end_date: '2024-05-15',
-          budget: 28000,
-          actual_costs: 15600,
-          progress_percentage: 65,
-          priority: 'medium',
-          notes: 'Hauptverteiler installiert, Kabelverlegung läuft',
-          created_at: '2024-03-20T14:00:00Z',
-          updated_at: '2024-04-10T11:15:00Z'
-        },
-        {
-          id: 3,
-          name: 'Sanitärinstallation',
-          description: 'Wasser- und Abwasserleitungen',
-          status: 'planned',
-          contractor: 'Sanitär Wagner',
-          start_date: '2024-05-20',
-          end_date: '2024-06-30',
-          budget: 32000,
-          actual_costs: 0,
-          progress_percentage: 0,
-          priority: 'high',
-          notes: 'Material bestellt, Start nach Elektroinstallation',
-          created_at: '2024-04-01T09:00:00Z',
-          updated_at: '2024-04-01T09:00:00Z'
-        },
-        {
-          id: 4,
-          name: 'Innenausbau',
-          description: 'Trockenbau, Bodenbeläge, Malerarbeiten',
-          status: 'planned',
-          contractor: 'Ausbau Müller',
-          start_date: '2024-07-01',
-          end_date: '2024-09-30',
-          budget: 65000,
-          actual_costs: 0,
-          progress_percentage: 0,
-          priority: 'medium',
-          notes: 'Planung abgeschlossen, Materiallisten erstellt',
-          created_at: '2024-04-05T16:00:00Z',
-          updated_at: '2024-04-05T16:00:00Z'
-        }
-      ];
-      setTrades(sampleTrades);
+      // Lade echte Gewerke (Milestones) für dieses Projekt
+      console.log('🔍 Lade Milestones für Projekt ID:', projectId);
+      const milestonesData = await getMilestones(projectId);
+      console.log('🔍 Geladene Milestones:', milestonesData);
+      
+      // Konvertiere Milestones zu Trade-Format für die Anzeige
+      const projectTrades: Trade[] = milestonesData.map((milestone: any) => ({
+        id: milestone.id,
+        title: milestone.title,
+        description: milestone.description || '',
+        status: milestone.status,
+        contractor: milestone.contractor || '',
+        start_date: milestone.start_date || milestone.planned_date,
+        end_date: milestone.end_date || '',
+        budget: milestone.budget || 0,
+        actual_costs: milestone.actual_costs || 0,
+        progress_percentage: milestone.progress_percentage || 0,
+        priority: milestone.priority || 'medium',
+        category: milestone.category || '',
+        notes: milestone.notes || '',
+        created_at: milestone.created_at,
+        updated_at: milestone.updated_at
+      }));
+      
+      console.log('🔍 Konvertierte Trades:', projectTrades);
+      setTrades(projectTrades);
       
     } catch (e: any) {
       console.error('❌ Error loading project data:', e);
@@ -530,36 +527,25 @@ export default function ProjectDetail() {
 
   const handleQuickAction = (action: string) => {
     switch (action) {
-      case 'add_task':
+      case 'tasks':
         navigate(`/tasks?project=${project?.id}`);
         break;
-      case 'add_document':
+      case 'documents':
         navigate(`/documents?project=${project?.id}`);
         break;
-      case 'edit_project':
-        if (project) {
-          setEditForm({
-            name: project.name,
-            description: project.description || '',
-            project_type: project.project_type,
-            status: project.status,
-            address: project.address || '',
-            property_size: project.property_size || 0,
-            construction_area: project.construction_area || 0,
-            start_date: project.start_date || '',
-            end_date: project.end_date || '',
-            budget: project.budget || 0,
-            is_public: project.is_public,
-            allow_quotes: project.allow_quotes
-          });
-          setShowEditModal(true);
-        }
+      case 'quotes':
+        navigate('/quotes');
         break;
-      case 'view_quotes':
-        navigate(`/quotes?project=${project?.id}`);
+      case 'finance':
+        navigate(`/finance?project=${project?.id}`);
         break;
-      case 'view_messages':
-        navigate(`/projects/${project?.id}/messages`);
+      case 'analytics':
+        navigate(`/project/${project?.id}/analytics`);
+        break;
+      case 'messages':
+        navigate(`/project/${project?.id}/messages`);
+        break;
+      default:
         break;
     }
   };
@@ -630,13 +616,13 @@ export default function ProjectDetail() {
               <ArrowLeft size={20} className="text-[#ffbd59]" />
             </button>
             <div>
-              <h1 className="text-3xl font-bold text-[#ffbd59]">{project.name}</h1>
-              <p className="text-gray-300">{project.description}</p>
+              <h1 className="text-3xl font-bold text-[#ffbd59]">{project?.name}</h1>
+              <p className="text-gray-300">{project?.description}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium backdrop-blur-md border ${getStatusColor(project.status)}`}>
-              {getStatusLabel(project.status)}
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium backdrop-blur-md border ${getStatusColor(project?.status || '')}`}>
+              {getStatusLabel(project?.status || '')}
             </span>
           </div>
         </div>
@@ -651,28 +637,21 @@ export default function ProjectDetail() {
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <button
-              onClick={() => handleQuickAction('add_task')}
+              onClick={() => handleQuickAction('tasks')}
               className="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center hover:bg-white/20 transition-all duration-300 border border-white/20"
             >
               <Plus size={24} className="text-[#ffbd59] mx-auto mb-2" />
               <span className="text-white text-sm font-medium">Aufgabe hinzufügen</span>
             </button>
             <button
-              onClick={() => handleQuickAction('add_document')}
+              onClick={() => handleQuickAction('documents')}
               className="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center hover:bg-white/20 transition-all duration-300 border border-white/20"
             >
               <FileText size={24} className="text-[#ffbd59] mx-auto mb-2" />
               <span className="text-white text-sm font-medium">Dokument hochladen</span>
             </button>
             <button
-              onClick={() => handleQuickAction('edit_project')}
-              className="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center hover:bg-white/20 transition-all duration-300 border border-white/20"
-            >
-              <Edit size={24} className="text-[#ffbd59] mx-auto mb-2" />
-              <span className="text-white text-sm font-medium">Projekt bearbeiten</span>
-            </button>
-            <button
-              onClick={() => handleQuickAction('view_quotes')}
+              onClick={() => handleQuickAction('quotes')}
               className="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center hover:bg-white/20 transition-all duration-300 border border-white/20"
             >
               <Receipt size={24} className="text-[#ffbd59] mx-auto mb-2" />
@@ -758,7 +737,7 @@ export default function ProjectDetail() {
                     </div>
                     <div>
                       <p className="text-gray-400 text-sm">Fortschritt</p>
-                      <p className="text-white text-xl font-bold">{project.progress_percentage}%</p>
+                      <p className="text-white text-xl font-bold">{project?.progress_percentage || 0}%</p>
                     </div>
                   </div>
                 </div>
@@ -774,7 +753,7 @@ export default function ProjectDetail() {
                   >
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    <MapPin size={20} className="text-[#ffbd59]" />
+                    <Map size={20} className="text-[#ffbd59]" />
                         Übersicht
                   </h3>
                       <div className={`transform transition-transform ${expandedSections.projectDetails ? 'rotate-180' : ''}`}>
@@ -789,27 +768,27 @@ export default function ProjectDetail() {
                     <div className="px-6 pb-6 space-y-3">
                     <div className="flex justify-between">
                       <span className="text-gray-400">Typ:</span>
-                      <span className="text-white">{getProjectTypeLabel(project.project_type)}</span>
+                      <span className="text-white">{getProjectTypeLabel(project?.project_type || '')}</span>
                     </div>
-                    {project.address && (
+                    {project?.address && (
                       <div className="flex justify-between">
                         <span className="text-gray-400">Adresse:</span>
                         <span className="text-white">{project.address}</span>
                       </div>
                     )}
-                    {project.property_size && (
+                    {project?.property_size && (
                       <div className="flex justify-between">
                         <span className="text-gray-400">Grundstücksgröße:</span>
                         <span className="text-white">{project.property_size} m²</span>
                       </div>
                     )}
-                    {project.construction_area && (
+                    {project?.construction_area && (
                       <div className="flex justify-between">
                         <span className="text-gray-400">Baufläche:</span>
                         <span className="text-white">{project.construction_area} m²</span>
                       </div>
                     )}
-                    {project.estimated_duration && (
+                    {project?.estimated_duration && (
                       <div className="flex justify-between">
                         <span className="text-gray-400">Geschätzte Dauer:</span>
                         <span className="text-white">{project.estimated_duration} Tage</span>
@@ -848,7 +827,7 @@ export default function ProjectDetail() {
                             <div
                               key={task.id}
                               className="flex items-center gap-3 p-2 bg-white/10 rounded-lg cursor-pointer hover:bg-white/20 transition-colors"
-                              onClick={() => navigate(`/tasks?project=${project.id}`)}
+                              onClick={() => navigate(`/tasks?project=${project?.id}`)}
                             >
                               <div className="p-1 bg-blue-500/20 rounded">
                                 {getTaskStatusIcon(task.status)}
@@ -875,7 +854,7 @@ export default function ProjectDetail() {
                           ))}
                           {tasks.length > 3 && (
                             <button
-                              onClick={() => navigate(`/tasks?project=${project.id}`)}
+                              onClick={() => navigate(`/tasks?project=${project?.id}`)}
                               className="w-full text-center text-[#ffbd59] text-sm hover:underline"
                             >
                               +{tasks.length - 3} weitere Aufgaben anzeigen
@@ -931,109 +910,12 @@ export default function ProjectDetail() {
                 </div>
 
                 {/* Gewerke */}
-                <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
-                  <button
-                    onClick={() => toggleSection('trades')}
-                    className="w-full p-6 text-left hover:bg-white/5 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                        <Wrench size={20} className="text-[#ffbd59]" />
-                        Gewerke
-                      </h3>
-                      <div className={`transform transition-transform ${expandedSections.trades ? 'rotate-180' : ''}`}>
-                        <svg className="w-5 h-5 text-[#ffbd59]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </button>
-                  
-                  {expandedSections.trades && (
-                    <div className="px-6 pb-6 space-y-3">
-                      {trades.length === 0 ? (
-                        <p className="text-gray-400 text-sm">Keine Gewerke zugeordnet</p>
-                      ) : (
-                        <div className="space-y-3">
-                          {trades.map((trade) => (
-                            <div
-                              key={trade.id}
-                              className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all duration-300"
-                            >
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="flex-1">
-                                  <h4 className="text-white font-medium text-sm mb-1">{trade.name}</h4>
-                                  <p className="text-gray-400 text-xs mb-2">{trade.description}</p>
-                                  {trade.contractor && (
-                                    <p className="text-blue-300 text-xs">Dienstleister: {trade.contractor}</p>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getTradeStatusColor(trade.status)}`}>
-                                    {getTradeStatusLabel(trade.status)}
-                                  </span>
-                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getTradePriorityColor(trade.priority)}`}>
-                                    {getTradePriorityLabel(trade.priority)}
-                                  </span>
-                                </div>
-                              </div>
-                              
-                              <div className="grid grid-cols-2 gap-3 mb-3">
-                                {trade.start_date && (
-                                  <div className="text-xs">
-                                    <span className="text-gray-400">Start:</span>
-                                    <span className="text-white ml-1">{formatDate(trade.start_date)}</span>
-                                  </div>
-                                )}
-                                {trade.end_date && (
-                                  <div className="text-xs">
-                                    <span className="text-gray-400">Ende:</span>
-                                    <span className="text-white ml-1">{formatDate(trade.end_date)}</span>
-                                  </div>
-                                )}
-                                {trade.budget && (
-                                  <div className="text-xs">
-                                    <span className="text-gray-400">Budget:</span>
-                                    <span className="text-white ml-1">{trade.budget.toLocaleString('de-DE')} €</span>
-                                  </div>
-                                )}
-                                {trade.actual_costs !== undefined && (
-                                  <div className="text-xs">
-                                    <span className="text-gray-400">Kosten:</span>
-                                    <span className="text-white ml-1">{trade.actual_costs.toLocaleString('de-DE')} €</span>
-                                  </div>
-                                )}
-                              </div>
-                              
-                              <div className="mb-3">
-                                <div className="flex justify-between text-xs mb-1">
-                                  <span className="text-gray-400">Fortschritt</span>
-                                  <span className="text-white">{trade.progress_percentage}%</span>
-                                </div>
-                                <div className="w-full bg-gray-700/50 rounded-full h-2">
-                                  <div 
-                                    className={`h-2 rounded-full transition-all duration-300 ${
-                                      trade.progress_percentage === 100 ? 'bg-green-500' :
-                                      trade.progress_percentage > 50 ? 'bg-yellow-500' : 'bg-blue-500'
-                                    }`}
-                                    style={{ width: `${trade.progress_percentage}%` }}
-                                  />
-                                </div>
-                              </div>
-                              
-                              {trade.notes && (
-                                <div className="text-xs">
-                                  <span className="text-gray-400">Notizen:</span>
-                                  <p className="text-white mt-1 bg-white/5 rounded p-2">{trade.notes}</p>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                <TradesCard 
+                  trades={trades}
+                  projectId={project?.id}
+                  isExpanded={expandedSections.trades}
+                  onToggle={() => toggleSection('trades')}
+                />
 
                 {/* Budget & Zeitplan */}
                 <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
@@ -1056,7 +938,7 @@ export default function ProjectDetail() {
                   
                   {expandedSections.budgetTimeline && (
                     <div className="px-6 pb-6 space-y-4">
-                    {project.budget && (
+                    {project?.budget && (
                       <div>
                         <div className="flex justify-between mb-2">
                           <span className="text-gray-400">Budget:</span>
@@ -1078,13 +960,13 @@ export default function ProjectDetail() {
                       </div>
                     )}
                     
-                    {project.start_date && (
+                    {project?.start_date && (
                       <div className="flex justify-between">
                         <span className="text-gray-400">Startdatum:</span>
                         <span className="text-white">{formatDate(project.start_date)}</span>
                       </div>
                     )}
-                    {project.end_date && (
+                    {project?.end_date && (
                       <div className="flex justify-between">
                         <span className="text-gray-400">Enddatum:</span>
                         <span className="text-white">{formatDate(project.end_date)}</span>
@@ -1183,7 +1065,7 @@ export default function ProjectDetail() {
                             <div
                               key={quote.id}
                               className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all duration-300 cursor-pointer"
-                              onClick={() => navigate(`/quotes?project=${project.id}`)}
+                              onClick={() => navigate(`/quotes?project=${project?.id}`)}
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
@@ -1266,7 +1148,7 @@ export default function ProjectDetail() {
                             <div
                               key={document.id}
                               className="flex items-center gap-3 p-2 bg-white/10 rounded-lg cursor-pointer hover:bg-white/20 transition-colors"
-                              onClick={() => navigate(`/documents?project=${project.id}`)}
+                              onClick={() => navigate(`/documents?project=${project?.id}`)}
                             >
                               <div className="p-1 bg-blue-500/20 rounded">
                                 {getDocumentTypeIcon(document.document_type)}
@@ -1279,7 +1161,7 @@ export default function ProjectDetail() {
                           ))}
                           {documents.length > 3 && (
                             <button
-                              onClick={() => navigate(`/documents?project=${project.id}`)}
+                              onClick={() => navigate(`/documents?project=${project?.id}`)}
                               className="w-full text-center text-[#ffbd59] text-sm hover:underline"
                             >
                               +{documents.length - 3} weitere Dokumente anzeigen
@@ -1315,7 +1197,7 @@ export default function ProjectDetail() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="bg-white/10 rounded-lg p-3">
                           <div className="text-white font-medium text-sm">Projektfortschritt</div>
-                          <div className="text-[#ffbd59] text-lg font-bold">{project.progress_percentage}%</div>
+                          <div className="text-[#ffbd59] text-lg font-bold">{project?.progress_percentage || 0}%</div>
                         </div>
                         <div className="bg-white/10 rounded-lg p-3">
                           <div className="text-white font-medium text-sm">Aufgaben</div>
@@ -1331,7 +1213,7 @@ export default function ProjectDetail() {
                         </div>
                       </div>
                       <button
-                        onClick={() => navigate(`/projects/${project.id}/analytics`)}
+                        onClick={() => navigate(`/project/${project?.id}/analytics`)}
                         className="w-full text-center text-[#ffbd59] text-sm hover:underline"
                       >
                         Detaillierte Analytics anzeigen
@@ -1348,7 +1230,7 @@ export default function ProjectDetail() {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-white">Aufgaben ({tasks.length})</h3>
                 <button
-                  onClick={() => handleQuickAction('add_task')}
+                  onClick={() => handleQuickAction('tasks')}
                   className="flex items-center gap-2 px-4 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition"
                 >
                   <Plus size={16} />
@@ -1361,7 +1243,7 @@ export default function ProjectDetail() {
                   <ListTodo size={48} className="text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-400">Keine Aufgaben für dieses Projekt vorhanden.</p>
                   <button
-                    onClick={() => handleQuickAction('add_task')}
+                    onClick={() => handleQuickAction('tasks')}
                     className="mt-4 px-6 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition"
                   >
                     Erste Aufgabe erstellen
@@ -1373,7 +1255,7 @@ export default function ProjectDetail() {
                     <div
                       key={task.id}
                       className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all duration-300 cursor-pointer"
-                      onClick={() => navigate(`/tasks?project=${project.id}`)}
+                      onClick={() => navigate(`/tasks?project=${project?.id}`)}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -1418,7 +1300,7 @@ export default function ProjectDetail() {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-white">Dokumente ({documents.length})</h3>
                 <button
-                  onClick={() => handleQuickAction('add_document')}
+                  onClick={() => handleQuickAction('documents')}
                   className="flex items-center gap-2 px-4 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition"
                 >
                   <Plus size={16} />
@@ -1431,7 +1313,7 @@ export default function ProjectDetail() {
                   <FileText size={48} className="text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-400">Keine Dokumente für dieses Projekt vorhanden.</p>
                   <button
-                    onClick={() => handleQuickAction('add_document')}
+                    onClick={() => handleQuickAction('documents')}
                     className="mt-4 px-6 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition"
                   >
                     Erstes Dokument hochladen
@@ -1443,7 +1325,7 @@ export default function ProjectDetail() {
                     <div
                       key={document.id}
                       className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all duration-300 cursor-pointer"
-                      onClick={() => navigate(`/documents?project=${project.id}`)}
+                      onClick={() => navigate(`/documents?project=${project?.id}`)}
                     >
                       <div className="flex items-start gap-3">
                         <div className="p-2 bg-blue-500/20 rounded-lg">
@@ -1475,9 +1357,9 @@ export default function ProjectDetail() {
           {activeTab === 'quotes' && (
             <div>
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-white">Angebote für Projekt "{project.name}" ({getProjectQuotes().length})</h3>
+                <h3 className="text-lg font-semibold text-white">Angebote für Projekt "{project?.name}" ({getProjectQuotes().length})</h3>
                 <button
-                  onClick={() => handleQuickAction('view_quotes')}
+                  onClick={() => handleQuickAction('quotes')}
                   className="flex items-center gap-2 px-4 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition"
                 >
                   <Eye size={16} />
@@ -1522,7 +1404,7 @@ export default function ProjectDetail() {
                     <div
                       key={quote.id}
                       className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all duration-300 cursor-pointer"
-                      onClick={() => navigate(`/quotes?project=${project.id}`)}
+                      onClick={() => navigate(`/quotes?project=${project?.id}`)}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">

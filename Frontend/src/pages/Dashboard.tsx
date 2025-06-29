@@ -150,11 +150,37 @@ export default function Dashboard() {
       navigate('/');
     }
   };
-  const onDocsClick = () => navigate('/documents');
-  const onTodoClick = () => navigate('/tasks');
-  const onFinanceClick = () => navigate('/finance');
-  const onOfferingClick = () => navigate('/quotes');
-  const onVisualizeClick = () => navigate('/visualize');
+  const onDocsClick = () => {
+    if (projects.length > 0) {
+      navigate(`/documents?project=${projects[currentProjectIndex].id}`);
+    } else {
+      navigate('/documents');
+    }
+  };
+  const onTodoClick = () => {
+    if (projects.length > 0) {
+      navigate(`/tasks?project=${projects[currentProjectIndex].id}`);
+    } else {
+      navigate('/tasks');
+    }
+  };
+  const onFinanceClick = () => {
+    if (projects.length > 0) {
+      navigate(`/finance?project=${projects[currentProjectIndex].id}`);
+    } else {
+      navigate('/finance');
+    }
+  };
+  const onOfferingClick = () => {
+    navigate('/quotes');
+  };
+  const onVisualizeClick = () => {
+    if (projects.length > 0) {
+      navigate(`/visualize?project=${projects[currentProjectIndex].id}`);
+    } else {
+      navigate('/visualize');
+    }
+  };
 
   // Hilfsfunktionen für Projekt-Daten
   const getProjectTypeLabel = (type: string) => {
@@ -297,6 +323,25 @@ export default function Dashboard() {
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <Camera size={16} />
           <span>Site-Photos</span>
+        </div>
+      )
+    },
+    {
+      title: "Roadmap",
+      description: "Zeitliche Übersicht & Gantt-Diagramm",
+      icon: <TrendingUp size={32} />,
+      onClick: () => {
+        if (projects.length > 0) {
+          navigate(`/roadmap?project=${currentProject.id}`);
+        } else {
+          navigate('/roadmap');
+        }
+      },
+      ariaLabel: "Roadmap und Zeitplanung öffnen",
+      children: (
+        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+          <Calendar size={16} />
+          <span>Gantt & Timeline</span>
         </div>
       )
     }

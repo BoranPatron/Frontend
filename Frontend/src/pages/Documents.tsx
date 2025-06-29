@@ -27,7 +27,8 @@ import {
   Globe,
   BarChart3,
   Home,
-  FileArchive
+  FileArchive,
+  Shield
 } from 'lucide-react';
 import { getDocuments, uploadDocument, updateDocument, deleteDocument } from '../api/documentService';
 import { useAuth } from '../context/AuthContext';

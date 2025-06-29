@@ -10,6 +10,11 @@ export async function getMilestones(project_id: number) {
   return res.data;
 }
 
+export async function getAllMilestones() {
+  const res = await api.get('/milestones/all', { headers: authHeader() });
+  return res.data;
+}
+
 export async function getMilestone(id: number) {
   const res = await api.get(`/milestones/${id}`, { headers: authHeader() });
   return res.data;

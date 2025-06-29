@@ -130,11 +130,9 @@ function AppContent() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <Router>
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </Router>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </ErrorBoundary>
   );
 }
