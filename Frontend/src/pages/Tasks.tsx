@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Plus, 
   Edit, 
@@ -24,10 +24,13 @@ import {
   CalendarDays,
   Users,
   Target,
-  BarChart3
+  BarChart3,
+  FolderOpen,
+  Home
 } from 'lucide-react';
 import { getTasks, createTask, updateTask, deleteTask, getTaskStatistics } from '../api/taskService';
 import { useAuth } from '../context/AuthContext';
+import { getProjects } from '../api/projectService';
 
 interface Task {
   id: number;
@@ -48,10 +51,26 @@ interface Task {
   completed_at?: string;
 }
 
+interface Project {
+  id: number;
+  name: string;
+  description: string;
+  project_type: string;
+  status: string;
+  progress_percentage: number;
+  budget?: number;
+  current_costs: number;
+  start_date?: string;
+  end_date?: string;
+  created_at: string;
+}
+
 export default function Tasks() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -64,11 +83,21 @@ export default function Tasks() {
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
 
   // Form state für neue/bearbeitete Aufgabe
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    title: string;
+    description: string;
+    status: 'todo' | 'in_progress' | 'review' | 'completed' | 'cancelled';
+    priority: 'low' | 'medium' | 'high' | 'urgent';
+    project_id: string;
+    assigned_to: string;
+    due_date: string;
+    estimated_hours: string;
+    is_milestone: boolean;
+  }>({
     title: '',
     description: '',
-    status: 'todo' as const,
-    priority: 'medium' as const,
+    status: 'todo',
+    priority: 'medium',
     project_id: '',
     assigned_to: '',
     due_date: '',
@@ -76,19 +105,49 @@ export default function Tasks() {
     is_milestone: false
   });
 
-  // Lade Aufgaben beim Mounten
+  useEffect(() => {
+    // Lese Projekt-ID aus URL-Parametern
+    const urlParams = new URLSearchParams(location.search);
+    const projectId = urlParams.get('project');
+    
+    if (projectId) {
+      const projectIdNum = parseInt(projectId);
+      setSelectedProject(projectIdNum);
+      setFormData(prev => ({ ...prev, project_id: projectId }));
+    }
+    
+    loadProjects();
+  }, [location.search]);
+
   useEffect(() => {
     loadTasks();
   }, [selectedProject]);
 
-  const loadTasks = async () => {
+  const loadProjects = async () => {
     try {
-      setLoading(true);
-      const data = await getTasks(selectedProject || undefined);
-      setTasks(data);
-      setError('');
+      const data = await getProjects();
+      setProjects(data);
     } catch (err: any) {
-      setError('Fehler beim Laden der Aufgaben: ' + (err.response?.data?.detail || err.message));
+      console.error('❌ Error loading projects:', err);
+      setProjects([]);
+    }
+  };
+
+  const loadTasks = async () => {
+    setLoading(true);
+    try {
+      console.log('📋 Loading tasks for project:', selectedProject);
+      // Wenn ein Projekt ausgewählt ist, lade nur dessen Aufgaben
+      // Ansonsten lade alle Aufgaben des Benutzers
+      const data = await getTasks(selectedProject || undefined);
+      console.log('✅ Tasks loaded:', data);
+      console.log('📊 Task count:', data.length);
+      setTasks(data);
+    } catch (err: any) {
+      console.error('❌ Error in loadTasks:', err);
+      const errorMessage = err.message || 'Unbekannter Fehler beim Laden der Aufgaben';
+      setError(errorMessage);
+      setTasks([]);
     } finally {
       setLoading(false);
     }
@@ -96,7 +155,22 @@ export default function Tasks() {
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(''); // Lösche vorherige Fehler
+    
     try {
+      console.log('📝 Form submitted with data:', formData);
+      
+      // Validiere erforderliche Felder
+      if (!formData.title.trim()) {
+        setError('Aufgabentitel ist erforderlich');
+        return;
+      }
+      
+      if (!formData.project_id) {
+        setError('Projekt-ID ist erforderlich');
+        return;
+      }
+      
       const taskData = {
         ...formData,
         project_id: parseInt(formData.project_id) || 1, // Fallback auf Projekt 1
@@ -104,12 +178,29 @@ export default function Tasks() {
         estimated_hours: formData.estimated_hours ? parseInt(formData.estimated_hours) : null
       };
       
+      console.log('🚀 Sending task data to API:', taskData);
       await createTask(taskData);
+      
+      console.log('✅ Task created successfully');
       setShowCreateModal(false);
       resetForm();
-      loadTasks();
+      await loadTasks(); // Lade Aufgaben neu
+      
     } catch (err: any) {
-      setError('Fehler beim Erstellen der Aufgabe: ' + (err.response?.data?.detail || err.message));
+      console.error('❌ Error in handleCreateTask:', err);
+      
+      // Zeige spezifische Fehlermeldung
+      const errorMessage = err.message || 'Unbekannter Fehler beim Erstellen der Aufgabe';
+      setError(errorMessage);
+      
+      // Logge zusätzliche Details für Debugging
+      if (err.response) {
+        console.error('Response error details:', {
+          status: err.response.status,
+          data: err.response.data,
+          headers: err.response.headers
+        });
+      }
     }
   };
 
@@ -131,7 +222,9 @@ export default function Tasks() {
       resetForm();
       loadTasks();
     } catch (err: any) {
-      setError('Fehler beim Aktualisieren der Aufgabe: ' + (err.response?.data?.detail || err.message));
+      console.error('Error in handleUpdateTask:', err);
+      const errorMessage = err.message || 'Unbekannter Fehler beim Aktualisieren der Aufgabe';
+      setError(errorMessage);
     }
   };
 
@@ -141,7 +234,9 @@ export default function Tasks() {
       setDeletingTask(null);
       loadTasks();
     } catch (err: any) {
-      setError('Fehler beim Löschen der Aufgabe: ' + (err.response?.data?.detail || err.message));
+      console.error('Error in handleDeleteTask:', err);
+      const errorMessage = err.message || 'Unbekannter Fehler beim Löschen der Aufgabe';
+      setError(errorMessage);
     }
   };
 
@@ -151,7 +246,7 @@ export default function Tasks() {
       description: '',
       status: 'todo',
       priority: 'medium',
-      project_id: '',
+      project_id: selectedProject ? selectedProject.toString() : '',
       assigned_to: '',
       due_date: '',
       estimated_hours: '',
@@ -259,30 +354,28 @@ export default function Tasks() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539]">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-[#3d4952]/95 to-[#51646f]/95 backdrop-blur-lg text-white px-8 py-6 shadow-2xl border-b border-[#ffbd59]/20">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => navigate(-1)}
-              className="p-2 bg-[#51646f] hover:bg-[#607583] rounded-xl transition-colors duration-300"
-            >
-              <ArrowLeft size={20} className="text-[#ffbd59]" />
-            </button>
-            <div>
-              <h1 className="text-3xl font-bold text-[#ffbd59]">Aufgaben</h1>
-              <p className="text-gray-300">Verwalten Sie Ihre Projektaufgaben</p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539] flex flex-col p-8">
+      <header className="mb-10 flex items-center gap-4">
+        <ListTodo size={32} className="text-[#ffbd59]" />
+        <h1 className="text-3xl font-bold text-white">Aufgaben</h1>
+        
+        {/* Zurück zum Projekt Button */}
+        {selectedProject && (
           <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold"
+            onClick={() => navigate(`/projects/${selectedProject}`)}
+            className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition"
           >
-            <PlusCircle size={20} />
-            Neue Aufgabe
+            <Home size={16} />
+            Zurück zum Projekt
           </button>
-        </div>
+        )}
+        
+        <button
+          className="ml-auto flex items-center gap-2 px-5 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition"
+          onClick={() => setShowCreateModal(true)}
+        >
+          <Plus size={18} /> Neue Aufgabe
+        </button>
       </header>
 
       {/* Error Banner */}
@@ -312,6 +405,23 @@ export default function Tasks() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
               />
+            </div>
+            
+            {/* Project Filter */}
+            <div className="relative">
+              <FolderOpen className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <select
+                value={selectedProject || ''}
+                onChange={(e) => setSelectedProject(e.target.value ? parseInt(e.target.value) : null)}
+                className="pl-10 pr-8 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent appearance-none cursor-pointer min-w-[200px]"
+              >
+                <option value="">Alle Projekte</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
             </div>
             
             {/* Status Filter */}
@@ -564,14 +674,20 @@ export default function Tasks() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Projekt-ID</label>
-                  <input
-                    type="number"
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Projekt *</label>
+                  <select
+                    required
                     value={formData.project_id}
                     onChange={(e) => setFormData({...formData, project_id: e.target.value})}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    placeholder="1"
-                  />
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  >
+                    <option value="">Projekt auswählen...</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
               
@@ -701,13 +817,20 @@ export default function Tasks() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Projekt-ID</label>
-                  <input
-                    type="number"
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Projekt *</label>
+                  <select
+                    required
                     value={formData.project_id}
                     onChange={(e) => setFormData({...formData, project_id: e.target.value})}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                  />
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  >
+                    <option value="">Projekt auswählen...</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
               

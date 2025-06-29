@@ -15,6 +15,48 @@ const getApiBaseUrl = () => {
 const api = axios.create({
   baseURL: getApiBaseUrl(),
   withCredentials: false,
+  timeout: 10000, // 10 Sekunden Timeout
 });
+
+// Request Interceptor für Logging
+api.interceptors.request.use(
+  (config) => {
+    console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data);
+    return config;
+  },
+  (error) => {
+    console.error('❌ Request Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Response Interceptor für bessere Fehlerbehandlung
+api.interceptors.response.use(
+  (response) => {
+    console.log(`✅ API Response: ${response.status} ${response.config.url}`, response.data);
+    return response;
+  },
+  (error) => {
+    console.error('❌ Response Error:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      url: error.config?.url,
+      data: error.response?.data,
+      message: error.message
+    });
+    
+    // Spezifische Fehlerbehandlung
+    if (error.response?.status === 401) {
+      console.error('🔐 Unauthorized - Token möglicherweise abgelaufen');
+      // Token aus localStorage entfernen
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      // Zur Login-Seite weiterleiten
+      window.location.href = '/login';
+    }
+    
+    return Promise.reject(error);
+  }
+);
 
 export default api; 
