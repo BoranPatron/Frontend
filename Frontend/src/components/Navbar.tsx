@@ -15,7 +15,9 @@ export default function Navbar() {
   return (
     <nav className="bg-[#3d4952] text-white px-6 py-3 flex items-center justify-between shadow-md">
       <div className="flex items-center gap-3">
-        <span className="font-bold text-xl tracking-wide text-[#ffbd59]">BuildWise</span>
+        <Link to="/" className="hover:opacity-80 transition-opacity">
+          <span className="font-bold text-xl tracking-wide text-[#ffbd59] cursor-pointer">BuildWise</span>
+        </Link>
       </div>
       
       <div className="flex gap-6 items-center">

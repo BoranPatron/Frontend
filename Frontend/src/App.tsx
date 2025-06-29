@@ -6,6 +6,8 @@ import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
+import ProjectMessages from './pages/ProjectMessages';
+import ProjectAnalytics from './pages/ProjectAnalytics';
 import Tasks from './pages/Tasks';
 import Documents from './pages/Documents';
 import Finance from './pages/Finance';
@@ -75,6 +77,16 @@ function AppContent() {
         <Route path="/projects/:id" element={
           <ProtectedRoute>
             <ProjectDetail />
+          </ProtectedRoute>
+        } />
+        <Route path="/projects/:id/messages" element={
+          <ProtectedRoute>
+            <ProjectMessages />
+          </ProtectedRoute>
+        } />
+        <Route path="/projects/:id/analytics" element={
+          <ProtectedRoute>
+            <ProjectAnalytics />
           </ProtectedRoute>
         } />
         <Route path="/tasks" element={

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getProject, getProjectDashboard } from '../api/projectService';
+import { getProject, getProjectDashboard, updateProject } from '../api/projectService';
 import { getTasks } from '../api/taskService';
 import { getDocuments } from '../api/documentService';
+import { getQuotes } from '../api/quoteService';
 import { 
   ArrowLeft, 
   Home, 
@@ -30,7 +31,9 @@ import {
   Image,
   Receipt,
   FileCheck,
-  Camera
+  Camera,
+  XCircle,
+  X
 } from 'lucide-react';
 
 interface Project {
@@ -89,6 +92,21 @@ interface ProjectDashboard {
   recent_activities: any[];
 }
 
+interface ProjectEditForm {
+  name: string;
+  description: string;
+  project_type: string;
+  status: string;
+  address: string;
+  property_size: number;
+  construction_area: number;
+  start_date: string;
+  end_date: string;
+  budget: number;
+  is_public: boolean;
+  allow_quotes: boolean;
+}
+
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -96,9 +114,27 @@ export default function ProjectDetail() {
   const [dashboard, setDashboard] = useState<ProjectDashboard | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [quotes, setQuotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'documents' | 'quotes'>('overview');
+  
+  // Modal states
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState<ProjectEditForm>({
+    name: '',
+    description: '',
+    project_type: '',
+    status: '',
+    address: '',
+    property_size: 0,
+    construction_area: 0,
+    start_date: '',
+    end_date: '',
+    budget: 0,
+    is_public: false,
+    allow_quotes: true
+  });
 
   useEffect(() => {
     if (id) {
@@ -123,6 +159,10 @@ export default function ProjectDetail() {
       // Lade Dokumente für dieses Projekt
       const documentsData = await getDocuments(projectId);
       setDocuments(documentsData);
+      
+      // Lade Angebote für dieses Projekt
+      const quotesData = await getQuotes(projectId);
+      setQuotes(quotesData);
       
     } catch (e: any) {
       console.error('❌ Error loading project data:', e);
@@ -247,16 +287,45 @@ export default function ProjectDetail() {
         navigate(`/documents?project=${project?.id}`);
         break;
       case 'edit_project':
-        // TODO: Implementiere Projekt-Bearbeitung
-        console.log('Edit project:', project?.id);
+        if (project) {
+          setEditForm({
+            name: project.name,
+            description: project.description || '',
+            project_type: project.project_type,
+            status: project.status,
+            address: project.address || '',
+            property_size: project.property_size || 0,
+            construction_area: project.construction_area || 0,
+            start_date: project.start_date || '',
+            end_date: project.end_date || '',
+            budget: project.budget || 0,
+            is_public: project.is_public,
+            allow_quotes: project.allow_quotes
+          });
+          setShowEditModal(true);
+        }
         break;
       case 'view_quotes':
         navigate(`/quotes?project=${project?.id}`);
         break;
       case 'view_messages':
-        // TODO: Implementiere Nachrichten
-        console.log('View messages for project:', project?.id);
+        navigate(`/projects/${project?.id}/messages`);
         break;
+    }
+  };
+
+  const handleEditProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (!project?.id) return;
+      
+      await updateProject(project.id, editForm);
+      setShowEditModal(false);
+      // Lade Projektdaten neu
+      await loadProjectData();
+    } catch (error) {
+      console.error('Error updating project:', error);
+      setError('Fehler beim Aktualisieren des Projekts');
     }
   };
 
@@ -690,6 +759,203 @@ export default function ProjectDetail() {
           )}
         </div>
       </div>
+
+      {/* Edit Project Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-[#3d4952]">Projekt bearbeiten</h2>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleEditProject} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Projektname *
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Projekttyp *
+                  </label>
+                  <select
+                    value={editForm.project_type}
+                    onChange={(e) => setEditForm({...editForm, project_type: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                    required
+                  >
+                    <option value="">Typ auswählen</option>
+                    <option value="new_build">Neubau</option>
+                    <option value="renovation">Renovierung</option>
+                    <option value="extension">Anbau</option>
+                    <option value="refurbishment">Sanierung</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Status *
+                  </label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({...editForm, status: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                    required
+                  >
+                    <option value="">Status auswählen</option>
+                    <option value="planning">Planung</option>
+                    <option value="preparation">Vorbereitung</option>
+                    <option value="execution">Ausführung</option>
+                    <option value="completion">Fertigstellung</option>
+                    <option value="completed">Abgeschlossen</option>
+                    <option value="on_hold">Pausiert</option>
+                    <option value="cancelled">Abgebrochen</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Budget (€)
+                  </label>
+                  <input
+                    type="number"
+                    value={editForm.budget}
+                    onChange={(e) => setEditForm({...editForm, budget: parseFloat(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Startdatum
+                  </label>
+                  <input
+                    type="date"
+                    value={editForm.start_date}
+                    onChange={(e) => setEditForm({...editForm, start_date: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Enddatum
+                  </label>
+                  <input
+                    type="date"
+                    value={editForm.end_date}
+                    onChange={(e) => setEditForm({...editForm, end_date: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Adresse
+                </label>
+                <input
+                  type="text"
+                  value={editForm.address}
+                  onChange={(e) => setEditForm({...editForm, address: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Grundstücksgröße (m²)
+                  </label>
+                  <input
+                    type="number"
+                    value={editForm.property_size}
+                    onChange={(e) => setEditForm({...editForm, property_size: parseFloat(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Baufläche (m²)
+                  </label>
+                  <input
+                    type="number"
+                    value={editForm.construction_area}
+                    onChange={(e) => setEditForm({...editForm, construction_area: parseFloat(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Beschreibung
+                </label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({...editForm, description: e.target.value})}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                />
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={editForm.is_public}
+                    onChange={(e) => setEditForm({...editForm, is_public: e.target.checked})}
+                    className="rounded border-gray-300 text-[#ffbd59] focus:ring-[#ffbd59]"
+                  />
+                  <span className="text-sm text-gray-700">Öffentlich sichtbar</span>
+                </label>
+                
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={editForm.allow_quotes}
+                    onChange={(e) => setEditForm({...editForm, allow_quotes: e.target.checked})}
+                    className="rounded border-gray-300 text-[#ffbd59] focus:ring-[#ffbd59]"
+                  />
+                  <span className="text-sm text-gray-700">Angebote erlauben</span>
+                </label>
+              </div>
+              
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition"
+                >
+                  Speichern
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
