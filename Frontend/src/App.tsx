@@ -13,6 +13,8 @@ import Documents from './pages/Documents';
 import Finance from './pages/Finance';
 import Quotes from './pages/Quotes';
 import Visualize from './pages/Visualize';
+import Messages from './pages/Messages';
+import GlobalMessages from './pages/GlobalMessages';
 
 // Error Boundary
 class ErrorBoundary extends React.Component<
@@ -112,6 +114,16 @@ function AppContent() {
         <Route path="/visualize" element={
           <ProtectedRoute>
             <Visualize />
+          </ProtectedRoute>
+        } />
+        <Route path="/messages" element={
+          <ProtectedRoute>
+            <GlobalMessages />
+          </ProtectedRoute>
+        } />
+        <Route path="/messages/:projectId" element={
+          <ProtectedRoute>
+            <Messages />
           </ProtectedRoute>
         } />
         {/* Fallback für unbekannte Routen */}

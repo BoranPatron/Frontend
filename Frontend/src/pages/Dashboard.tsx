@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSwipeable } from 'react-swipeable';
 import DashboardCard from '../components/DashboardCard';
+import { getProjects } from '../api/projectService';
 import { 
   Home, 
   FileText, 
@@ -25,17 +27,83 @@ import {
   Sparkles,
   Zap,
   Target,
-  Award
+  Award,
+  ChevronLeft,
+  ChevronRight,
+  Building,
+  MapPin
 } from 'lucide-react';
+
+// Interface für echte Projekte aus der API
+interface Project {
+  id: number;
+  name: string;
+  description: string;
+  project_type: string;
+  status: string;
+  progress_percentage: number;
+  budget?: number;
+  current_costs: number;
+  start_date?: string;
+  end_date?: string;
+  address?: string;
+  property_size?: number;
+  construction_area?: number;
+  estimated_duration?: number;
+  is_public: boolean;
+  allow_quotes: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [currentProject] = useState({
-    name: "Hausbau München",
-    phase: "Ausführung",
-    progress: 65
-  });
+  const [currentProjectIndex, setCurrentProjectIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // Lade echte Projekte aus der API
+  useEffect(() => {
+    loadProjects();
+  }, []);
+
+  const loadProjects = async () => {
+    setLoading(true);
+    try {
+      const data = await getProjects();
+      setProjects(data);
+      // Setze den Index zurück, falls das aktuelle Projekt nicht mehr existiert
+      if (currentProjectIndex >= data.length) {
+        setCurrentProjectIndex(0);
+      }
+    } catch (e: any) {
+      console.error('❌ Error loading projects:', e);
+      setError(e.message || 'Fehler beim Laden der Projekte');
+      setProjects([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fallback-Projekt falls keine Projekte geladen werden konnten
+  const fallbackProject: Project = {
+    id: 0,
+    name: "Keine Projekte verfügbar",
+    description: "Erstellen Sie Ihr erstes Projekt im Manager",
+    project_type: "new_build",
+    status: "planning",
+    progress_percentage: 0,
+    current_costs: 0,
+    is_public: false,
+    allow_quotes: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  const currentProject = projects.length > 0 ? projects[currentProjectIndex] : fallbackProject;
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -50,6 +118,30 @@ export default function Dashboard() {
     };
   }, []);
 
+  // Swipe-Handler
+  const handleSwipe = (direction: 'left' | 'right') => {
+    if (isTransitioning || projects.length === 0) return;
+    
+    setIsTransitioning(true);
+    
+    if (direction === 'left' && currentProjectIndex < projects.length - 1) {
+      setCurrentProjectIndex(prev => prev + 1);
+    } else if (direction === 'right' && currentProjectIndex > 0) {
+      setCurrentProjectIndex(prev => prev - 1);
+    }
+    
+    // Transition-Animation beenden
+    setTimeout(() => setIsTransitioning(false), 300);
+  };
+
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => handleSwipe('left'),
+    onSwipedRight: () => handleSwipe('right'),
+    trackMouse: true,
+    delta: 50, // Mindest-Swipe-Distanz
+    swipeDuration: 500, // Maximale Swipe-Dauer
+  });
+
   // Callback-Handler für alle Kacheln
   const onManagerClick = () => navigate('/projects');
   const onDocsClick = () => navigate('/documents');
@@ -58,7 +150,63 @@ export default function Dashboard() {
   const onOfferingClick = () => navigate('/quotes');
   const onVisualizeClick = () => navigate('/visualize');
 
-  const dashboardCards = [
+  // Hilfsfunktionen für Projekt-Daten
+  const getProjectTypeLabel = (type: string) => {
+    switch (type) {
+      case 'new_build': return 'Neubau';
+      case 'renovation': return 'Renovierung';
+      case 'extension': return 'Anbau';
+      case 'refurbishment': return 'Sanierung';
+      default: return type;
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'planning': return 'Planung';
+      case 'preparation': return 'Vorbereitung';
+      case 'execution': return 'Ausführung';
+      case 'completion': return 'Fertigstellung';
+      case 'completed': return 'Abgeschlossen';
+      case 'on_hold': return 'Pausiert';
+      case 'cancelled': return 'Abgebrochen';
+      default: return status;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'planning': return 'text-blue-400';
+      case 'preparation': return 'text-yellow-400';
+      case 'execution': return 'text-green-400';
+      case 'completion': return 'text-purple-400';
+      case 'completed': return 'text-green-500';
+      case 'on_hold': return 'text-orange-400';
+      case 'cancelled': return 'text-red-400';
+      default: return 'text-gray-400';
+    }
+  };
+
+  // Mock-Daten für Dashboard-Kacheln (können später durch echte API-Daten ersetzt werden)
+  const getMockProjectStats = (project: Project) => {
+    // Berechne die Anzahl aktiver Gewerke basierend auf der Projekt-ID
+    // In einer echten Implementierung würde dies aus der Datenbank kommen
+    const activeTrades = Math.floor(Math.random() * 8) + 2; // 2-9 aktive Gewerke
+    
+    return {
+      activeTrades,
+      openTasks: Math.floor(Math.random() * 20) + 5,
+      newDocuments: Math.floor(Math.random() * 10) + 1,
+      newQuotes: Math.floor(Math.random() * 5),
+      notifications: Math.floor(Math.random() * 8) + 2,
+      lastActivity: "vor 2 Stunden"
+    };
+  };
+
+  const projectStats = getMockProjectStats(currentProject);
+
+  // Dynamische Dashboard-Karten basierend auf aktuellem Projekt
+  const getDashboardCards = () => [
     {
       title: "Manager",
       description: "Projekt- und Gewerkverwaltung",
@@ -66,11 +214,11 @@ export default function Dashboard() {
       onClick: onManagerClick,
       ariaLabel: "Projekt- und Gewerkverwaltung öffnen",
       status: (isOnline ? 'online' : 'offline') as 'online' | 'offline',
-      progress: { value: 75, label: "Projektfortschritt" },
+      progress: { value: currentProject.progress_percentage, label: "Projektfortschritt" },
       children: (
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <Users size={16} />
-          <span>3 aktive Gewerke</span>
+          <span>{projectStats.activeTrades} aktive Gewerke</span>
         </div>
       )
     },
@@ -80,7 +228,7 @@ export default function Dashboard() {
       icon: <FileText size={32} />,
       onClick: onDocsClick,
       ariaLabel: "Dokumentenmanagement öffnen",
-      badge: { text: "12 neue", color: "blue" as const },
+      badge: { text: `${projectStats.newDocuments} neue`, color: "blue" as const },
       children: (
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <Upload size={16} />
@@ -94,7 +242,7 @@ export default function Dashboard() {
       icon: <CheckSquare size={32} />,
       onClick: onTodoClick,
       ariaLabel: "Aufgabenmanagement öffnen",
-      badge: { text: "5 offen", color: "yellow" as const },
+      badge: { text: `${projectStats.openTasks} offen`, color: "yellow" as const },
       children: (
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <Clock size={16} />
@@ -108,11 +256,14 @@ export default function Dashboard() {
       icon: <Euro size={32} />,
       onClick: onFinanceClick,
       ariaLabel: "Finanzmanagement öffnen",
-      progress: { value: 45, label: "Budget-Auslastung" },
+      progress: { 
+        value: currentProject.budget ? Math.round((currentProject.current_costs / currentProject.budget) * 100) : 0, 
+        label: "Budget-Auslastung" 
+      },
       children: (
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <Calculator size={16} />
-          <span>€ 125.000 / € 280.000</span>
+          <span>€ {currentProject.current_costs.toLocaleString()} / € {(currentProject.budget || 0).toLocaleString()}</span>
         </div>
       )
     },
@@ -122,7 +273,7 @@ export default function Dashboard() {
       icon: <Handshake size={32} />,
       onClick: onOfferingClick,
       ariaLabel: "Angebotsmanagement öffnen",
-      badge: { text: "3 neue", color: "green" as const },
+      badge: { text: `${projectStats.newQuotes} neue`, color: "green" as const },
       children: (
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <BarChart3 size={16} />
@@ -144,6 +295,20 @@ export default function Dashboard() {
       )
     }
   ];
+
+  const dashboardCards = getDashboardCards();
+
+  // Loading-Zustand
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#ffbd59] mx-auto mb-4"></div>
+          <p className="text-white text-lg">Lade Projekte...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539] flex flex-col relative overflow-hidden">
@@ -173,34 +338,133 @@ export default function Dashboard() {
             </div>
           </div>
           {/* Online/Offline Status */}
-          <div className={`flex items-center gap-3 px-5 py-2 rounded-full text-base font-medium backdrop-blur-md border ${isOnline ? 'bg-green-500/20 text-green-300 border-green-500/30' : 'bg-red-500/20 text-red-300 border-red-500/30'}`}> {isOnline ? <Wifi size={18} className="animate-pulse" /> : <WifiOff size={18} />} <span>{isOnline ? 'Online' : 'Offline'}</span></div>
-        </div>
-        {/* Project Info */}
-        <div className="mb-6">
-          <h2 className="text-3xl font-bold text-[#ffbd59] mb-2 flex items-center gap-3">
-            <Zap size={28} className="animate-bounce" />
-            Willkommen zurück
-          </h2>
-          <div className="flex flex-wrap items-center gap-6 text-gray-300">
-            <div className="flex items-center gap-2">
-              <Target size={16} className="text-[#ffbd59]" />
-              <span>Projekt: <span className="font-semibold text-white">{currentProject.name}</span></span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Award size={16} className="text-[#ffbd59]" />
-              <span>Phase: <span className="text-[#ffbd59] font-semibold">{currentProject.phase}</span></span>
-            </div>
+          <div className={`flex items-center gap-3 px-5 py-2 rounded-full text-base font-medium backdrop-blur-md border ${isOnline ? 'bg-green-500/20 text-green-300 border-green-500/30' : 'bg-red-500/20 text-red-300 border-red-500/30'}`}>
+            {isOnline ? <Wifi size={18} className="animate-pulse" /> : <WifiOff size={18} />}
+            <span>{isOnline ? 'Online' : 'Offline'}</span>
           </div>
         </div>
-        {/* Progress Bar */}
-        <div className="space-y-3">
-          <div className="flex justify-between text-base">
-            <span className="text-gray-300">Projektfortschritt</span>
-            <span className="text-[#ffbd59] font-bold text-lg">{currentProject.progress}%</span>
+
+        {/* Error Banner */}
+        {error && (
+          <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-6 py-4 flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <AlertTriangle size={20} />
+              <span>{error}</span>
+            </div>
+            <button onClick={() => setError('')} className="text-red-300 hover:text-red-100">
+              <span>×</span>
+            </button>
           </div>
-          <div className="relative w-full bg-gray-700/50 rounded-full h-5 backdrop-blur-sm border border-gray-600/30">
-            <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-5 rounded-full transition-all duration-1000 ease-out shadow-lg" style={{ width: `${currentProject.progress}%` }} />
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent h-5 rounded-full animate-pulse"></div>
+        )}
+
+        {/* Swipeable Project Info */}
+        <div 
+          {...swipeHandlers}
+          className={`relative mb-6 transition-all duration-300 ${isTransitioning ? 'opacity-75 scale-95' : 'opacity-100 scale-100'}`}
+        >
+          {/* Swipe-Indikatoren */}
+          {projects.length > 1 && (
+            <>
+              <div className="absolute top-1/2 left-4 transform -translate-y-1/2 z-10">
+                <button
+                  onClick={() => handleSwipe('right')}
+                  disabled={currentProjectIndex === 0}
+                  className={`p-2 rounded-full backdrop-blur-md border transition-all duration-300 ${
+                    currentProjectIndex === 0 
+                      ? 'bg-gray-500/20 text-gray-500 border-gray-500/30 cursor-not-allowed' 
+                      : 'bg-white/10 text-white border-white/20 hover:bg-white/20 hover:scale-110'
+                  }`}
+                  aria-label="Vorheriges Projekt"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+              </div>
+              
+              <div className="absolute top-1/2 right-4 transform -translate-y-1/2 z-10">
+                <button
+                  onClick={() => handleSwipe('left')}
+                  disabled={currentProjectIndex === projects.length - 1}
+                  className={`p-2 rounded-full backdrop-blur-md border transition-all duration-300 ${
+                    currentProjectIndex === projects.length - 1 
+                      ? 'bg-gray-500/20 text-gray-500 border-gray-500/30 cursor-not-allowed' 
+                      : 'bg-white/10 text-white border-white/20 hover:bg-white/20 hover:scale-110'
+                  }`}
+                  aria-label="Nächstes Projekt"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Project Info */}
+          <div className="text-center px-16">
+            <h2 className="text-3xl font-bold text-[#ffbd59] mb-2 flex items-center justify-center gap-3">
+              <Zap size={28} className="animate-bounce" />
+              Willkommen zurück
+            </h2>
+            
+            {/* Projekt-Navigation-Indikatoren */}
+            {projects.length > 1 && (
+              <div className="flex justify-center gap-2 mb-4">
+                {projects.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                      index === currentProjectIndex 
+                        ? 'bg-[#ffbd59] scale-125' 
+                        : 'bg-gray-500/50'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-center gap-6 text-gray-300 mb-4">
+              <div className="flex items-center gap-2">
+                <Building size={16} className="text-[#ffbd59]" />
+                <span>Projekt: <span className="font-semibold text-white">{currentProject.name}</span></span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Award size={16} className="text-[#ffbd59]" />
+                <span>Phase: <span className={`font-semibold ${getStatusColor(currentProject.status)}`}>{getStatusLabel(currentProject.status)}</span></span>
+              </div>
+              {currentProject.address && (
+                <div className="flex items-center gap-2">
+                  <MapPin size={16} className="text-[#ffbd59]" />
+                  <span>Standort: <span className="font-semibold text-white">{currentProject.address}</span></span>
+                </div>
+              )}
+            </div>
+
+            {/* Swipe-Hinweis */}
+            {projects.length > 1 && (
+              <div className="text-xs text-gray-400 mb-4 flex items-center justify-center gap-2">
+                <span>← Swipe für andere Projekte →</span>
+              </div>
+            )}
+
+            {/* Keine Projekte Hinweis */}
+            {projects.length === 0 && (
+              <div className="text-sm text-gray-400 mb-4 flex items-center justify-center gap-2">
+                <span>Erstellen Sie Ihr erstes Projekt im Manager</span>
+              </div>
+            )}
+          </div>
+
+          {/* Progress Bar */}
+          <div className="space-y-3">
+            <div className="flex justify-between text-base">
+              <span className="text-gray-300">Projektfortschritt</span>
+              <span className="text-[#ffbd59] font-bold text-lg">{currentProject.progress_percentage}%</span>
+            </div>
+            <div className="relative w-full bg-gray-700/50 rounded-full h-5 backdrop-blur-sm border border-gray-600/30">
+              <div 
+                className="absolute inset-0 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-5 rounded-full transition-all duration-1000 ease-out shadow-lg" 
+                style={{ width: `${currentProject.progress_percentage}%` }} 
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent h-5 rounded-full animate-pulse"></div>
+            </div>
           </div>
         </div>
       </header>
@@ -221,11 +485,11 @@ export default function Dashboard() {
             <div className="group bg-white/10 backdrop-blur-lg rounded-2xl p-7 shadow-xl border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-2">
               <div className="flex items-center">
                 <div className="p-4 bg-gradient-to-br from-green-400 to-green-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <TrendingUp className="w-7 h-7 text-white" />
+                  <Users className="w-7 h-7 text-white" />
                 </div>
                 <div className="ml-5">
-                  <p className="text-base font-medium text-gray-300">Aktive Projekte</p>
-                  <p className="text-3xl font-bold text-white">3</p>
+                  <p className="text-base font-medium text-gray-300">Aktive Gewerke</p>
+                  <p className="text-3xl font-bold text-white">{projectStats.activeTrades}</p>
                 </div>
               </div>
             </div>
@@ -236,7 +500,7 @@ export default function Dashboard() {
                 </div>
                 <div className="ml-5">
                   <p className="text-base font-medium text-gray-300">Offene Aufgaben</p>
-                  <p className="text-3xl font-bold text-white">12</p>
+                  <p className="text-3xl font-bold text-white">{projectStats.openTasks}</p>
                 </div>
               </div>
             </div>
@@ -247,7 +511,7 @@ export default function Dashboard() {
                 </div>
                 <div className="ml-5">
                   <p className="text-base font-medium text-gray-300">Benachrichtigungen</p>
-                  <p className="text-3xl font-bold text-white">5</p>
+                  <p className="text-3xl font-bold text-white">{projectStats.notifications}</p>
                 </div>
               </div>
             </div>
@@ -276,13 +540,13 @@ export default function Dashboard() {
           <div className="mt-16 bg-white/10 backdrop-blur-lg rounded-3xl p-10 shadow-2xl border border-white/20">
             <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
               <Clock size={24} className="text-[#ffbd59]" />
-              Letzte Aktivitäten
+              Letzte Aktivitäten - {currentProject.name}
             </h2>
             <div className="space-y-4">
               <div className="flex items-center p-4 bg-white/5 rounded-xl backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300">
                 <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-green-600 rounded-full mr-4 animate-pulse"></div>
-                <span className="text-sm text-gray-200">Neues Angebot für Projekt "Hausbau München" erhalten</span>
-                <span className="ml-auto text-xs text-gray-400">vor 2 Stunden</span>
+                <span className="text-sm text-gray-200">Neues Angebot für Projekt "{currentProject.name}" erhalten</span>
+                <span className="ml-auto text-xs text-gray-400">{projectStats.lastActivity}</span>
               </div>
               <div className="flex items-center p-4 bg-white/5 rounded-xl backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300">
                 <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full mr-4 animate-pulse" style={{animationDelay: '1s'}}></div>

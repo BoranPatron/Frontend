@@ -33,7 +33,10 @@ import {
   FileCheck,
   Camera,
   XCircle,
-  X
+  X,
+  Wrench,
+  Search,
+  Filter
 } from 'lucide-react';
 
 interface Project {
@@ -107,6 +110,52 @@ interface ProjectEditForm {
   allow_quotes: boolean;
 }
 
+interface Quote {
+  id: number;
+  title: string;
+  description: string;
+  status: 'draft' | 'submitted' | 'under_review' | 'accepted' | 'rejected' | 'expired';
+  project_id: number;
+  service_provider_id: number;
+  service_provider_name?: string;
+  total_amount: number;
+  currency: string;
+  valid_until?: string;
+  labor_cost?: number;
+  material_cost?: number;
+  overhead_cost?: number;
+  estimated_duration?: number;
+  start_date?: string;
+  completion_date?: string;
+  payment_terms?: string;
+  warranty_period?: number;
+  risk_score?: number;
+  price_deviation?: number;
+  ai_recommendation?: string;
+  contact_released: boolean;
+  created_at: string;
+  updated_at: string;
+  submitted_at?: string;
+  accepted_at?: string;
+}
+
+interface Trade {
+  id: number;
+  name: string;
+  description: string;
+  status: 'planned' | 'in_progress' | 'completed' | 'delayed' | 'cancelled';
+  contractor?: string;
+  start_date?: string;
+  end_date?: string;
+  budget?: number;
+  actual_costs?: number;
+  progress_percentage: number;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -114,7 +163,8 @@ export default function ProjectDetail() {
   const [dashboard, setDashboard] = useState<ProjectDashboard | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [quotes, setQuotes] = useState<any[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'documents' | 'quotes'>('overview');
@@ -135,6 +185,51 @@ export default function ProjectDetail() {
     is_public: false,
     allow_quotes: true
   });
+
+  // Expandable sections state
+  const [expandedSections, setExpandedSections] = useState<{
+    projectDetails: boolean;
+    tasks: boolean;
+    phases: boolean;
+    trades: boolean;
+    budgetTimeline: boolean;
+    quotes: boolean;
+    documents: boolean;
+    analytics: boolean;
+  }>({
+    projectDetails: false,
+    tasks: false,
+    phases: false,
+    trades: false,
+    budgetTimeline: false,
+    quotes: false,
+    documents: false,
+    analytics: false
+  });
+
+  // Neue States für Angebote-Filter
+  const [quoteSearchTerm, setQuoteSearchTerm] = useState('');
+  const [quoteFilterStatus, setQuoteFilterStatus] = useState<string>('all');
+  const [showQuoteFilter, setShowQuoteFilter] = useState(false);
+
+  // Modal states for adding a new trade
+  const [showAddTradeModal, setShowAddTradeModal] = useState(false);
+  const [tradeForm, setTradeForm] = useState({
+    project_id: 0,
+    name: '',
+    description: '',
+    contractor: '',
+    priority: 'low',
+    start_date: '',
+    end_date: '',
+    budget: 0,
+    actual_costs: 0,
+    progress_percentage: 0,
+    notes: ''
+  });
+
+  // Neue States für Projekt-Dropdown
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
 
   useEffect(() => {
     if (id) {
@@ -162,7 +257,78 @@ export default function ProjectDetail() {
       
       // Lade Angebote für dieses Projekt
       const quotesData = await getQuotes(projectId);
-      setQuotes(quotesData);
+      // Filtere nur Angebote für das aktuelle Projekt
+      const projectQuotes = quotesData.filter((quote: Quote) => quote.project_id === projectId);
+      setQuotes(projectQuotes);
+      
+      // Beispieldaten für Gewerke (später über Backend-API)
+      const sampleTrades: Trade[] = [
+        {
+          id: 1,
+          name: 'Maurerarbeiten',
+          description: 'Fundament und Mauerwerk',
+          status: 'completed',
+          contractor: 'Bauunternehmen Schmidt',
+          start_date: '2024-01-15',
+          end_date: '2024-03-20',
+          budget: 45000,
+          actual_costs: 43200,
+          progress_percentage: 100,
+          priority: 'high',
+          notes: 'Fundament erfolgreich erstellt, Mauerwerk nach Plan',
+          created_at: '2024-01-10T10:00:00Z',
+          updated_at: '2024-03-20T16:30:00Z'
+        },
+        {
+          id: 2,
+          name: 'Elektroinstallation',
+          description: 'Elektrische Anlagen und Beleuchtung',
+          status: 'in_progress',
+          contractor: 'Elektro Meyer GmbH',
+          start_date: '2024-03-25',
+          end_date: '2024-05-15',
+          budget: 28000,
+          actual_costs: 15600,
+          progress_percentage: 65,
+          priority: 'medium',
+          notes: 'Hauptverteiler installiert, Kabelverlegung läuft',
+          created_at: '2024-03-20T14:00:00Z',
+          updated_at: '2024-04-10T11:15:00Z'
+        },
+        {
+          id: 3,
+          name: 'Sanitärinstallation',
+          description: 'Wasser- und Abwasserleitungen',
+          status: 'planned',
+          contractor: 'Sanitär Wagner',
+          start_date: '2024-05-20',
+          end_date: '2024-06-30',
+          budget: 32000,
+          actual_costs: 0,
+          progress_percentage: 0,
+          priority: 'high',
+          notes: 'Material bestellt, Start nach Elektroinstallation',
+          created_at: '2024-04-01T09:00:00Z',
+          updated_at: '2024-04-01T09:00:00Z'
+        },
+        {
+          id: 4,
+          name: 'Innenausbau',
+          description: 'Trockenbau, Bodenbeläge, Malerarbeiten',
+          status: 'planned',
+          contractor: 'Ausbau Müller',
+          start_date: '2024-07-01',
+          end_date: '2024-09-30',
+          budget: 65000,
+          actual_costs: 0,
+          progress_percentage: 0,
+          priority: 'medium',
+          notes: 'Planung abgeschlossen, Materiallisten erstellt',
+          created_at: '2024-04-05T16:00:00Z',
+          updated_at: '2024-04-05T16:00:00Z'
+        }
+      ];
+      setTrades(sampleTrades);
       
     } catch (e: any) {
       console.error('❌ Error loading project data:', e);
@@ -278,6 +444,90 @@ export default function ProjectDetail() {
     return 'danger';
   };
 
+  const getProjectQuotes = () => {
+    return quotes.filter(quote => quote.project_id === project?.id);
+  };
+
+  // Gefilterte Angebote für das aktuelle Projekt
+  const getFilteredProjectQuotes = () => {
+    const projectQuotes = getProjectQuotes();
+    
+    return projectQuotes.filter(quote => {
+      const matchesSearch = quote.title.toLowerCase().includes(quoteSearchTerm.toLowerCase()) ||
+                           quote.description.toLowerCase().includes(quoteSearchTerm.toLowerCase());
+      
+      const matchesFilter = quoteFilterStatus === 'all' || quote.status === quoteFilterStatus;
+      
+      return matchesSearch && matchesFilter;
+    });
+  };
+
+  const getQuoteStatusLabel = (status: string) => {
+    switch (status) {
+      case 'submitted': return 'Eingereicht';
+      case 'accepted': return 'Akzeptiert';
+      case 'rejected': return 'Abgelehnt';
+      case 'under_review': return 'In Prüfung';
+      case 'draft': return 'Entwurf';
+      case 'expired': return 'Abgelaufen';
+      default: return status;
+    }
+  };
+
+  const getQuoteStatusColor = (status: string) => {
+    switch (status) {
+      case 'draft': return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+      case 'submitted': return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+      case 'under_review': return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
+      case 'accepted': return 'bg-green-500/20 text-green-300 border-green-500/30';
+      case 'rejected': return 'bg-red-500/20 text-red-300 border-red-500/30';
+      case 'expired': return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
+      default: return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+    }
+  };
+
+  const getTradeStatusLabel = (status: string) => {
+    switch (status) {
+      case 'planned': return 'Geplant';
+      case 'in_progress': return 'In Bearbeitung';
+      case 'completed': return 'Abgeschlossen';
+      case 'delayed': return 'Verzögert';
+      case 'cancelled': return 'Abgebrochen';
+      default: return status;
+    }
+  };
+
+  const getTradeStatusColor = (status: string) => {
+    switch (status) {
+      case 'planned': return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+      case 'in_progress': return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
+      case 'completed': return 'bg-green-500/20 text-green-300 border-green-500/30';
+      case 'delayed': return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
+      case 'cancelled': return 'bg-red-500/20 text-red-300 border-red-500/30';
+      default: return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+    }
+  };
+
+  const getTradePriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'low': return 'bg-green-500/20 text-green-300';
+      case 'medium': return 'bg-yellow-500/20 text-yellow-300';
+      case 'high': return 'bg-orange-500/20 text-orange-300';
+      case 'critical': return 'bg-red-500/20 text-red-300';
+      default: return 'bg-gray-500/20 text-gray-300';
+    }
+  };
+
+  const getTradePriorityLabel = (priority: string) => {
+    switch (priority) {
+      case 'low': return 'Niedrig';
+      case 'medium': return 'Mittel';
+      case 'high': return 'Hoch';
+      case 'critical': return 'Kritisch';
+      default: return priority;
+    }
+  };
+
   const handleQuickAction = (action: string) => {
     switch (action) {
       case 'add_task':
@@ -329,18 +579,28 @@ export default function ProjectDetail() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ffbd59] mx-auto mb-4"></div>
-          <p className="text-white text-lg">Lade Projektdaten...</p>
-        </div>
-      </div>
-    );
-  }
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
 
-  if (error || !project) {
+  const handleAddTrade = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      // Implementiere die Logik zum Hinzufügen eines neuen Gewerks
+      console.log('Neues Gewerk hinzugefügt:', tradeForm);
+      setShowAddTradeModal(false);
+      // Lade Projektdaten neu
+      await loadProjectData();
+    } catch (error) {
+      console.error('Error adding trade:', error);
+      setError('Fehler beim Hinzufügen des Gewerks');
+    }
+  };
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539] flex items-center justify-center">
         <div className="text-center">
@@ -389,7 +649,7 @@ export default function ProjectDetail() {
             <Settings size={20} className="text-[#ffbd59]" />
             Schnellaktionen
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <button
               onClick={() => handleQuickAction('add_task')}
               className="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center hover:bg-white/20 transition-all duration-300 border border-white/20"
@@ -417,20 +677,6 @@ export default function ProjectDetail() {
             >
               <Receipt size={24} className="text-[#ffbd59] mx-auto mb-2" />
               <span className="text-white text-sm font-medium">Angebote anzeigen</span>
-            </button>
-            <button
-              onClick={() => handleQuickAction('view_messages')}
-              className="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center hover:bg-white/20 transition-all duration-300 border border-white/20"
-            >
-              <MessageSquare size={24} className="text-[#ffbd59] mx-auto mb-2" />
-              <span className="text-white text-sm font-medium">Nachrichten</span>
-            </button>
-            <button
-              onClick={() => navigate(`/projects/${project.id}/analytics`)}
-              className="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center hover:bg-white/20 transition-all duration-300 border border-white/20"
-            >
-              <BarChart3 size={24} className="text-[#ffbd59] mx-auto mb-2" />
-              <span className="text-white text-sm font-medium">Analytics</span>
             </button>
           </div>
         </div>
@@ -518,14 +764,29 @@ export default function ProjectDetail() {
                 </div>
               </div>
 
-              {/* Projekt-Details */}
+              {/* Aufklappbare Kacheln */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white/5 rounded-xl p-6 border border-white/10">
-                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                {/* Projekt-Details */}
+                <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+                  <button
+                    onClick={() => toggleSection('projectDetails')}
+                    className="w-full p-6 text-left hover:bg-white/5 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                     <MapPin size={20} className="text-[#ffbd59]" />
-                    Projekt-Details
+                        Übersicht
                   </h3>
-                  <div className="space-y-3">
+                      <div className={`transform transition-transform ${expandedSections.projectDetails ? 'rotate-180' : ''}`}>
+                        <svg className="w-5 h-5 text-[#ffbd59]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {expandedSections.projectDetails && (
+                    <div className="px-6 pb-6 space-y-3">
                     <div className="flex justify-between">
                       <span className="text-gray-400">Typ:</span>
                       <span className="text-white">{getProjectTypeLabel(project.project_type)}</span>
@@ -555,14 +816,246 @@ export default function ProjectDetail() {
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
 
-                <div className="bg-white/5 rounded-xl p-6 border border-white/10">
-                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                {/* Aufgaben */}
+                <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+                  <button
+                    onClick={() => toggleSection('tasks')}
+                    className="w-full p-6 text-left hover:bg-white/5 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <ListTodo size={20} className="text-[#ffbd59]" />
+                        To Do
+                      </h3>
+                      <div className={`transform transition-transform ${expandedSections.tasks ? 'rotate-180' : ''}`}>
+                        <svg className="w-5 h-5 text-[#ffbd59]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {expandedSections.tasks && (
+                    <div className="px-6 pb-6 space-y-3">
+                      {tasks.length === 0 ? (
+                        <p className="text-gray-400 text-sm">Keine Aufgaben vorhanden</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {tasks.slice(0, 3).map((task) => (
+                            <div
+                              key={task.id}
+                              className="flex items-center gap-3 p-2 bg-white/10 rounded-lg cursor-pointer hover:bg-white/20 transition-colors"
+                              onClick={() => navigate(`/tasks?project=${project.id}`)}
+                            >
+                              <div className="p-1 bg-blue-500/20 rounded">
+                                {getTaskStatusIcon(task.status)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-white text-sm font-medium truncate">{task.title}</div>
+                                <div className="text-gray-400 text-xs">
+                                  {task.status === 'todo' ? 'To Do' :
+                                   task.status === 'in_progress' ? 'In Bearbeitung' :
+                                   task.status === 'review' ? 'In Prüfung' :
+                                   task.status === 'completed' ? 'Abgeschlossen' : 'Abgebrochen'}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-white text-xs font-medium">{task.progress_percentage}%</div>
+                                <div className="w-12 bg-gray-700/50 rounded-full h-1">
+                                  <div 
+                                    className="bg-[#ffbd59] h-1 rounded-full transition-all duration-300"
+                                    style={{ width: `${task.progress_percentage}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          {tasks.length > 3 && (
+                            <button
+                              onClick={() => navigate(`/tasks?project=${project.id}`)}
+                              className="w-full text-center text-[#ffbd59] text-sm hover:underline"
+                            >
+                              +{tasks.length - 3} weitere Aufgaben anzeigen
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Phasen */}
+                <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+                  <button
+                    onClick={() => toggleSection('phases')}
+                    className="w-full p-6 text-left hover:bg-white/5 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <Users size={20} className="text-[#ffbd59]" />
+                        Phasen
+                      </h3>
+                      <div className={`transform transition-transform ${expandedSections.phases ? 'rotate-180' : ''}`}>
+                        <svg className="w-5 h-5 text-[#ffbd59]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {expandedSections.phases && (
+                    <div className="px-6 pb-6 space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-white/10 rounded-lg p-3">
+                          <div className="text-white font-medium text-sm">Planung</div>
+                          <div className="text-green-400 text-xs">Abgeschlossen</div>
+                        </div>
+                        <div className="bg-white/10 rounded-lg p-3">
+                          <div className="text-white font-medium text-sm">Vorbereitung</div>
+                          <div className="text-blue-400 text-xs">In Bearbeitung</div>
+                        </div>
+                        <div className="bg-white/10 rounded-lg p-3">
+                          <div className="text-white font-medium text-sm">Ausführung</div>
+                          <div className="text-yellow-400 text-xs">Geplant</div>
+                        </div>
+                        <div className="bg-white/10 rounded-lg p-3">
+                          <div className="text-white font-medium text-sm">Fertigstellung</div>
+                          <div className="text-gray-400 text-xs">Offen</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Gewerke */}
+                <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+                  <button
+                    onClick={() => toggleSection('trades')}
+                    className="w-full p-6 text-left hover:bg-white/5 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <Wrench size={20} className="text-[#ffbd59]" />
+                        Gewerke
+                      </h3>
+                      <div className={`transform transition-transform ${expandedSections.trades ? 'rotate-180' : ''}`}>
+                        <svg className="w-5 h-5 text-[#ffbd59]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {expandedSections.trades && (
+                    <div className="px-6 pb-6 space-y-3">
+                      {trades.length === 0 ? (
+                        <p className="text-gray-400 text-sm">Keine Gewerke zugeordnet</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {trades.map((trade) => (
+                            <div
+                              key={trade.id}
+                              className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all duration-300"
+                            >
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex-1">
+                                  <h4 className="text-white font-medium text-sm mb-1">{trade.name}</h4>
+                                  <p className="text-gray-400 text-xs mb-2">{trade.description}</p>
+                                  {trade.contractor && (
+                                    <p className="text-blue-300 text-xs">Dienstleister: {trade.contractor}</p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getTradeStatusColor(trade.status)}`}>
+                                    {getTradeStatusLabel(trade.status)}
+                                  </span>
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getTradePriorityColor(trade.priority)}`}>
+                                    {getTradePriorityLabel(trade.priority)}
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-3 mb-3">
+                                {trade.start_date && (
+                                  <div className="text-xs">
+                                    <span className="text-gray-400">Start:</span>
+                                    <span className="text-white ml-1">{formatDate(trade.start_date)}</span>
+                                  </div>
+                                )}
+                                {trade.end_date && (
+                                  <div className="text-xs">
+                                    <span className="text-gray-400">Ende:</span>
+                                    <span className="text-white ml-1">{formatDate(trade.end_date)}</span>
+                                  </div>
+                                )}
+                                {trade.budget && (
+                                  <div className="text-xs">
+                                    <span className="text-gray-400">Budget:</span>
+                                    <span className="text-white ml-1">{trade.budget.toLocaleString('de-DE')} €</span>
+                                  </div>
+                                )}
+                                {trade.actual_costs !== undefined && (
+                                  <div className="text-xs">
+                                    <span className="text-gray-400">Kosten:</span>
+                                    <span className="text-white ml-1">{trade.actual_costs.toLocaleString('de-DE')} €</span>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="mb-3">
+                                <div className="flex justify-between text-xs mb-1">
+                                  <span className="text-gray-400">Fortschritt</span>
+                                  <span className="text-white">{trade.progress_percentage}%</span>
+                                </div>
+                                <div className="w-full bg-gray-700/50 rounded-full h-2">
+                                  <div 
+                                    className={`h-2 rounded-full transition-all duration-300 ${
+                                      trade.progress_percentage === 100 ? 'bg-green-500' :
+                                      trade.progress_percentage > 50 ? 'bg-yellow-500' : 'bg-blue-500'
+                                    }`}
+                                    style={{ width: `${trade.progress_percentage}%` }}
+                                  />
+                                </div>
+                              </div>
+                              
+                              {trade.notes && (
+                                <div className="text-xs">
+                                  <span className="text-gray-400">Notizen:</span>
+                                  <p className="text-white mt-1 bg-white/5 rounded p-2">{trade.notes}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Budget & Zeitplan */}
+                <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+                  <button
+                    onClick={() => toggleSection('budgetTimeline')}
+                    className="w-full p-6 text-left hover:bg-white/5 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                     <DollarSign size={20} className="text-[#ffbd59]" />
-                    Budget & Zeitplan
+                        Budget
                   </h3>
-                  <div className="space-y-4">
+                      <div className={`transform transition-transform ${expandedSections.budgetTimeline ? 'rotate-180' : ''}`}>
+                        <svg className="w-5 h-5 text-[#ffbd59]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {expandedSections.budgetTimeline && (
+                    <div className="px-6 pb-6 space-y-4">
                     {project.budget && (
                       <div>
                         <div className="flex justify-between mb-2">
@@ -598,6 +1091,253 @@ export default function ProjectDetail() {
                       </div>
                     )}
                   </div>
+                  )}
+                </div>
+
+                {/* Angebote */}
+                <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+                  <button
+                    onClick={() => toggleSection('quotes')}
+                    className="w-full p-6 text-left hover:bg-white/5 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <Receipt size={20} className="text-[#ffbd59]" />
+                        Angebote
+                      </h3>
+                      <div className={`transform transition-transform ${expandedSections.quotes ? 'rotate-180' : ''}`}>
+                        <svg className="w-5 h-5 text-[#ffbd59]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+              </div>
+            </div>
+                  </button>
+                  
+                  {expandedSections.quotes && (
+                    <div className="px-6 pb-6 space-y-3">
+                      {/* Filter-Bereich */}
+                      <div className="flex flex-col gap-3 mb-4">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                          <input
+                            type="text"
+                            placeholder="Angebote durchsuchen..."
+                            value={quoteSearchTerm}
+                            onChange={(e) => setQuoteSearchTerm(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 bg-white/10 backdrop-blur-lg border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent text-sm"
+                          />
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <Filter className="text-gray-400" size={16} />
+                          <select
+                            value={quoteFilterStatus}
+                            onChange={(e) => setQuoteFilterStatus(e.target.value)}
+                            className="flex-1 py-2 px-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent appearance-none cursor-pointer text-sm"
+                          >
+                            <option value="all">Alle Status</option>
+                            <option value="draft">Entwurf</option>
+                            <option value="submitted">Eingereicht</option>
+                            <option value="under_review">In Prüfung</option>
+                            <option value="accepted">Angenommen</option>
+                            <option value="rejected">Abgelehnt</option>
+                            <option value="expired">Abgelaufen</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {getFilteredProjectQuotes().length === 0 ? (
+                        <div className="text-center py-12">
+                          <Receipt size={48} className="text-gray-400 mx-auto mb-4" />
+                          <h4 className="text-white text-lg font-medium mb-2">Noch keine Angebote vorhanden</h4>
+                          <p className="text-gray-400 mb-6">
+                            Dienstleister können hier direkt Angebote für Ihr Projekt erstellen und einreichen.
+                          </p>
+                          
+                          {/* Info-Box für zukünftige Backend-Integration */}
+                          <div className="max-w-md mx-auto p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                            <div className="flex items-start gap-3">
+                              <div className="p-2 bg-blue-500/20 rounded-lg">
+                                <svg className="w-5 h-5 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </div>
+                              <div className="text-sm text-blue-300">
+                                <p className="font-medium mb-1">Dienstleister-Integration geplant</p>
+                                <p className="text-xs">
+                                  In der nächsten Version können registrierte Dienstleister:
+                                </p>
+                                <ul className="text-xs mt-2 space-y-1">
+                                  <li>• Direkt Angebote für Ihr Projekt erstellen</li>
+                                  <li>• Detaillierte Kostenvoranschläge einreichen</li>
+                                  <li>• Zeitpläne und Bedingungen angeben</li>
+                                  <li>• Dokumente und Referenzen anhängen</li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {getFilteredProjectQuotes().map((quote) => (
+                            <div
+                              key={quote.id}
+                              className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all duration-300 cursor-pointer"
+                              onClick={() => navigate(`/quotes?project=${project.id}`)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-yellow-500/20 rounded-lg">
+                                    <Receipt size={20} className="text-yellow-300" />
+                                  </div>
+                                  <div>
+                                    <h4 className="text-white font-medium">{quote.title}</h4>
+                                    <p className="text-gray-400 text-sm">
+                                      {quote.service_provider_name || 'Dienstleister'} • {quote.total_amount?.toLocaleString('de-DE')} €
+                                    </p>
+                                    {quote.description && (
+                                      <p className="text-gray-500 text-sm mt-1 line-clamp-2">{quote.description}</p>
+                                    )}
+                                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                                      <span>Projekt-ID: {quote.project_id}</span>
+                                      <span>Erstellt: {formatDate(quote.created_at)}</span>
+                                      {quote.valid_until && (
+                                        <span>Gültig bis: {formatDate(quote.valid_until)}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getQuoteStatusColor(quote.status)}`}>
+                                    {getQuoteStatusLabel(quote.status)}
+                                  </span>
+                                  {quote.risk_score && (
+                                    <div className="text-right">
+                                      <div className="text-white text-sm font-medium">
+                                        Risiko: {quote.risk_score.toFixed(1)}%
+                                      </div>
+                                      <div className="w-16 bg-gray-700/50 rounded-full h-1">
+                                        <div 
+                                          className={`h-1 rounded-full transition-all duration-300 ${
+                                            quote.risk_score < 30 ? 'bg-green-500' :
+                                            quote.risk_score < 60 ? 'bg-yellow-500' : 'bg-red-500'
+                                          }`}
+                                          style={{ width: `${quote.risk_score}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Dokumente-Übersicht */}
+                <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+                  <button
+                    onClick={() => toggleSection('documents')}
+                    className="w-full p-6 text-left hover:bg-white/5 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <FileText size={20} className="text-[#ffbd59]" />
+                        Dokumente
+                      </h3>
+                      <div className={`transform transition-transform ${expandedSections.documents ? 'rotate-180' : ''}`}>
+                        <svg className="w-5 h-5 text-[#ffbd59]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {expandedSections.documents && (
+                    <div className="px-6 pb-6 space-y-3">
+                      {documents.length === 0 ? (
+                        <p className="text-gray-400 text-sm">Keine Dokumente vorhanden</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {documents.slice(0, 3).map((document) => (
+                            <div
+                              key={document.id}
+                              className="flex items-center gap-3 p-2 bg-white/10 rounded-lg cursor-pointer hover:bg-white/20 transition-colors"
+                              onClick={() => navigate(`/documents?project=${project.id}`)}
+                            >
+                              <div className="p-1 bg-blue-500/20 rounded">
+                                {getDocumentTypeIcon(document.document_type)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-white text-sm font-medium truncate">{document.title}</div>
+                                <div className="text-gray-400 text-xs">{formatFileSize(document.file_size)}</div>
+                              </div>
+                            </div>
+                          ))}
+                          {documents.length > 3 && (
+                            <button
+                              onClick={() => navigate(`/documents?project=${project.id}`)}
+                              className="w-full text-center text-[#ffbd59] text-sm hover:underline"
+                            >
+                              +{documents.length - 3} weitere Dokumente anzeigen
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Analytics */}
+                <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+                  <button
+                    onClick={() => toggleSection('analytics')}
+                    className="w-full p-6 text-left hover:bg-white/5 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <BarChart3 size={20} className="text-[#ffbd59]" />
+                        Analytics
+                      </h3>
+                      <div className={`transform transition-transform ${expandedSections.analytics ? 'rotate-180' : ''}`}>
+                        <svg className="w-5 h-5 text-[#ffbd59]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {expandedSections.analytics && (
+                    <div className="px-6 pb-6 space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-white/10 rounded-lg p-3">
+                          <div className="text-white font-medium text-sm">Projektfortschritt</div>
+                          <div className="text-[#ffbd59] text-lg font-bold">{project.progress_percentage}%</div>
+                        </div>
+                        <div className="bg-white/10 rounded-lg p-3">
+                          <div className="text-white font-medium text-sm">Aufgaben</div>
+                          <div className="text-blue-400 text-lg font-bold">{dashboard?.task_count || 0}</div>
+                        </div>
+                        <div className="bg-white/10 rounded-lg p-3">
+                          <div className="text-white font-medium text-sm">Dokumente</div>
+                          <div className="text-green-400 text-lg font-bold">{dashboard?.document_count || 0}</div>
+                        </div>
+                        <div className="bg-white/10 rounded-lg p-3">
+                          <div className="text-white font-medium text-sm">Angebote</div>
+                          <div className="text-yellow-400 text-lg font-bold">{dashboard?.quote_count || 0}</div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => navigate(`/projects/${project.id}/analytics`)}
+                        className="w-full text-center text-[#ffbd59] text-sm hover:underline"
+                      >
+                        Detaillierte Analytics anzeigen
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -657,7 +1397,7 @@ export default function ProjectDetail() {
                           )}
                           <div className="text-right">
                             <div className="text-white text-sm font-medium">{task.progress_percentage}%</div>
-                            <div className="w-16 bg-gray-700/50 rounded-full h-1">
+                            <div className="w-12 bg-gray-700/50 rounded-full h-1">
                               <div 
                                 className="bg-[#ffbd59] h-1 rounded-full transition-all duration-300"
                                 style={{ width: `${task.progress_percentage}%` }}
@@ -735,7 +1475,7 @@ export default function ProjectDetail() {
           {activeTab === 'quotes' && (
             <div>
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-white">Angebote ({dashboard?.quote_count || 0})</h3>
+                <h3 className="text-lg font-semibold text-white">Angebote für Projekt "{project.name}" ({getProjectQuotes().length})</h3>
                 <button
                   onClick={() => handleQuickAction('view_quotes')}
                   className="flex items-center gap-2 px-4 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition"
@@ -745,16 +1485,86 @@ export default function ProjectDetail() {
                 </button>
               </div>
               
+              {quotes.length === 0 ? (
               <div className="text-center py-12">
                 <Receipt size={48} className="text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-400">Angebote werden in der separaten Angebote-Sektion verwaltet.</p>
-                <button
-                  onClick={() => handleQuickAction('view_quotes')}
-                  className="mt-4 px-6 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition"
-                >
-                  Zur Angebote-Sektion
-                </button>
-              </div>
+                  <h4 className="text-white text-lg font-medium mb-2">Noch keine Angebote vorhanden</h4>
+                  <p className="text-gray-400 mb-6">
+                    Dienstleister können hier direkt Angebote für Ihr Projekt erstellen und einreichen.
+                  </p>
+                  
+                  {/* Info-Box für zukünftige Backend-Integration */}
+                  <div className="max-w-md mx-auto p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-blue-500/20 rounded-lg">
+                        <svg className="w-5 h-5 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="text-sm text-blue-300">
+                        <p className="font-medium mb-1">Dienstleister-Integration geplant</p>
+                        <p className="text-xs">
+                          In der nächsten Version können registrierte Dienstleister:
+                        </p>
+                        <ul className="text-xs mt-2 space-y-1">
+                          <li>• Direkt Angebote für Ihr Projekt erstellen</li>
+                          <li>• Detaillierte Kostenvoranschläge einreichen</li>
+                          <li>• Zeitpläne und Bedingungen angeben</li>
+                          <li>• Dokumente und Referenzen anhängen</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {getProjectQuotes().map((quote) => (
+                    <div
+                      key={quote.id}
+                      className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-all duration-300 cursor-pointer"
+                      onClick={() => navigate(`/quotes?project=${project.id}`)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-yellow-500/20 rounded-lg">
+                            <Receipt size={20} className="text-yellow-300" />
+                          </div>
+                          <div>
+                            <h4 className="text-white font-medium">{quote.title}</h4>
+                            <p className="text-gray-400 text-sm">
+                              {quote.service_provider_name || 'Dienstleister'} • {quote.total_amount?.toLocaleString('de-DE')} €
+                            </p>
+                            {quote.description && (
+                              <p className="text-gray-500 text-sm mt-1 line-clamp-2">{quote.description}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getQuoteStatusColor(quote.status)}`}>
+                            {getQuoteStatusLabel(quote.status)}
+                          </span>
+                          {quote.risk_score && (
+                            <div className="text-right">
+                              <div className="text-white text-sm font-medium">
+                                Risiko: {quote.risk_score.toFixed(1)}%
+                              </div>
+                              <div className="w-16 bg-gray-700/50 rounded-full h-1">
+                                <div 
+                                  className={`h-1 rounded-full transition-all duration-300 ${
+                                    quote.risk_score < 30 ? 'bg-green-500' :
+                                    quote.risk_score < 60 ? 'bg-yellow-500' : 'bg-red-500'
+                                  }`}
+                                  style={{ width: `${quote.risk_score}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -766,13 +1576,13 @@ export default function ProjectDetail() {
           <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-[#3d4952]">Projekt bearbeiten</h2>
-              <button
+                <button
                 onClick={() => setShowEditModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition"
-              >
+                >
                 <X size={20} />
-              </button>
-            </div>
+                </button>
+              </div>
             
             <form onSubmit={handleEditProject} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -787,7 +1597,7 @@ export default function ProjectDetail() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                     required
                   />
-                </div>
+            </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -805,7 +1615,7 @@ export default function ProjectDetail() {
                     <option value="extension">Anbau</option>
                     <option value="refurbishment">Sanierung</option>
                   </select>
-                </div>
+        </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -826,7 +1636,7 @@ export default function ProjectDetail() {
                     <option value="on_hold">Pausiert</option>
                     <option value="cancelled">Abgebrochen</option>
                   </select>
-                </div>
+      </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

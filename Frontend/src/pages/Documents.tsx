@@ -31,6 +31,7 @@ import {
 import { getDocuments, uploadDocument, updateDocument, deleteDocument } from '../api/documentService';
 import { useAuth } from '../context/AuthContext';
 import { getProjects } from '../api/projectService';
+import DocumentViewer from '../components/DocumentViewer';
 
 interface Document {
   id: number;
@@ -74,6 +75,10 @@ export default function Documents() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingDocument, setEditingDocument] = useState<Document | null>(null);
   const [deletingDocument, setDeletingDocument] = useState<number | null>(null);
+
+  // Document Viewer State
+  const [viewerDocument, setViewerDocument] = useState<Document | null>(null);
+  const [showViewer, setShowViewer] = useState(false);
 
   // Form state für neues/bearbeitetes Dokument
   const [formData, setFormData] = useState({
@@ -303,6 +308,17 @@ export default function Documents() {
       is_public: document.is_public
     });
     setShowEditModal(true);
+  };
+
+  // Document Viewer Functions
+  const openDocumentViewer = (document: Document) => {
+    setViewerDocument(document);
+    setShowViewer(true);
+  };
+
+  const closeDocumentViewer = () => {
+    setShowViewer(false);
+    setViewerDocument(null);
   };
 
   // Filtere und suche Dokumente
@@ -548,8 +564,15 @@ export default function Documents() {
                         </button>
                         <div className="absolute right-0 top-full mt-2 w-48 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10">
                           <button
-                            onClick={() => window.open(`/api/documents/${document.id}/download`, '_blank')}
+                            onClick={() => openDocumentViewer(document)}
                             className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/10 transition-colors rounded-t-xl"
+                          >
+                            <Eye size={16} />
+                            <span>Anzeigen</span>
+                          </button>
+                          <button
+                            onClick={() => window.open(`/api/v1/documents/${document.id}/download`, '_blank')}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/10 transition-colors"
                           >
                             <Download size={16} />
                             <span>Herunterladen</span>
@@ -921,6 +944,15 @@ export default function Documents() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Document Viewer */}
+      {showViewer && viewerDocument && (
+        <DocumentViewer 
+          document={viewerDocument} 
+          isOpen={showViewer}
+          onClose={closeDocumentViewer} 
+        />
       )}
     </div>
   );

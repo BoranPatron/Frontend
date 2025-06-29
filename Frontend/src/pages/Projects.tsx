@@ -90,12 +90,21 @@ export default function Projects() {
         return;
       }
 
+      // Bereite die Daten für die API vor
       const projectData = {
-        ...formData,
+        name: formData.name.trim(),
+        description: formData.description.trim() || null,
+        project_type: formData.project_type as 'new_build' | 'renovation' | 'extension' | 'refurbishment',
+        status: formData.status as 'planning' | 'preparation' | 'execution' | 'completion' | 'completed' | 'on_hold' | 'cancelled',
+        address: formData.address.trim() || null,
         property_size: formData.property_size ? parseFloat(formData.property_size) : null,
         construction_area: formData.construction_area ? parseFloat(formData.construction_area) : null,
+        start_date: formData.start_date && formData.start_date.trim() !== '' ? formData.start_date : null,
+        end_date: formData.end_date && formData.end_date.trim() !== '' ? formData.end_date : null,
         estimated_duration: formData.estimated_duration ? parseInt(formData.estimated_duration) : null,
-        budget: formData.budget ? parseFloat(formData.budget) : null
+        budget: formData.budget ? parseFloat(formData.budget) : null,
+        is_public: formData.is_public,
+        allow_quotes: formData.allow_quotes
       };
 
       console.log('🚀 Creating project with data:', projectData);
@@ -108,7 +117,23 @@ export default function Projects() {
       
     } catch (err: any) {
       console.error('❌ Error in handleCreateProject:', err);
-      const errorMessage = err.message || 'Unbekannter Fehler beim Erstellen des Projekts';
+      let errorMessage = 'Unbekannter Fehler beim Erstellen des Projekts';
+      
+      // Versuche detaillierte Fehlermeldung zu extrahieren
+      if (err.response?.data?.detail) {
+        if (Array.isArray(err.response.data.detail)) {
+          // Pydantic Validation Errors
+          const validationErrors = err.response.data.detail.map((error: any) => 
+            `${error.loc.join('.')}: ${error.msg}`
+          ).join(', ');
+          errorMessage = `Validierungsfehler: ${validationErrors}`;
+        } else {
+          errorMessage = err.response.data.detail;
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
       setError(errorMessage);
     }
   };
