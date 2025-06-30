@@ -541,14 +541,14 @@ export default function Tasks() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="pl-10 pr-8 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none cursor-pointer shadow-sm"
+                className="pl-10 pr-8 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent appearance-none cursor-pointer shadow-sm"
               >
-                <option value="all">Alle Status</option>
-                <option value="todo">Zu erledigen</option>
-                <option value="in_progress">In Bearbeitung</option>
-                <option value="review">In Prüfung</option>
-                <option value="completed">Abgeschlossen</option>
-                <option value="cancelled">Abgebrochen</option>
+                <option value="all" className="bg-[#3d4952] text-white">Alle Status</option>
+                <option value="todo" className="bg-[#3d4952] text-white">To Do</option>
+                <option value="in_progress" className="bg-[#3d4952] text-white">In Bearbeitung</option>
+                <option value="review" className="bg-[#3d4952] text-white">In Prüfung</option>
+                <option value="completed" className="bg-[#3d4952] text-white">Abgeschlossen</option>
+                <option value="cancelled" className="bg-[#3d4952] text-white">Abgebrochen</option>
               </select>
             </div>
           </div>
@@ -731,10 +731,10 @@ export default function Tasks() {
                     onChange={(e) => setFormData({...formData, status: e.target.value as any})}
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                   >
-                    <option value="todo">To Do</option>
-                    <option value="in_progress">In Bearbeitung</option>
-                    <option value="review">In Prüfung</option>
-                    <option value="completed">Abgeschlossen</option>
+                    <option value="todo" className="bg-[#3d4952] text-white">To Do</option>
+                    <option value="in_progress" className="bg-[#3d4952] text-white">In Bearbeitung</option>
+                    <option value="review" className="bg-[#3d4952] text-white">In Prüfung</option>
+                    <option value="completed" className="bg-[#3d4952] text-white">Abgeschlossen</option>
                   </select>
                 </div>
               </div>
@@ -759,10 +759,10 @@ export default function Tasks() {
                     onChange={(e) => setFormData({...formData, priority: e.target.value as any})}
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                   >
-                    <option value="low">Niedrig</option>
-                    <option value="medium">Mittel</option>
-                    <option value="high">Hoch</option>
-                    <option value="urgent">Dringend</option>
+                    <option value="low" className="bg-[#3d4952] text-white">Niedrig</option>
+                    <option value="medium" className="bg-[#3d4952] text-white">Mittel</option>
+                    <option value="high" className="bg-[#3d4952] text-white">Hoch</option>
+                    <option value="urgent" className="bg-[#3d4952] text-white">Dringend</option>
                   </select>
                 </div>
                 
@@ -774,9 +774,9 @@ export default function Tasks() {
                     onChange={(e) => setFormData({...formData, project_id: e.target.value})}
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                   >
-                    <option value="">Projekt auswählen...</option>
+                    <option value="" className="bg-[#3d4952] text-white">Projekt auswählen...</option>
                     {projects.map((project) => (
-                      <option key={project.id} value={project.id}>
+                      <option key={project.id} value={project.id} className="bg-[#3d4952] text-white">
                         {project.name}
                       </option>
                     ))}
@@ -875,10 +875,10 @@ export default function Tasks() {
                     onChange={(e) => setFormData({...formData, status: e.target.value as any})}
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                   >
-                    <option value="todo">To Do</option>
-                    <option value="in_progress">In Bearbeitung</option>
-                    <option value="review">In Prüfung</option>
-                    <option value="completed">Abgeschlossen</option>
+                    <option value="todo" className="bg-[#3d4952] text-white">To Do</option>
+                    <option value="in_progress" className="bg-[#3d4952] text-white">In Bearbeitung</option>
+                    <option value="review" className="bg-[#3d4952] text-white">In Prüfung</option>
+                    <option value="completed" className="bg-[#3d4952] text-white">Abgeschlossen</option>
                   </select>
                 </div>
               </div>
@@ -902,10 +902,10 @@ export default function Tasks() {
                     onChange={(e) => setFormData({...formData, priority: e.target.value as any})}
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                   >
-                    <option value="low">Niedrig</option>
-                    <option value="medium">Mittel</option>
-                    <option value="high">Hoch</option>
-                    <option value="urgent">Dringend</option>
+                    <option value="low" className="bg-[#3d4952] text-white">Niedrig</option>
+                    <option value="medium" className="bg-[#3d4952] text-white">Mittel</option>
+                    <option value="high" className="bg-[#3d4952] text-white">Hoch</option>
+                    <option value="urgent" className="bg-[#3d4952] text-white">Dringend</option>
                   </select>
                 </div>
                 
@@ -917,9 +917,9 @@ export default function Tasks() {
                     onChange={(e) => setFormData({...formData, project_id: e.target.value})}
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                   >
-                    <option value="">Projekt auswählen...</option>
+                    <option value="" className="bg-[#3d4952] text-white">Projekt auswählen...</option>
                     {projects.map((project) => (
-                      <option key={project.id} value={project.id}>
+                      <option key={project.id} value={project.id} className="bg-[#3d4952] text-white">
                         {project.name}
                       </option>
                     ))}

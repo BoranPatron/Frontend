@@ -618,11 +618,9 @@ export default function Roadmap() {
                 onChange={(e) => handleProjectChange(e.target.value)}
                 className="border border-white/30 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] bg-white/10 text-white placeholder-gray-300"
               >
-                <option value="all">Alle Projekte</option>
-                {projects.map(project => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
+                <option value="all" className="bg-[#3d4952] text-white">Alle Projekte</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id} className="bg-[#3d4952] text-white">{project.name}</option>
                 ))}
               </select>
             </div>
@@ -634,12 +632,12 @@ export default function Roadmap() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="border border-white/30 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] bg-white/10 text-white placeholder-gray-300"
               >
-                <option value="all">Alle Status</option>
-                <option value="planned">Geplant</option>
-                <option value="in_progress">In Bearbeitung</option>
-                <option value="completed">Abgeschlossen</option>
-                <option value="delayed">Verzögert</option>
-                <option value="cancelled">Storniert</option>
+                <option value="all" className="bg-[#3d4952] text-white">Alle Status</option>
+                <option value="planned" className="bg-[#3d4952] text-white">Geplant</option>
+                <option value="in_progress" className="bg-[#3d4952] text-white">In Bearbeitung</option>
+                <option value="completed" className="bg-[#3d4952] text-white">Abgeschlossen</option>
+                <option value="delayed" className="bg-[#3d4952] text-white">Verzögert</option>
+                <option value="cancelled" className="bg-[#3d4952] text-white">Storniert</option>
               </select>
             </div>
 
