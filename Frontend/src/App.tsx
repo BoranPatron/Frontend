@@ -14,6 +14,7 @@ import Quotes from './pages/Quotes';
 import Visualize from './pages/Visualize';
 import Messages from './pages/Messages';
 import GlobalMessages from './pages/GlobalMessages';
+import Roadmap from './pages/Roadmap';
 
 // Error Boundary
 class ErrorBoundary extends React.Component<
@@ -68,6 +69,11 @@ function AppContent() {
         <Route path="/" element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/roadmap" element={
+          <ProtectedRoute>
+            <Roadmap />
           </ProtectedRoute>
         } />
         <Route path="/project/:id" element={

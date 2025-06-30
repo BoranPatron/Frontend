@@ -104,13 +104,20 @@ interface Trade {
   status: string;
   priority: string;
   progress_percentage: number;
+  planned_date: string;  // Pflichtfeld vom Backend
   start_date?: string;
   end_date?: string;
+  actual_date?: string;
   category?: string;
+  budget?: number;
+  actual_costs?: number;
+  contractor?: string;
   is_critical: boolean;
   notify_on_completion: boolean;
+  notes?: string;
   created_at: string;
   updated_at: string;
+  completed_at?: string;
 }
 
 export default function Trades() {
@@ -256,6 +263,7 @@ export default function Trades() {
         start_date: tradeForm.start_date,
         end_date: tradeForm.end_date,
         budget: tradeForm.budget ? parseFloat(tradeForm.budget) : null,
+        actual_costs: 0.0,
         contractor: tradeForm.contractor.trim() || null,
         notes: tradeForm.notes.trim() || null,
         priority: tradeForm.priority,
@@ -263,28 +271,98 @@ export default function Trades() {
         notify_on_completion: true
       };
       
-      console.log('📝 Creating new trade with data:', tradeData);
-      await createMilestone(tradeData);
+      if (editingTrade) {
+        // Bearbeite existierendes Gewerk
+        console.log('📝 Updating trade with data:', tradeData);
+        await updateMilestone(editingTrade.id, tradeData);
+        setSuccess('Gewerk erfolgreich aktualisiert!');
+      } else {
+        // Erstelle neues Gewerk
+        console.log('📝 Creating new trade with data:', tradeData);
+        await createMilestone(tradeData);
+        setSuccess('Gewerk erfolgreich erstellt!');
+      }
       
-      setSuccess('Gewerk erfolgreich erstellt!');
       setShowTradeModal(false);
+      setEditingTrade(null);
       resetTradeForm();
       
       // Lade Gewerke neu
-      console.log('🔄 Reloading trades after creating new trade...');
+      console.log('🔄 Reloading trades after operation...');
       
       // Warte kurz, damit das Backend die Daten verarbeitet hat
       await new Promise(resolve => setTimeout(resolve, 500));
       const milestonesData = await getAllMilestones();
-      console.log('✅ Trades reloaded successfully after creation:', milestonesData);
+      console.log('✅ Trades reloaded successfully after operation:', milestonesData);
       setTrades(milestonesData);
       
     } catch (error: any) {
-      console.error('Fehler beim Erstellen des Gewerks:', error);
-      setError(error.message || 'Fehler beim Erstellen des Gewerks');
+      console.error('Fehler beim Speichern des Gewerks:', error);
+      setError(error.message || 'Fehler beim Speichern des Gewerks');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Schnelle Status-Änderung
+  const handleQuickStatusChange = async (tradeId: number, newStatus: string) => {
+    try {
+      const trade = trades.find(t => t.id === tradeId);
+      if (!trade) return;
+
+      await updateMilestone(tradeId, { status: newStatus });
+      
+      // Update local state
+      setTrades(prev => prev.map(t => 
+        t.id === tradeId ? { ...t, status: newStatus } : t
+      ));
+      
+      setSuccess(`Status von "${trade.title}" erfolgreich geändert!`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error: any) {
+      console.error('Fehler beim Ändern des Status:', error);
+      setError('Fehler beim Ändern des Status');
+    }
+  };
+
+  // Schnelle Prioritäts-Änderung
+  const handleQuickPriorityChange = async (tradeId: number, newPriority: string) => {
+    try {
+      const trade = trades.find(t => t.id === tradeId);
+      if (!trade) return;
+
+      await updateMilestone(tradeId, { priority: newPriority });
+      
+      // Update local state
+      setTrades(prev => prev.map(t => 
+        t.id === tradeId ? { ...t, priority: newPriority } : t
+      ));
+      
+      setSuccess(`Priorität von "${trade.title}" erfolgreich geändert!`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error: any) {
+      console.error('Fehler beim Ändern der Priorität:', error);
+      setError('Fehler beim Ändern der Priorität');
+    }
+  };
+
+  // Öffne Bearbeitungsmodal
+  const openEditModal = (trade: Trade) => {
+    setEditingTrade(trade);
+    setTradeForm({
+      title: trade.title,
+      description: trade.description || '',
+      category: trade.category || 'eigene',
+      customCategory: trade.category || '',
+      start_date: trade.start_date || trade.planned_date || '',
+      end_date: trade.end_date || '',
+      budget: trade.budget?.toString() || '',
+      contractor: trade.contractor || '',
+      notes: trade.notes || '',
+      priority: trade.priority as 'low' | 'medium' | 'high' | 'critical',
+      is_critical: trade.is_critical
+    });
+    setShowTradeModal(true);
   };
 
   const resetTradeForm = () => {
@@ -301,6 +379,7 @@ export default function Trades() {
       priority: 'medium',
       is_critical: false
     });
+    setEditingTrade(null);
   };
 
   // Filtere Gewerke basierend auf Suche und Status
@@ -507,7 +586,7 @@ export default function Trades() {
                     </button>
                     <div className="absolute right-0 top-full mt-2 w-48 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10">
                       <button
-                        onClick={() => setShowTradeModal(true)}
+                        onClick={() => openEditModal(trade)}
                         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/10 transition-colors rounded-t-xl"
                       >
                         <Edit size={16} />
@@ -537,15 +616,37 @@ export default function Trades() {
                   <div className="flex items-center gap-4 text-sm">
                     <div className="flex items-center gap-1">
                       <Calendar size={14} className="text-gray-400" />
-                      <span className="text-gray-400">Dauer:</span>
-                      <span className="text-white ml-1">{trade.start_date && trade.end_date ? Math.round((new Date(trade.end_date).getTime() - new Date(trade.start_date).getTime()) / (1000 * 60 * 60 * 24)) : '—'} Tage</span>
+                      <span className="text-gray-400">Geplant:</span>
+                      <span className="text-white ml-1">{trade.planned_date ? new Date(trade.planned_date).toLocaleDateString('de-DE') : '—'}</span>
                     </div>
                     
-                    <div className="flex items-center gap-1">
-                      <TrendingUp size={14} className="text-gray-400" />
-                      <span className="text-gray-400">Fortschritt:</span>
-                      <span className="text-white ml-1">{trade.progress_percentage || 0}%</span>
+                    {trade.start_date && trade.end_date && (
+                      <div className="flex items-center gap-1">
+                        <Calendar size={14} className="text-gray-400" />
+                        <span className="text-gray-400">Dauer:</span>
+                        <span className="text-white ml-1">{Math.round((new Date(trade.end_date).getTime() - new Date(trade.start_date).getTime()) / (1000 * 60 * 60 * 24))} Tage</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {trade.budget && (
+                    <div className="flex items-center gap-1 text-sm">
+                      <span className="text-gray-400">Budget:</span>
+                      <span className="text-white">{trade.budget.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</span>
                     </div>
+                  )}
+                  
+                  {trade.contractor && (
+                    <div className="flex items-center gap-1 text-sm">
+                      <span className="text-gray-400">Auftragnehmer:</span>
+                      <span className="text-white">{trade.contractor}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center gap-1 text-sm">
+                    <TrendingUp size={14} className="text-gray-400" />
+                    <span className="text-gray-400">Fortschritt:</span>
+                    <span className="text-white ml-1">{trade.progress_percentage || 0}%</span>
                   </div>
                   
                   {trade.is_critical && (
@@ -559,13 +660,39 @@ export default function Trades() {
                 {/* Status and AI Analysis */}
                 <div className="space-y-3">
                   <div className="flex flex-wrap gap-2">
-                    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium backdrop-blur-md border ${getStatusColor(trade.status)}`}>
-                      {getStatusLabel(trade.status)}
+                    {/* Klickbarer Status */}
+                    <div className="relative group">
+                      <button
+                        onClick={() => {
+                          const statuses = ['planned', 'in_progress', 'completed', 'delayed', 'cancelled'];
+                          const currentIndex = statuses.indexOf(trade.status);
+                          const nextStatus = statuses[(currentIndex + 1) % statuses.length];
+                          handleQuickStatusChange(trade.id, nextStatus);
+                        }}
+                        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium backdrop-blur-md border ${getStatusColor(trade.status)} hover:scale-105 transition-all duration-200 cursor-pointer group`}
+                        title="Klicken zum Ändern des Status"
+                      >
+                        {getStatusLabel(trade.status)}
+                        <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px]">↻</span>
+                      </button>
                     </div>
                     
+                    {/* Klickbare Priorität */}
                     {trade.priority && (
-                      <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-white/10 border border-white/20 ${getPriorityColor(trade.priority)}`}>
-                        <span>{getPriorityLabel(trade.priority)}</span>
+                      <div className="relative group">
+                        <button
+                          onClick={() => {
+                            const priorities = ['low', 'medium', 'high', 'critical'];
+                            const currentIndex = priorities.indexOf(trade.priority);
+                            const nextPriority = priorities[(currentIndex + 1) % priorities.length];
+                            handleQuickPriorityChange(trade.id, nextPriority);
+                          }}
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-white/10 border border-white/20 ${getPriorityColor(trade.priority)} hover:scale-105 transition-all duration-200 cursor-pointer group`}
+                          title="Klicken zum Ändern der Priorität"
+                        >
+                          <span>{getPriorityLabel(trade.priority)}</span>
+                          <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px]">↻</span>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -611,19 +738,7 @@ export default function Trades() {
               <button
                 onClick={() => {
                   setShowTradeModal(false);
-                  setTradeForm({ 
-                    title: '', 
-                    description: '', 
-                    category: 'eigene',
-                    customCategory: '',
-                    start_date: '', 
-                    end_date: '', 
-                    budget: '',
-                    contractor: '',
-                    notes: '',
-                    priority: 'medium',
-                    is_critical: false
-                  });
+                  resetTradeForm();
                 }}
                 className="p-2 hover:bg-white/10 rounded-lg transition-colors"
               >
@@ -813,19 +928,7 @@ export default function Trades() {
                   type="button"
                   onClick={() => {
                     setShowTradeModal(false);
-                    setTradeForm({ 
-                      title: '', 
-                      description: '', 
-                      category: 'eigene',
-                      customCategory: '',
-                      start_date: '', 
-                      end_date: '', 
-                      budget: '',
-                      contractor: '',
-                      notes: '',
-                      priority: 'medium',
-                      is_critical: false
-                    });
+                    resetTradeForm();
                   }}
                   className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
                 >

@@ -76,6 +76,7 @@ export default function Tasks() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
@@ -347,10 +348,10 @@ export default function Tasks() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Lade Aufgaben...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ffbd59] mx-auto mb-4"></div>
+          <p className="text-white">Lade Aufgaben...</p>
         </div>
       </div>
     );
@@ -358,7 +359,7 @@ export default function Tasks() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539] flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-8">
           <div className="bg-red-50 border border-red-200 rounded-2xl p-6 mb-6">
             <h2 className="text-xl font-bold text-red-800 mb-4">Fehler beim Laden</h2>
@@ -382,7 +383,7 @@ export default function Tasks() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539]">
       <ProjectBreadcrumb />
       
       <div className="container mx-auto px-4 py-8">
@@ -447,54 +448,78 @@ export default function Tasks() {
         <div className="max-w-7xl mx-auto">
           {/* Statistics */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-blue-100 rounded-xl">
-                  <ClipboardList size={24} className="text-blue-600" />
+            <div className="group relative bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20 hover:border-[#ffbd59]/30 transition-all duration-500 transform hover:-translate-y-1 hover:scale-105">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59]/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-2xl blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
+                    <div className="relative w-12 h-12 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-2xl flex items-center justify-center shadow-xl group-hover:shadow-2xl transition-all duration-500 transform group-hover:scale-110">
+                      <ClipboardList size={24} className="text-white drop-shadow-lg" />
+                    </div>
+                  </div>
+                  <span className="text-sm text-gray-400">Gesamt</span>
                 </div>
-                <span className="text-sm text-gray-500">Gesamt</span>
+                <h3 className="text-3xl font-bold text-white mb-1 group-hover:text-[#ffbd59] transition-all duration-300">{tasks.length}</h3>
+                <p className="text-sm text-gray-300">Aufgaben</p>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-1">{tasks.length}</h3>
-              <p className="text-sm text-gray-500">Aufgaben</p>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-green-100 rounded-xl">
-                  <CheckCircle size={24} className="text-green-600" />
+            <div className="group relative bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20 hover:border-[#ffbd59]/30 transition-all duration-500 transform hover:-translate-y-1 hover:scale-105">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59]/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-2xl blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
+                    <div className="relative w-12 h-12 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-2xl flex items-center justify-center shadow-xl group-hover:shadow-2xl transition-all duration-500 transform group-hover:scale-110">
+                      <CheckCircle size={24} className="text-white drop-shadow-lg" />
+                    </div>
+                  </div>
+                  <span className="text-sm text-gray-400">Erledigt</span>
                 </div>
-                <span className="text-sm text-gray-500">Erledigt</span>
+                <h3 className="text-3xl font-bold text-white mb-1 group-hover:text-[#ffbd59] transition-all duration-300">
+                  {tasks.filter(t => t.status === 'completed').length}
+                </h3>
+                <p className="text-sm text-gray-300">Abgeschlossen</p>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-1">
-                {tasks.filter(t => t.status === 'completed').length}
-              </h3>
-              <p className="text-sm text-gray-500">Abgeschlossen</p>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-yellow-100 rounded-xl">
-                  <Clock size={24} className="text-yellow-600" />
+            <div className="group relative bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20 hover:border-[#ffbd59]/30 transition-all duration-500 transform hover:-translate-y-1 hover:scale-105">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59]/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-2xl blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
+                    <div className="relative w-12 h-12 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-2xl flex items-center justify-center shadow-xl group-hover:shadow-2xl transition-all duration-500 transform group-hover:scale-110">
+                      <Clock size={24} className="text-white drop-shadow-lg" />
+                    </div>
+                  </div>
+                  <span className="text-sm text-gray-400">In Bearbeitung</span>
                 </div>
-                <span className="text-sm text-gray-500">In Bearbeitung</span>
+                <h3 className="text-3xl font-bold text-white mb-1 group-hover:text-[#ffbd59] transition-all duration-300">
+                  {tasks.filter(t => t.status === 'in_progress').length}
+                </h3>
+                <p className="text-sm text-gray-300">Aktiv</p>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-1">
-                {tasks.filter(t => t.status === 'in_progress').length}
-              </h3>
-              <p className="text-sm text-gray-500">Aktiv</p>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-red-100 rounded-xl">
-                  <AlertTriangle size={24} className="text-red-600" />
+            <div className="group relative bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20 hover:border-[#ffbd59]/30 transition-all duration-500 transform hover:-translate-y-1 hover:scale-105">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59]/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-2xl blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
+                    <div className="relative w-12 h-12 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-2xl flex items-center justify-center shadow-xl group-hover:shadow-2xl transition-all duration-500 transform group-hover:scale-110">
+                      <AlertTriangle size={24} className="text-white drop-shadow-lg" />
+                    </div>
+                  </div>
+                  <span className="text-sm text-gray-400">Überfällig</span>
                 </div>
-                <span className="text-sm text-gray-500">Überfällig</span>
+                <h3 className="text-3xl font-bold text-white mb-1 group-hover:text-[#ffbd59] transition-all duration-300">
+                  {tasks.filter(t => t.due_date && new Date(t.due_date) < new Date()).length}
+                </h3>
+                <p className="text-sm text-gray-300">Fällig</p>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-1">
-                {tasks.filter(t => t.due_date && new Date(t.due_date) < new Date()).length}
-              </h3>
-              <p className="text-sm text-gray-500">Fällig</p>
             </div>
           </div>
 
@@ -531,36 +556,44 @@ export default function Tasks() {
           {/* Tasks Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredTasks.map((task) => (
-              <div key={task.id} className="group bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+              <div key={task.id} className="group relative bg-white/10 backdrop-blur-lg rounded-3xl p-6 cursor-pointer transition-all duration-500 hover:bg-white/15 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:ring-opacity-50 border border-white/20 hover:border-[#ffbd59]/30 transform hover:-translate-y-2 hover:scale-105">
+                {/* Animated Background Glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59]/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gray-100 rounded-xl">
-                      {getStatusIcon(task.status)}
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-2xl blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
+                      <div className="relative w-16 h-16 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-2xl flex items-center justify-center shadow-xl group-hover:shadow-2xl transition-all duration-500 transform group-hover:scale-110 group-hover:rotate-3">
+                        <div className="text-white drop-shadow-lg">
+                          {getStatusIcon(task.status)}
+                        </div>
+                      </div>
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-900 text-lg group-hover:text-blue-600 transition-colors">
+                      <h3 className="font-bold text-white text-lg group-hover:text-[#ffbd59] transition-all duration-300">
                         {task.title}
                       </h3>
-                      <p className="text-sm text-gray-500">{task.description}</p>
+                      <p className="text-sm text-gray-300 group-hover:text-gray-200 transition-colors">{task.description}</p>
                     </div>
                   </div>
                   
                   {/* Actions Menu */}
                   <div className="relative">
-                    <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                      <MoreHorizontal size={16} className="text-gray-400" />
+                    <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                      <MoreHorizontal size={16} className="text-gray-300" />
                     </button>
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10">
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-[#3d4952] rounded-xl shadow-lg border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10">
                       <button
                         onClick={() => openEditModal(task)}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors rounded-t-xl"
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/10 transition-colors rounded-t-xl text-white"
                       >
                         <Edit size={16} />
                         <span>Bearbeiten</span>
                       </button>
                       <button
                         onClick={() => handleDeleteTask(task.id)}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-red-50 text-red-600 transition-colors rounded-b-xl"
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-red-500/20 text-red-300 transition-colors rounded-b-xl"
                       >
                         <Trash2 size={16} />
                         <span>Löschen</span>
@@ -572,9 +605,9 @@ export default function Tasks() {
                 {/* Task Details */}
                 <div className="space-y-3 mb-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Status</span>
+                    <span className="text-sm text-gray-400">Status</span>
                     <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white shadow-lg">
                         {getStatusLabel(task.status)}
                       </span>
                     </div>
@@ -582,34 +615,56 @@ export default function Tasks() {
                   
                   <div className="flex items-center gap-4 text-sm">
                     <div className="flex items-center gap-1">
-                      <Calendar size={14} className="text-gray-400" />
-                      <span className="text-gray-500">Fällig:</span>
-                      <span className="text-gray-900 ml-1">
+                      <Calendar size={14} className="text-[#ffbd59]" />
+                      <span className="text-gray-400">Fällig:</span>
+                      <span className="text-white ml-1">
                         {task.due_date ? new Date(task.due_date).toLocaleDateString('de-DE') : 'Kein Datum'}
                       </span>
                     </div>
                     
                     <div className="flex items-center gap-1">
-                      <TrendingUp size={14} className="text-gray-400" />
-                      <span className="text-gray-500">Fortschritt:</span>
-                      <span className="text-gray-900 ml-1">{task.progress_percentage}%</span>
+                      <TrendingUp size={14} className="text-[#ffbd59]" />
+                      <span className="text-gray-400">Fortschritt:</span>
+                      <span className="text-[#ffbd59] font-bold ml-1">{task.progress_percentage}%</span>
                     </div>
                   </div>
                   
                   {task.is_milestone && (
-                    <div className="flex items-center gap-2 p-2 bg-purple-50 border border-purple-200 rounded-lg">
-                      <Target size={14} className="text-purple-500" />
-                      <span className="text-sm text-purple-700 font-medium">Meilenstein</span>
+                    <div className="flex items-center gap-2 p-2 bg-[#ffbd59]/20 border border-[#ffbd59]/30 rounded-lg">
+                      <Target size={14} className="text-[#ffbd59]" />
+                      <span className="text-sm text-[#ffbd59] font-medium">Meilenstein</span>
                     </div>
                   )}
                 </div>
 
+                {/* Progress Bar */}
+                <div className="space-y-3 mb-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-400">Fortschritt</span>
+                    <span className="text-[#ffbd59] font-bold">{task.progress_percentage}%</span>
+                  </div>
+                  <div className="relative w-full bg-gray-700/50 rounded-full h-3 backdrop-blur-sm border border-gray-600/30 overflow-hidden">
+                    <div 
+                      className="absolute inset-0 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-3 rounded-full transition-all duration-1000 ease-out shadow-lg"
+                      style={{ width: `${task.progress_percentage}%` }}
+                      role="progressbar"
+                      aria-valuenow={task.progress_percentage}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent h-3 rounded-full animate-pulse"></div>
+                  </div>
+                </div>
+
                 {/* Priority */}
                 <div className="flex flex-wrap gap-2">
-                  <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
+                  <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white shadow-lg transform group-hover:scale-110 transition-transform duration-300">
                     <span>{getPriorityLabel(task.priority)}</span>
                   </div>
                 </div>
+                
+                {/* Hover Effect Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59]/0 to-[#ffbd59]/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
               </div>
             ))}
           </div>
