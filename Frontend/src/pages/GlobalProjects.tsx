@@ -34,6 +34,7 @@ import { getTasks } from '../api/taskService';
 import { getDocuments } from '../api/documentService';
 import { getQuotes } from '../api/quoteService';
 import { getMilestones } from '../api/milestoneService';
+import { PHASES, ProjectPhase } from '../constants/phases';
 import {
   PieChart as RePieChart,
   Pie,
@@ -49,6 +50,7 @@ interface Project {
   description: string;
   project_type: string;
   status: string;
+  phase: string;
   progress_percentage: number;
   budget?: number;
   current_costs: number;
@@ -296,6 +298,18 @@ export default function GlobalProjects() {
       case 'cancelled': return 'bg-red-500';
       default: return 'bg-gray-500';
     }
+  };
+
+  const getPhaseLabel = (phase: string) => {
+    return PHASES[phase as ProjectPhase]?.label || phase;
+  };
+
+  const getPhaseColor = (phase: string) => {
+    return PHASES[phase as ProjectPhase]?.color || 'bg-gray-500';
+  };
+
+  const getPhaseIcon = (phase: string) => {
+    return PHASES[phase as ProjectPhase]?.icon || '📋';
   };
 
   const formatCurrency = (amount: number) => {
@@ -656,8 +670,14 @@ export default function GlobalProjects() {
                       <h3 className="text-xl font-bold text-white mb-2">{project.name}</h3>
                       <p className="text-gray-300 text-sm mb-3">{project.description}</p>
                     </div>
-                    <div className={`px-3 py-1 rounded-full text-xs font-medium text-white ${getStatusColor(project.status)}`}>
-                      {getStatusLabel(project.status)}
+                    <div className="flex flex-col gap-2">
+                      <div className={`px-3 py-1 rounded-full text-xs font-medium text-white ${getStatusColor(project.status)}`}>
+                        {getStatusLabel(project.status)}
+                      </div>
+                      <div className={`px-3 py-1 rounded-full text-xs font-medium text-white ${getPhaseColor(project.phase)} flex items-center gap-1`}>
+                        <span>{getPhaseIcon(project.phase)}</span>
+                        <span>{getPhaseLabel(project.phase)}</span>
+                      </div>
                     </div>
                   </div>
 

@@ -28,6 +28,7 @@ import { getQuotes } from '../api/quoteService';
 import { useAuth } from '../context/AuthContext';
 import dayjs from 'dayjs';
 import ProjectBreadcrumb from '../components/ProjectBreadcrumb';
+import { PHASES, ProjectPhase } from '../constants/phases';
 
 interface Project {
   id: number;
@@ -35,6 +36,7 @@ interface Project {
   description: string;
   project_type: string;
   status: string;
+  phase: string;
   progress_percentage: number;
   budget?: number;
   current_costs: number;
@@ -125,6 +127,7 @@ export default function Roadmap() {
   // Gantt-Diagramm Einstellungen
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [phaseFilter, setPhaseFilter] = useState<string>('all');
   const [zoomLevel, setZoomLevel] = useState<number>(1); // 1 = Monat, 2 = Woche, 3 = Tag
   const [ganttItems, setGanttItems] = useState<GanttItem[]>([]);
   const [timeRange, setTimeRange] = useState<{ start: Date; end: Date }>({
@@ -160,7 +163,7 @@ export default function Roadmap() {
 
   useEffect(() => {
     createGanttItems();
-  }, [milestones, tasks, projects, selectedProjectId, timeRange]);
+  }, [milestones, tasks, projects, selectedProjectId, statusFilter, phaseFilter, timeRange]);
 
   const loadAllData = async () => {
     try {
@@ -460,6 +463,13 @@ export default function Roadmap() {
   const getFilteredItems = () => {
     return ganttItems.filter(item => {
       if (statusFilter !== 'all' && item.status !== statusFilter) return false;
+      
+      // Phasenfilterung für Projekte
+      if (phaseFilter !== 'all' && item.type === 'project') {
+        const project = projects.find(p => p.id === item.id);
+        if (project && project.phase !== phaseFilter) return false;
+      }
+      
       return true;
     });
   };
@@ -638,6 +648,22 @@ export default function Roadmap() {
                 <option value="completed" className="bg-[#3d4952] text-white">Abgeschlossen</option>
                 <option value="delayed" className="bg-[#3d4952] text-white">Verzögert</option>
                 <option value="cancelled" className="bg-[#3d4952] text-white">Storniert</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-1">Phase</label>
+              <select
+                value={phaseFilter}
+                onChange={(e) => setPhaseFilter(e.target.value)}
+                className="border border-white/30 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] bg-white/10 text-white placeholder-gray-300"
+              >
+                <option value="all" className="bg-[#3d4952] text-white">Alle Phasen</option>
+                {Object.values(PHASES).map((phase) => (
+                  <option key={phase.id} value={phase.id} className="bg-[#3d4952] text-white">
+                    {phase.icon} {phase.label}
+                  </option>
+                ))}
               </select>
             </div>
 

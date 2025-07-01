@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Dynamische API-URL basierend auf der aktuellen Host-URL
-const getApiBaseUrl = () => {
+export const getApiBaseUrl = () => {
   const hostname = window.location.hostname;
   // Wenn localhost, verwende localhost für Backend
   // Ansonsten verwende die gleiche IP-Adresse wie das Frontend
@@ -18,9 +18,15 @@ const api = axios.create({
   timeout: 10000, // 10 Sekunden Timeout
 });
 
-// Request Interceptor für Logging
+// Request Interceptor für Logging und Authentication
 api.interceptors.request.use(
   (config) => {
+    // Token aus localStorage hinzufügen
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
     console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data);
     return config;
   },

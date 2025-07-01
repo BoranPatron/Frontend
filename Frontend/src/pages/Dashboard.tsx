@@ -34,6 +34,7 @@ import {
   MapPin
 } from 'lucide-react';
 import logo from '../logo_bw.png';
+import { PHASES, ProjectPhase } from '../constants/phases';
 
 // Interface für echte Projekte aus der API
 interface Project {
@@ -42,6 +43,7 @@ interface Project {
   description: string;
   project_type: string;
   status: string;
+  phase: string;
   progress_percentage: number;
   budget?: number;
   current_costs: number;
@@ -96,6 +98,7 @@ export default function Dashboard() {
     description: "Erstellen Sie Ihr erstes Projekt im Manager",
     project_type: "new_build",
     status: "planning",
+    phase: "preparation",
     progress_percentage: 0,
     current_costs: 0,
     is_public: false,
@@ -218,6 +221,18 @@ export default function Dashboard() {
       case 'cancelled': return 'text-red-400';
       default: return 'text-gray-400';
     }
+  };
+
+  const getPhaseLabel = (phase: string) => {
+    return PHASES[phase as ProjectPhase]?.label || phase;
+  };
+
+  const getPhaseColor = (phase: string) => {
+    return PHASES[phase as ProjectPhase]?.color || 'bg-gray-500';
+  };
+
+  const getPhaseIcon = (phase: string) => {
+    return PHASES[phase as ProjectPhase]?.icon || '📋';
   };
 
   // Mock-Daten für Dashboard-Kacheln (können später durch echte API-Daten ersetzt werden)
@@ -479,7 +494,10 @@ export default function Dashboard() {
               </div>
               <div className="flex items-center gap-2">
                 <Award size={16} className="text-[#ffbd59]" />
-                <span>Phase: <span className={`font-semibold ${getStatusColor(currentProject.status)}`}>{getStatusLabel(currentProject.status)}</span></span>
+                <span>Phase: <span className="font-semibold text-white">{getPhaseLabel(currentProject.phase)}</span></span>
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getPhaseColor(currentProject.phase)} text-white`}>
+                  {getPhaseIcon(currentProject.phase)}
+                </span>
               </div>
               {currentProject.address && (
                 <div className="flex items-center gap-2">
