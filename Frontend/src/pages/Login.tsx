@@ -123,6 +123,15 @@ export default function Login() {
             )}
           </button>
 
+          {/* Registrieren-Button */}
+          <button
+            type="button"
+            onClick={() => navigate('/register')}
+            className="w-full flex justify-center py-3 px-4 mt-4 border-2 border-[#ffbd59] rounded-xl shadow-sm text-sm font-medium text-[#ffbd59] bg-transparent hover:bg-[#ffbd59] hover:text-[#2c3e50] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#ffbd59] transition-all duration-300 transform hover:scale-105"
+          >
+            Noch kein Konto? Jetzt registrieren
+          </button>
+
           {/* Demo-Zugangsdaten */}
           <div className="mt-6 p-4 bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl">
             <h3 className="text-sm font-medium text-gray-300 mb-2">Demo-Zugangsdaten:</h3>

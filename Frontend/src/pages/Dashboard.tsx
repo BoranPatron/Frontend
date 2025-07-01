@@ -33,7 +33,7 @@ import {
   Building,
   MapPin
 } from 'lucide-react';
-import logo from '../logo_bw.png';
+import logo from '../logo_trans_big.png';
 
 // Interface für echte Projekte aus der API
 interface Project {

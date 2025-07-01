@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import ProjectDetail from './pages/ProjectDetail';
 import ProjectMessages from './pages/ProjectMessages';
 import ProjectAnalytics from './pages/ProjectAnalytics';
@@ -67,6 +68,7 @@ function AppContent() {
       <Navbar />
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/" element={
           <ProtectedRoute>
             <Dashboard />
