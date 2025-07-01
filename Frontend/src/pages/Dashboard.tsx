@@ -33,6 +33,7 @@ import {
   Building,
   MapPin
 } from 'lucide-react';
+import logo from '../logo_bw.png';
 
 // Interface für echte Projekte aus der API
 interface Project {
@@ -375,8 +376,8 @@ export default function Dashboard() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <div className="flex items-center gap-4">
             <div className="relative">
-              <div className="w-14 h-14 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-110 transition-transform duration-300">
-                <Home size={28} className="text-[#3d4952] drop-shadow-sm" />
+              <div className="w-20 h-20 flex items-center justify-center">
+                <img src={logo} alt="BuildWise Logo" className="w-20 h-20 object-contain rounded-2xl shadow-lg bg-white/10 p-1" />
               </div>
               <div className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-green-400 to-green-500 rounded-full border-2 border-white animate-pulse"></div>
             </div>

@@ -62,7 +62,6 @@ export default function Navbar() {
           <div className="flex items-center gap-8">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-3 group">
-              <img src={logo} alt="BuildWise Logo" className="w-12 h-12 object-contain rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 bg-white/10 p-1" />
               <span className="font-bold text-xl tracking-wide text-[#ffbd59] group-hover:text-[#ffa726] transition-colors">
                 BuildWise
               </span>
