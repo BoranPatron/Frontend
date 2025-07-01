@@ -81,6 +81,15 @@ export default function Documents() {
   const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  // Filtered documents
+  const filteredDocuments = documents.filter(document => {
+    const matchesSearch = document.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         document.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         document.tags.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === 'all' || document.document_type === filterType;
+    return matchesSearch && matchesType;
+  });
+
   // Form state
   const [formData, setFormData] = useState({
     title: '',
@@ -124,12 +133,15 @@ export default function Documents() {
   };
 
   const loadProjects = async () => {
+    setProjectsLoading(true);
     try {
       const data = await getProjects();
       setProjects(data);
     } catch (err: any) {
       console.error('Error loading projects:', err);
       setProjects([]);
+    } finally {
+      setProjectsLoading(false);
     }
   };
 
@@ -242,13 +254,6 @@ export default function Documents() {
     setViewingDocument(null);
   };
 
-  const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doc.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === 'all' || doc.document_type === filterType;
-    return matchesSearch && matchesType;
-  });
-
   const getDocumentTypeIcon = (type: string) => {
     switch (type) {
       case 'plan': return <FileText size={20} className="text-blue-600" />;
@@ -275,13 +280,13 @@ export default function Documents() {
 
   const getDocumentTypeColor = (type: string) => {
     switch (type) {
-      case 'plan': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'permit': return 'bg-green-100 text-green-800 border-green-200';
-      case 'quote': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'invoice': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'contract': return 'bg-red-100 text-red-800 border-red-200';
-      case 'photo': return 'bg-pink-100 text-pink-800 border-pink-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'plan': return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+      case 'permit': return 'bg-green-500/20 text-green-300 border-green-500/30';
+      case 'quote': return 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+      case 'invoice': return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
+      case 'contract': return 'bg-red-500/20 text-red-300 border-red-500/30';
+      case 'photo': return 'bg-pink-500/20 text-pink-300 border-pink-500/30';
+      default: return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
     }
   };
 
@@ -295,11 +300,10 @@ export default function Documents() {
 
   if (projectsLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ffbd59] mx-auto mb-4"></div>
+          <p className="text-white text-lg">Lade Projekte...</p>
         </div>
       </div>
     );
@@ -307,20 +311,18 @@ export default function Documents() {
 
   if (projects.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center">
-            <FolderOpen size={48} className="text-blue-600 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Keine Projekte gefunden</h2>
-            <p className="text-gray-600 mb-6">Sie müssen zuerst ein Projekt erstellen, um Dokumente hochladen zu können.</p>
-            <button
-              onClick={() => navigate('/projects')}
-              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
-            >
-              <Plus size={20} />
-              Projekt erstellen
-            </button>
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539] flex items-center justify-center">
+        <div className="text-center">
+          <FolderOpen size={48} className="text-[#ffbd59] mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-2">Keine Projekte gefunden</h2>
+          <p className="text-gray-300 mb-6">Sie müssen zuerst ein Projekt erstellen, um Dokumente hochladen zu können.</p>
+          <button
+            onClick={() => navigate('/projects')}
+            className="flex items-center gap-2 px-6 py-3 bg-[#ffbd59] text-[#3d4952] font-medium rounded-xl hover:bg-[#ffa726] transition-colors shadow-lg hover:shadow-xl"
+          >
+            <Plus size={20} />
+            Projekt erstellen
+          </button>
         </div>
       </div>
     );
@@ -328,72 +330,79 @@ export default function Documents() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ffbd59] mx-auto mb-4"></div>
+          <p className="text-white text-lg">Lade Dokumente...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <ProjectBreadcrumb />
-          <div className="flex items-center justify-between mt-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Dokumente</h1>
-              <p className="text-gray-600">Verwalten Sie alle Projekt-Dokumente an einem Ort</p>
+        {/* Header */}
+        <header className="bg-gradient-to-r from-[#3d4952]/95 to-[#51646f]/95 backdrop-blur-lg text-white px-8 py-6 shadow-2xl border-b border-[#ffbd59]/20 mb-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => navigate('/dashboard')}
+                className="p-2 bg-[#51646f] hover:bg-[#607583] rounded-xl transition-colors duration-300"
+              >
+                <ArrowLeft size={20} className="text-[#ffbd59]" />
+              </button>
+              <div>
+                <h1 className="text-3xl font-bold text-[#ffbd59]">Dokumente</h1>
+                <p className="text-gray-300">Verwalten Sie alle Projekt-Dokumente an einem Ort</p>
+              </div>
             </div>
             <button
               onClick={() => setShowUploadModal(true)}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[#ffbd59] text-[#3d4952] font-medium rounded-xl hover:bg-[#ffa726] transition-colors shadow-lg hover:shadow-xl"
             >
               <Plus size={20} />
               Dokument hochladen
             </button>
           </div>
-        </div>
+        </header>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 flex items-center justify-between mb-6 rounded-xl">
+          <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-6 py-4 flex items-center justify-between mb-6 rounded-xl backdrop-blur-lg">
             <div className="flex items-center gap-3">
               <AlertTriangle size={20} />
               <span>{error}</span>
             </div>
-            <button onClick={() => setError('')} className="text-red-500 hover:text-red-700">
+            <button onClick={() => setError('')} className="text-red-300 hover:text-red-100">
               <XCircle size={20} />
             </button>
           </div>
         )}
 
         {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-6 py-4 flex items-center justify-between mb-6 rounded-xl">
+          <div className="bg-green-500/20 border border-green-500/30 text-green-300 px-6 py-4 flex items-center justify-between mb-6 rounded-xl backdrop-blur-lg">
             <div className="flex items-center gap-3">
               <CheckCircle size={20} />
               <span>{success}</span>
             </div>
-            <button onClick={() => setSuccess('')} className="text-green-500 hover:text-green-700">
+            <button onClick={() => setSuccess('')} className="text-green-300 hover:text-green-100">
               <XCircle size={20} />
             </button>
           </div>
         )}
 
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8">
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 mb-8">
           <div className="flex items-center gap-4">
-            <FolderOpen size={20} className="text-gray-500" />
-            <label className="text-sm font-medium text-gray-700">Projekt auswählen:</label>
+            <FolderOpen size={20} className="text-[#ffbd59]" />
+            <label className="text-sm font-medium text-white">Projekt auswählen:</label>
             <select
               value={selectedProject}
               onChange={(e) => handleProjectChange(e.target.value)}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent backdrop-blur-lg"
             >
-              <option value="all">Alle Projekte</option>
+              <option value="all" className="bg-[#3d4952] text-white">Alle Projekte</option>
               {projects.map(project => (
-                <option key={project.id} value={project.id.toString()}>
+                <option key={project.id} value={project.id.toString()} className="bg-[#3d4952] text-white">
                   {project.name}
                 </option>
               ))}
@@ -409,7 +418,7 @@ export default function Documents() {
               placeholder="Dokumente durchsuchen..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+              className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent backdrop-blur-lg"
             />
           </div>
           
@@ -418,58 +427,58 @@ export default function Documents() {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="pl-10 pr-8 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none cursor-pointer shadow-sm"
+              className="pl-10 pr-8 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent appearance-none cursor-pointer backdrop-blur-lg"
             >
-              <option value="all">Alle Typen</option>
-              <option value="plan">Pläne</option>
-              <option value="permit">Genehmigungen</option>
-              <option value="quote">Angebote</option>
-              <option value="invoice">Rechnungen</option>
-              <option value="contract">Verträge</option>
-              <option value="photo">Fotos</option>
-              <option value="other">Sonstiges</option>
+              <option value="all" className="bg-[#3d4952] text-white">Alle Typen</option>
+              <option value="plan" className="bg-[#3d4952] text-white">Pläne</option>
+              <option value="permit" className="bg-[#3d4952] text-white">Genehmigungen</option>
+              <option value="quote" className="bg-[#3d4952] text-white">Angebote</option>
+              <option value="invoice" className="bg-[#3d4952] text-white">Rechnungen</option>
+              <option value="contract" className="bg-[#3d4952] text-white">Verträge</option>
+              <option value="photo" className="bg-[#3d4952] text-white">Fotos</option>
+              <option value="other" className="bg-[#3d4952] text-white">Sonstiges</option>
             </select>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredDocuments.map((document) => (
-            <div key={document.id} className="group bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+            <div key={document.id} className="group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/20 transition-all duration-300 transform hover:-translate-y-1">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gray-100 rounded-xl">
+                  <div className="p-2 bg-white/10 rounded-xl">
                     {getDocumentTypeIcon(document.document_type)}
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900 text-lg group-hover:text-blue-600 transition-colors">
+                    <h3 className="font-bold text-white text-lg group-hover:text-[#ffbd59] transition-colors">
                       {document.title}
                     </h3>
-                    <p className="text-sm text-gray-500">{document.description}</p>
+                    <p className="text-sm text-gray-300">{document.description}</p>
                   </div>
                 </div>
                 
                 <div className="relative">
-                  <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                    <MoreHorizontal size={16} className="text-gray-400" />
+                  <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                    <MoreHorizontal size={16} className="text-gray-300" />
                   </button>
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10">
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-[#3d4952] rounded-xl shadow-lg border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10">
                     <button
                       onClick={() => openDocumentViewer(document)}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors rounded-t-xl"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/10 transition-colors rounded-t-xl text-white"
                     >
                       <Eye size={16} />
                       <span>Anzeigen</span>
                     </button>
                     <button
                       onClick={() => openEditModal(document)}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/10 transition-colors text-white"
                     >
                       <Edit size={16} />
                       <span>Bearbeiten</span>
                     </button>
                     <button
                       onClick={() => handleDeleteDocument(document.id)}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-red-50 text-red-600 transition-colors rounded-b-xl"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-red-500/20 text-red-300 transition-colors rounded-b-xl"
                     >
                       <Trash2 size={16} />
                       <span>Löschen</span>
@@ -480,7 +489,7 @@ export default function Documents() {
 
               <div className="space-y-3 mb-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Typ</span>
+                  <span className="text-sm text-gray-300">Typ</span>
                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getDocumentTypeColor(document.document_type)}`}>
                     {getDocumentTypeLabel(document.document_type)}
                   </span>
@@ -489,23 +498,23 @@ export default function Documents() {
                 <div className="flex items-center gap-4 text-sm">
                   <div className="flex items-center gap-1">
                     <Calendar size={14} className="text-gray-400" />
-                    <span className="text-gray-500">Erstellt:</span>
-                    <span className="text-gray-900 ml-1">
+                    <span className="text-gray-300">Erstellt:</span>
+                    <span className="text-white ml-1">
                       {new Date(document.created_at).toLocaleDateString('de-DE')}
                     </span>
                   </div>
                   
                   <div className="flex items-center gap-1">
                     <File size={14} className="text-gray-400" />
-                    <span className="text-gray-500">Größe:</span>
-                    <span className="text-gray-900 ml-1">{formatFileSize(document.file_size)}</span>
+                    <span className="text-gray-300">Größe:</span>
+                    <span className="text-white ml-1">{formatFileSize(document.file_size)}</span>
                   </div>
                 </div>
                 
                 {document.is_public && (
-                  <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg">
-                    <Globe size={14} className="text-green-500" />
-                    <span className="text-sm text-green-700 font-medium">Öffentlich</span>
+                  <div className="flex items-center gap-2 p-2 bg-green-500/20 border border-green-500/30 rounded-lg">
+                    <Globe size={14} className="text-green-300" />
+                    <span className="text-sm text-green-300 font-medium">Öffentlich</span>
                   </div>
                 )}
               </div>
@@ -513,7 +522,7 @@ export default function Documents() {
               {document.tags && (
                 <div className="flex flex-wrap gap-2">
                   {document.tags.split(',').map((tag, index) => (
-                    <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-white/10 text-white border border-white/20">
                       {tag.trim()}
                     </span>
                   ))}
@@ -525,10 +534,10 @@ export default function Documents() {
 
         {filteredDocuments.length === 0 && (
           <div className="text-center py-12">
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200 max-w-md mx-auto">
-              <FileText size={48} className="text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Keine Dokumente gefunden</h3>
-              <p className="text-gray-500 mb-6">
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 max-w-md mx-auto">
+              <FileText size={48} className="text-[#ffbd59] mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">Keine Dokumente gefunden</h3>
+              <p className="text-gray-300 mb-6">
                 {searchTerm || filterType !== 'all' 
                   ? 'Versuchen Sie andere Suchkriterien oder Filter.'
                   : 'Laden Sie Ihr erstes Dokument hoch, um zu beginnen.'
@@ -537,7 +546,7 @@ export default function Documents() {
               {!searchTerm && filterType === 'all' && (
                 <button
                   onClick={() => setShowUploadModal(true)}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-[#ffbd59] text-[#3d4952] font-medium rounded-xl hover:bg-[#ffa726] transition-colors"
                 >
                   <Upload size={20} />
                   Dokument hochladen
@@ -549,53 +558,53 @@ export default function Documents() {
 
         {showUploadModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Dokument hochladen</h2>
+            <div className="bg-[#3d4952] rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl border border-white/20">
+              <h2 className="text-2xl font-bold text-[#ffbd59] mb-6">Dokument hochladen</h2>
               <form onSubmit={handleUploadDocument} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Titel</label>
+                  <label className="block text-sm font-medium text-white mb-2">Titel</label>
                   <input
                     type="text"
                     value={formData.title}
                     onChange={(e) => setFormData({...formData, title: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent backdrop-blur-lg"
                     required
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Beschreibung</label>
+                  <label className="block text-sm font-medium text-white mb-2">Beschreibung</label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent backdrop-blur-lg"
                     rows={3}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Typ</label>
+                  <label className="block text-sm font-medium text-white mb-2">Typ</label>
                   <select
                     value={formData.document_type}
                     onChange={(e) => setFormData({...formData, document_type: e.target.value as any})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent backdrop-blur-lg"
                   >
-                    <option value="other">Sonstiges</option>
-                    <option value="plan">Plan</option>
-                    <option value="permit">Genehmigung</option>
-                    <option value="quote">Angebot</option>
-                    <option value="invoice">Rechnung</option>
-                    <option value="contract">Vertrag</option>
-                    <option value="photo">Foto</option>
+                    <option value="other" className="bg-[#3d4952] text-white">Sonstiges</option>
+                    <option value="plan" className="bg-[#3d4952] text-white">Plan</option>
+                    <option value="permit" className="bg-[#3d4952] text-white">Genehmigung</option>
+                    <option value="quote" className="bg-[#3d4952] text-white">Angebot</option>
+                    <option value="invoice" className="bg-[#3d4952] text-white">Rechnung</option>
+                    <option value="contract" className="bg-[#3d4952] text-white">Vertrag</option>
+                    <option value="photo" className="bg-[#3d4952] text-white">Foto</option>
                   </select>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Datei</label>
+                  <label className="block text-sm font-medium text-white mb-2">Datei</label>
                   <input
                     type="file"
                     onChange={(e) => setFormData({...formData, file: e.target.files?.[0] || null})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent backdrop-blur-lg"
                     required
                   />
                 </div>
@@ -606,9 +615,9 @@ export default function Documents() {
                     id="is_public"
                     checked={formData.is_public}
                     onChange={(e) => setFormData({...formData, is_public: e.target.checked})}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-white/20 text-[#ffbd59] focus:ring-[#ffbd59] bg-white/10"
                   />
-                  <label htmlFor="is_public" className="text-sm text-gray-700">Öffentlich sichtbar</label>
+                  <label htmlFor="is_public" className="text-sm text-white">Öffentlich sichtbar</label>
                 </div>
                 
                 <div className="flex gap-3 pt-4">
@@ -618,14 +627,14 @@ export default function Documents() {
                       setShowUploadModal(false);
                       resetForm();
                     }}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-4 py-2 border border-white/20 text-white rounded-xl hover:bg-white/10 transition-colors"
                   >
                     Abbrechen
                   </button>
                   <button
                     type="submit"
                     disabled={uploading}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="flex-1 px-4 py-2 bg-[#ffbd59] text-[#3d4952] rounded-xl hover:bg-[#ffa726] transition-colors disabled:opacity-50"
                   >
                     {uploading ? 'Wird hochgeladen...' : 'Hochladen'}
                   </button>
@@ -637,44 +646,44 @@ export default function Documents() {
 
         {showEditModal && editingDocument && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Dokument bearbeiten</h2>
+            <div className="bg-[#3d4952] rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl border border-white/20">
+              <h2 className="text-2xl font-bold text-[#ffbd59] mb-6">Dokument bearbeiten</h2>
               <form onSubmit={handleUpdateDocument} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Titel</label>
+                  <label className="block text-sm font-medium text-white mb-2">Titel</label>
                   <input
                     type="text"
                     value={formData.title}
                     onChange={(e) => setFormData({...formData, title: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent backdrop-blur-lg"
                     required
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Beschreibung</label>
+                  <label className="block text-sm font-medium text-white mb-2">Beschreibung</label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent backdrop-blur-lg"
                     rows={3}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Typ</label>
+                  <label className="block text-sm font-medium text-white mb-2">Typ</label>
                   <select
                     value={formData.document_type}
                     onChange={(e) => setFormData({...formData, document_type: e.target.value as any})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent backdrop-blur-lg"
                   >
-                    <option value="other">Sonstiges</option>
-                    <option value="plan">Plan</option>
-                    <option value="permit">Genehmigung</option>
-                    <option value="quote">Angebot</option>
-                    <option value="invoice">Rechnung</option>
-                    <option value="contract">Vertrag</option>
-                    <option value="photo">Foto</option>
+                    <option value="other" className="bg-[#3d4952] text-white">Sonstiges</option>
+                    <option value="plan" className="bg-[#3d4952] text-white">Plan</option>
+                    <option value="permit" className="bg-[#3d4952] text-white">Genehmigung</option>
+                    <option value="quote" className="bg-[#3d4952] text-white">Angebot</option>
+                    <option value="invoice" className="bg-[#3d4952] text-white">Rechnung</option>
+                    <option value="contract" className="bg-[#3d4952] text-white">Vertrag</option>
+                    <option value="photo" className="bg-[#3d4952] text-white">Foto</option>
                   </select>
                 </div>
                 
@@ -684,9 +693,9 @@ export default function Documents() {
                     id="edit_is_public"
                     checked={formData.is_public}
                     onChange={(e) => setFormData({...formData, is_public: e.target.checked})}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-white/20 text-[#ffbd59] focus:ring-[#ffbd59] bg-white/10"
                   />
-                  <label htmlFor="edit_is_public" className="text-sm text-gray-700">Öffentlich sichtbar</label>
+                  <label htmlFor="edit_is_public" className="text-sm text-white">Öffentlich sichtbar</label>
                 </div>
                 
                 <div className="flex gap-3 pt-4">
@@ -697,13 +706,13 @@ export default function Documents() {
                       setEditingDocument(null);
                       resetForm();
                     }}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-4 py-2 border border-white/20 text-white rounded-xl hover:bg-white/10 transition-colors"
                   >
                     Abbrechen
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+                    className="flex-1 px-4 py-2 bg-[#ffbd59] text-[#3d4952] rounded-xl hover:bg-[#ffa726] transition-colors"
                   >
                     Speichern
                   </button>
