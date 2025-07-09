@@ -1,14 +1,9 @@
 import api from './api';
 
-function authHeader() {
-  const token = localStorage.getItem('token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 export async function getDocuments(project_id: number) {
   try {
     console.log('📋 Fetching documents for project:', project_id);
-    const res = await api.get('/documents', { params: { project_id }, headers: authHeader() });
+    const res = await api.get('/documents', { params: { project_id } });
     console.log('✅ Documents loaded successfully:', res.data);
     return res.data;
   } catch (error: any) {
@@ -25,7 +20,7 @@ export async function getDocuments(project_id: number) {
 export async function getDocument(id: number) {
   try {
     console.log('📋 Fetching document:', id);
-    const res = await api.get(`/documents/${id}`, { headers: authHeader() });
+    const res = await api.get(`/documents/${id}`);
     console.log('✅ Document loaded successfully:', res.data);
     return res.data;
   } catch (error: any) {
@@ -111,7 +106,6 @@ export async function uploadDocument(formData: FormData) {
     
     const res = await api.post('/documents/upload', uploadFormData, { 
       headers: { 
-        ...authHeader(), 
         'Content-Type': 'multipart/form-data' 
       } 
     });
@@ -155,7 +149,7 @@ export async function uploadDocument(formData: FormData) {
 export async function updateDocument(id: number, data: any) {
   try {
     console.log('🔄 Updating document:', id, 'with data:', data);
-    const res = await api.put(`/documents/${id}`, data, { headers: authHeader() });
+    const res = await api.put(`/documents/${id}`, data);
     console.log('✅ Document updated successfully:', res.data);
     return res.data;
   } catch (error: any) {
@@ -172,7 +166,7 @@ export async function updateDocument(id: number, data: any) {
 export async function deleteDocument(id: number) {
   try {
     console.log('🗑️ Deleting document:', id);
-    await api.delete(`/documents/${id}`, { headers: authHeader() });
+    await api.delete(`/documents/${id}`);
     console.log('✅ Document deleted successfully');
   } catch (error: any) {
     console.error('❌ Error deleting document:', error);

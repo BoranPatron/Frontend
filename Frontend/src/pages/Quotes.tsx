@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Handshake,
   Plus,
@@ -9,13 +9,9 @@ import {
   CheckCircle,
   XCircle,
   ArrowLeft,
-  PlusCircle,
-  RefreshCw,
   Search,
   Filter,
-  BarChart3,
   TrendingUp,
-  TrendingDown,
   Calendar,
   User,
   Euro,
@@ -42,13 +38,15 @@ import {
   Thermometer,
   Hammer,
   TreePine,
-  Wrench
+  Wrench,
+  Brain,
+  RotateCcw
 } from 'lucide-react';
-import { getQuotes, createQuote, updateQuote, deleteQuote, submitQuote, acceptQuote, analyzeQuote } from '../api/quoteService';
 import { useAuth } from '../context/AuthContext';
-import { getMilestones, createMilestone, updateMilestone, deleteMilestone, getAllMilestones } from '../api/milestoneService';
+import { getMilestones, createMilestone, updateMilestone, getAllMilestones } from '../api/milestoneService';
 import { getProjects } from '../api/projectService';
-import ProjectBreadcrumb from '../components/ProjectBreadcrumb';
+
+import { getQuotesForMilestone, createMockQuotesForMilestone, acceptQuote, resetQuote } from '../api/quoteService';
 
 interface Quote {
   id: number;
@@ -56,6 +54,7 @@ interface Quote {
   description: string;
   status: 'draft' | 'submitted' | 'under_review' | 'accepted' | 'rejected' | 'expired';
   project_id: number;
+  milestone_id?: number;
   service_provider_id: number;
   total_amount: number;
   currency: string;
@@ -72,6 +71,15 @@ interface Quote {
   price_deviation: number;
   ai_recommendation: string;
   contact_released: boolean;
+  company_name?: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  pdf_upload_path?: string;
+  additional_documents?: string;
+  rating?: number;
+  feedback?: string;
   created_at: string;
   updated_at: string;
   submitted_at: string | null;
@@ -145,6 +153,14 @@ export default function Trades() {
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [deletingTrade, setDeletingTrade] = useState<number | null>(null);
   
+  // State für Angebote-Modal
+  const [showQuotesModal, setShowQuotesModal] = useState(false);
+  const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
+  const [tradeQuotes, setTradeQuotes] = useState<Quote[]>([]);
+  
+  // State für Angebote aller Gewerke
+  const [allTradeQuotes, setAllTradeQuotes] = useState<{ [tradeId: number]: Quote[] }>({});
+  
   // State für Formular
   const [tradeForm, setTradeForm] = useState({
     title: '',
@@ -153,8 +169,6 @@ export default function Trades() {
     customCategory: '',
     start_date: '',
     end_date: '',
-    budget: '',
-    contractor: '',
     notes: '',
     priority: 'medium' as 'low' | 'medium' | 'high' | 'critical',
     is_critical: false
@@ -180,6 +194,9 @@ export default function Trades() {
       console.log('📊 Number of trades loaded:', data.length);
       console.log('📋 Trades data:', JSON.stringify(data, null, 2));
       setTrades(data);
+      
+      // Lade Angebote für alle Gewerke
+      await loadAllTradeQuotes(data);
     } catch (e: any) {
       console.error('❌ Error loading trades:', e);
       console.error('❌ Error details:', e.response || e.message);
@@ -189,6 +206,231 @@ export default function Trades() {
       console.log('🏁 Setting loading to false');
       setLoading(false);
       setIsLoadingTrades(false);
+    }
+  };
+
+  // Lade Angebote für ein Gewerk
+  const loadTradeQuotes = async (tradeId: number) => {
+    try {
+      console.log(`🔍 Loading quotes for trade ${tradeId}...`);
+      const data = await getQuotesForMilestone(tradeId);
+      console.log(`📊 Found ${data.length} quotes for trade ${tradeId}:`, data);
+      
+      // Wenn keine Angebote vorhanden sind, erstelle Mock-Angebote
+      if (data.length === 0) {
+        console.log(`📝 No quotes found for trade ${tradeId}, creating mock quotes...`);
+        try {
+          const projectId = selectedProject || 4;
+          console.log(`🔧 Creating mock quotes for trade ${tradeId} in project ${projectId}...`);
+          const mockData = await createMockQuotesForMilestone(tradeId, projectId);
+          console.log(`✅ Created ${mockData.length} mock quotes:`, mockData);
+          setTradeQuotes(mockData);
+        } catch (mockErr: any) {
+          console.error('Error creating mock quotes:', mockErr);
+          setTradeQuotes([]);
+        }
+      } else {
+        setTradeQuotes(data);
+      }
+    } catch (err: any) {
+      console.error('Error loading quotes:', err);
+      
+      // Wenn keine Angebote gefunden werden (404) oder andere Fehler, erstelle Mock-Daten
+      if (err.message.includes('404') || err.message.includes('Failed to fetch')) {
+        console.log('📝 No quotes found, creating mock quotes...');
+        try {
+          const projectId = selectedProject || 4;
+          console.log(`🔧 Creating mock quotes for trade ${tradeId} in project ${projectId}...`);
+          const mockData = await createMockQuotesForMilestone(tradeId, projectId);
+          console.log(`✅ Created ${mockData.length} mock quotes:`, mockData);
+          setTradeQuotes(mockData);
+        } catch (mockErr: any) {
+          console.error('Error creating mock quotes:', mockErr);
+          setTradeQuotes([]);
+        }
+      } else {
+        setTradeQuotes([]);
+      }
+    }
+  };
+
+  // Lade Angebote für alle Gewerke
+  const loadAllTradeQuotes = async (tradesData: Trade[]) => {
+    try {
+      console.log('🔍 Loading quotes for all trades...');
+      const quotesMap: { [tradeId: number]: Quote[] } = {};
+      
+      // Lade Angebote für jedes Gewerk parallel
+      const quotePromises = tradesData.map(async (trade) => {
+        try {
+          const quotes = await getQuotesForMilestone(trade.id);
+          console.log(`📊 Found ${quotes.length} quotes for trade ${trade.id}`);
+          
+          // Wenn keine Angebote vorhanden sind, erstelle Mock-Angebote
+          if (quotes.length === 0) {
+            console.log(`📝 No quotes found for trade ${trade.id}, creating mock quotes...`);
+            try {
+              const projectId = selectedProject || 4;
+              const mockQuotes = await createMockQuotesForMilestone(trade.id, projectId);
+              console.log(`✅ Created ${mockQuotes.length} mock quotes for trade ${trade.id}:`, mockQuotes);
+              quotesMap[trade.id] = mockQuotes;
+            } catch (mockErr: any) {
+              console.error(`❌ Error creating mock quotes for trade ${trade.id}:`, mockErr);
+              quotesMap[trade.id] = [];
+            }
+          } else {
+            quotesMap[trade.id] = quotes;
+          }
+        } catch (e: any) {
+          console.error('❌ Error loading quotes for trade:', trade.id, e);
+          
+          // Bei Fehlern auch Mock-Angebote erstellen
+          if (e.message.includes('404') || e.message.includes('Failed to fetch')) {
+            console.log(`📝 Error loading quotes for trade ${trade.id}, creating mock quotes...`);
+            try {
+              const projectId = selectedProject || 4;
+              const mockQuotes = await createMockQuotesForMilestone(trade.id, projectId);
+              console.log(`✅ Created ${mockQuotes.length} mock quotes for trade ${trade.id}:`, mockQuotes);
+              quotesMap[trade.id] = mockQuotes;
+            } catch (mockErr: any) {
+              console.error(`❌ Error creating mock quotes for trade ${trade.id}:`, mockErr);
+              quotesMap[trade.id] = [];
+            }
+          } else {
+            quotesMap[trade.id] = [];
+          }
+        }
+      });
+      
+      await Promise.all(quotePromises);
+      console.log('✅ All trade quotes loaded:', quotesMap);
+      setAllTradeQuotes(quotesMap);
+    } catch (e: any) {
+      console.error('❌ Error loading all trade quotes:', e);
+      setAllTradeQuotes({});
+    }
+  };
+
+  // Öffne Angebote-Modal
+  const openQuotesModal = async (trade: Trade) => {
+    setSelectedTrade(trade);
+    await loadTradeQuotes(trade.id);
+    setShowQuotesModal(true);
+  };
+
+  // Akzeptiere ein Angebot
+  const handleAcceptQuote = async (quoteId: number) => {
+    // Bestätigungsdialog für verbindliche Annahme
+    const confirmed = window.confirm(
+      '⚠️ WICHTIG: Angebot verbindlich annehmen?\n\n' +
+      'Durch die Annahme dieses Angebots gehen Sie eine verbindliche Vereinbarung ein. ' +
+      'Alle anderen Angebote für dieses Gewerk werden automatisch abgelehnt. ' +
+      'Das angenommene Angebot wird als Kostenposition in der Finanzübersicht angezeigt.\n\n' +
+      'Möchten Sie das Angebot wirklich annehmen?'
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+    
+    try {
+      console.log('🔧 Accepting quote with ID:', quoteId);
+      // Prüfe ob Token vorhanden ist
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Nicht angemeldet. Bitte melden Sie sich erneut an.');
+        return;
+      }
+      console.log('🔐 Token vorhanden, sende Anfrage...');
+      await acceptQuote(quoteId);
+      console.log('✅ Angebot erfolgreich akzeptiert');
+      // Lade die Angebote neu, um den Status zu aktualisieren
+      if (selectedTrade) {
+        console.log('🔄 Lade Angebote neu...');
+        await loadTradeQuotes(selectedTrade.id);
+      }
+      // Lade alle Gewerke neu, um die Details in den Kacheln zu aktualisieren
+      console.log('🔄 Lade alle Gewerke neu...');
+      await loadTrades();
+      // Zeige Erfolgsmeldung
+      setSuccess('Angebot erfolgreich angenommen! Das Angebot wurde als Kostenposition in der Finanzübersicht hinzugefügt.');
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err: any) {
+      console.error('❌ Error accepting quote:', err);
+      // Spezifische Fehlerbehandlung
+      if (err.message?.includes('Could not validate credentials')) {
+        setError('Sitzung abgelaufen. Bitte melden Sie sich erneut an.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (err.message?.includes('NetworkError')) {
+        setError('Verbindungsfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
+      } else {
+        setError(`Fehler beim Akzeptieren des Angebots: ${err.message || 'Unbekannter Fehler'}`);
+      }
+    }
+  };
+
+  // Setze ein angenommenes Angebot zurück
+  const handleResetQuote = async (quoteId: number) => {
+    // Bestätigungsdialog für Zurücksetzen
+    const confirmed = window.confirm(
+      '⚠️ WICHTIG: Angebot zurücksetzen?\n\n' +
+      'Durch das Zurücksetzen wird das Angebot wieder auf "Angebot annehmen" gesetzt. ' +
+      'Die zugehörige Kostenposition wird aus der Finanzübersicht entfernt.\n\n' +
+      'Möchten Sie das Angebot wirklich zurücksetzen?'
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+    
+    try {
+      console.log('🔧 Resetting quote with ID:', quoteId);
+      // Prüfe ob Token vorhanden ist
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Nicht angemeldet. Bitte melden Sie sich erneut an.');
+        return;
+      }
+      
+      console.log('🔄 Setze Angebot zurück auf "submitted"...');
+      
+      // Rufe die Reset-API auf
+      await resetQuote(quoteId);
+      
+      console.log('✅ Angebot erfolgreich zurückgesetzt');
+      
+      // Lade die Angebote neu, um den Status zu aktualisieren
+      if (selectedTrade) {
+        console.log('🔄 Lade Angebote neu...');
+        await loadTradeQuotes(selectedTrade.id);
+      }
+      
+      // Lade alle Gewerke neu, um die Details in den Kacheln zu aktualisieren
+      console.log('🔄 Lade alle Gewerke neu...');
+      await loadTrades();
+      
+      // Zeige Erfolgsmeldung
+      setSuccess('Angebot erfolgreich zurückgesetzt! Die Kostenposition wurde aus der Finanzübersicht entfernt.');
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err: any) {
+      console.error('❌ Error resetting quote:', err);
+      // Spezifische Fehlerbehandlung
+      if (err.message?.includes('Could not validate credentials')) {
+        setError('Sitzung abgelaufen. Bitte melden Sie sich erneut an.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (err.message?.includes('NetworkError')) {
+        setError('Verbindungsfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
+      } else {
+        setError(`Fehler beim Zurücksetzen des Angebots: ${err.message || 'Unbekannter Fehler'}`);
+      }
     }
   };
 
@@ -217,6 +459,18 @@ export default function Trades() {
   }, []);
 
   const activeCount = trades.filter(t => t.status !== 'completed' && t.status !== 'abgeschlossen').length;
+  
+  // Berechne Gewerke ohne Angebote
+  const tradesWithoutQuotes = trades.filter(trade => {
+    const quotes = allTradeQuotes[trade.id] || [];
+    return quotes.length === 0;
+  }).length;
+  
+  // Berechne Gewerke mit ausstehenden Angeboten (nicht akzeptiert)
+  const tradesWithPendingQuotes = trades.filter(trade => {
+    const quotes = allTradeQuotes[trade.id] || [];
+    return quotes.length > 0 && quotes.every(quote => quote.status !== 'accepted');
+  }).length;
 
   const handleCreateTrade = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -262,9 +516,7 @@ export default function Trades() {
         planned_date: tradeForm.start_date,
         start_date: tradeForm.start_date,
         end_date: tradeForm.end_date,
-        budget: tradeForm.budget ? parseFloat(tradeForm.budget) : null,
         actual_costs: 0.0,
-        contractor: tradeForm.contractor.trim() || null,
         notes: tradeForm.notes.trim() || null,
         priority: tradeForm.priority,
         is_critical: tradeForm.is_critical,
@@ -356,8 +608,6 @@ export default function Trades() {
       customCategory: trade.category || '',
       start_date: trade.start_date || trade.planned_date || '',
       end_date: trade.end_date || '',
-      budget: trade.budget?.toString() || '',
-      contractor: trade.contractor || '',
       notes: trade.notes || '',
       priority: trade.priority as 'low' | 'medium' | 'high' | 'critical',
       is_critical: trade.is_critical
@@ -373,8 +623,6 @@ export default function Trades() {
       customCategory: '',
       start_date: '',
       end_date: '',
-      budget: '',
-      contractor: '',
       notes: '',
       priority: 'medium',
       is_critical: false
@@ -431,8 +679,6 @@ export default function Trades() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460]">
-      <ProjectBreadcrumb />
-      
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <header className="mb-8">
@@ -530,6 +776,32 @@ export default function Trades() {
               </h3>
               <p className="text-sm text-gray-400">Anzahl aktiver Gewerke</p>
             </div>
+
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-gradient-to-br from-red-400 to-red-600 rounded-xl">
+                  <AlertTriangle size={24} className="text-white" />
+                </div>
+                <span className="text-sm text-gray-400">Ohne Angebote</span>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-1">
+                {tradesWithoutQuotes}
+              </h3>
+              <p className="text-sm text-gray-400">Gewerke ohne Angebote</p>
+            </div>
+
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl">
+                  <Clock size={24} className="text-white" />
+                </div>
+                <span className="text-sm text-gray-400">Ausstehend</span>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-1">
+                {tradesWithPendingQuotes}
+              </h3>
+              <p className="text-sm text-gray-400">Gewerke mit ausstehenden Angeboten</p>
+            </div>
           </div>
 
           {/* Search and Filter */}
@@ -565,7 +837,11 @@ export default function Trades() {
           {/* Gewerke Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {filteredTrades.map((trade) => (
-              <div key={trade.id} className="group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl">
+              <div 
+                key={trade.id} 
+                className="group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl cursor-pointer"
+                onClick={() => openQuotesModal(trade)}
+              >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl">
@@ -580,7 +856,7 @@ export default function Trades() {
                   </div>
                   
                   {/* Actions Menu */}
-                  <div className="relative">
+                  <div className="relative" onClick={(e) => e.stopPropagation()}>
                     <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
                       <MoreHorizontal size={16} className="text-gray-400" />
                     </button>
@@ -657,11 +933,117 @@ export default function Trades() {
                   )}
                 </div>
 
+                {/* Angenommenes Angebot Details */}
+                {(() => {
+                  const quotes = allTradeQuotes[trade.id] || [];
+                  const acceptedQuote = quotes.find(q => q.status === 'accepted');
+                  
+                  if (acceptedQuote) {
+                    return (
+                      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <CheckCircle size={16} className="text-green-400" />
+                          <span className="text-sm font-medium text-green-300">Angenommenes Angebot</span>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-400">Angebot:</span>
+                            <span className="text-sm font-medium text-white">{acceptedQuote.title}</span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-400">Betrag:</span>
+                            <span className="text-lg font-bold text-[#ffbd59]">
+                              {acceptedQuote.total_amount.toLocaleString('de-DE', { style: 'currency', currency: acceptedQuote.currency })}
+                            </span>
+                          </div>
+                          
+                          {acceptedQuote.company_name && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-400">Firma:</span>
+                              <span className="text-sm text-white">{acceptedQuote.company_name}</span>
+                            </div>
+                          )}
+                          
+                          {acceptedQuote.contact_person && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-400">Ansprechpartner:</span>
+                              <span className="text-sm text-white">{acceptedQuote.contact_person}</span>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-400">Dauer:</span>
+                            <span className="text-sm text-white">{acceptedQuote.estimated_duration} Tage</span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-400">Garantie:</span>
+                            <span className="text-sm text-white">{acceptedQuote.warranty_period} Monate</span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-400">Risiko:</span>
+                            <span className={`text-sm ${acceptedQuote.risk_score > 30 ? 'text-red-400' : acceptedQuote.risk_score > 15 ? 'text-yellow-400' : 'text-green-400'}`}>
+                              {acceptedQuote.risk_score}%
+                            </span>
+                          </div>
+                          
+                          {acceptedQuote.contact_released && (
+                            <div className="mt-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                              <div className="flex items-center gap-2 text-sm">
+                                <User size={14} className="text-blue-400" />
+                                <span className="text-blue-300 font-medium">Kontaktdaten freigegeben</span>
+                              </div>
+                              {acceptedQuote.phone && (
+                                <div className="flex items-center gap-1 text-xs text-gray-400 mt-1">
+                                  <Phone size={12} />
+                                  <span>{acceptedQuote.phone}</span>
+                                </div>
+                              )}
+                              {acceptedQuote.email && (
+                                <div className="flex items-center gap-1 text-xs text-gray-400">
+                                  <Mail size={12} />
+                                  <span>{acceptedQuote.email}</span>
+                                </div>
+                              )}
+                              {acceptedQuote.website && (
+                                <div className="flex items-center gap-1 text-xs text-gray-400">
+                                  <Globe size={12} />
+                                  <span>{acceptedQuote.website}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  // Zeige Anzahl der verfügbaren Angebote
+                  const availableQuotes = quotes.filter(q => q.status === 'submitted');
+                  if (availableQuotes.length > 0) {
+                    return (
+                      <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-4">
+                        <div className="flex items-center gap-2">
+                          <FileText size={16} className="text-blue-400" />
+                          <span className="text-sm font-medium text-blue-300">
+                            {availableQuotes.length} Angebot{availableQuotes.length > 1 ? 'e' : ''} verfügbar
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  return null;
+                })()}
+
                 {/* Status and AI Analysis */}
                 <div className="space-y-3">
                   <div className="flex flex-wrap gap-2">
                     {/* Klickbarer Status */}
-                    <div className="relative group">
+                    <div className="relative group" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => {
                           const statuses = ['planned', 'in_progress', 'completed', 'delayed', 'cancelled'];
@@ -679,7 +1061,7 @@ export default function Trades() {
                     
                     {/* Klickbare Priorität */}
                     {trade.priority && (
-                      <div className="relative group">
+                      <div className="relative group" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => {
                             const priorities = ['low', 'medium', 'high', 'critical'];
@@ -745,14 +1127,6 @@ export default function Trades() {
                 <XCircle size={24} className="text-gray-400" />
               </button>
             </div>
-            
-            {selectedProject && (
-              <div className="mb-6 p-4 bg-[#ffbd59]/10 border border-[#ffbd59]/20 rounded-xl">
-                <p className="text-[#ffbd59] text-sm font-medium">
-                  📋 Dieses Gewerk wird dem Projekt-ID {selectedProject} zugeordnet
-                </p>
-              </div>
-            )}
             
             <form onSubmit={handleCreateTrade} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -858,39 +1232,13 @@ export default function Trades() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Enddatum</label>
-                  <input
-                    type="date"
-                    value={tradeForm.end_date}
-                    onChange={(e) => setTradeForm({...tradeForm, end_date: e.target.value})}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Budget (€)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={tradeForm.budget}
-                    onChange={(e) => setTradeForm({...tradeForm, budget: e.target.value})}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-              
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Auftragnehmer</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Enddatum</label>
                 <input
-                  type="text"
-                  value={tradeForm.contractor}
-                  onChange={(e) => setTradeForm({...tradeForm, contractor: e.target.value})}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                  placeholder="Name des Auftragnehmers"
+                  type="date"
+                  value={tradeForm.end_date}
+                  onChange={(e) => setTradeForm({...tradeForm, end_date: e.target.value})}
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                 />
               </div>
               
@@ -971,6 +1319,146 @@ export default function Trades() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Angebote Modal */}
+      {showQuotesModal && selectedTrade && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-2xl font-bold text-white mb-2">
+                  Angebote für: {selectedTrade.title}
+                </h3>
+                <p className="text-gray-400">{selectedTrade.description}</p>
+              </div>
+              <button
+                onClick={() => setShowQuotesModal(false)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X size={24} className="text-gray-400" />
+              </button>
+            </div>
+
+            {tradeQuotes.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="p-6 bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 max-w-md mx-auto">
+                  <FileText size={48} className="text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-white mb-2">Keine Angebote verfügbar</h3>
+                  <p className="text-gray-400">
+                    Für dieses Gewerk sind noch keine Angebote eingegangen.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {tradeQuotes.map((quote) => (
+                  <div key={quote.id} className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h4 className="font-bold text-white text-lg mb-2">{quote.title}</h4>
+                        <p className="text-sm text-gray-400 mb-3">{quote.description}</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-[#ffbd59] mb-1">
+                          {quote.total_amount.toLocaleString('de-DE', { style: 'currency', currency: quote.currency })}
+                        </div>
+                        <div className="text-sm text-gray-400">
+                          {quote.estimated_duration} Tage
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 mb-4">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-400">Arbeitskosten:</span>
+                          <div className="text-white">{quote.labor_cost.toLocaleString('de-DE', { style: 'currency', currency: quote.currency })}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Materialkosten:</span>
+                          <div className="text-white">{quote.material_cost.toLocaleString('de-DE', { style: 'currency', currency: quote.currency })}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Gemeinkosten:</span>
+                          <div className="text-white">{quote.overhead_cost.toLocaleString('de-DE', { style: 'currency', currency: quote.currency })}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Garantie:</span>
+                          <div className="text-white">{quote.warranty_period} Monate</div>
+                        </div>
+                      </div>
+
+                      <div className="bg-[#ffbd59]/10 border border-[#ffbd59]/20 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Brain size={16} className="text-[#ffbd59]" />
+                          <span className="text-sm font-medium text-[#ffbd59]">KI-Empfehlung</span>
+                        </div>
+                        <p className="text-sm text-white">{quote.ai_recommendation}</p>
+                      </div>
+
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-1">
+                            <Calendar size={14} className="text-gray-400" />
+                            <span className="text-gray-400">Start:</span>
+                            <span className="text-white">{new Date(quote.start_date).toLocaleDateString('de-DE')}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Calendar size={14} className="text-gray-400" />
+                            <span className="text-gray-400">Fertig:</span>
+                            <span className="text-white">{new Date(quote.completion_date).toLocaleDateString('de-DE')}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Shield size={14} className="text-gray-400" />
+                          <span className="text-gray-400">Risiko:</span>
+                          <span className={`text-white ${quote.risk_score > 30 ? 'text-red-400' : quote.risk_score > 15 ? 'text-yellow-400' : 'text-green-400'}`}>
+                            {quote.risk_score}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      {quote.status === 'submitted' ? (
+                        <button
+                          onClick={() => handleAcceptQuote(quote.id)}
+                          className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-3 rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105"
+                        >
+                          <CheckCircle size={16} className="inline mr-2" />
+                          Angebot annehmen
+                        </button>
+                      ) : quote.status === 'accepted' ? (
+                        <div className="flex gap-3">
+                          <div className="flex-1 bg-green-500/20 border border-green-500/30 text-green-300 font-bold py-3 rounded-xl text-center">
+                            <CheckCircle size={16} className="inline mr-2" />
+                            Angenommen
+                          </div>
+                          <button
+                            onClick={() => handleResetQuote(quote.id)}
+                            className="px-4 py-3 bg-orange-500/20 border border-orange-500/30 text-orange-300 rounded-xl hover:bg-orange-500/30 transition-all duration-300"
+                            title="Angebot zurücksetzen"
+                          >
+                            <RotateCcw size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex-1 bg-gray-500/20 border border-gray-500/30 text-gray-300 font-bold py-3 rounded-xl text-center">
+                          {quote.status === 'rejected' ? 'Abgelehnt' : 'In Bearbeitung'}
+                        </div>
+                      )}
+                      
+                      <button className="px-4 py-3 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all duration-300">
+                        <Download size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1112,4 +1600,51 @@ function getCategoryIcon(category: string) {
     default:
       return <Building size={16} />;
   }
+}
+
+function getQuoteStatusLabel(status: string) {
+  switch (status) {
+    case 'draft': return 'Entwurf';
+    case 'submitted': return 'Eingereicht';
+    case 'under_review': return 'In Prüfung';
+    case 'accepted': return 'Akzeptiert';
+    case 'rejected': return 'Abgelehnt';
+    case 'expired': return 'Abgelaufen';
+    default: return status;
+  }
+}
+
+function getQuoteStatusColor(status: string) {
+  switch (status) {
+    case 'draft': return 'bg-gray-100 text-gray-800';
+    case 'submitted': return 'bg-blue-100 text-blue-800';
+    case 'under_review': return 'bg-yellow-100 text-yellow-800';
+    case 'accepted': return 'bg-green-100 text-green-800';
+    case 'rejected': return 'bg-red-100 text-red-800';
+    case 'expired': return 'bg-gray-100 text-gray-600';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+}
+
+function getRiskColor(riskScore: number) {
+  if (riskScore <= 15) return 'text-green-600';
+  if (riskScore <= 25) return 'text-yellow-600';
+  return 'text-red-600';
+}
+
+function getPriceDeviationColor(deviation: number) {
+  if (deviation < -10) return 'text-green-600';
+  if (deviation < 10) return 'text-yellow-600';
+  return 'text-red-600';
+}
+
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat('de-DE', {
+    style: 'currency',
+    currency: 'EUR'
+  }).format(amount);
+}
+
+function formatDate(dateString: string) {
+  return new Date(dateString).toLocaleDateString('de-DE');
 } 

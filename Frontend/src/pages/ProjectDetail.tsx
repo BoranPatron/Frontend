@@ -227,20 +227,16 @@ export default function ProjectDetail() {
 
   // Expandable sections state
   const [expandedSections, setExpandedSections] = useState<{
-    projectDetails: boolean;
     tasks: boolean;
     phases: boolean;
     trades: boolean;
-    budgetTimeline: boolean;
     quotes: boolean;
     documents: boolean;
     analytics: boolean;
   }>({
-    projectDetails: true,
     tasks: true,
     phases: false,
     trades: true, // Gewerke standardmäßig expandiert
-    budgetTimeline: false,
     quotes: false,
     documents: false,
     analytics: false
@@ -628,6 +624,80 @@ export default function ProjectDetail() {
         </div>
       </header>
 
+      {/* Projekt-Informationen unter der Navbar */}
+      <div className="bg-white/5 backdrop-blur-lg border-b border-white/10">
+        <div className="px-8 py-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Projekt-Typ */}
+            <div className="flex items-center gap-3 p-3 bg-white/10 rounded-lg border border-white/20">
+              <div className="p-2 bg-blue-500/20 rounded-lg">
+                <Building size={16} className="text-blue-300" />
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs">Typ</p>
+                <p className="text-white text-sm font-medium">{getProjectTypeLabel(project?.project_type || '')}</p>
+              </div>
+            </div>
+
+            {/* Geschätzte Dauer */}
+            {project?.estimated_duration && (
+              <div className="flex items-center gap-3 p-3 bg-white/10 rounded-lg border border-white/20">
+                <div className="p-2 bg-green-500/20 rounded-lg">
+                  <Clock size={16} className="text-green-300" />
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs">Geschätzte Dauer</p>
+                  <p className="text-white text-sm font-medium">{project.estimated_duration} Tage</p>
+                </div>
+              </div>
+            )}
+
+            {/* Budget */}
+            {project?.budget && (
+              <div className="flex items-center gap-3 p-3 bg-white/10 rounded-lg border border-white/20">
+                <div className="p-2 bg-yellow-500/20 rounded-lg">
+                  <Euro size={16} className="text-yellow-300" />
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs">Budget</p>
+                  <p className="text-white text-sm font-medium">{project.budget.toLocaleString('de-DE')} €</p>
+                </div>
+              </div>
+            )}
+
+            {/* Aktuelle Kosten */}
+            <div className="flex items-center gap-3 p-3 bg-white/10 rounded-lg border border-white/20">
+              <div className="p-2 bg-purple-500/20 rounded-lg">
+                <DollarSign size={16} className="text-purple-300" />
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs">Aktuelle Kosten</p>
+                <p className="text-white text-sm font-medium">{project?.current_costs.toLocaleString('de-DE') || 0} €</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Budget-Fortschrittsbalken */}
+          {project?.budget && (
+            <div className="mt-4 p-3 bg-white/10 rounded-lg border border-white/20">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-400 text-sm">Budget-Auslastung</span>
+                <span className="text-white text-sm font-medium">{getBudgetProgress()}%</span>
+              </div>
+              <div className="w-full bg-gray-700/50 rounded-full h-2">
+                <div 
+                  className={`h-2 rounded-full transition-all duration-1000 ${
+                    getBudgetStatus() === 'good' ? 'bg-green-500' :
+                    getBudgetStatus() === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                  }`}
+                  style={{ width: `${getBudgetProgress()}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="p-8">
         {/* Schnellaktionen */}
         <div className="mb-8">
@@ -745,59 +815,6 @@ export default function ProjectDetail() {
 
               {/* Aufklappbare Kacheln */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Projekt-Details */}
-                <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
-                  <button
-                    onClick={() => toggleSection('projectDetails')}
-                    className="w-full p-6 text-left hover:bg-white/5 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    <Map size={20} className="text-[#ffbd59]" />
-                        Übersicht
-                  </h3>
-                      <div className={`transform transition-transform ${expandedSections.projectDetails ? 'rotate-180' : ''}`}>
-                        <svg className="w-5 h-5 text-[#ffbd59]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </button>
-                  
-                  {expandedSections.projectDetails && (
-                    <div className="px-6 pb-6 space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Typ:</span>
-                      <span className="text-white">{getProjectTypeLabel(project?.project_type || '')}</span>
-                    </div>
-                    {project?.address && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Adresse:</span>
-                        <span className="text-white">{project.address}</span>
-                      </div>
-                    )}
-                    {project?.property_size && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Grundstücksgröße:</span>
-                        <span className="text-white">{project.property_size} m²</span>
-                      </div>
-                    )}
-                    {project?.construction_area && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Baufläche:</span>
-                        <span className="text-white">{project.construction_area} m²</span>
-                      </div>
-                    )}
-                    {project?.estimated_duration && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Geschätzte Dauer:</span>
-                        <span className="text-white">{project.estimated_duration} Tage</span>
-                      </div>
-                    )}
-                  </div>
-                  )}
-                </div>
-
                 {/* Aufgaben */}
                 <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
                   <button
@@ -917,65 +934,6 @@ export default function ProjectDetail() {
                   onToggle={() => toggleSection('trades')}
                 />
 
-                {/* Budget & Zeitplan */}
-                <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
-                  <button
-                    onClick={() => toggleSection('budgetTimeline')}
-                    className="w-full p-6 text-left hover:bg-white/5 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    <DollarSign size={20} className="text-[#ffbd59]" />
-                        Budget
-                  </h3>
-                      <div className={`transform transition-transform ${expandedSections.budgetTimeline ? 'rotate-180' : ''}`}>
-                        <svg className="w-5 h-5 text-[#ffbd59]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </button>
-                  
-                  {expandedSections.budgetTimeline && (
-                    <div className="px-6 pb-6 space-y-4">
-                    {project?.budget && (
-                      <div>
-                        <div className="flex justify-between mb-2">
-                          <span className="text-gray-400">Budget:</span>
-                          <span className="text-white">{project.budget.toLocaleString('de-DE')} €</span>
-                        </div>
-                        <div className="flex justify-between mb-2">
-                          <span className="text-gray-400">Aktuelle Kosten:</span>
-                          <span className="text-white">{project.current_costs.toLocaleString('de-DE')} €</span>
-                        </div>
-                        <div className="w-full bg-gray-700/50 rounded-full h-2">
-                          <div 
-                            className={`h-2 rounded-full transition-all duration-1000 ${
-                              getBudgetStatus() === 'good' ? 'bg-green-500' :
-                              getBudgetStatus() === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
-                            }`}
-                            style={{ width: `${getBudgetProgress()}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                    
-                    {project?.start_date && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Startdatum:</span>
-                        <span className="text-white">{formatDate(project.start_date)}</span>
-                      </div>
-                    )}
-                    {project?.end_date && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Enddatum:</span>
-                        <span className="text-white">{formatDate(project.end_date)}</span>
-                      </div>
-                    )}
-                  </div>
-                  )}
-                </div>
-
                 {/* Angebote */}
                 <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
                   <button
@@ -991,8 +949,8 @@ export default function ProjectDetail() {
                         <svg className="w-5 h-5 text-[#ffbd59]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
-              </div>
-            </div>
+                      </div>
+                    </div>
                   </button>
                   
                   {expandedSections.quotes && (
@@ -1278,7 +1236,7 @@ export default function ProjectDetail() {
                             </span>
                           )}
                           <div className="text-right">
-                            <div className="text-white text-sm font-medium">{task.progress_percentage}%</div>
+                            <div className="text-white text-xs font-medium">{task.progress_percentage}%</div>
                             <div className="w-12 bg-gray-700/50 rounded-full h-1">
                               <div 
                                 className="bg-[#ffbd59] h-1 rounded-full transition-all duration-300"

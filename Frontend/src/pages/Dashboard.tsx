@@ -20,10 +20,8 @@ import {
   Users,
   BarChart3,
   Camera,
-  FolderOpen,
   ClipboardList,
   Calculator,
-  Image as ImageIcon,
   Sparkles,
   Zap,
   Target,
@@ -301,16 +299,16 @@ export default function Dashboard() {
       )
     },
     {
-      title: "Offering",
-      description: "Angebotsmanagement & Vergleich",
+      title: "Gewerke",
+      description: "Gewerkeverwaltung & Ausschreibungen",
       icon: <Handshake size={32} />,
       onClick: onOfferingClick,
-      ariaLabel: "Angebotsmanagement öffnen",
+      ariaLabel: "Gewerkeverwaltung öffnen",
       badge: { text: `${projectStats.newQuotes} neue`, color: "green" as const },
       children: (
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <BarChart3 size={16} />
-          <span>KI-Analyse verfügbar</span>
+          <span>Ausschreibungen verfügbar</span>
         </div>
       )
     },
@@ -377,7 +375,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-4">
             <div className="relative">
               <div className="w-20 h-20 flex items-center justify-center">
-                <img src={logo} alt="BuildWise Logo" className="w-20 h-20 object-contain rounded-2xl shadow-lg bg-white/10 p-1" />
+                <img src={logo} alt="BuildWise Logo" className="w-20 h-20 object-contain rounded-2xl shadow-lg" />
               </div>
               <div className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-green-400 to-green-500 rounded-full border-2 border-white animate-pulse"></div>
             </div>

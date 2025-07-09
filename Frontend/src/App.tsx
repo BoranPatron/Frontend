@@ -1,10 +1,9 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
-import Register from './pages/Register';
 import ProjectDetail from './pages/ProjectDetail';
 import ProjectMessages from './pages/ProjectMessages';
 import ProjectAnalytics from './pages/ProjectAnalytics';
@@ -17,6 +16,7 @@ import Messages from './pages/Messages';
 import GlobalMessages from './pages/GlobalMessages';
 import Roadmap from './pages/Roadmap';
 import GlobalProjects from './pages/GlobalProjects';
+import BuildWiseFees from './pages/BuildWiseFees';
 
 // Error Boundary
 class ErrorBoundary extends React.Component<
@@ -68,7 +68,6 @@ function AppContent() {
       <Navbar />
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
         <Route path="/" element={
           <ProtectedRoute>
             <Dashboard />
@@ -119,6 +118,11 @@ function AppContent() {
             <Quotes />
           </ProtectedRoute>
         } />
+        <Route path="/buildwise-fees" element={
+          <ProtectedRoute>
+            <BuildWiseFees />
+          </ProtectedRoute>
+        } />
         <Route path="/visualize" element={
           <ProtectedRoute>
             <Visualize />
@@ -137,6 +141,11 @@ function AppContent() {
         {/* Fallback für unbekannte Routen */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      
+      {/* Unaufälliger Developer-Footer */}
+      <footer className="fixed bottom-0 right-0 p-1">
+        <span className="text-xs text-gray-300 font-mono">22</span>
+      </footer>
     </>
   );
 }

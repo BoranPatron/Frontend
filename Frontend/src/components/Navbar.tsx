@@ -22,9 +22,10 @@ import {
   FolderOpen,
   Users,
   Calendar,
-  Handshake
+  Handshake,
+  DollarSign
 } from 'lucide-react';
-import logo from '../logo_bw.png';
+import logo from '../logo_trans_big.png';
 
 export default function Navbar() {
   const { pathname } = useLocation();
@@ -62,6 +63,7 @@ export default function Navbar() {
           <div className="flex items-center gap-8">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-3 group">
+              <img src={logo} alt="BuildWise Logo" className="h-8 w-auto" />
               <span className="font-bold text-xl tracking-wide text-[#ffbd59] group-hover:text-[#ffa726] transition-colors">
                 BuildWise
               </span>
@@ -151,6 +153,19 @@ export default function Navbar() {
                   </div>
                 </div>
               </div>
+
+              {/* BuildWise-Gebühren */}
+              <Link
+                to="/buildwise-fees"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                  isActive('/buildwise-fees') 
+                    ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
+                    : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
+                }`}
+              >
+                <DollarSign size={18} />
+                <span>Gebühren</span>
+              </Link>
 
               {/* Tools Dropdown */}
               <div className="relative group">
