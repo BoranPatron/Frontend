@@ -64,9 +64,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent() {
+  const { user } = useAuth();
+  const location = window.location.pathname;
+  const isLoginPage = location === '/login';
+
   return (
     <>
-      <Navbar />
+      {/* Navbar nur anzeigen, wenn nicht auf der Login-Seite und Benutzer angemeldet ist */}
+      {!isLoginPage && user && <Navbar />}
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={

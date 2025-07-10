@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/api';
+import logo from '../logo_trans_big.png';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -123,8 +124,8 @@ export default function Login() {
       <div className="max-w-md w-full space-y-8">
         {/* Logo und Titel */}
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-2xl flex items-center justify-center mb-4">
-            <span className="text-white text-2xl font-bold">BW</span>
+          <div className="flex items-center justify-center mb-6">
+            <img src={logo} alt="BuildWise Logo" className="h-20 w-auto" />
           </div>
           <h2 className="text-3xl font-bold text-white mb-2">BuildWise</h2>
           <p className="text-gray-300">Melden Sie sich in Ihrem Konto an</p>
