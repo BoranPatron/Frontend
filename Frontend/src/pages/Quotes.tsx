@@ -138,8 +138,7 @@ export default function Trades() {
   
   // State für Gewerke
   const [trades, setTrades] = useState<Trade[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isLoadingTrades, setIsLoadingTrades] = useState(false);
+  const [isLoadingTrades, setIsLoadingTrades] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
@@ -191,36 +190,30 @@ export default function Trades() {
   const [offerTrade, setOfferTrade] = useState<Trade | null>(null);
 
   const loadTrades = async () => {
-    // Verhindere mehrfache gleichzeitige Aufrufe
-    if (isLoadingTrades) {
-      console.log('⚠️ loadTrades already in progress, skipping...');
-      return;
-    }
-
     setIsLoadingTrades(true);
-    setLoading(true);
     setError('');
     try {
-      console.log('🔍 Loading all trades for user...');
-      console.log('🔍 Current URL:', window.location.href);
-      
-      console.log('📡 Making API call to getAllMilestones');
-      const data = await getAllMilestones();
-      console.log('✅ Trades loaded successfully:', data);
-      console.log('📊 Number of trades loaded:', data.length);
-      console.log('📋 Trades data:', JSON.stringify(data, null, 2));
-      setTrades(data);
+      let tradesData: Trade[] = [];
+      if (isServiceProvider()) {
+        // Dienstleister: alle Milestones (Ausschreibungen) global laden
+        tradesData = await getAllMilestones();
+      } else {
+        // Bauträger: Trades projektbasiert laden (wie bisher)
+        if (selectedProject) {
+          tradesData = await getMilestones(selectedProject);
+        } else {
+          setTrades([]);
+          setIsLoadingTrades(false);
+          return;
+        }
+      }
+      setTrades(tradesData);
       
       // Lade Angebote für alle Gewerke
-      await loadAllTradeQuotes(data);
-    } catch (e: any) {
-      console.error('❌ Error loading trades:', e);
-      console.error('❌ Error details:', e.response || e.message);
-      setError('Fehler beim Laden der Gewerke: ' + (e?.message || e));
-      setTrades([]);
+      await loadAllTradeQuotes(tradesData);
+    } catch (err: any) {
+      setError('Fehler beim Laden der Gewerke');
     } finally {
-      console.log('🏁 Setting loading to false');
-      setLoading(false);
       setIsLoadingTrades(false);
     }
   };
@@ -258,14 +251,14 @@ export default function Trades() {
           const projectId = selectedProject || 4;
           console.log(`🔧 Creating mock quotes for trade ${tradeId} in project ${projectId}...`);
           const mockData = await createMockQuotesForMilestone(tradeId, projectId);
-          console.log(`✅ Created ${mockData.length} mock quotes for trade ${trade.id}:`, mockQuotes);
-          quotesMap[trade.id] = mockQuotes;
+          console.log(`✅ Created ${mockData.length} mock quotes for trade ${tradeId}:`, mockData);
+          setTradeQuotes(mockData);
         } catch (mockErr: any) {
-          console.error(`❌ Error creating mock quotes for trade ${trade.id}:`, mockErr);
-          quotesMap[trade.id] = [];
+          console.error(`❌ Error creating mock quotes for trade ${tradeId}:`, mockErr);
+          setTradeQuotes([]);
         }
       } else {
-        quotesMap[trade.id] = [];
+        setTradeQuotes([]);
       }
     }
   };
@@ -485,7 +478,7 @@ export default function Trades() {
       formData.append('valid_until', offerForm.valid_until);
       formData.append('pdf', offerForm.pdf);
       formData.append('milestone_id', String(offerTrade.id));
-      formData.append('project_id', String(offerTrade.project_id || offerTrade.id));
+      formData.append('project_id', String(selectedProject || offerTrade.id));
       // Optional: weitere Felder (z.B. user_id, falls benötigt)
       const res = await createQuoteWithPdf(formData);
       setOfferSuccess('Angebot erfolgreich eingereicht!');
@@ -567,7 +560,7 @@ export default function Trades() {
     }
     
     try {
-      setLoading(true);
+      setIsLoadingTrades(true);
       setError('');
       
       const category = tradeForm.category === 'eigene' ? tradeForm.customCategory : tradeForm.category;
@@ -617,7 +610,7 @@ export default function Trades() {
       console.error('Fehler beim Speichern des Gewerks:', error);
       setError(error.message || 'Fehler beim Speichern des Gewerks');
     } finally {
-      setLoading(false);
+      setIsLoadingTrades(false);
     }
   };
 
@@ -706,7 +699,7 @@ export default function Trades() {
     return matchesSearch && matchesStatus;
   });
 
-  if (loading) {
+  if (isLoadingTrades) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center">
         <div className="text-center">
@@ -814,9 +807,7 @@ export default function Trades() {
           {/* Debug Info */}
           <div className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 px-6 py-4 mb-6 rounded-lg">
             <h3 className="font-bold mb-2">Debug Info:</h3>
-            <p>Loading: {loading.toString()}</p>
-            <p>IsLoadingTrades: {isLoadingTrades.toString()}</p>
-            <p>SelectedProject: {selectedProject}</p>
+            <p>Loading: {isLoadingTrades.toString()}</p>
             <p>Trades Count: {trades.length}</p>
             <p>FilteredTrades Count: {filteredTrades.length}</p>
             <p>Error: {error || 'Kein Fehler'}</p>
