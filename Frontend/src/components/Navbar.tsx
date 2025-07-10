@@ -86,31 +86,31 @@ export default function Navbar() {
 
               {/* Globale Übersicht - nur für Bauträger */}
               {!isServiceProvider() && (
-                <Link
-                  to="/global-projects"
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                    isActive('/global-projects') 
-                      ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
-                      : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
-                  }`}
-                >
-                  <Globe size={18} />
-                  <span>Übersicht</span>
-                </Link>
+              <Link
+                to="/global-projects"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                  isActive('/global-projects') 
+                    ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
+                    : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
+                }`}
+              >
+                <Globe size={18} />
+                <span>Übersicht</span>
+              </Link>
               )}
 
               {/* Projekt-Manager Dropdown - nur für Bauträger */}
               {!isServiceProvider() && (
-                <div className="relative group">
-                  <button className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                    isProjectActive() 
-                      ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
-                      : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
-                  }`}>
-                    <Target size={18} />
-                    <span>Projekte</span>
-                    <ChevronDown size={16} className="group-hover:rotate-180 transition-transform" />
-                  </button>
+              <div className="relative group">
+                <button className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                  isProjectActive() 
+                    ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
+                    : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
+                }`}>
+                  <Target size={18} />
+                  <span>Projekte</span>
+                  <ChevronDown size={16} className="group-hover:rotate-180 transition-transform" />
+                </button>
                 
                 <div className="absolute top-full left-0 mt-2 w-64 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
                   <div className="p-2">
@@ -160,17 +160,17 @@ export default function Navbar() {
 
               {/* BuildWise-Gebühren - nur für Bauträger */}
               {!isServiceProvider() && (
-                <Link
-                  to="/buildwise-fees"
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                    isActive('/buildwise-fees') 
-                      ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
-                      : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
-                  }`}
-                >
-                  <DollarSign size={18} />
-                  <span>Gebühren</span>
-                </Link>
+              <Link
+                to="/buildwise-fees"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                  isActive('/buildwise-fees') 
+                    ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
+                    : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
+                }`}
+              >
+                <DollarSign size={18} />
+                <span>Gebühren</span>
+              </Link>
               )}
 
               {/* Dienstleister-spezifische Navigation */}

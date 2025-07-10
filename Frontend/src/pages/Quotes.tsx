@@ -40,13 +40,19 @@ import {
   TreePine,
   Wrench,
   Brain,
-  RotateCcw
+  RotateCcw,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  MessageCircle,
+  Ban,
+  AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getMilestones, createMilestone, updateMilestone, getAllMilestones, deleteMilestone } from '../api/milestoneService';
 import { getProjects } from '../api/projectService';
 
-import { getQuotesForMilestone, createMockQuotesForMilestone, acceptQuote, resetQuote, createQuoteWithPdf } from '../api/quoteService';
+import { getQuotesForMilestone, createMockQuotesForMilestone, acceptQuote, resetQuote, createQuote, updateQuote, deleteQuote, submitQuote, rejectQuote, withdrawQuote } from '../api/quoteService';
 
 interface Quote {
   id: number;
@@ -163,6 +169,10 @@ export default function Trades() {
   // State für Angebote aller Gewerke
   const [allTradeQuotes, setAllTradeQuotes] = useState<{ [tradeId: number]: Quote[] }>({});
   
+  // State für Angebot-Details-Modal
+  const [showQuoteDetailsModal, setShowQuoteDetailsModal] = useState(false);
+  const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
+  
   // State für Formular
   const [tradeForm, setTradeForm] = useState({
     title: '',
@@ -183,11 +193,49 @@ export default function Trades() {
     description: '',
     valid_until: '',
     pdf: null as File | null,
+    currency: 'EUR',
+    labor_cost: '',
+    material_cost: '',
+    overhead_cost: '',
+    estimated_duration: '',
+    start_date: '',
+    completion_date: '',
+    payment_terms: '',
+    warranty_period: '',
+    risk_score: '',
+    price_deviation: '',
+    ai_recommendation: '',
+    contact_released: false,
+    company_name: '',
+    contact_person: '',
+    phone: '',
+    email: '',
+    website: '',
+    pdf_upload_path: '',
+    additional_documents: '',
+    rating: '',
+    feedback: ''
   });
   const [offerLoading, setOfferLoading] = useState(false);
   const [offerSuccess, setOfferSuccess] = useState('');
   const [offerError, setOfferError] = useState('');
   const [offerTrade, setOfferTrade] = useState<Trade | null>(null);
+  // Accordion-Logik für Angebotsformular (toggle)
+  const [openOfferSection, setOpenOfferSection] = useState<'basis' | 'kalkulation' | 'kontakt' | null>('basis');
+  const handleAccordionToggle = (section: 'basis' | 'kalkulation' | 'kontakt') => {
+    setOpenOfferSection(prev => prev === section ? null : section);
+  };
+
+  // State für Reject-Modal
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectingQuote, setRejectingQuote] = useState<Quote | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [rejectLoading, setRejectLoading] = useState(false);
+  
+  // State für Withdraw-Modal
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawingQuote, setWithdrawingQuote] = useState<Quote | null>(null);
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
 
   const loadTrades = async () => {
     console.log('🔍 loadTrades called with:', { selectedProject, isServiceProvider: isServiceProvider() });
@@ -269,6 +317,12 @@ export default function Trades() {
     setSelectedTrade(trade);
     await loadTradeQuotes(trade.id);
     setShowQuotesModal(true);
+  };
+
+  // Öffne Angebot-Details-Modal
+  const openQuoteDetailsModal = (quote: Quote) => {
+    setSelectedQuote(quote);
+    setShowQuoteDetailsModal(true);
   };
 
   // Akzeptiere ein Angebot
@@ -390,7 +444,34 @@ export default function Trades() {
   // Handler für Angebotsformular
   const openOfferModal = (trade: Trade) => {
     setOfferTrade(trade);
-    setOfferForm({ total_amount: '', description: '', valid_until: '', pdf: null });
+    setOfferForm({
+      total_amount: '',
+      description: '',
+      valid_until: '',
+      pdf: null,
+      currency: 'EUR',
+      labor_cost: '',
+      material_cost: '',
+      overhead_cost: '',
+      estimated_duration: '',
+      start_date: '',
+      completion_date: '',
+      payment_terms: '',
+      warranty_period: '',
+      risk_score: '',
+      price_deviation: '',
+      ai_recommendation: '',
+      contact_released: false,
+      company_name: '',
+      contact_person: '',
+      phone: '',
+      email: '',
+      website: '',
+      pdf_upload_path: '',
+      additional_documents: '',
+      rating: '',
+      feedback: ''
+    });
     setOfferSuccess('');
     setOfferError('');
     setShowOfferModal(true);
@@ -403,6 +484,9 @@ export default function Trades() {
     const { name, value } = e.target;
     setOfferForm((prev) => ({ ...prev, [name]: value }));
   };
+  const handleOfferCurrencyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setOfferForm((prev) => ({ ...prev, currency: e.target.value }));
+  };
   const handleOfferFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setOfferForm((prev) => ({ ...prev, pdf: e.target.files![0] }));
@@ -413,26 +497,252 @@ export default function Trades() {
     setOfferLoading(true);
     setOfferSuccess('');
     setOfferError('');
+    
     try {
       if (!offerTrade) throw new Error('Kein Gewerk ausgewählt');
-      if (!offerForm.total_amount || !offerForm.pdf) throw new Error('Bitte alle Pflichtfelder ausfüllen');
-      const formData = new FormData();
-      formData.append('total_amount', offerForm.total_amount);
-      formData.append('description', offerForm.description);
-      formData.append('valid_until', offerForm.valid_until);
-      formData.append('pdf', offerForm.pdf);
-      formData.append('milestone_id', String(offerTrade.id));
-      formData.append('project_id', String(selectedProject || offerTrade.id));
-      // Optional: weitere Felder (z.B. user_id, falls benötigt)
-      const res = await createQuoteWithPdf(formData);
+      
+      // Validierung der Pflichtfelder mit spezifischen Fehlermeldungen
+      const missingFields: string[] = [];
+      
+      if (!offerForm.total_amount || offerForm.total_amount.trim() === '') {
+        missingFields.push('Preis');
+      }
+      
+      if (!offerForm.valid_until || offerForm.valid_until.trim() === '') {
+        missingFields.push('Gültig bis');
+      }
+      
+      if (!offerForm.estimated_duration || offerForm.estimated_duration.trim() === '') {
+        missingFields.push('Geschätzte Dauer');
+      }
+      
+      if (!offerForm.start_date || offerForm.start_date.trim() === '') {
+        missingFields.push('Startdatum');
+      }
+      
+      if (!offerForm.completion_date || offerForm.completion_date.trim() === '') {
+        missingFields.push('Vorausichtliche Fertigstellung');
+      }
+      
+      if (!offerForm.company_name || offerForm.company_name.trim() === '') {
+        missingFields.push('Firmenname');
+      }
+      
+      if (!offerForm.contact_person || offerForm.contact_person.trim() === '') {
+        missingFields.push('Ansprechpartner');
+      }
+      
+      if (!offerForm.email || offerForm.email.trim() === '') {
+        missingFields.push('E-Mail');
+      }
+      
+      if (missingFields.length > 0) {
+        throw new Error(`Bitte füllen Sie folgende Pflichtfelder aus: ${missingFields.join(', ')}`);
+      }
+      
+      // Erstelle JSON-Objekt für API-Request (Backend erwartet QuoteCreate Schema)
+      const quoteData: any = {
+        title: `${offerForm.company_name} - ${offerTrade.title}`,
+        description: offerForm.description || '',
+        total_amount: parseFloat(offerForm.total_amount),
+        currency: offerForm.currency || 'EUR',
+        valid_until: offerForm.valid_until,
+        estimated_duration: parseInt(offerForm.estimated_duration),
+        start_date: offerForm.start_date,
+        completion_date: offerForm.completion_date,
+        project_id: selectedProject || offerTrade.id,
+        milestone_id: offerTrade.id,
+        service_provider_id: user?.id || 0, // Aktueller Benutzer als Dienstleister
+        status: 'submitted', // Neues Angebot hat Status "submitted"
+        // Dienstleister-Felder
+        company_name: offerForm.company_name,
+        contact_person: offerForm.contact_person,
+        email: offerForm.email
+      };
+      
+      // Optionale Felder nur hinzufügen wenn sie existieren
+      if (offerForm.labor_cost) quoteData.labor_cost = parseFloat(offerForm.labor_cost);
+      if (offerForm.material_cost) quoteData.material_cost = parseFloat(offerForm.material_cost);
+      if (offerForm.overhead_cost) quoteData.overhead_cost = parseFloat(offerForm.overhead_cost);
+      if (offerForm.warranty_period) quoteData.warranty_period = parseInt(offerForm.warranty_period);
+      if (offerForm.payment_terms) quoteData.payment_terms = offerForm.payment_terms;
+      if (offerForm.phone) quoteData.phone = offerForm.phone;
+      if (offerForm.website) quoteData.website = offerForm.website;
+      
+      console.log('📤 Sending offer data:', quoteData);
+      
+      const res = await createQuote(quoteData);
+      console.log('✅ Offer submitted successfully:', res);
+      
       setOfferSuccess('Angebot erfolgreich eingereicht!');
       setShowOfferModal(false);
-      // Optional: Angebote neu laden
+      
+      // Lade Angebote neu
+      if (selectedTrade) {
+        await loadTradeQuotes(selectedTrade.id);
+      }
+      await loadTrades();
+      
     } catch (err: any) {
-      setOfferError(err.message || 'Fehler beim Absenden des Angebots');
+      console.error('❌ Error submitting offer:', err);
+      
+      // Spezifische Fehlerbehandlung für 422 Validierungsfehler
+      if (err.response?.status === 422) {
+        const validationErrors = err.response.data?.detail;
+        if (Array.isArray(validationErrors)) {
+          const errorMessages = validationErrors.map((error: any) => {
+            const field = error.loc?.join('.') || error.field || 'Unbekanntes Feld';
+            const message = error.msg || error.message || 'Ungültiger Wert';
+            return `${field}: ${message}`;
+          }).join(', ');
+          setOfferError(`Validierungsfehler: ${errorMessages}`);
+        } else if (typeof validationErrors === 'string') {
+          setOfferError(`Validierungsfehler: ${validationErrors}`);
+        } else {
+          setOfferError('Ungültige Daten für das Angebot. Bitte überprüfen Sie alle Felder.');
+        }
+      } else if (err.response?.status === 401) {
+        setOfferError('Nicht autorisiert. Bitte melden Sie sich erneut an.');
+      } else if (err.response?.status === 403) {
+        setOfferError('Keine Berechtigung für diese Aktion.');
+      } else if (err.response?.status === 404) {
+        setOfferError('Gewerk oder Projekt nicht gefunden.');
+      } else if (err.response?.data?.detail) {
+        setOfferError(err.response.data.detail);
+      } else {
+        setOfferError(err.message || 'Fehler beim Absenden des Angebots');
+      }
     } finally {
       setOfferLoading(false);
     }
+  };
+
+  // Handler für Angebot ablehnen
+  const handleRejectQuote = async (quoteId: number, reason?: string) => {
+    // Bestätigungsdialog für Ablehnung
+    const confirmed = window.confirm(
+      '⚠️ WICHTIG: Angebot ablehnen?\n\n' +
+      'Durch die Ablehnung dieses Angebots wird es als "abgelehnt" markiert. ' +
+      'Der Dienstleister wird über die Ablehnung informiert.\n\n' +
+      'Möchten Sie das Angebot wirklich ablehnen?'
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+    
+    try {
+      console.log('🔧 Rejecting quote with ID:', quoteId, 'Reason:', reason);
+      // Prüfe ob Token vorhanden ist
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Nicht angemeldet. Bitte melden Sie sich erneut an.');
+        return;
+      }
+      console.log('🔐 Token vorhanden, sende Anfrage...');
+      await rejectQuote(quoteId, reason);
+      console.log('✅ Angebot erfolgreich abgelehnt');
+      // Lade die Angebote neu, um den Status zu aktualisieren
+      if (selectedTrade) {
+        console.log('🔄 Lade Angebote neu...');
+        await loadTradeQuotes(selectedTrade.id);
+      }
+      // Lade alle Gewerke neu, um die Details in den Kacheln zu aktualisieren
+      console.log('🔄 Lade alle Gewerke neu...');
+      await loadTrades();
+      // Zeige Erfolgsmeldung
+      setSuccess('Angebot erfolgreich abgelehnt! Der Dienstleister wurde informiert.');
+      setTimeout(() => setSuccess(''), 5000);
+      // Schließe Modal
+      setShowRejectModal(false);
+      setRejectingQuote(null);
+      setRejectionReason('');
+    } catch (err: any) {
+      console.error('❌ Error rejecting quote:', err);
+      // Spezifische Fehlerbehandlung
+      if (err.message?.includes('Could not validate credentials')) {
+        setError('Sitzung abgelaufen. Bitte melden Sie sich erneut an.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (err.message?.includes('NetworkError')) {
+        setError('Verbindungsfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
+      } else {
+        setError(`Fehler beim Ablehnen des Angebots: ${err.message || 'Unbekannter Fehler'}`);
+      }
+    }
+  };
+
+  // Handler für Angebot zurückziehen (Dienstleister)
+  const handleWithdrawQuote = async (quoteId: number) => {
+    // Bestätigungsdialog für Rückzug
+    const confirmed = window.confirm(
+      '⚠️ WICHTIG: Angebot zurückziehen?\n\n' +
+      'Durch das Zurückziehen wird das Angebot unwiderruflich gelöscht. ' +
+      'Diese Aktion kann nicht rückgängig gemacht werden.\n\n' +
+      'Möchten Sie das Angebot wirklich zurückziehen?'
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+    
+    try {
+      console.log('🔧 Withdrawing quote with ID:', quoteId);
+      // Prüfe ob Token vorhanden ist
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Nicht angemeldet. Bitte melden Sie sich erneut an.');
+        return;
+      }
+      console.log('🔐 Token vorhanden, sende Anfrage...');
+      await withdrawQuote(quoteId);
+      console.log('✅ Angebot erfolgreich zurückgezogen');
+      // Lade die Angebote neu, um den Status zu aktualisieren
+      if (selectedTrade) {
+        console.log('🔄 Lade Angebote neu...');
+        await loadTradeQuotes(selectedTrade.id);
+      }
+      // Lade alle Gewerke neu, um die Details in den Kacheln zu aktualisieren
+      console.log('🔄 Lade alle Gewerke neu...');
+      await loadTrades();
+      // Zeige Erfolgsmeldung
+      setSuccess('Angebot erfolgreich zurückgezogen!');
+      setTimeout(() => setSuccess(''), 5000);
+      // Schließe Modal
+      setShowWithdrawModal(false);
+      setWithdrawingQuote(null);
+    } catch (err: any) {
+      console.error('❌ Error withdrawing quote:', err);
+      // Spezifische Fehlerbehandlung
+      if (err.message?.includes('Could not validate credentials')) {
+        setError('Sitzung abgelaufen. Bitte melden Sie sich erneut an.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (err.message?.includes('NetworkError')) {
+        setError('Verbindungsfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
+      } else {
+        setError(`Fehler beim Zurückziehen des Angebots: ${err.message || 'Unbekannter Fehler'}`);
+      }
+    }
+  };
+
+  // Öffne Reject-Modal
+  const openRejectModal = (quote: Quote) => {
+    setRejectingQuote(quote);
+    setRejectionReason('');
+    setShowRejectModal(true);
+  };
+
+  // Öffne Withdraw-Modal
+  const openWithdrawModal = (quote: Quote) => {
+    setWithdrawingQuote(quote);
+    setShowWithdrawModal(true);
   };
 
   // Lade Projekte beim ersten Laden, falls sie noch nicht geladen sind
@@ -1045,14 +1355,34 @@ export default function Trades() {
                   
                   // Zeige Anzahl der verfügbaren Angebote
                   const availableQuotes = quotes.filter(q => q.status === 'submitted');
-                  if (availableQuotes.length > 0) {
+                  const acceptedQuotes = quotes.filter(q => q.status === 'accepted');
+                  const underReviewQuotes = quotes.filter(q => q.status === 'under_review');
+                  
+                  if (availableQuotes.length > 0 || acceptedQuotes.length > 0 || underReviewQuotes.length > 0) {
                     return (
                       <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-4">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 mb-2">
                           <FileText size={16} className="text-blue-400" />
                           <span className="text-sm font-medium text-blue-300">
-                            {availableQuotes.length} Angebot{availableQuotes.length > 1 ? 'e' : ''} verfügbar
+                            {quotes.length} Angebot{quotes.length > 1 ? 'e' : ''} verfügbar
                           </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          {availableQuotes.length > 0 && (
+                            <span className="bg-green-500/20 text-green-300 px-2 py-1 rounded">
+                              {availableQuotes.length} zur Annahme
+                            </span>
+                          )}
+                          {underReviewQuotes.length > 0 && (
+                            <span className="bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded">
+                              {underReviewQuotes.length} in Prüfung
+                            </span>
+                          )}
+                          {acceptedQuotes.length > 0 && (
+                            <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
+                              {acceptedQuotes.length} angenommen
+                            </span>
+                          )}
                         </div>
                       </div>
                     );
@@ -1102,18 +1432,103 @@ export default function Trades() {
                   </div>
                 </div>
                 {/* Angebot abgeben Button für Dienstleister */}
-                {isServiceProviderUser && (
-                  <button
-                    className="w-full px-4 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg mt-4"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openOfferModal(trade);
-                    }}
-                  >
-                    <Handshake size={16} className="inline mr-2" />
-                    Angebot abgeben
-                  </button>
-                )}
+                {isServiceProviderUser && (() => {
+                  const quotes = allTradeQuotes[trade.id] || [];
+                  const myQuote = quotes.find(q => q.service_provider_id === user?.id);
+                  
+                  if (myQuote) {
+                    // Angebot bereits abgegeben - zeige Status
+                    return (
+                      <div className="mt-4 space-y-3">
+                        {/* Status-Badge */}
+                        <div className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold ${
+                          myQuote.status === 'accepted' 
+                            ? 'bg-green-500/20 border border-green-500/30 text-green-300'
+                            : myQuote.status === 'rejected'
+                            ? 'bg-red-500/20 border border-red-500/30 text-red-300'
+                            : myQuote.status === 'under_review'
+                            ? 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-300'
+                            : 'bg-blue-500/20 border border-blue-500/30 text-blue-300'
+                        }`}>
+                          {myQuote.status === 'accepted' && <CheckCircle size={16} />}
+                          {myQuote.status === 'rejected' && <XCircle size={16} />}
+                          {myQuote.status === 'under_review' && <Clock size={16} />}
+                          {myQuote.status === 'submitted' && <Send size={16} />}
+                          <span>
+                            {myQuote.status === 'accepted' && 'Angebot angenommen'}
+                            {myQuote.status === 'rejected' && 'Angebot abgelehnt'}
+                            {myQuote.status === 'under_review' && 'In Prüfung'}
+                            {myQuote.status === 'submitted' && 'Angebot eingereicht'}
+                          </span>
+                        </div>
+                        
+                        {/* Angebot-Details */}
+                        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-semibold text-white text-sm">Ihr Angebot</h4>
+                            <span className="text-lg font-bold text-[#ffbd59]">
+                              {myQuote.total_amount.toLocaleString('de-DE', { style: 'currency', currency: myQuote.currency })}
+                            </span>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3 text-xs text-gray-400">
+                            <div>
+                              <span>Dauer:</span>
+                              <div className="text-white font-medium">{myQuote.estimated_duration} Tage</div>
+                            </div>
+                            <div>
+                              <span>Gültig bis:</span>
+                              <div className="text-white font-medium">{new Date(myQuote.valid_until).toLocaleDateString('de-DE')}</div>
+                            </div>
+                            {myQuote.labor_cost && (
+                              <div>
+                                <span>Arbeitskosten:</span>
+                                <div className="text-white font-medium">
+                                  {myQuote.labor_cost.toLocaleString('de-DE', { style: 'currency', currency: myQuote.currency })}
+                                </div>
+                              </div>
+                            )}
+                            {myQuote.material_cost && (
+                              <div>
+                                <span>Materialkosten:</span>
+                                <div className="text-white font-medium">
+                                  {myQuote.material_cost.toLocaleString('de-DE', { style: 'currency', currency: myQuote.currency })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Details Button */}
+                          <div className="mt-3">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openQuoteDetailsModal(myQuote);
+                              }}
+                              className="w-full px-3 py-2 bg-[#ffbd59]/20 text-[#ffbd59] text-xs rounded-lg hover:bg-[#ffbd59]/30 transition-colors"
+                            >
+                              Details anzeigen
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    // Kein Angebot abgegeben - zeige Button
+                    return (
+                      <button
+                        className="w-full px-4 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg mt-4"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openOfferModal(trade);
+                        }}
+                      >
+                        <Handshake size={16} className="inline mr-2" />
+                        Angebot abgeben
+                      </button>
+                    );
+                  }
+                })()}
               </div>
             ))}
           </div>
@@ -1395,12 +1810,36 @@ export default function Trades() {
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {tradeQuotes.map((quote) => (
+                {tradeQuotes
+                  .sort((a, b) => {
+                    // Sortierung: submitted -> under_review -> accepted -> rejected
+                    const statusOrder = { submitted: 0, under_review: 1, accepted: 2, rejected: 3 };
+                    const statusComparison = (statusOrder[a.status as keyof typeof statusOrder] || 4) - (statusOrder[b.status as keyof typeof statusOrder] || 4);
+                    
+                    // Bei gleichem Status nach Erstellungsdatum sortieren (neueste zuerst)
+                    if (statusComparison === 0) {
+                      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                    }
+                    
+                    return statusComparison;
+                  })
+                  .map((quote) => (
                   <div key={quote.id} className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
                     <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h4 className="font-bold text-white text-lg mb-2">{quote.title}</h4>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="font-bold text-white text-lg">{quote.title}</h4>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getQuoteStatusColor(quote.status)}`}>
+                            {getQuoteStatusLabel(quote.status)}
+                          </span>
+                        </div>
                         <p className="text-sm text-gray-400 mb-3">{quote.description}</p>
+                        {quote.company_name && (
+                          <div className="text-sm text-gray-400 mb-2">
+                            <span className="font-medium">Dienstleister:</span> {quote.company_name}
+                            {quote.contact_person && ` (${quote.contact_person})`}
+                          </div>
+                        )}
                       </div>
                       <div className="text-right">
                         <div className="text-2xl font-bold text-[#ffbd59] mb-1">
@@ -1409,6 +1848,9 @@ export default function Trades() {
                         <div className="text-sm text-gray-400">
                           {quote.estimated_duration} Tage
                         </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {formatDate(quote.created_at)}
+                        </div>
                       </div>
                     </div>
 
@@ -1416,19 +1858,27 @@ export default function Trades() {
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                           <span className="text-gray-400">Arbeitskosten:</span>
-                          <div className="text-white">{quote.labor_cost.toLocaleString('de-DE', { style: 'currency', currency: quote.currency })}</div>
+                          <div className="text-white">
+                            {quote.labor_cost ? quote.labor_cost.toLocaleString('de-DE', { style: 'currency', currency: quote.currency }) : '—'}
+                          </div>
                         </div>
                         <div>
                           <span className="text-gray-400">Materialkosten:</span>
-                          <div className="text-white">{quote.material_cost.toLocaleString('de-DE', { style: 'currency', currency: quote.currency })}</div>
+                          <div className="text-white">
+                            {quote.material_cost ? quote.material_cost.toLocaleString('de-DE', { style: 'currency', currency: quote.currency }) : '—'}
+                          </div>
                         </div>
                         <div>
                           <span className="text-gray-400">Gemeinkosten:</span>
-                          <div className="text-white">{quote.overhead_cost.toLocaleString('de-DE', { style: 'currency', currency: quote.currency })}</div>
+                          <div className="text-white">
+                            {quote.overhead_cost ? quote.overhead_cost.toLocaleString('de-DE', { style: 'currency', currency: quote.currency }) : '—'}
+                          </div>
                         </div>
                         <div>
                           <span className="text-gray-400">Garantie:</span>
-                          <div className="text-white">{quote.warranty_period} Monate</div>
+                          <div className="text-white">
+                            {quote.warranty_period ? `${quote.warranty_period} Monate` : '—'}
+                          </div>
                         </div>
                       </div>
 
@@ -1465,15 +1915,38 @@ export default function Trades() {
 
                     <div className="flex gap-3">
                       {quote.status === 'submitted' ? (
-                        <button
-                          onClick={() => handleAcceptQuote(quote.id)}
-                          className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-3 rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105"
-                        >
-                          <CheckCircle size={16} className="inline mr-2" />
-                          Angebot annehmen
-                        </button>
+                        <div className="flex gap-3 flex-1">
+                          <button
+                            onClick={() => handleAcceptQuote(quote.id)}
+                            className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-3 rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105"
+                          >
+                            <CheckCircle size={16} className="inline mr-2" />
+                            Angebot annehmen
+                          </button>
+                          <button
+                            onClick={() => openRejectModal(quote)}
+                            className="px-4 py-3 bg-red-500/20 border border-red-500/30 text-red-300 rounded-xl hover:bg-red-500/30 transition-all duration-300"
+                            title="Angebot ablehnen"
+                          >
+                            <Ban size={16} />
+                          </button>
+                        </div>
+                      ) : quote.status === 'under_review' ? (
+                        <div className="flex gap-3 flex-1">
+                          <div className="flex-1 bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 font-bold py-3 rounded-xl text-center">
+                            <Clock size={16} className="inline mr-2" />
+                            In Prüfung
+                          </div>
+                          <button
+                            onClick={() => openRejectModal(quote)}
+                            className="px-4 py-3 bg-red-500/20 border border-red-500/30 text-red-300 rounded-xl hover:bg-red-500/30 transition-all duration-300"
+                            title="Angebot ablehnen"
+                          >
+                            <Ban size={16} />
+                          </button>
+                        </div>
                       ) : quote.status === 'accepted' ? (
-                        <div className="flex gap-3">
+                        <div className="flex gap-3 flex-1">
                           <div className="flex-1 bg-green-500/20 border border-green-500/30 text-green-300 font-bold py-3 rounded-xl text-center">
                             <CheckCircle size={16} className="inline mr-2" />
                             Angenommen
@@ -1486,10 +1959,31 @@ export default function Trades() {
                             <RotateCcw size={16} />
                           </button>
                         </div>
+                      ) : quote.status === 'rejected' ? (
+                        <div className="flex-1 bg-red-500/20 border border-red-500/30 text-red-300 font-bold py-3 rounded-xl text-center">
+                          <Ban size={16} className="inline mr-2" />
+                          Abgelehnt
+                          {quote.feedback && (
+                            <div className="text-xs mt-1 text-red-200">
+                              Grund: {quote.feedback}
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <div className="flex-1 bg-gray-500/20 border border-gray-500/30 text-gray-300 font-bold py-3 rounded-xl text-center">
-                          {quote.status === 'rejected' ? 'Abgelehnt' : 'In Bearbeitung'}
+                          In Bearbeitung
                         </div>
+                      )}
+                      
+                      {/* Dienstleister-spezifische Aktionen */}
+                      {isServiceProviderUser && quote.status !== 'accepted' && quote.status !== 'rejected' && (
+                        <button
+                          onClick={() => openWithdrawModal(quote)}
+                          className="px-4 py-3 bg-orange-500/20 border border-orange-500/30 text-orange-300 rounded-xl hover:bg-orange-500/30 transition-all duration-300"
+                          title="Angebot zurückziehen"
+                        >
+                          <RotateCcw size={16} />
+                        </button>
                       )}
                       
                       <button className="px-4 py-3 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all duration-300">
@@ -1507,32 +2001,494 @@ export default function Trades() {
       {/* Angebotsformular-Modal */}
       {showOfferModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md relative">
-            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onClick={closeOfferModal}><X size={20} /></button>
-            <h2 className="text-xl font-bold mb-4">Angebot abgeben für: {offerTrade?.title}</h2>
-            <form onSubmit={handleOfferSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium">Preis (€) *</label>
-                <input type="number" name="total_amount" value={offerForm.total_amount} onChange={handleOfferFormChange} required className="w-full border rounded p-2" />
+          <div className="bg-[#3d4952] rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative p-0 border border-[#ffbd59]/30">
+            <button className="absolute top-4 right-4 text-gray-400 hover:text-[#ffbd59] z-10" onClick={closeOfferModal}><X size={24} /></button>
+            <h2 className="text-2xl font-bold mb-2 px-8 pt-8 text-[#ffbd59]">Angebot abgeben für: {offerTrade?.title}</h2>
+            <form onSubmit={handleOfferSubmit} className="divide-y divide-[#ffbd59]/20">
+              {/* Abschnitt 1: Basisdaten */}
+              <section>
+                <button type="button" className={`w-full flex justify-between items-center px-8 py-4 transition rounded-t-2xl ${openOfferSection === 'basis' ? 'bg-[#ffbd59]/10' : 'bg-white/5 hover:bg-[#ffbd59]/10'}`} onClick={() => handleAccordionToggle('basis')}>
+                  <span className="text-lg font-semibold" style={{ color: openOfferSection === 'basis' ? '#ffbd59' : '#fff' }}>1. Basisdaten</span>
+                  <span>{openOfferSection === 'basis' ? <ChevronDown size={20} color="#ffbd59" /> : <ChevronRight size={20} color="#ffbd59" />}</span>
+                </button>
+                {openOfferSection === 'basis' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-8 pb-6 pt-2 bg-white/5">
+                    <div>
+                      <label className="block text-sm font-medium text-[#ffbd59]">Preis (€) *</label>
+                      <input type="number" name="total_amount" value={offerForm.total_amount} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#ffbd59]">Währung *</label>
+                      <select name="currency" value={offerForm.currency || 'EUR'} onChange={handleOfferCurrencyChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]">
+                        <option value="EUR">EUR</option>
+                        <option value="USD">USD</option>
+                        <option value="CHF">CHF</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#ffbd59]">Gültig bis *</label>
+                      <input type="date" name="valid_until" value={offerForm.valid_until} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#ffbd59]">Geschätzte Dauer (Tage) *</label>
+                      <input type="number" name="estimated_duration" value={offerForm.estimated_duration || ''} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#ffbd59]">Startdatum *</label>
+                      <input type="date" name="start_date" value={offerForm.start_date || ''} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#ffbd59]">Vorausichtliche Fertigstellung *</label>
+                      <input type="date" name="completion_date" value={offerForm.completion_date || ''} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-white">Beschreibung</label>
+                      <textarea name="description" value={offerForm.description} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                    </div>
+                  </div>
+                )}
+              </section>
+              {/* Abschnitt 2: Kalkulation */}
+              <section>
+                <button type="button" className={`w-full flex justify-between items-center px-8 py-4 transition ${openOfferSection === 'kalkulation' ? 'bg-[#ffbd59]/10' : 'bg-white/5 hover:bg-[#ffbd59]/10'}`} onClick={() => handleAccordionToggle('kalkulation')}>
+                  <span className="text-lg font-semibold" style={{ color: openOfferSection === 'kalkulation' ? '#ffbd59' : '#fff' }}>2. Kalkulation</span>
+                  <span>{openOfferSection === 'kalkulation' ? <ChevronDown size={20} color="#ffbd59" /> : <ChevronRight size={20} color="#ffbd59" />}</span>
+                </button>
+                {openOfferSection === 'kalkulation' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-8 pb-6 pt-2 bg-white/5">
+                    <div>
+                      <label className="block text-sm font-medium text-white">Arbeitskosten</label>
+                      <input type="number" name="labor_cost" value={offerForm.labor_cost || ''} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-white">Materialkosten</label>
+                      <input type="number" name="material_cost" value={offerForm.material_cost || ''} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-white">Gemeinkosten</label>
+                      <input type="number" name="overhead_cost" value={offerForm.overhead_cost || ''} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-white">Garantie (Monate)</label>
+                      <input type="number" name="warranty_period" value={offerForm.warranty_period || ''} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-white">Zahlungsbedingungen</label>
+                      <input type="text" name="payment_terms" value={offerForm.payment_terms || ''} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                    </div>
+                  </div>
+                )}
+              </section>
+              {/* Abschnitt 3: Kontakt & Upload */}
+              <section>
+                <button type="button" className={`w-full flex justify-between items-center px-8 py-4 transition rounded-b-2xl ${openOfferSection === 'kontakt' ? 'bg-[#ffbd59]/10' : 'bg-white/5 hover:bg-[#ffbd59]/10'}`} onClick={() => handleAccordionToggle('kontakt')}>
+                  <span className="text-lg font-semibold" style={{ color: openOfferSection === 'kontakt' ? '#ffbd59' : '#fff' }}>3. Kontakt & Upload</span>
+                  <span>{openOfferSection === 'kontakt' ? <ChevronDown size={20} color="#ffbd59" /> : <ChevronRight size={20} color="#ffbd59" />}</span>
+                </button>
+                {openOfferSection === 'kontakt' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-8 pb-8 pt-2 bg-white/5">
+                    <div>
+                      <label className="block text-sm font-medium text-[#ffbd59]">Firmenname *</label>
+                      <input type="text" name="company_name" value={offerForm.company_name || ''} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#ffbd59]">Ansprechpartner *</label>
+                      <input type="text" name="contact_person" value={offerForm.contact_person || ''} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#ffbd59]">E-Mail *</label>
+                      <input type="email" name="email" value={offerForm.email || ''} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-white">Telefon</label>
+                      <input type="text" name="phone" value={offerForm.phone || ''} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-white">Webseite</label>
+                      <input type="text" name="website" value={offerForm.website || ''} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-white">PDF-Angebot (optional)</label>
+                      <input type="file" accept="application/pdf" onChange={handleOfferFileChange} className="w-full" />
+                    </div>
+                  </div>
+                )}
+              </section>
+              {/* Fehler- und Erfolgsanzeige */}
+              <div className="px-8 py-4">
+                {offerError && <div className="text-red-600 text-sm mb-2">{offerError}</div>}
+                <button type="submit" className="w-full bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl font-semibold py-3 hover:from-[#ffa726] hover:to-[#ff9800] transition-colors mt-2" disabled={offerLoading}>
+                  {offerLoading ? 'Wird gesendet...' : 'Angebot absenden'}
+                </button>
+                {offerSuccess && <div className="text-green-600 text-sm mt-2">{offerSuccess}</div>}
               </div>
-              <div>
-                <label className="block text-sm font-medium">Beschreibung</label>
-                <textarea name="description" value={offerForm.description} onChange={handleOfferFormChange} className="w-full border rounded p-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium">Gültig bis</label>
-                <input type="date" name="valid_until" value={offerForm.valid_until} onChange={handleOfferFormChange} className="w-full border rounded p-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium">PDF-Angebot *</label>
-                <input type="file" accept="application/pdf" onChange={handleOfferFileChange} required className="w-full" />
-              </div>
-              {offerError && <div className="text-red-600 text-sm">{offerError}</div>}
-              <button type="submit" className="w-full bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold py-2 hover:bg-[#ffa726] transition-colors" disabled={offerLoading}>
-                {offerLoading ? 'Wird gesendet...' : 'Angebot absenden'}
-              </button>
-              {offerSuccess && <div className="text-green-600 text-sm mt-2">{offerSuccess}</div>}
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Angebot-Details-Modal */}
+      {showQuoteDetailsModal && selectedQuote && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-2xl font-bold text-white mb-2">
+                  Angebot Details
+                </h3>
+                <p className="text-gray-400">{selectedQuote.title}</p>
+              </div>
+              <button
+                onClick={() => setShowQuoteDetailsModal(false)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X size={24} className="text-gray-400" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Linke Spalte - Hauptinformationen */}
+              <div className="space-y-6">
+                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
+                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <Euro size={20} className="text-[#ffbd59]" />
+                    Preisdetails
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Gesamtpreis:</span>
+                      <span className="text-2xl font-bold text-[#ffbd59]">
+                        {selectedQuote.total_amount.toLocaleString('de-DE', { style: 'currency', currency: selectedQuote.currency })}
+                      </span>
+                    </div>
+                    {selectedQuote.labor_cost && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Arbeitskosten:</span>
+                        <span className="text-white font-medium">
+                          {selectedQuote.labor_cost.toLocaleString('de-DE', { style: 'currency', currency: selectedQuote.currency })}
+                        </span>
+                      </div>
+                    )}
+                    {selectedQuote.material_cost && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Materialkosten:</span>
+                        <span className="text-white font-medium">
+                          {selectedQuote.material_cost.toLocaleString('de-DE', { style: 'currency', currency: selectedQuote.currency })}
+                        </span>
+                      </div>
+                    )}
+                    {selectedQuote.overhead_cost && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Gemeinkosten:</span>
+                        <span className="text-white font-medium">
+                          {selectedQuote.overhead_cost.toLocaleString('de-DE', { style: 'currency', currency: selectedQuote.currency })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
+                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <Calendar size={20} className="text-[#ffbd59]" />
+                    Zeitplan
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Geschätzte Dauer:</span>
+                      <span className="text-white font-medium">{selectedQuote.estimated_duration} Tage</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Startdatum:</span>
+                      <span className="text-white font-medium">{new Date(selectedQuote.start_date).toLocaleDateString('de-DE')}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Fertigstellung:</span>
+                      <span className="text-white font-medium">{new Date(selectedQuote.completion_date).toLocaleDateString('de-DE')}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Gültig bis:</span>
+                      <span className="text-white font-medium">{new Date(selectedQuote.valid_until).toLocaleDateString('de-DE')}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Rechte Spalte - Zusätzliche Details */}
+              <div className="space-y-6">
+                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
+                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <Shield size={20} className="text-[#ffbd59]" />
+                    Qualität & Garantie
+                  </h4>
+                  <div className="space-y-3">
+                    {selectedQuote.warranty_period && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Garantie:</span>
+                        <span className="text-white font-medium">{selectedQuote.warranty_period} Monate</span>
+                      </div>
+                    )}
+                    {selectedQuote.risk_score && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Risiko-Score:</span>
+                        <span className={`font-medium ${selectedQuote.risk_score > 30 ? 'text-red-400' : selectedQuote.risk_score > 15 ? 'text-yellow-400' : 'text-green-400'}`}>
+                          {selectedQuote.risk_score}%
+                        </span>
+                      </div>
+                    )}
+                    {selectedQuote.payment_terms && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Zahlungsbedingungen:</span>
+                        <span className="text-white font-medium">{selectedQuote.payment_terms}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
+                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <User size={20} className="text-[#ffbd59]" />
+                    Kontaktdaten
+                  </h4>
+                  <div className="space-y-3">
+                    {selectedQuote.company_name && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Firma:</span>
+                        <span className="text-white font-medium">{selectedQuote.company_name}</span>
+                      </div>
+                    )}
+                    {selectedQuote.contact_person && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Ansprechpartner:</span>
+                        <span className="text-white font-medium">{selectedQuote.contact_person}</span>
+                      </div>
+                    )}
+                    {selectedQuote.email && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">E-Mail:</span>
+                        <span className="text-white font-medium">{selectedQuote.email}</span>
+                      </div>
+                    )}
+                    {selectedQuote.phone && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Telefon:</span>
+                        <span className="text-white font-medium">{selectedQuote.phone}</span>
+                      </div>
+                    )}
+                    {selectedQuote.website && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Webseite:</span>
+                        <span className="text-white font-medium">{selectedQuote.website}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {selectedQuote.description && (
+                  <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
+                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                      <FileText size={20} className="text-[#ffbd59]" />
+                      Beschreibung
+                    </h4>
+                    <p className="text-gray-300 leading-relaxed">{selectedQuote.description}</p>
+                  </div>
+                )}
+
+                {selectedQuote.ai_recommendation && (
+                  <div className="bg-[#ffbd59]/10 backdrop-blur-lg rounded-xl p-6 border border-[#ffbd59]/20">
+                    <h4 className="text-lg font-semibold text-[#ffbd59] mb-4 flex items-center gap-2">
+                      <Brain size={20} />
+                      KI-Empfehlung
+                    </h4>
+                    <p className="text-white leading-relaxed">{selectedQuote.ai_recommendation}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Status-Badge und Aktionen */}
+            <div className="mt-6 flex flex-col items-center gap-4">
+              <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold ${
+                selectedQuote.status === 'accepted' 
+                  ? 'bg-green-500/20 border border-green-500/30 text-green-300'
+                  : selectedQuote.status === 'rejected'
+                  ? 'bg-red-500/20 border border-red-500/30 text-red-300'
+                  : selectedQuote.status === 'under_review'
+                  ? 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-300'
+                  : 'bg-blue-500/20 border border-blue-500/30 text-blue-300'
+              }`}>
+                {selectedQuote.status === 'accepted' && <CheckCircle size={16} />}
+                {selectedQuote.status === 'rejected' && <XCircle size={16} />}
+                {selectedQuote.status === 'under_review' && <Clock size={16} />}
+                {selectedQuote.status === 'submitted' && <Send size={16} />}
+                <span>
+                  {selectedQuote.status === 'accepted' && 'Angebot angenommen'}
+                  {selectedQuote.status === 'rejected' && 'Angebot abgelehnt'}
+                  {selectedQuote.status === 'under_review' && 'In Prüfung'}
+                  {selectedQuote.status === 'submitted' && 'Angebot eingereicht'}
+                </span>
+              </div>
+              
+              {/* Dienstleister-spezifische Aktionen */}
+              {isServiceProviderUser && selectedQuote.status !== 'accepted' && selectedQuote.status !== 'rejected' && (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => openWithdrawModal(selectedQuote)}
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold"
+                    title="Angebot zurückziehen"
+                  >
+                    <RotateCcw size={16} />
+                    Angebot zurückziehen
+                  </button>
+                  
+                  <button className="flex items-center gap-2 px-6 py-3 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all duration-300">
+                    <Download size={16} />
+                    PDF herunterladen
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject-Modal */}
+      {showRejectModal && rejectingQuote && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-md">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <Ban size={24} className="text-red-400" />
+                Angebot ablehnen
+              </h3>
+              <button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setRejectingQuote(null);
+                  setRejectionReason('');
+                }}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X size={24} className="text-gray-400" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-300 mb-4">
+                Möchten Sie das Angebot von <strong>{rejectingQuote.company_name}</strong> für <strong>{rejectingQuote.title}</strong> ablehnen?
+              </p>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Ablehnungsgrund (optional)
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Geben Sie einen Grund für die Ablehnung an..."
+                  rows={3}
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => handleRejectQuote(rejectingQuote.id, rejectionReason)}
+                disabled={rejectLoading}
+                className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold py-3 rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {rejectLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span className="ml-2">Wird abgelehnt...</span>
+                  </div>
+                ) : (
+                  <>
+                    <Ban size={16} className="inline mr-2" />
+                    Angebot ablehnen
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setRejectingQuote(null);
+                  setRejectionReason('');
+                }}
+                className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Withdraw-Modal */}
+      {showWithdrawModal && withdrawingQuote && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-md">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <RotateCcw size={24} className="text-orange-400" />
+                Angebot zurückziehen
+              </h3>
+              <button
+                onClick={() => {
+                  setShowWithdrawModal(false);
+                  setWithdrawingQuote(null);
+                }}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X size={24} className="text-gray-400" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-300 mb-4">
+                Möchten Sie Ihr Angebot für <strong>{withdrawingQuote.title}</strong> wirklich zurückziehen?
+              </p>
+              <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle size={16} className="text-orange-400" />
+                  <span className="text-sm font-medium text-orange-300">Wichtiger Hinweis</span>
+                </div>
+                <p className="text-sm text-orange-200">
+                  Diese Aktion kann nicht rückgängig gemacht werden. Das Angebot wird unwiderruflich gelöscht.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => handleWithdrawQuote(withdrawingQuote.id)}
+                disabled={withdrawLoading}
+                className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-3 rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {withdrawLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span className="ml-2">Wird zurückgezogen...</span>
+                  </div>
+                ) : (
+                  <>
+                    <RotateCcw size={16} className="inline mr-2" />
+                    Angebot zurückziehen
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setShowWithdrawModal(false);
+                  setWithdrawingQuote(null);
+                }}
+                className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
+              >
+                Abbrechen
+              </button>
+            </div>
           </div>
         </div>
       )}

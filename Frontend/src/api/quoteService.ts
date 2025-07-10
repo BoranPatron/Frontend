@@ -70,8 +70,21 @@ export async function acceptQuote(id: number) {
   return response.data;
 }
 
+export async function rejectQuote(id: number, rejectionReason?: string) {
+  const response = await api.post(`/quotes/${id}/reject`, {
+    rejection_reason: rejectionReason
+  });
+  return response.data;
+}
+
 export async function resetQuote(id: number) {
   const response = await api.post(`/quotes/${id}/reset`);
+  return response.data;
+}
+
+export async function withdrawQuote(id: number) {
+  // Dienstleister können ihre Angebote zurückziehen (löschen)
+  const response = await api.delete(`/quotes/${id}`);
   return response.data;
 }
 
