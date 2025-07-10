@@ -125,7 +125,7 @@ export default function Login() {
         {/* Logo und Titel */}
         <div className="text-center">
           <div className="flex items-center justify-center mb-6">
-            <img src={logo} alt="BuildWise Logo" className="h-20 w-auto" />
+            <img src={logo} alt="BuildWise Logo" className="h-80 w-auto" />
           </div>
           <h2 className="text-3xl font-bold text-white mb-2">BuildWise</h2>
           <p className="text-gray-300">Melden Sie sich in Ihrem Konto an</p>
