@@ -6,10 +6,14 @@ export const getApiBaseUrl = () => {
   // Wenn localhost, verwende localhost für Backend
   // Ansonsten verwende die gleiche IP-Adresse wie das Frontend
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:8000/api/v1';
+    const baseUrl = 'http://localhost:8000/api/v1';
+    console.log('🔧 API Base URL:', baseUrl);
+    return baseUrl;
   }
   // Für Netzwerk-Zugriff verwende die gleiche IP wie das Frontend
-  return `http://${hostname}:8000/api/v1`;
+  const baseUrl = `http://${hostname}:8000/api/v1`;
+  console.log('🔧 API Base URL:', baseUrl);
+  return baseUrl;
 };
 
 const api = axios.create({
@@ -21,9 +25,9 @@ const api = axios.create({
 // Request Interceptor für Logging und Token-Handling
 api.interceptors.request.use(
   (config) => {
-    // Token automatisch hinzufügen
+    // Token automatisch hinzufügen (außer bei Login-Endpunkten)
     const token = localStorage.getItem('token');
-    if (token) {
+    if (token && !config.url?.includes('/auth/login')) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     
@@ -51,8 +55,8 @@ api.interceptors.response.use(
       message: error.message
     });
     
-    // Spezifische Fehlerbehandlung
-    if (error.response?.status === 401) {
+    // Spezifische Fehlerbehandlung (außer bei Login-Anfragen)
+    if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
       console.error('🔐 Unauthorized - Token möglicherweise abgelaufen');
       // Token aus localStorage entfernen
       localStorage.removeItem('token');

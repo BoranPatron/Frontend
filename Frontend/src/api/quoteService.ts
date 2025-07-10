@@ -83,4 +83,14 @@ export async function analyzeQuote(id: number) {
 export async function getQuoteStatistics(project_id: number) {
   const response = await api.get(`/quotes/project/${project_id}/statistics`);
   return response.data;
+}
+
+export async function createQuoteWithPdf(formData: FormData) {
+  // Erwartet: alle Angebotsdaten + 'pdf' als Datei im FormData
+  const response = await api.post('/quotes/', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+  return response.data;
 } 

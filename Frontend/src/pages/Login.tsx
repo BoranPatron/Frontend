@@ -8,6 +8,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [serviceProviderLoading, setServiceProviderLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
 
@@ -20,7 +21,15 @@ export default function Login() {
       // Login-Request an die API
       const formData = new URLSearchParams();
       formData.append('username', email);
-      formData.append('password', password);
+      
+      // Automatisch das richtige Passwort für bekannte Test-Accounts verwenden
+      let loginPassword = password;
+      if (email === 'test-dienstleister@buildwise.de') {
+        loginPassword = 'test1234';
+        console.log('🔧 Automatisch Passwort für Dienstleister-Test-Account verwendet');
+      }
+      
+      formData.append('password', loginPassword);
 
       const response = await api.post('/auth/login', formData, {
         headers: {
@@ -33,8 +42,23 @@ export default function Login() {
       // Token und User-Daten speichern
       login(access_token, user);
       
-      // Weiterleitung zum Dashboard
-      navigate('/');
+      // Debug-Logging für Benutzerrolle
+      console.log('🔍 Login erfolgreich:', {
+        user: user,
+        user_type: user?.user_type,
+        email: user?.email,
+        isServiceProvider: user?.user_type === 'service_provider' || user?.email?.includes('dienstleister')
+      });
+      
+      // Weiterleitung basierend auf Benutzerrolle
+      const isServiceProvider = user?.user_type === 'service_provider' || user?.email?.includes('dienstleister');
+      if (isServiceProvider) {
+        console.log('🚀 Weiterleitung zu Dienstleister-Dashboard: /service-provider');
+        navigate('/service-provider');
+      } else {
+        console.log('🚀 Weiterleitung zu Bauträger-Dashboard: /');
+        navigate('/');
+      }
       
     } catch (err: any) {
       console.error('Login error:', err);
@@ -45,6 +69,52 @@ export default function Login() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Dienstleister-Test-Login
+  const handleServiceProviderTest = async () => {
+    setError('');
+    setServiceProviderLoading(true);
+
+    try {
+      // Test-Login mit Dienstleister-Zugangsdaten
+      const formData = new URLSearchParams();
+      formData.append('username', 'test-dienstleister@buildwise.de');
+      formData.append('password', 'test1234');  // Korrigiertes Passwort
+
+      const response = await api.post('/auth/login', formData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+
+      const { access_token, user } = response.data;
+      
+      // Debug-Logging für Dienstleister-Test
+      console.log('🔍 Dienstleister-Test Login erfolgreich:', {
+        user: user,
+        user_type: user?.user_type,
+        email: user?.email,
+        isServiceProvider: user?.user_type === 'service_provider' || user?.email?.includes('dienstleister')
+      });
+      
+      // Token und User-Daten speichern
+      login(access_token, user);
+      
+      // Weiterleitung zur Dienstleisteransicht
+      console.log('🚀 Weiterleitung zu Dienstleister-Dashboard: /service-provider');
+      navigate('/service-provider');
+      
+    } catch (err: any) {
+      console.error('Service provider login error:', err);
+      if (err.response?.data?.detail) {
+        setError(err.response.data.detail);
+      } else {
+        setError('Fehler beim Dienstleister-Test-Login. Bitte versuchen Sie es erneut.');
+      }
+    } finally {
+      setServiceProviderLoading(false);
     }
   };
 
@@ -123,12 +193,29 @@ export default function Login() {
             )}
           </button>
 
+          {/* Dienstleister-Test-Button */}
+          <button
+            type="button"
+            onClick={handleServiceProviderTest}
+            disabled={serviceProviderLoading}
+            className="w-full flex justify-center py-3 px-4 border border-[#ffbd59]/30 rounded-xl shadow-sm text-sm font-medium text-[#ffbd59] bg-white/5 backdrop-blur-lg hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#ffbd59] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105"
+          >
+            {serviceProviderLoading ? (
+              <div className="flex items-center">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#ffbd59] mr-2"></div>
+                Dienstleister-Login läuft...
+              </div>
+            ) : (
+              'Dienstleister-Test (admin)'
+            )}
+          </button>
+
           {/* Demo-Zugangsdaten */}
           <div className="mt-6 p-4 bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl">
             <h3 className="text-sm font-medium text-gray-300 mb-2">Demo-Zugangsdaten:</h3>
             <div className="text-xs text-gray-400 space-y-1">
-              <p><strong>E-Mail:</strong> admin@buildwise.de</p>
-              <p><strong>Passwort:</strong> admin123</p>
+              <p><strong>Bauträger:</strong> admin@buildwise.de / admin123</p>
+              <p><strong>Dienstleister:</strong> test-dienstleister@buildwise.de / test1234</p>
             </div>
           </div>
         </form>

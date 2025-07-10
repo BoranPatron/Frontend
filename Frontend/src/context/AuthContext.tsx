@@ -5,6 +5,7 @@ interface AuthContextType {
   user: any;
   login: (token: string, user: any) => void;
   logout: () => void;
+  isServiceProvider: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,8 +37,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  // Hilfsfunktion um zu prüfen, ob der Benutzer ein Dienstleister ist
+  const isServiceProvider = () => {
+    return user?.user_type === 'service_provider' || user?.email?.includes('dienstleister');
+  };
+
   return (
-    <AuthContext.Provider value={{ token, user, login, logout }}>
+    <AuthContext.Provider value={{ token, user, login, logout, isServiceProvider }}>
       {children}
     </AuthContext.Provider>
   );

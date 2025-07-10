@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
+import ServiceProviderDashboard from './pages/ServiceProviderDashboard';
 import Login from './pages/Login';
 import ProjectDetail from './pages/ProjectDetail';
 import ProjectMessages from './pages/ProjectMessages';
@@ -71,6 +72,11 @@ function AppContent() {
         <Route path="/" element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/service-provider" element={
+          <ProtectedRoute>
+            <ServiceProviderDashboard />
           </ProtectedRoute>
         } />
         <Route path="/global-projects" element={

@@ -29,7 +29,7 @@ import logo from '../logo_trans_big.png';
 
 export default function Navbar() {
   const { pathname } = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, isServiceProvider } = useAuth();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -71,43 +71,46 @@ export default function Navbar() {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-1">
-              {/* Dashboard */}
+              {/* Dashboard - unterschiedlich für Bauträger und Dienstleister */}
               <Link
-                to="/"
+                to={isServiceProvider() ? "/service-provider" : "/"}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                  isActive('/') 
+                  (isActive('/') || (isServiceProvider() && isActive('/service-provider')))
                     ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
                     : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
                 }`}
               >
                 <Home size={18} />
-                <span>Dashboard</span>
+                <span>{isServiceProvider() ? 'Dienstleister' : 'Dashboard'}</span>
               </Link>
 
-              {/* Globale Übersicht */}
-              <Link
-                to="/global-projects"
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                  isActive('/global-projects') 
-                    ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
-                    : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
-                }`}
-              >
-                <Globe size={18} />
-                <span>Übersicht</span>
-              </Link>
+              {/* Globale Übersicht - nur für Bauträger */}
+              {!isServiceProvider() && (
+                <Link
+                  to="/global-projects"
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                    isActive('/global-projects') 
+                      ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
+                      : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
+                  }`}
+                >
+                  <Globe size={18} />
+                  <span>Übersicht</span>
+                </Link>
+              )}
 
-              {/* Projekt-Manager Dropdown */}
-              <div className="relative group">
-                <button className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                  isProjectActive() 
-                    ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
-                    : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
-                }`}>
-                  <Target size={18} />
-                  <span>Projekte</span>
-                  <ChevronDown size={16} className="group-hover:rotate-180 transition-transform" />
-                </button>
+              {/* Projekt-Manager Dropdown - nur für Bauträger */}
+              {!isServiceProvider() && (
+                <div className="relative group">
+                  <button className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                    isProjectActive() 
+                      ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
+                      : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
+                  }`}>
+                    <Target size={18} />
+                    <span>Projekte</span>
+                    <ChevronDown size={16} className="group-hover:rotate-180 transition-transform" />
+                  </button>
                 
                 <div className="absolute top-full left-0 mt-2 w-64 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
                   <div className="p-2">
@@ -153,19 +156,50 @@ export default function Navbar() {
                   </div>
                 </div>
               </div>
+              )}
 
-              {/* BuildWise-Gebühren */}
-              <Link
-                to="/buildwise-fees"
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                  isActive('/buildwise-fees') 
-                    ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
-                    : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
-                }`}
-              >
-                <DollarSign size={18} />
-                <span>Gebühren</span>
-              </Link>
+              {/* BuildWise-Gebühren - nur für Bauträger */}
+              {!isServiceProvider() && (
+                <Link
+                  to="/buildwise-fees"
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                    isActive('/buildwise-fees') 
+                      ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
+                      : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
+                  }`}
+                >
+                  <DollarSign size={18} />
+                  <span>Gebühren</span>
+                </Link>
+              )}
+
+              {/* Dienstleister-spezifische Navigation */}
+              {isServiceProvider() && (
+                <>
+                  <Link
+                    to="/messages"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                      isActive('/messages') 
+                        ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
+                        : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
+                    }`}
+                  >
+                    <MessageCircle size={18} />
+                    <span>Messenger</span>
+                  </Link>
+                  <Link
+                    to="/quotes"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                      isActive('/quotes') 
+                        ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
+                        : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
+                    }`}
+                  >
+                    <Handshake size={18} />
+                    <span>Gewerke</span>
+                  </Link>
+                </>
+              )}
 
               {/* Tools Dropdown */}
               <div className="relative group">

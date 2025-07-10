@@ -46,7 +46,7 @@ import { useAuth } from '../context/AuthContext';
 import { getMilestones, createMilestone, updateMilestone, getAllMilestones } from '../api/milestoneService';
 import { getProjects } from '../api/projectService';
 
-import { getQuotesForMilestone, createMockQuotesForMilestone, acceptQuote, resetQuote } from '../api/quoteService';
+import { getQuotesForMilestone, createMockQuotesForMilestone, acceptQuote, resetQuote, createQuoteWithPdf } from '../api/quoteService';
 
 interface Quote {
   id: number;
@@ -131,7 +131,10 @@ interface Trade {
 export default function Trades() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isServiceProvider } = useAuth();
+  
+  // Prüfe ob der Benutzer ein Dienstleister ist
+  const isServiceProviderUser = isServiceProvider();
   
   // State für Gewerke
   const [trades, setTrades] = useState<Trade[]>([]);
@@ -173,6 +176,19 @@ export default function Trades() {
     priority: 'medium' as 'low' | 'medium' | 'high' | 'critical',
     is_critical: false
   });
+
+  // Angebotsformular-Modal-States
+  const [showOfferModal, setShowOfferModal] = useState(false);
+  const [offerForm, setOfferForm] = useState({
+    total_amount: '',
+    description: '',
+    valid_until: '',
+    pdf: null as File | null,
+  });
+  const [offerLoading, setOfferLoading] = useState(false);
+  const [offerSuccess, setOfferSuccess] = useState('');
+  const [offerError, setOfferError] = useState('');
+  const [offerTrade, setOfferTrade] = useState<Trade | null>(null);
 
   const loadTrades = async () => {
     // Verhindere mehrfache gleichzeitige Aufrufe
@@ -242,14 +258,14 @@ export default function Trades() {
           const projectId = selectedProject || 4;
           console.log(`🔧 Creating mock quotes for trade ${tradeId} in project ${projectId}...`);
           const mockData = await createMockQuotesForMilestone(tradeId, projectId);
-          console.log(`✅ Created ${mockData.length} mock quotes:`, mockData);
-          setTradeQuotes(mockData);
+          console.log(`✅ Created ${mockData.length} mock quotes for trade ${trade.id}:`, mockQuotes);
+          quotesMap[trade.id] = mockQuotes;
         } catch (mockErr: any) {
-          console.error('Error creating mock quotes:', mockErr);
-          setTradeQuotes([]);
+          console.error(`❌ Error creating mock quotes for trade ${trade.id}:`, mockErr);
+          quotesMap[trade.id] = [];
         }
       } else {
-        setTradeQuotes([]);
+        quotesMap[trade.id] = [];
       }
     }
   };
@@ -434,6 +450,54 @@ export default function Trades() {
     }
   };
 
+  // Handler für Angebotsformular
+  const openOfferModal = (trade: Trade) => {
+    setOfferTrade(trade);
+    setOfferForm({ total_amount: '', description: '', valid_until: '', pdf: null });
+    setOfferSuccess('');
+    setOfferError('');
+    setShowOfferModal(true);
+  };
+  const closeOfferModal = () => {
+    setShowOfferModal(false);
+    setOfferTrade(null);
+  };
+  const handleOfferFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setOfferForm((prev) => ({ ...prev, [name]: value }));
+  };
+  const handleOfferFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setOfferForm((prev) => ({ ...prev, pdf: e.target.files![0] }));
+    }
+  };
+  const handleOfferSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOfferLoading(true);
+    setOfferSuccess('');
+    setOfferError('');
+    try {
+      if (!offerTrade) throw new Error('Kein Gewerk ausgewählt');
+      if (!offerForm.total_amount || !offerForm.pdf) throw new Error('Bitte alle Pflichtfelder ausfüllen');
+      const formData = new FormData();
+      formData.append('total_amount', offerForm.total_amount);
+      formData.append('description', offerForm.description);
+      formData.append('valid_until', offerForm.valid_until);
+      formData.append('pdf', offerForm.pdf);
+      formData.append('milestone_id', String(offerTrade.id));
+      formData.append('project_id', String(offerTrade.project_id || offerTrade.id));
+      // Optional: weitere Felder (z.B. user_id, falls benötigt)
+      const res = await createQuoteWithPdf(formData);
+      setOfferSuccess('Angebot erfolgreich eingereicht!');
+      setShowOfferModal(false);
+      // Optional: Angebote neu laden
+    } catch (err: any) {
+      setOfferError(err.message || 'Fehler beim Absenden des Angebots');
+    } finally {
+      setOfferLoading(false);
+    }
+  };
+
   // Lade Gewerke beim ersten Laden der Komponente
   useEffect(() => {
     console.log('🚀 Component mounted, loading all trades...');
@@ -512,12 +576,13 @@ export default function Trades() {
         project_id: selectedProject,
         title: tradeForm.title.trim(),
         description: tradeForm.description.trim(),
+        status: 'planned',
         category: category,
         planned_date: tradeForm.start_date,
         start_date: tradeForm.start_date,
         end_date: tradeForm.end_date,
         actual_costs: 0.0,
-        notes: tradeForm.notes.trim() || null,
+        notes: tradeForm.notes.trim() || undefined,
         priority: tradeForm.priority,
         is_critical: tradeForm.is_critical,
         notify_on_completion: true
@@ -691,9 +756,14 @@ export default function Trades() {
                 <ArrowLeft size={20} className="text-[#ffbd59]" />
               </button>
               <div>
-                <h1 className="text-3xl font-bold text-[#ffbd59]">Gewerke</h1>
+                <h1 className="text-3xl font-bold text-[#ffbd59]">
+                  {isServiceProviderUser ? 'Ausschreibungen' : 'Gewerke'}
+                </h1>
                 <p className="text-gray-300">
-                  Gewerkeverwaltung & Vergleich
+                  {isServiceProviderUser 
+                    ? 'Verfügbare Ausschreibungen & Angebote' 
+                    : 'Gewerkeverwaltung & Vergleich'
+                  }
                   {selectedProject && (
                     <span className="block text-sm text-[#ffbd59] mt-1">
                       Projekt-ID: {selectedProject}
@@ -702,13 +772,15 @@ export default function Trades() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setShowTradeModal(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold"
-            >
-              <Plus size={20} />
-              Gewerk erstellen
-            </button>
+            {!isServiceProviderUser && (
+              <button
+                onClick={() => setShowTradeModal(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold"
+              >
+                <Plus size={20} />
+                Gewerk erstellen
+              </button>
+            )}
           </div>
         </header>
 
@@ -1079,6 +1151,14 @@ export default function Trades() {
                     )}
                   </div>
                 </div>
+                {isServiceProviderUser && (
+                  <button
+                    className="px-4 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition-colors mt-2"
+                    onClick={() => openOfferModal(trade)}
+                  >
+                    Angebot abgeben
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -1092,10 +1172,11 @@ export default function Trades() {
                 <p className="text-gray-400 mb-6">
                   {searchTerm || filterStatus !== 'all' 
                     ? 'Versuchen Sie andere Suchkriterien oder Filter.'
-                    : 'Erstellen Sie Ihr erstes Gewerk, um zu beginnen.'
+                    : 'Es sind aktuell keine ausgeschriebenen Gewerke verfügbar.'
                   }
                 </p>
-                {!searchTerm && filterStatus === 'all' && (
+                {/* Button nur für Bauträger anzeigen */}
+                {!isServiceProviderUser && !searchTerm && filterStatus === 'all' && (
                   <button
                     onClick={() => setShowTradeModal(true)}
                     className="px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 font-semibold"
@@ -1459,6 +1540,39 @@ export default function Trades() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Angebotsformular-Modal */}
+      {showOfferModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md relative">
+            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onClick={closeOfferModal}><X size={20} /></button>
+            <h2 className="text-xl font-bold mb-4">Angebot abgeben für: {offerTrade?.title}</h2>
+            <form onSubmit={handleOfferSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium">Preis (€) *</label>
+                <input type="number" name="total_amount" value={offerForm.total_amount} onChange={handleOfferFormChange} required className="w-full border rounded p-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Beschreibung</label>
+                <textarea name="description" value={offerForm.description} onChange={handleOfferFormChange} className="w-full border rounded p-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Gültig bis</label>
+                <input type="date" name="valid_until" value={offerForm.valid_until} onChange={handleOfferFormChange} className="w-full border rounded p-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium">PDF-Angebot *</label>
+                <input type="file" accept="application/pdf" onChange={handleOfferFileChange} required className="w-full" />
+              </div>
+              {offerError && <div className="text-red-600 text-sm">{offerError}</div>}
+              <button type="submit" className="w-full bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold py-2 hover:bg-[#ffa726] transition-colors" disabled={offerLoading}>
+                {offerLoading ? 'Wird gesendet...' : 'Angebot absenden'}
+              </button>
+              {offerSuccess && <div className="text-green-600 text-sm mt-2">{offerSuccess}</div>}
+            </form>
           </div>
         </div>
       )}
