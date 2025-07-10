@@ -43,7 +43,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getMilestones, createMilestone, updateMilestone, getAllMilestones } from '../api/milestoneService';
+import { getMilestones, createMilestone, updateMilestone, getAllMilestones, deleteMilestone } from '../api/milestoneService';
 import { getProjects } from '../api/projectService';
 
 import { getQuotesForMilestone, createMockQuotesForMilestone, acceptQuote, resetQuote, createQuoteWithPdf } from '../api/quoteService';
@@ -190,28 +190,37 @@ export default function Trades() {
   const [offerTrade, setOfferTrade] = useState<Trade | null>(null);
 
   const loadTrades = async () => {
+    console.log('🔍 loadTrades called with:', { selectedProject, isServiceProvider: isServiceProvider() });
     setIsLoadingTrades(true);
     setError('');
     try {
       let tradesData: Trade[] = [];
       if (isServiceProvider()) {
         // Dienstleister: alle Milestones (Ausschreibungen) global laden
+        console.log('👷 Service provider detected, loading all milestones...');
         tradesData = await getAllMilestones();
+        console.log('✅ Service provider milestones loaded:', tradesData);
       } else {
         // Bauträger: Trades projektbasiert laden (wie bisher)
+        console.log('🏗️ Professional detected, loading project-based milestones...');
         if (selectedProject) {
+          console.log('📋 Loading milestones for project:', selectedProject);
           tradesData = await getMilestones(selectedProject);
+          console.log('✅ Project milestones loaded:', tradesData);
         } else {
+          console.log('⚠️ No selected project, skipping milestone load');
           setTrades([]);
           setIsLoadingTrades(false);
           return;
         }
       }
+      console.log('📊 Setting trades state with:', tradesData);
       setTrades(tradesData);
       
       // Lade Angebote für alle Gewerke
       await loadAllTradeQuotes(tradesData);
     } catch (err: any) {
+      console.error('❌ Error in loadTrades:', err);
       setError('Fehler beim Laden der Gewerke');
     } finally {
       setIsLoadingTrades(false);
@@ -224,42 +233,10 @@ export default function Trades() {
       console.log(`🔍 Loading quotes for trade ${tradeId}...`);
       const data = await getQuotesForMilestone(tradeId);
       console.log(`📊 Found ${data.length} quotes for trade ${tradeId}:`, data);
-      
-      // Wenn keine Angebote vorhanden sind, erstelle Mock-Angebote
-      if (data.length === 0) {
-        console.log(`📝 No quotes found for trade ${tradeId}, creating mock quotes...`);
-        try {
-          const projectId = selectedProject || 4;
-          console.log(`🔧 Creating mock quotes for trade ${tradeId} in project ${projectId}...`);
-          const mockData = await createMockQuotesForMilestone(tradeId, projectId);
-          console.log(`✅ Created ${mockData.length} mock quotes:`, mockData);
-          setTradeQuotes(mockData);
-        } catch (mockErr: any) {
-          console.error('Error creating mock quotes:', mockErr);
-          setTradeQuotes([]);
-        }
-      } else {
-        setTradeQuotes(data);
-      }
+      setTradeQuotes(data);
     } catch (err: any) {
       console.error('Error loading quotes:', err);
-      
-      // Wenn keine Angebote gefunden werden (404) oder andere Fehler, erstelle Mock-Daten
-      if (err.message.includes('404') || err.message.includes('Failed to fetch')) {
-        console.log('📝 No quotes found, creating mock quotes...');
-        try {
-          const projectId = selectedProject || 4;
-          console.log(`🔧 Creating mock quotes for trade ${tradeId} in project ${projectId}...`);
-          const mockData = await createMockQuotesForMilestone(tradeId, projectId);
-          console.log(`✅ Created ${mockData.length} mock quotes for trade ${tradeId}:`, mockData);
-          setTradeQuotes(mockData);
-        } catch (mockErr: any) {
-          console.error(`❌ Error creating mock quotes for trade ${tradeId}:`, mockErr);
-          setTradeQuotes([]);
-        }
-      } else {
-        setTradeQuotes([]);
-      }
+      setTradeQuotes([]);
     }
   };
 
@@ -268,49 +245,16 @@ export default function Trades() {
     try {
       console.log('🔍 Loading quotes for all trades...');
       const quotesMap: { [tradeId: number]: Quote[] } = {};
-      
-      // Lade Angebote für jedes Gewerk parallel
       const quotePromises = tradesData.map(async (trade) => {
         try {
           const quotes = await getQuotesForMilestone(trade.id);
           console.log(`📊 Found ${quotes.length} quotes for trade ${trade.id}`);
-          
-          // Wenn keine Angebote vorhanden sind, erstelle Mock-Angebote
-          if (quotes.length === 0) {
-            console.log(`📝 No quotes found for trade ${trade.id}, creating mock quotes...`);
-            try {
-              const projectId = selectedProject || 4;
-              const mockQuotes = await createMockQuotesForMilestone(trade.id, projectId);
-              console.log(`✅ Created ${mockQuotes.length} mock quotes for trade ${trade.id}:`, mockQuotes);
-              quotesMap[trade.id] = mockQuotes;
-            } catch (mockErr: any) {
-              console.error(`❌ Error creating mock quotes for trade ${trade.id}:`, mockErr);
-              quotesMap[trade.id] = [];
-            }
-          } else {
-            quotesMap[trade.id] = quotes;
-          }
+          quotesMap[trade.id] = quotes;
         } catch (e: any) {
           console.error('❌ Error loading quotes for trade:', trade.id, e);
-          
-          // Bei Fehlern auch Mock-Angebote erstellen
-          if (e.message.includes('404') || e.message.includes('Failed to fetch')) {
-            console.log(`📝 Error loading quotes for trade ${trade.id}, creating mock quotes...`);
-            try {
-              const projectId = selectedProject || 4;
-              const mockQuotes = await createMockQuotesForMilestone(trade.id, projectId);
-              console.log(`✅ Created ${mockQuotes.length} mock quotes for trade ${trade.id}:`, mockQuotes);
-              quotesMap[trade.id] = mockQuotes;
-            } catch (mockErr: any) {
-              console.error(`❌ Error creating mock quotes for trade ${trade.id}:`, mockErr);
-              quotesMap[trade.id] = [];
-            }
-          } else {
-            quotesMap[trade.id] = [];
-          }
+          quotesMap[trade.id] = [];
         }
       });
-      
       await Promise.all(quotePromises);
       console.log('✅ All trade quotes loaded:', quotesMap);
       setAllTradeQuotes(quotesMap);
@@ -491,21 +435,20 @@ export default function Trades() {
     }
   };
 
-  // Lade Gewerke beim ersten Laden der Komponente
-  useEffect(() => {
-    console.log('🚀 Component mounted, loading all trades...');
-    loadTrades();
-  }, []);
-
   // Lade Projekte beim ersten Laden, falls sie noch nicht geladen sind
   useEffect(() => {
     const loadProjectsIfNeeded = async () => {
       try {
+        console.log('🔄 Loading projects...');
         const projects = await getProjects();
         console.log('📋 Projects loaded:', projects);
         if (projects.length > 0 && !selectedProject) {
           console.log('🔧 Setting selectedProject to first project:', projects[0].id);
           setSelectedProject(projects[0].id);
+        } else if (projects.length === 0) {
+          console.log('⚠️ No projects found');
+        } else {
+          console.log('ℹ️ selectedProject already set or no projects available');
         }
       } catch (error) {
         console.error('❌ Error loading projects:', error);
@@ -514,6 +457,18 @@ export default function Trades() {
     
     loadProjectsIfNeeded();
   }, []);
+
+  // Lade Gewerke/Ausschreibungen korrekt je nach Rolle
+  useEffect(() => {
+    if (isServiceProviderUser) {
+      // Dienstleister: sofort alle Gewerke/Ausschreibungen laden
+      loadTrades();
+    } else if (selectedProject) {
+      // Bauträger: erst laden, wenn ein Projekt gewählt ist
+      loadTrades();
+    }
+    // eslint-disable-next-line
+  }, [selectedProject, isServiceProviderUser]);
 
   const activeCount = trades.filter(t => t.status !== 'completed' && t.status !== 'abgeschlossen').length;
   
@@ -902,8 +857,10 @@ export default function Trades() {
             {filteredTrades.map((trade) => (
               <div 
                 key={trade.id} 
-                className="group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl cursor-pointer"
-                onClick={() => openQuotesModal(trade)}
+                className={`group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl ${
+                  isServiceProviderUser ? '' : 'cursor-pointer'
+                }`}
+                onClick={isServiceProviderUser ? undefined : () => openQuotesModal(trade)}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -918,28 +875,30 @@ export default function Trades() {
                     </div>
                   </div>
                   
-                  {/* Actions Menu */}
-                  <div className="relative" onClick={(e) => e.stopPropagation()}>
-                    <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                      <MoreHorizontal size={16} className="text-gray-400" />
-                    </button>
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10">
-                      <button
-                        onClick={() => openEditModal(trade)}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/10 transition-colors rounded-t-xl"
-                      >
-                        <Edit size={16} />
-                        <span>Bearbeiten</span>
+                  {/* Actions Menu - nur für Bauträger */}
+                  {!isServiceProviderUser && (
+                    <div className="relative" onClick={(e) => e.stopPropagation()}>
+                      <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                        <MoreHorizontal size={16} className="text-gray-400" />
                       </button>
-                      <button
-                        onClick={() => setDeletingTrade(trade.id)}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-red-500/20 text-red-300 transition-colors rounded-b-xl"
-                      >
-                        <Trash2 size={16} />
-                        <span>Löschen</span>
-                      </button>
+                      <div className="absolute right-0 top-full mt-2 w-48 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10">
+                        <button
+                          onClick={() => openEditModal(trade)}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/10 transition-colors rounded-t-xl"
+                        >
+                          <Edit size={16} />
+                          <span>Bearbeiten</span>
+                        </button>
+                        <button
+                          onClick={() => setDeletingTrade(trade.id)}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-red-500/20 text-red-300 transition-colors rounded-b-xl"
+                        >
+                          <Trash2 size={16} />
+                          <span>Löschen</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Gewerk Details */}
@@ -1142,11 +1101,16 @@ export default function Trades() {
                     )}
                   </div>
                 </div>
+                {/* Angebot abgeben Button für Dienstleister */}
                 {isServiceProviderUser && (
                   <button
-                    className="px-4 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition-colors mt-2"
-                    onClick={() => openOfferModal(trade)}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg mt-4"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openOfferModal(trade);
+                    }}
                   >
+                    <Handshake size={16} className="inline mr-2" />
                     Angebot abgeben
                   </button>
                 )}
@@ -1374,10 +1338,15 @@ export default function Trades() {
               </p>
               <div className="flex gap-4">
                 <button
-                  onClick={() => {
-                    const updatedTrades = trades.filter(t => t.id !== deletingTrade);
-                    setTrades(updatedTrades);
-                    setDeletingTrade(null);
+                  onClick={async () => {
+                    try {
+                      await deleteMilestone(deletingTrade);
+                      setDeletingTrade(null);
+                      await loadTrades();
+                    } catch (err) {
+                      setError('Fehler beim Löschen des Gewerks');
+                      setDeletingTrade(null);
+                    }
                   }}
                   className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition-all duration-300"
                 >
