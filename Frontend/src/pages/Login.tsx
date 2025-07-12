@@ -58,7 +58,7 @@ export default function Login() {
         navigate('/service-provider');
       } else {
         console.log('🚀 Weiterleitung zu Bauträger-Dashboard: /');
-        navigate('/');
+      navigate('/');
       }
       
     } catch (err: any) {

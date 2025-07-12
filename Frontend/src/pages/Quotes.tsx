@@ -281,10 +281,10 @@ export default function Trades() {
       console.log(`🔍 Loading quotes for trade ${tradeId}...`);
       const data = await getQuotesForMilestone(tradeId);
       console.log(`📊 Found ${data.length} quotes for trade ${tradeId}:`, data);
-      setTradeQuotes(data);
+        setTradeQuotes(data);
     } catch (err: any) {
       console.error('Error loading quotes:', err);
-      setTradeQuotes([]);
+          setTradeQuotes([]);
     }
   };
 
@@ -297,10 +297,10 @@ export default function Trades() {
         try {
           const quotes = await getQuotesForMilestone(trade.id);
           console.log(`📊 Found ${quotes.length} quotes for trade ${trade.id}`);
-          quotesMap[trade.id] = quotes;
+            quotesMap[trade.id] = quotes;
         } catch (e: any) {
           console.error('❌ Error loading quotes for trade:', trade.id, e);
-          quotesMap[trade.id] = [];
+              quotesMap[trade.id] = [];
         }
       });
       await Promise.all(quotePromises);
@@ -1029,13 +1029,13 @@ export default function Trades() {
               </div>
             </div>
             {!isServiceProviderUser && (
-              <button
-                onClick={() => setShowTradeModal(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold"
-              >
-                <Plus size={20} />
-                Gewerk erstellen
-              </button>
+            <button
+              onClick={() => setShowTradeModal(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold"
+            >
+              <Plus size={20} />
+              Gewerk erstellen
+            </button>
             )}
           </div>
         </header>
@@ -1185,27 +1185,27 @@ export default function Trades() {
                   
                   {/* Actions Menu - nur für Bauträger */}
                   {!isServiceProviderUser && (
-                    <div className="relative" onClick={(e) => e.stopPropagation()}>
-                      <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                        <MoreHorizontal size={16} className="text-gray-400" />
+                  <div className="relative" onClick={(e) => e.stopPropagation()}>
+                    <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                      <MoreHorizontal size={16} className="text-gray-400" />
+                    </button>
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10">
+                      <button
+                        onClick={() => openEditModal(trade)}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/10 transition-colors rounded-t-xl"
+                      >
+                        <Edit size={16} />
+                        <span>Bearbeiten</span>
                       </button>
-                      <div className="absolute right-0 top-full mt-2 w-48 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10">
-                        <button
-                          onClick={() => openEditModal(trade)}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/10 transition-colors rounded-t-xl"
-                        >
-                          <Edit size={16} />
-                          <span>Bearbeiten</span>
-                        </button>
-                        <button
-                          onClick={() => setDeletingTrade(trade.id)}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-red-500/20 text-red-300 transition-colors rounded-b-xl"
-                        >
-                          <Trash2 size={16} />
-                          <span>Löschen</span>
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => setDeletingTrade(trade.id)}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-red-500/20 text-red-300 transition-colors rounded-b-xl"
+                      >
+                        <Trash2 size={16} />
+                        <span>Löschen</span>
+                      </button>
                     </div>
+                  </div>
                   )}
                 </div>
 
@@ -1754,7 +1754,7 @@ export default function Trades() {
                   onClick={async () => {
                     try {
                       await deleteMilestone(deletingTrade);
-                      setDeletingTrade(null);
+                    setDeletingTrade(null);
                       await loadTrades();
                     } catch (err) {
                       setError('Fehler beim Löschen des Gewerks');
@@ -1822,8 +1822,8 @@ export default function Trades() {
                     return statusComparison;
                   })
                   .map((quote) => (
-                    <div key={quote.id} className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                      <div className="flex items-start justify-between mb-4">
+                  <div key={quote.id} className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                    <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             <h4 className="font-bold text-white text-lg">{quote.title}</h4>
@@ -1831,17 +1831,17 @@ export default function Trades() {
                               {getQuoteStatusLabel(quote.status)}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-400 mb-3">{quote.description}</p>
+                        <p className="text-sm text-gray-400 mb-3">{quote.description}</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-[#ffbd59] mb-1">
+                          {quote.total_amount.toLocaleString('de-DE', { style: 'currency', currency: quote.currency })}
                         </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-bold text-[#ffbd59] mb-1">
-                            {quote.total_amount.toLocaleString('de-DE', { style: 'currency', currency: quote.currency })}
-                          </div>
                           <div className="text-xs text-gray-500 mt-1">
                             {formatDate(quote.created_at)}
-                          </div>
                         </div>
                       </div>
+                    </div>
                       {/* Basisdaten */}
                       <div className="space-y-2 mb-4">
                         {quote.company_name && (
@@ -1929,26 +1929,26 @@ export default function Trades() {
                 </button>
                 {openOfferSection === 'basis' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-8 pb-6 pt-2 bg-white/5">
-                    <div>
+                        <div>
                       <label className="block text-sm font-medium text-[#ffbd59]">Preis (€) *</label>
                       <input type="number" name="total_amount" value={offerForm.total_amount} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                    </div>
-                    <div>
+                        </div>
+                        <div>
                       <label className="block text-sm font-medium text-[#ffbd59]">Währung *</label>
                       <select name="currency" value={offerForm.currency || 'EUR'} onChange={handleOfferCurrencyChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]">
                         <option value="EUR">EUR</option>
                         <option value="USD">USD</option>
                         <option value="CHF">CHF</option>
                       </select>
-                    </div>
-                    <div>
+                        </div>
+                        <div>
                       <label className="block text-sm font-medium text-[#ffbd59]">Gültig bis *</label>
                       <input type="date" name="valid_until" value={offerForm.valid_until} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                    </div>
-                    <div>
+                        </div>
+                        <div>
                       <label className="block text-sm font-medium text-[#ffbd59]">Startdatum *</label>
                       <input type="date" name="start_date" value={offerForm.start_date || ''} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                    </div>
+                        </div>
                     <div>
                       <label className="block text-sm font-medium text-[#ffbd59]">Vorausichtliche Fertigstellung *</label>
                       <input type="date" name="completion_date" value={offerForm.completion_date || ''} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
@@ -1979,12 +1979,12 @@ export default function Trades() {
                     <div>
                       <label className="block text-sm font-medium text-white">Gemeinkosten</label>
                       <input type="number" name="overhead_cost" value={offerForm.overhead_cost || ''} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                    </div>
+                      </div>
 
                     <div>
                       <label className="block text-sm font-medium text-white">Garantie (Monate)</label>
                       <input type="number" name="warranty_period" value={offerForm.warranty_period || ''} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                    </div>
+                        </div>
                     <div>
                       <label className="block text-sm font-medium text-white">Zahlungsbedingungen</label>
                       <select name="payment_terms" value={offerForm.payment_terms || ''} onChange={handleOfferPaymentTermsChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]">
@@ -2008,7 +2008,7 @@ export default function Trades() {
                           onChange={(e) => setOfferForm(prev => ({ ...prev, payment_terms: e.target.value }))}
                         />
                       )}
-                    </div>
+                      </div>
                   </div>
                 )}
               </section>
@@ -2070,14 +2070,14 @@ export default function Trades() {
                   Angebot Details
                 </h3>
                 <p className="text-gray-400">{selectedQuote.title}</p>
-              </div>
+                          </div>
               <button
                 onClick={() => setShowQuoteDetailsModal(false)}
                 className="p-2 hover:bg-white/10 rounded-lg transition-colors"
               >
                 <X size={24} className="text-gray-400" />
               </button>
-            </div>
+                          </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Linke Spalte - Hauptinformationen */}
@@ -2093,14 +2093,14 @@ export default function Trades() {
                       <span className="text-2xl font-bold text-[#ffbd59]">
                         {selectedQuote.total_amount.toLocaleString('de-DE', { style: 'currency', currency: selectedQuote.currency })}
                       </span>
-                    </div>
+                        </div>
                     {selectedQuote.labor_cost && (
                       <div className="flex justify-between items-center">
                         <span className="text-gray-400">Arbeitskosten:</span>
                         <span className="text-white font-medium">
                           {selectedQuote.labor_cost.toLocaleString('de-DE', { style: 'currency', currency: selectedQuote.currency })}
-                        </span>
-                      </div>
+                          </span>
+                        </div>
                     )}
                     {selectedQuote.material_cost && (
                       <div className="flex justify-between items-center">
@@ -2138,8 +2138,8 @@ export default function Trades() {
                         <span className="text-white font-medium">{selectedQuote.payment_terms}</span>
                       </div>
                     )}
-                  </div>
-                </div>
+                      </div>
+                    </div>
 
                 <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
                   <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -2374,21 +2374,21 @@ export default function Trades() {
               
               {/* Dienstleister-spezifische Aktionen */}
               {isServiceProviderUser && selectedQuote.status !== 'accepted' && selectedQuote.status !== 'rejected' && (
-                <div className="flex gap-3">
-                  <button
+                    <div className="flex gap-3">
+                        <button
                     onClick={() => openWithdrawModal(selectedQuote)}
                     className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold"
                     title="Angebot zurückziehen"
-                  >
+                        >
                     <RotateCcw size={16} />
                     Angebot zurückziehen
-                  </button>
+                        </button>
                   
                   <button className="flex items-center gap-2 px-6 py-3 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all duration-300">
                     <Download size={16} />
                     PDF herunterladen
                   </button>
-                </div>
+                          </div>
               )}
             </div>
           </div>
@@ -2404,7 +2404,7 @@ export default function Trades() {
                 <Ban size={24} className="text-red-400" />
                 Angebot ablehnen
               </h3>
-              <button
+                          <button
                 onClick={() => {
                   setShowRejectModal(false);
                   setRejectingQuote(null);
@@ -2413,7 +2413,7 @@ export default function Trades() {
                 className="p-2 hover:bg-white/10 rounded-lg transition-colors"
               >
                 <X size={24} className="text-gray-400" />
-              </button>
+                          </button>
             </div>
 
             <div className="mb-6">
@@ -2445,8 +2445,8 @@ export default function Trades() {
                   <div className="flex items-center justify-center">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                     <span className="ml-2">Wird abgelehnt...</span>
-                  </div>
-                ) : (
+                        </div>
+                      ) : (
                   <>
                     <Ban size={16} className="inline mr-2" />
                     Angebot ablehnen
@@ -2465,9 +2465,9 @@ export default function Trades() {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
+                        </div>
+                      )}
+                      
       {/* Withdraw-Modal */}
       {showWithdrawModal && withdrawingQuote && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -2485,8 +2485,8 @@ export default function Trades() {
                 className="p-2 hover:bg-white/10 rounded-lg transition-colors"
               >
                 <X size={24} className="text-gray-400" />
-              </button>
-            </div>
+                      </button>
+                    </div>
 
             <div className="mb-6">
               <p className="text-gray-300 mb-4">
@@ -2496,7 +2496,7 @@ export default function Trades() {
                 <div className="flex items-center gap-2 mb-2">
                   <AlertCircle size={16} className="text-orange-400" />
                   <span className="text-sm font-medium text-orange-300">Wichtiger Hinweis</span>
-                </div>
+                  </div>
                 <p className="text-sm text-orange-200">
                   Diese Aktion kann nicht rückgängig gemacht werden. Das Angebot wird unwiderruflich gelöscht.
                 </p>
