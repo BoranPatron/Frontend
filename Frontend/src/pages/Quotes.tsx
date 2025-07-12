@@ -54,6 +54,7 @@ import { getMilestones, createMilestone, updateMilestone, getAllMilestones, dele
 import { getProjects } from '../api/projectService';
 
 import { getQuotesForMilestone, createMockQuotesForMilestone, acceptQuote, resetQuote, createQuote, updateQuote, deleteQuote, submitQuote, rejectQuote, withdrawQuote } from '../api/quoteService';
+import api from '../api/api';
 
 interface Quote {
   id: number;
@@ -1008,6 +1009,18 @@ export default function Trades() {
     return matchesSearch && matchesStatus;
   });
 
+  // Debug-Handler
+  const handleDebugDeleteAll = async () => {
+    if (!window.confirm('Wirklich ALLE Gewerke, Angebote und Kostenpositionen löschen?')) return;
+    try {
+      await api.delete('/milestones/debug/delete-all-milestones-and-quotes');
+      alert('Alle Gewerke, Angebote und Kostenpositionen wurden gelöscht!');
+      window.location.reload();
+    } catch (err: any) {
+      alert('Fehler beim Löschen: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
   if (isLoadingTrades) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center">
@@ -1046,6 +1059,15 @@ export default function Trades() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460]">
+      {/* Debug-Button nur im Entwicklungsmodus */}
+      {process.env.NODE_ENV === 'development' && (
+        <button
+          onClick={handleDebugDeleteAll}
+          className="mb-8 px-6 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition shadow-lg border-2 border-red-800"
+        >
+          Debug: Alle Gewerke, Angebote & Kostenpositionen löschen
+        </button>
+      )}
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <header className="mb-8">
@@ -1642,7 +1664,7 @@ export default function Trades() {
                   <select
                     value={tradeForm.category}
                     onChange={(e) => setTradeForm({...tradeForm, category: e.target.value})}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                    className="w-full px-4 py-3 bg-[#3d4952] text-white border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                   >
                     <option value="">Kategorie auswählen</option>
                     <option value="fundament">Fundament</option>

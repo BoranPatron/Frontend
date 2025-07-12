@@ -20,6 +20,10 @@ const api = axios.create({
   baseURL: getApiBaseUrl(),
   withCredentials: false,
   timeout: 10000, // 10 Sekunden Timeout
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
 });
 
 // Request Interceptor für Logging und Token-Handling
