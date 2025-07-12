@@ -87,6 +87,7 @@ interface Quote {
   additional_documents?: string;
   rating?: number;
   feedback?: string;
+  rejection_reason?: string;
   created_at: string;
   updated_at: string;
   submitted_at: string | null;
@@ -741,6 +742,51 @@ export default function Trades() {
   const openWithdrawModal = (quote: Quote) => {
     setWithdrawingQuote(quote);
     setShowWithdrawModal(true);
+  };
+
+  const handleNewOfferFromRejected = (quote: Quote) => {
+    const trade = trades.find(t => t.id === quote.milestone_id);
+    if (trade) {
+      // Setze das Angebotsformular mit den Daten des abgelehnten Angebots
+      setOfferForm({
+        total_amount: quote.total_amount.toString(),
+        description: quote.description || '',
+        valid_until: quote.valid_until ? new Date(quote.valid_until).toISOString().split('T')[0] : '',
+        pdf: null,
+        currency: quote.currency,
+        labor_cost: quote.labor_cost ? quote.labor_cost.toString() : '',
+        material_cost: quote.material_cost ? quote.material_cost.toString() : '',
+        overhead_cost: quote.overhead_cost ? quote.overhead_cost.toString() : '',
+        start_date: quote.start_date || '',
+        completion_date: quote.completion_date || '',
+        payment_terms: quote.payment_terms || '',
+        warranty_period: quote.warranty_period ? quote.warranty_period.toString() : '',
+        company_name: quote.company_name || '',
+        contact_person: quote.contact_person || '',
+        phone: quote.phone || '',
+        email: quote.email || '',
+        website: quote.website || '',
+        additional_documents: quote.additional_documents || '',
+        risk_score: quote.risk_score ? quote.risk_score.toString() : '',
+        price_deviation: quote.price_deviation ? quote.price_deviation.toString() : '',
+        ai_recommendation: quote.ai_recommendation || '',
+        contact_released: quote.contact_released || false,
+        pdf_upload_path: quote.pdf_upload_path || '',
+        rating: quote.rating ? quote.rating.toString() : '',
+        feedback: quote.feedback || ''
+      });
+      
+      // Setze das Gewerk für das Angebotsformular
+      setOfferTrade(trade);
+      
+      // Schließe das Details-Modal
+      setShowQuoteDetailsModal(false);
+      
+      // Öffne das Angebotsformular-Modal nach kurzer Verzögerung
+      setTimeout(() => {
+        setShowOfferModal(true);
+      }, 150);
+    }
   };
 
   // Lade Projekte beim ersten Laden, falls sie noch nicht geladen sind
@@ -2273,6 +2319,12 @@ export default function Trades() {
                         <span className="text-white font-medium">{selectedQuote.feedback}</span>
                       </div>
                     )}
+                    {selectedQuote.rejection_reason && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Ablehnungsgrund:</span>
+                        <span className="text-red-400 font-medium">{selectedQuote.rejection_reason}</span>
+                      </div>
+                    )}
                     {selectedQuote.pdf_upload_path && (
                       <div className="flex justify-between items-center">
                         <span className="text-gray-400">PDF verfügbar:</span>
@@ -2389,6 +2441,25 @@ export default function Trades() {
                     PDF herunterladen
                   </button>
                           </div>
+              )}
+              
+              {/* Erneutes Angebot für abgelehnte Angebote */}
+              {isServiceProviderUser && selectedQuote.status === 'rejected' && (
+                <div className="flex gap-3">
+                          <button
+                    onClick={() => handleNewOfferFromRejected(selectedQuote)}
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold"
+                    title="Erneutes Angebot abgeben"
+                          >
+                            <RotateCcw size={16} />
+                    Erneutes Angebot abgeben
+                  </button>
+                  
+                  <button className="flex items-center gap-2 px-6 py-3 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all duration-300">
+                    <Download size={16} />
+                    PDF herunterladen
+                          </button>
+                </div>
               )}
             </div>
           </div>
