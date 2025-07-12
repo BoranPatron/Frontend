@@ -46,7 +46,8 @@ import {
   ChevronUp,
   MessageCircle,
   Ban,
-  AlertCircle
+  AlertCircle,
+  Info
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getMilestones, createMilestone, updateMilestone, getAllMilestones, deleteMilestone } from '../api/milestoneService';
@@ -197,7 +198,6 @@ export default function Trades() {
     labor_cost: '',
     material_cost: '',
     overhead_cost: '',
-    estimated_duration: '',
     start_date: '',
     completion_date: '',
     payment_terms: '',
@@ -453,7 +453,6 @@ export default function Trades() {
       labor_cost: '',
       material_cost: '',
       overhead_cost: '',
-      estimated_duration: '',
       start_date: '',
       completion_date: '',
       payment_terms: '',
@@ -487,6 +486,10 @@ export default function Trades() {
   const handleOfferCurrencyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setOfferForm((prev) => ({ ...prev, currency: e.target.value }));
   };
+  const handleOfferPaymentTermsChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { value } = e.target;
+    setOfferForm((prev) => ({ ...prev, payment_terms: value }));
+  };
   const handleOfferFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setOfferForm((prev) => ({ ...prev, pdf: e.target.files![0] }));
@@ -510,10 +513,6 @@ export default function Trades() {
       
       if (!offerForm.valid_until || offerForm.valid_until.trim() === '') {
         missingFields.push('Gültig bis');
-      }
-      
-      if (!offerForm.estimated_duration || offerForm.estimated_duration.trim() === '') {
-        missingFields.push('Geschätzte Dauer');
       }
       
       if (!offerForm.start_date || offerForm.start_date.trim() === '') {
@@ -547,7 +546,6 @@ export default function Trades() {
         total_amount: parseFloat(offerForm.total_amount),
         currency: offerForm.currency || 'EUR',
         valid_until: offerForm.valid_until,
-        estimated_duration: parseInt(offerForm.estimated_duration),
         start_date: offerForm.start_date,
         completion_date: offerForm.completion_date,
         project_id: selectedProject || offerTrade.id,
@@ -1458,7 +1456,7 @@ export default function Trades() {
                             {myQuote.status === 'accepted' && 'Angebot angenommen'}
                             {myQuote.status === 'rejected' && 'Angebot abgelehnt'}
                             {myQuote.status === 'under_review' && 'In Prüfung'}
-                            {myQuote.status === 'submitted' && 'Angebot eingereicht'}
+                            {myQuote.status === 'submitted' && isServiceProviderUser && 'Angebot eingereicht'}
                           </span>
                         </div>
                         
@@ -1824,98 +1822,74 @@ export default function Trades() {
                     return statusComparison;
                   })
                   .map((quote) => (
-                  <div key={quote.id} className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h4 className="font-bold text-white text-lg">{quote.title}</h4>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getQuoteStatusColor(quote.status)}`}>
-                            {getQuoteStatusLabel(quote.status)}
-                          </span>
+                    <div key={quote.id} className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-bold text-white text-lg">{quote.title}</h4>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getQuoteStatusColor(quote.status)}`}>
+                              {getQuoteStatusLabel(quote.status)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">{quote.description}</p>
                         </div>
-                        <p className="text-sm text-gray-400 mb-3">{quote.description}</p>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-[#ffbd59] mb-1">
+                            {quote.total_amount.toLocaleString('de-DE', { style: 'currency', currency: quote.currency })}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {formatDate(quote.created_at)}
+                          </div>
+                        </div>
+                      </div>
+                      {/* Basisdaten */}
+                      <div className="space-y-2 mb-4">
                         {quote.company_name && (
-                          <div className="text-sm text-gray-400 mb-2">
-                            <span className="font-medium">Dienstleister:</span> {quote.company_name}
-                            {quote.contact_person && ` (${quote.contact_person})`}
+                          <div className="flex items-center gap-2 text-sm">
+                            <User size={14} className="text-[#ffbd59]" />
+                            <span className="text-gray-400">Firma:</span>
+                            <span className="text-white font-medium">{quote.company_name}</span>
+                          </div>
+                        )}
+                        {quote.contact_person && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <User size={14} className="text-[#ffbd59]" />
+                            <span className="text-gray-400">Ansprechpartner:</span>
+                            <span className="text-white font-medium">{quote.contact_person}</span>
+                          </div>
+                        )}
+                        {quote.email && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Mail size={14} className="text-[#ffbd59]" />
+                            <span className="text-gray-400">E-Mail:</span>
+                            <span className="text-white font-medium">{quote.email}</span>
+                          </div>
+                        )}
+                        {quote.phone && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Phone size={14} className="text-[#ffbd59]" />
+                            <span className="text-gray-400">Telefon:</span>
+                            <span className="text-white font-medium">{quote.phone}</span>
+                          </div>
+                        )}
+                        {quote.website && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Globe size={14} className="text-[#ffbd59]" />
+                            <span className="text-gray-400">Webseite:</span>
+                            <span className="text-white font-medium">{quote.website}</span>
                           </div>
                         )}
                       </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-[#ffbd59] mb-1">
-                          {quote.total_amount.toLocaleString('de-DE', { style: 'currency', currency: quote.currency })}
-                        </div>
-                        <div className="text-sm text-gray-400">
-                          {quote.estimated_duration} Tage
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {formatDate(quote.created_at)}
-                        </div>
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => openQuoteDetailsModal(quote)}
+                          className="px-4 py-2 bg-[#ffbd59]/20 text-[#ffbd59] text-xs rounded-lg hover:bg-[#ffbd59]/30 transition-colors"
+                        >
+                          Details anzeigen
+                        </button>
                       </div>
-                    </div>
-
-                    <div className="space-y-3 mb-4">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-400">Arbeitskosten:</span>
-                          <div className="text-white">
-                            {quote.labor_cost ? quote.labor_cost.toLocaleString('de-DE', { style: 'currency', currency: quote.currency }) : '—'}
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Materialkosten:</span>
-                          <div className="text-white">
-                            {quote.material_cost ? quote.material_cost.toLocaleString('de-DE', { style: 'currency', currency: quote.currency }) : '—'}
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Gemeinkosten:</span>
-                          <div className="text-white">
-                            {quote.overhead_cost ? quote.overhead_cost.toLocaleString('de-DE', { style: 'currency', currency: quote.currency }) : '—'}
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Garantie:</span>
-                          <div className="text-white">
-                            {quote.warranty_period ? `${quote.warranty_period} Monate` : '—'}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-[#ffbd59]/10 border border-[#ffbd59]/20 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Brain size={16} className="text-[#ffbd59]" />
-                          <span className="text-sm font-medium text-[#ffbd59]">KI-Empfehlung</span>
-                        </div>
-                        <p className="text-sm text-white">{quote.ai_recommendation}</p>
-                      </div>
-
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-1">
-                            <Calendar size={14} className="text-gray-400" />
-                            <span className="text-gray-400">Start:</span>
-                            <span className="text-white">{new Date(quote.start_date).toLocaleDateString('de-DE')}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Calendar size={14} className="text-gray-400" />
-                            <span className="text-gray-400">Fertig:</span>
-                            <span className="text-white">{new Date(quote.completion_date).toLocaleDateString('de-DE')}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Shield size={14} className="text-gray-400" />
-                          <span className="text-gray-400">Risiko:</span>
-                          <span className={`text-white ${quote.risk_score > 30 ? 'text-red-400' : quote.risk_score > 15 ? 'text-yellow-400' : 'text-green-400'}`}>
-                            {quote.risk_score}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      {quote.status === 'submitted' ? (
-                        <div className="flex gap-3 flex-1">
+                      {!isServiceProviderUser && (quote.status === 'submitted' || quote.status === 'under_review') && (
+                        <div className="flex gap-3 mt-4">
                           <button
                             onClick={() => handleAcceptQuote(quote.id)}
                             className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-3 rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105"
@@ -1925,73 +1899,15 @@ export default function Trades() {
                           </button>
                           <button
                             onClick={() => openRejectModal(quote)}
-                            className="px-4 py-3 bg-red-500/20 border border-red-500/30 text-red-300 rounded-xl hover:bg-red-500/30 transition-all duration-300"
-                            title="Angebot ablehnen"
+                            className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold py-3 rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105"
                           >
-                            <Ban size={16} />
+                            <XCircle size={16} className="inline mr-2" />
+                            Angebot ablehnen
                           </button>
-                        </div>
-                      ) : quote.status === 'under_review' ? (
-                        <div className="flex gap-3 flex-1">
-                          <div className="flex-1 bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 font-bold py-3 rounded-xl text-center">
-                            <Clock size={16} className="inline mr-2" />
-                            In Prüfung
-                          </div>
-                          <button
-                            onClick={() => openRejectModal(quote)}
-                            className="px-4 py-3 bg-red-500/20 border border-red-500/30 text-red-300 rounded-xl hover:bg-red-500/30 transition-all duration-300"
-                            title="Angebot ablehnen"
-                          >
-                            <Ban size={16} />
-                          </button>
-                        </div>
-                      ) : quote.status === 'accepted' ? (
-                        <div className="flex gap-3 flex-1">
-                          <div className="flex-1 bg-green-500/20 border border-green-500/30 text-green-300 font-bold py-3 rounded-xl text-center">
-                            <CheckCircle size={16} className="inline mr-2" />
-                            Angenommen
-                          </div>
-                          <button
-                            onClick={() => handleResetQuote(quote.id)}
-                            className="px-4 py-3 bg-orange-500/20 border border-orange-500/30 text-orange-300 rounded-xl hover:bg-orange-500/30 transition-all duration-300"
-                            title="Angebot zurücksetzen"
-                          >
-                            <RotateCcw size={16} />
-                          </button>
-                        </div>
-                      ) : quote.status === 'rejected' ? (
-                        <div className="flex-1 bg-red-500/20 border border-red-500/30 text-red-300 font-bold py-3 rounded-xl text-center">
-                          <Ban size={16} className="inline mr-2" />
-                          Abgelehnt
-                          {quote.feedback && (
-                            <div className="text-xs mt-1 text-red-200">
-                              Grund: {quote.feedback}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex-1 bg-gray-500/20 border border-gray-500/30 text-gray-300 font-bold py-3 rounded-xl text-center">
-                          In Bearbeitung
                         </div>
                       )}
-                      
-                      {/* Dienstleister-spezifische Aktionen */}
-                      {isServiceProviderUser && quote.status !== 'accepted' && quote.status !== 'rejected' && (
-                        <button
-                          onClick={() => openWithdrawModal(quote)}
-                          className="px-4 py-3 bg-orange-500/20 border border-orange-500/30 text-orange-300 rounded-xl hover:bg-orange-500/30 transition-all duration-300"
-                          title="Angebot zurückziehen"
-                        >
-                          <RotateCcw size={16} />
-                        </button>
-                      )}
-                      
-                      <button className="px-4 py-3 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all duration-300">
-                        <Download size={16} />
-                      </button>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             )}
           </div>
@@ -2028,10 +1944,6 @@ export default function Trades() {
                     <div>
                       <label className="block text-sm font-medium text-[#ffbd59]">Gültig bis *</label>
                       <input type="date" name="valid_until" value={offerForm.valid_until} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[#ffbd59]">Geschätzte Dauer (Tage) *</label>
-                      <input type="number" name="estimated_duration" value={offerForm.estimated_duration || ''} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-[#ffbd59]">Startdatum *</label>
@@ -2075,7 +1987,27 @@ export default function Trades() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-white">Zahlungsbedingungen</label>
-                      <input type="text" name="payment_terms" value={offerForm.payment_terms || ''} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
+                      <select name="payment_terms" value={offerForm.payment_terms || ''} onChange={handleOfferPaymentTermsChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]">
+                        <option value="">Bitte wählen Sie...</option>
+                        <option value="Sofort nach Rechnungserhalt">Sofort nach Rechnungserhalt</option>
+                        <option value="14 Tage netto">14 Tage netto</option>
+                        <option value="30 Tage netto">30 Tage netto</option>
+                        <option value="45 Tage netto">45 Tage netto</option>
+                        <option value="60 Tage netto">60 Tage netto</option>
+                        <option value="50% bei Auftragserteilung, 50% bei Fertigstellung">50% bei Auftragserteilung, 50% bei Fertigstellung</option>
+                        <option value="30% bei Auftragserteilung, 70% bei Fertigstellung">30% bei Auftragserteilung, 70% bei Fertigstellung</option>
+                        <option value="25% bei Auftragserteilung, 25% bei 50% Fortschritt, 50% bei Fertigstellung">25% bei Auftragserteilung, 25% bei 50% Fortschritt, 50% bei Fertigstellung</option>
+                        <option value="custom">Eigene Zahlungsbedingungen definieren...</option>
+                      </select>
+                      {offerForm.payment_terms === 'custom' && (
+                        <input 
+                          type="text" 
+                          name="payment_terms_custom" 
+                          placeholder="Geben Sie Ihre eigenen Zahlungsbedingungen ein..."
+                          className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59] mt-2"
+                          onChange={(e) => setOfferForm(prev => ({ ...prev, payment_terms: e.target.value }))}
+                        />
+                      )}
                     </div>
                   </div>
                 )}
@@ -2186,6 +2118,26 @@ export default function Trades() {
                         </span>
                       </div>
                     )}
+                    {selectedQuote.price_deviation && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Preisabweichung:</span>
+                        <span className={`font-medium ${selectedQuote.price_deviation > 10 ? 'text-red-400' : selectedQuote.price_deviation > 5 ? 'text-yellow-400' : 'text-green-400'}`}>
+                          {selectedQuote.price_deviation}%
+                        </span>
+                      </div>
+                    )}
+                    {selectedQuote.currency && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Währung:</span>
+                        <span className="text-white font-medium">{selectedQuote.currency}</span>
+                      </div>
+                    )}
+                    {selectedQuote.payment_terms && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Zahlungsbedingungen:</span>
+                        <span className="text-white font-medium">{selectedQuote.payment_terms}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -2195,10 +2147,6 @@ export default function Trades() {
                     Zeitplan
                   </h4>
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Geschätzte Dauer:</span>
-                      <span className="text-white font-medium">{selectedQuote.estimated_duration} Tage</span>
-                    </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-400">Startdatum:</span>
                       <span className="text-white font-medium">{new Date(selectedQuote.start_date).toLocaleDateString('de-DE')}</span>
@@ -2210,6 +2158,32 @@ export default function Trades() {
                     <div className="flex justify-between items-center">
                       <span className="text-gray-400">Gültig bis:</span>
                       <span className="text-white font-medium">{new Date(selectedQuote.valid_until).toLocaleDateString('de-DE')}</span>
+                    </div>
+                    {selectedQuote.estimated_duration && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Geschätzte Dauer:</span>
+                        <span className="text-white font-medium">{selectedQuote.estimated_duration} Tage</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Erstellt am:</span>
+                      <span className="text-white font-medium">{new Date(selectedQuote.created_at).toLocaleDateString('de-DE')}</span>
+                    </div>
+                    {selectedQuote.submitted_at && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Eingereicht am:</span>
+                        <span className="text-white font-medium">{new Date(selectedQuote.submitted_at).toLocaleDateString('de-DE')}</span>
+                      </div>
+                    )}
+                    {selectedQuote.accepted_at && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Angenommen am:</span>
+                        <span className="text-white font-medium">{new Date(selectedQuote.accepted_at).toLocaleDateString('de-DE')}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Zuletzt aktualisiert:</span>
+                      <span className="text-white font-medium">{new Date(selectedQuote.updated_at).toLocaleDateString('de-DE')}</span>
                     </div>
                   </div>
                 </div>
@@ -2241,6 +2215,74 @@ export default function Trades() {
                       <div className="flex justify-between items-center">
                         <span className="text-gray-400">Zahlungsbedingungen:</span>
                         <span className="text-white font-medium">{selectedQuote.payment_terms}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
+                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <Target size={20} className="text-[#ffbd59]" />
+                    Projekt & Dienstleister
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Projekt-ID:</span>
+                      <span className="text-white font-medium">{selectedQuote.project_id}</span>
+                    </div>
+                    {selectedQuote.milestone_id && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Gewerk-ID:</span>
+                        <span className="text-white font-medium">{selectedQuote.milestone_id}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Dienstleister-ID:</span>
+                      <span className="text-white font-medium">{selectedQuote.service_provider_id}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Angebot-ID:</span>
+                      <span className="text-white font-medium">{selectedQuote.id}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
+                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <Info size={20} className="text-[#ffbd59]" />
+                    Zusätzliche Informationen
+                  </h4>
+                  <div className="space-y-3">
+                    {selectedQuote.contact_released !== undefined && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Kontakt freigegeben:</span>
+                        <span className={`font-medium ${selectedQuote.contact_released ? 'text-green-400' : 'text-red-400'}`}>
+                          {selectedQuote.contact_released ? 'Ja' : 'Nein'}
+                        </span>
+                      </div>
+                    )}
+                    {selectedQuote.rating && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Bewertung:</span>
+                        <span className="text-white font-medium">{selectedQuote.rating}/5</span>
+                      </div>
+                    )}
+                    {selectedQuote.feedback && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Feedback:</span>
+                        <span className="text-white font-medium">{selectedQuote.feedback}</span>
+                      </div>
+                    )}
+                    {selectedQuote.pdf_upload_path && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">PDF verfügbar:</span>
+                        <span className="text-green-400 font-medium">Ja</span>
+                      </div>
+                    )}
+                    {selectedQuote.additional_documents && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400">Zusätzliche Dokumente:</span>
+                        <span className="text-white font-medium">{selectedQuote.additional_documents}</span>
                       </div>
                     )}
                   </div>
@@ -2321,12 +2363,12 @@ export default function Trades() {
                 {selectedQuote.status === 'accepted' && <CheckCircle size={16} />}
                 {selectedQuote.status === 'rejected' && <XCircle size={16} />}
                 {selectedQuote.status === 'under_review' && <Clock size={16} />}
-                {selectedQuote.status === 'submitted' && <Send size={16} />}
+                {/* Kein Send-Icon mehr anzeigen */}
                 <span>
                   {selectedQuote.status === 'accepted' && 'Angebot angenommen'}
                   {selectedQuote.status === 'rejected' && 'Angebot abgelehnt'}
                   {selectedQuote.status === 'under_review' && 'In Prüfung'}
-                  {selectedQuote.status === 'submitted' && 'Angebot eingereicht'}
+                  {selectedQuote.status === 'submitted' && isServiceProviderUser && 'Angebot eingereicht'}
                 </span>
               </div>
               
