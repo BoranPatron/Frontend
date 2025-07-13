@@ -71,7 +71,7 @@ export default function Dashboard() {
   const [newProjectData, setNewProjectData] = useState({
     name: '',
     description: '',
-    project_type: 'NEW_BUILD',
+    project_type: 'new_build',
     address: '',
     budget: 0,
     is_public: true,
@@ -204,7 +204,7 @@ export default function Dashboard() {
       const created = await import('../api/projectService').then(m => m.createProject({
         name: newProjectData.name,
         description: newProjectData.description,
-        project_type: newProjectData.project_type,
+        project_type: newProjectData.project_type, // jetzt immer klein
         status: 'active',
         budget: newProjectData.budget,
         address: newProjectData.address,
@@ -217,7 +217,7 @@ export default function Dashboard() {
       setNewProjectData({
         name: '',
         description: '',
-        project_type: 'NEW_BUILD',
+        project_type: 'new_build',
         address: '',
         budget: 0,
         is_public: true,
@@ -395,25 +395,7 @@ export default function Dashboard() {
         )
       }
     ];
-
-    // Füge "Projekt anlegen" Button hinzu, wenn keine Projekte vorhanden sind
-    if (projects.length === 0) {
-      baseCards.unshift({
-        title: "Projekt anlegen",
-        description: "Neues Bauprojekt erstellen",
-        icon: <Plus size={32} />,
-        onClick: () => setShowCreateProjectModal(true),
-        ariaLabel: "Neues Projekt erstellen",
-        badge: { text: "Neu", color: "green" as const },
-        children: (
-          <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-            <Building size={16} />
-            <span>Projekt erstellen</span>
-          </div>
-        )
-      });
-    }
-
+    // Entferne die "Projekt anlegen"-Kachel komplett
     return baseCards;
   };
 
@@ -466,17 +448,14 @@ export default function Dashboard() {
               {isOnline ? <Wifi size={18} className="animate-pulse" /> : <WifiOff size={18} />}
               <span>{isOnline ? 'Online' : 'Offline'}</span>
             </div>
-            
-            {/* Projekt anlegen Button (wenn Projekte vorhanden sind) */}
-            {projects.length > 0 && (
-              <button
-                onClick={() => setShowCreateProjectModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-lg font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
-              >
-                <Plus size={18} />
-                <span>Projekt anlegen</span>
-              </button>
-            )}
+            {/* Projekt anlegen Button (immer oben rechts, auch wenn keine Projekte existieren) */}
+            <button
+              onClick={() => setShowCreateProjectModal(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-md font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 text-sm"
+            >
+              <Plus size={16} />
+              <span>Projekt anlegen</span>
+            </button>
           </div>
         </div>
 
@@ -672,10 +651,10 @@ export default function Dashboard() {
                   onChange={(e) => setNewProjectData({...newProjectData, project_type: e.target.value})}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                 >
-                  <option value="NEW_BUILD">Neubau</option>
-                  <option value="RENOVATION">Renovierung</option>
-                  <option value="EXTENSION">Anbau</option>
-                  <option value="REFURBISHMENT">Sanierung</option>
+                  <option value="new_build">Neubau</option>
+                  <option value="renovation">Renovierung</option>
+                  <option value="extension">Anbau</option>
+                  <option value="refurbishment">Sanierung</option>
                 </select>
               </div>
               
