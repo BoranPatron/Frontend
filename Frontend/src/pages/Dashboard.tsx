@@ -205,7 +205,7 @@ export default function Dashboard() {
         name: newProjectData.name,
         description: newProjectData.description,
         project_type: newProjectData.project_type, // jetzt immer klein
-        status: 'active',
+        status: 'PLANNING', // Enum-Wert GROSS!
         budget: newProjectData.budget,
         address: newProjectData.address,
         is_public: newProjectData.is_public,
