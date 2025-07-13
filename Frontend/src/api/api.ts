@@ -17,9 +17,18 @@ export const getApiBaseUrl = () => {
     return baseUrl;
   }
   
-  // Für Netzwerk-Zugriff verwende die gleiche IP wie das Frontend
-  const baseUrl = `http://${hostname}:8000/api/v1`;
-  console.log('🔧 API Base URL (Network):', baseUrl);
+  // Für Render.com oder andere Produktionsumgebungen
+  // Verwende die gleiche Domain wie das Frontend, aber mit Backend-Port/Path
+  if (hostname.includes('onrender.com')) {
+    // Für Render.com: Verwende die Backend-URL von Render.com
+    const backendUrl = 'https://buildwise-backend.onrender.com/api/v1';
+    console.log('🔧 API Base URL (Render.com):', backendUrl);
+    return backendUrl;
+  }
+  
+  // Für andere Produktionsumgebungen
+  const baseUrl = `https://${hostname}/api/v1`;
+  console.log('🔧 API Base URL (Production):', baseUrl);
   return baseUrl;
 };
 
