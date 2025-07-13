@@ -158,6 +158,7 @@ export default function Trades() {
   // State für Filter und Suche
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [showOnlyOwnTrades, setShowOnlyOwnTrades] = useState(true); // Neuer State für Dienstleister-Filter
   
   // State für Modal
   const [showTradeModal, setShowTradeModal] = useState(false);
@@ -947,20 +948,6 @@ export default function Trades() {
     // eslint-disable-next-line
   }, [selectedProject, isServiceProviderUser]);
 
-  const activeCount = trades.filter(t => t.status !== 'completed' && t.status !== 'abgeschlossen').length;
-  
-  // Berechne Gewerke ohne Angebote
-  const tradesWithoutQuotes = trades.filter(trade => {
-    const quotes = allTradeQuotes[trade.id] || [];
-    return quotes.length === 0;
-  }).length;
-  
-  // Berechne Gewerke mit ausstehenden Angeboten (nicht akzeptiert)
-  const tradesWithPendingQuotes = trades.filter(trade => {
-    const quotes = allTradeQuotes[trade.id] || [];
-    return quotes.length > 0 && quotes.every(quote => quote.status !== 'accepted');
-  }).length;
-
   const handleCreateTrade = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -1128,8 +1115,32 @@ export default function Trades() {
     
     const matchesStatus = filterStatus === 'all' || trade.status === filterStatus;
     
-    return matchesSearch && matchesStatus;
+    // Für Dienstleister: Filtere nach eigenen Gewerken
+    let matchesOwnFilter = true;
+    if (isServiceProviderUser && showOnlyOwnTrades) {
+      // Prüfe ob der Dienstleister ein Angebot für dieses Gewerk hat
+      const quotes = allTradeQuotes[trade.id] || [];
+      const hasOwnQuote = quotes.some(quote => quote.service_provider_id === user?.id);
+      matchesOwnFilter = hasOwnQuote;
+    }
+    
+    return matchesSearch && matchesStatus && matchesOwnFilter;
   });
+
+  // Berechne Statistiken basierend auf gefilterten Trades
+  const activeCount = filteredTrades.filter(t => t.status !== 'completed' && t.status !== 'abgeschlossen').length;
+  
+  // Berechne Gewerke ohne Angebote
+  const tradesWithoutQuotes = filteredTrades.filter(trade => {
+    const quotes = allTradeQuotes[trade.id] || [];
+    return quotes.length === 0;
+  }).length;
+  
+  // Berechne Gewerke mit ausstehenden Angeboten (nicht akzeptiert)
+  const tradesWithPendingQuotes = filteredTrades.filter(trade => {
+    const quotes = allTradeQuotes[trade.id] || [];
+    return quotes.length > 0 && quotes.every(quote => quote.status !== 'accepted');
+  }).length;
 
   // Debug-Handler
   const handleDebugDeleteAll = async () => {
@@ -1348,6 +1359,20 @@ export default function Trades() {
                 <option value="cancelled">Abgebrochen</option>
               </select>
             </div>
+            
+            {/* Toggle für Dienstleister: Nur eigene Gewerke */}
+            {isServiceProviderUser && (
+              <button
+                onClick={() => setShowOnlyOwnTrades(!showOnlyOwnTrades)}
+                className={`px-4 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                  showOnlyOwnTrades
+                    ? 'bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952]'
+                    : 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
+                }`}
+              >
+                {showOnlyOwnTrades ? 'Nur eigene' : 'Alle anzeigen'}
+              </button>
+            )}
           </div>
 
           {/* Gewerke Grid */}
