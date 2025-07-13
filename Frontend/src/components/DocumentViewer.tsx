@@ -36,11 +36,25 @@ export default function DocumentViewer({ document: doc, isOpen, onClose }: Docum
 
   // API-URL basierend auf der aktuellen Host-URL
   const getApiBaseUrl = () => {
+    // Prüfe zuerst Environment-Variable (für Render.com)
+    const envApiUrl = import.meta.env.VITE_API_BASE_URL;
+    if (envApiUrl) {
+      return envApiUrl.replace('/api/v1', ''); // Entferne /api/v1 für Dokumente
+    }
+    
+    // Fallback: Lokale Entwicklung
     const hostname = window.location.hostname;
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:8000';
     }
-    return `http://${hostname}:8000`;
+    
+    // Für Render.com oder andere Produktionsumgebungen
+    if (hostname.includes('onrender.com')) {
+      return 'https://buildwise-backend.onrender.com';
+    }
+    
+    // Für andere Produktionsumgebungen
+    return `https://${hostname}`;
   };
 
   useEffect(() => {

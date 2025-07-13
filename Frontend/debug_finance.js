@@ -25,7 +25,7 @@ async function testCostPositions() {
     
     console.log(`🔑 Token gefunden: ${token.substring(0, 20)}...`);
     
-    const response = await fetch('http://localhost:8000/api/v1/cost-positions/?project_id=4&accepted_quotes_only=true', {
+    const response = await fetch('https://buildwise-backend.onrender.com/api/v1/cost-positions/?project_id=4&accepted_quotes_only=true', {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -63,7 +63,7 @@ async function testProjects() {
       return { success: false, error: 'No token' };
     }
     
-    const response = await fetch('http://localhost:8000/api/v1/projects/', {
+    const response = await fetch('https://buildwise-backend.onrender.com/api/v1/projects/', {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -101,7 +101,7 @@ async function testTokenValidity() {
     }
     
     // Teste mit einem einfachen Endpunkt
-    const response = await fetch('http://localhost:8000/api/v1/users/me', {
+    const response = await fetch('https://buildwise-backend.onrender.com/api/v1/users/me', {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'

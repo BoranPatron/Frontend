@@ -34,7 +34,7 @@ async function testLoginFormats() {
     try {
       console.log(`\n🔍 Teste: ${testCase.name}`);
       
-      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+      const response = await fetch('https://buildwise-backend.onrender.com/api/v1/auth/login', {
         method: 'POST',
         headers: testCase.headers,
         body: testCase.body
@@ -64,7 +64,7 @@ async function testBackendAvailability() {
   console.log('🔍 Teste Backend-Verfügbarkeit...');
   
   try {
-    const response = await fetch('http://localhost:8000/api/v1/');
+    const response = await fetch('https://buildwise-backend.onrender.com/api/v1/');
     console.log(`📡 Backend Status: ${response.status}`);
     
     if (response.ok) {
@@ -85,7 +85,7 @@ async function testAuthEndpoint() {
   console.log('🔍 Teste Auth-Endpunkt...');
   
   try {
-    const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+    const response = await fetch('https://buildwise-backend.onrender.com/api/v1/auth/login', {
       method: 'OPTIONS'
     });
     
