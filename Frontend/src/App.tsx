@@ -64,14 +64,36 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent() {
-  const { user } = useAuth();
+  const { user, token, isInitialized } = useAuth();
   const location = window.location.pathname;
   const isLoginPage = location === '/login';
 
+  // Debug-Logging für Navbar-Anzeige
+  console.log('🔍 AppContent Debug:', {
+    hasToken: !!token,
+    hasUser: !!user,
+    isInitialized,
+    isLoginPage,
+    currentPath: location,
+    shouldShowNavbar: !isLoginPage && token && isInitialized
+  });
+
+  // Warte auf Initialisierung
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ffbd59] mx-auto mb-4"></div>
+          <p className="text-white">Lade Anwendung...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      {/* Navbar nur anzeigen, wenn nicht auf der Login-Seite und Benutzer angemeldet ist */}
-      {!isLoginPage && user && <Navbar />}
+      {/* Navbar anzeigen, wenn nicht auf der Login-Seite und AuthContext initialisiert und (Token ODER User) vorhanden ist */}
+      {!isLoginPage && isInitialized && (token || user) && <Navbar />}
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={

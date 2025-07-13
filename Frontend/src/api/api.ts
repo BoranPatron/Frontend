@@ -19,12 +19,30 @@ export const getApiBaseUrl = () => {
 const api = axios.create({
   baseURL: getApiBaseUrl(),
   withCredentials: false,
-  timeout: 10000, // 10 Sekunden Timeout
+  timeout: 15000, // Erhöht auf 15 Sekunden für bessere Stabilität
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
 });
+
+// Token-Refresh-Mechanismus
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: any) => void;
+  reject: (error?: any) => void;
+}> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error) {
+      reject(error);
+    } else {
+      resolve(token);
+    }
+  });
+  failedQueue = [];
+};
 
 // Request Interceptor für Logging und Token-Handling
 api.interceptors.request.use(
@@ -44,13 +62,15 @@ api.interceptors.request.use(
   }
 );
 
-// Response Interceptor für bessere Fehlerbehandlung
+// Response Interceptor für bessere Fehlerbehandlung und Token-Refresh
 api.interceptors.response.use(
   (response) => {
     console.log(`✅ API Response: ${response.status} ${response.config.url}`, response.data);
     return response;
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+    
     console.error('❌ Response Error:', {
       status: error.response?.status,
       statusText: error.response?.statusText,
@@ -59,14 +79,74 @@ api.interceptors.response.use(
       message: error.message
     });
     
-    // Spezifische Fehlerbehandlung (außer bei Login-Anfragen)
-    if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
-      console.error('🔐 Unauthorized - Token möglicherweise abgelaufen');
-      // Token aus localStorage entfernen
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      // Zur Login-Seite weiterleiten
-      window.location.href = '/login';
+    // Token-Refresh bei 401 Fehlern (außer bei Login-Anfragen)
+    if (error.response?.status === 401 && 
+        !originalRequest._retry && 
+        !error.config?.url?.includes('/auth/login')) {
+      
+      if (isRefreshing) {
+        // Warte auf laufenden Refresh
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return api(originalRequest);
+        }).catch(err => {
+          return Promise.reject(err);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        // Versuche Token-Refresh (falls implementiert)
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (refreshToken) {
+          const response = await axios.post(`${getApiBaseUrl()}/auth/refresh`, {
+            refresh_token: refreshToken
+          });
+          
+          const newToken = response.data.access_token;
+          localStorage.setItem('token', newToken);
+          
+          processQueue(null, newToken);
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          
+          return api(originalRequest);
+        } else {
+          // Kein Refresh-Token verfügbar, leite zur Login-Seite weiter
+          throw new Error('No refresh token available');
+        }
+      } catch (refreshError) {
+        console.error('🔐 Token-Refresh fehlgeschlagen:', refreshError);
+        processQueue(refreshError, null);
+        
+        // Token aus localStorage entfernen
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        
+        // Benutzerfreundliche Weiterleitung zur Login-Seite
+        if (!window.location.pathname.includes('/login')) {
+          const currentPath = window.location.pathname + window.location.search;
+          localStorage.setItem('redirectAfterLogin', currentPath);
+          window.location.href = '/login?message=session_expired';
+        }
+        
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+    
+    // Andere Fehlerbehandlung
+    if (error.response?.status === 403) {
+      console.error('🚫 Forbidden - Keine Berechtigung');
+    } else if (error.response?.status === 404) {
+      console.error('🔍 Not Found - Endpunkt nicht gefunden');
+    } else if (error.response?.status >= 500) {
+      console.error('💥 Server Error - Backend-Problem');
     }
     
     return Promise.reject(error);

@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance API Test - Erweiterte Diagnose</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 20px; 
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .result { 
+            background: #f8f9fa; 
+            padding: 15px; 
+            margin: 10px 0; 
+            border-radius: 8px;
+            border-left: 4px solid #dee2e6;
+        }
+        .error { 
+            background: #f8d7da; 
+            color: #721c24; 
+            border-left-color: #dc3545;
+        }
+        .success { 
+            background: #d4edda; 
+            color: #155724; 
+            border-left-color: #28a745;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left-color: #ffc107;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left-color: #17a2b8;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #1e7e34; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .btn-warning:hover { background: #e0a800; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+        .summary {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .summary h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-success { background: #28a745; }
+        .status-error { background: #dc3545; }
+        .status-warning { background: #ffc107; }
+        .status-info { background: #17a2b8; }
+        .details {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0,0,0,0.05);
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Finance API Test - Erweiterte Diagnose</h1>
+        
+        <div class="button-group">
+            <button class="btn-primary" onclick="testCostPositions()">Teste Kostenpositionen</button>
+            <button class="btn-success" onclick="testProjects()">Teste Projekte</button>
+            <button class="btn-warning" onclick="testTokenValidity()">Teste Token</button>
+            <button class="btn-danger" onclick="runComprehensiveTest()">Umfassender Test</button>
+            <button onclick="clearResults()">Ergebnisse löschen</button>
+        </div>
+        
+        <div id="summary" class="summary" style="display: none;">
+            <h3>📊 Test-Zusammenfassung</h3>
+            <div id="summary-content"></div>
+        </div>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        let testResults = {};
+
+        function log(message, type = 'info', details = null) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const statusIcon = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
+            
+            div.innerHTML = `
+                <div>
+                    <span class="status-indicator status-${type}"></span>
+                    <strong>${timestamp}:</strong> ${statusIcon} ${message}
+                </div>
+                ${details ? `<div class="details">${details}</div>` : ''}
+            `;
+            
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        async function testCostPositions() {
+            try {
+                log('Teste Kostenpositionen für Projekt 4...', 'info');
+                
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    log('Kein Token gefunden!', 'error');
+                    return { success: false, error: 'No token' };
+                }
+                
+                log(`Token gefunden: ${token.substring(0, 20)}...`, 'info');
+                
+                const response = await fetch('http://localhost:8000/api/v1/cost-positions/?project_id=4&accepted_quotes_only=true', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log(`API Response Status: ${response.status}`, 'info');
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`API Error: ${errorText}`, 'error', `Status: ${response.status}\nHeaders: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`);
+                    return { success: false, error: errorText, status: response.status };
+                }
+                
+                const data = await response.json();
+                log(`Kostenpositionen geladen: ${data.length} gefunden`, 'success', JSON.stringify(data, null, 2));
+                
+                data.forEach((cp, index) => {
+                    log(`${index + 1}. ${cp.title}: ${cp.amount} ${cp.currency}`, 'success');
+                });
+                
+                return { success: true, data, count: data.length };
+            } catch (error) {
+                log(`Fehler: ${error.message}`, 'error');
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function testProjects() {
+            try {
+                log('Teste Projekte laden...', 'info');
+                
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    log('Kein Token gefunden!', 'error');
+                    return { success: false, error: 'No token' };
+                }
+                
+                const response = await fetch('http://localhost:8000/api/v1/projects/', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log(`Projekte API Status: ${response.status}`, 'info');
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`Projekte API Error: ${errorText}`, 'error');
+                    return { success: false, error: errorText, status: response.status };
+                }
+                
+                const data = await response.json();
+                log(`Projekte geladen: ${data.length} gefunden`, 'success', JSON.stringify(data, null, 2));
+                
+                data.forEach((project, index) => {
+                    log(`${index + 1}. ${project.name} (ID: ${project.id})`, 'success');
+                });
+                
+                return { success: true, data, count: data.length };
+            } catch (error) {
+                log(`Fehler: ${error.message}`, 'error');
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function testTokenValidity() {
+            try {
+                log('Teste Token-Validität...', 'info');
+                
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    log('Kein Token gefunden!', 'error');
+                    return { valid: false, error: 'No token' };
+                }
+                
+                const response = await fetch('http://localhost:8000/api/v1/users/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log(`Token-Test Status: ${response.status}`, 'info');
+                
+                if (response.status === 401) {
+                    log('Token ist ungültig oder abgelaufen', 'error');
+                    return { valid: false, error: 'Token expired or invalid' };
+                } else if (response.ok) {
+                    const userData = await response.json();
+                    log('Token ist gültig', 'success', JSON.stringify(userData, null, 2));
+                    return { valid: true, user: userData };
+                } else {
+                    log(`Token-Test fehlgeschlagen: ${response.status}`, 'error');
+                    return { valid: false, error: `HTTP ${response.status}` };
+                }
+            } catch (error) {
+                log(`Token-Test Fehler: ${error.message}`, 'error');
+                return { valid: false, error: error.message };
+            }
+        }
+
+        async function runComprehensiveTest() {
+            log('Starte umfassenden API-Test...', 'info');
+            
+            testResults = {
+                tokenValidity: null,
+                projects: null,
+                costPositions: null,
+                summary: {}
+            };
+            
+            // Teste Token
+            testResults.tokenValidity = await testTokenValidity();
+            
+            // Teste Projekte
+            testResults.projects = await testProjects();
+            
+            // Teste Kostenpositionen
+            testResults.costPositions = await testCostPositions();
+            
+            // Zusammenfassung
+            testResults.summary = {
+                tokenValid: testResults.tokenValidity?.valid || false,
+                projectsLoaded: testResults.projects?.success || false,
+                costPositionsLoaded: testResults.costPositions?.success || false,
+                projectCount: testResults.projects?.count || 0,
+                costPositionCount: testResults.costPositions?.count || 0
+            };
+            
+            displaySummary(testResults.summary);
+            
+            // Empfehlungen
+            if (!testResults.summary.tokenValid) {
+                log('Empfehlung: Token erneuern - zur Login-Seite weiterleiten', 'warning');
+            }
+            
+            if (testResults.summary.projectsLoaded && testResults.summary.projectCount === 0) {
+                log('Warnung: Keine Projekte gefunden', 'warning');
+            }
+            
+            if (testResults.summary.costPositionsLoaded && testResults.summary.costPositionCount === 0) {
+                log('Warnung: Keine Kostenpositionen gefunden - möglicherweise keine akzeptierten Angebote', 'warning');
+            }
+            
+            return testResults;
+        }
+
+        function displaySummary(summary) {
+            const summaryDiv = document.getElementById('summary');
+            const contentDiv = document.getElementById('summary-content');
+            
+            contentDiv.innerHTML = `
+                <div><span class="status-indicator ${summary.tokenValid ? 'status-success' : 'status-error'}"></span>Token gültig: ${summary.tokenValid ? 'Ja' : 'Nein'}</div>
+                <div><span class="status-indicator ${summary.projectsLoaded ? 'status-success' : 'status-error'}"></span>Projekte geladen: ${summary.projectsLoaded ? 'Ja' : 'Nein'} (${summary.projectCount})</div>
+                <div><span class="status-indicator ${summary.costPositionsLoaded ? 'status-success' : 'status-error'}"></span>Kostenpositionen geladen: ${summary.costPositionsLoaded ? 'Ja' : 'Nein'} (${summary.costPositionCount})</div>
+            `;
+            
+            summaryDiv.style.display = 'block';
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('summary').style.display = 'none';
+            testResults = {};
+        }
+
+        // Automatischer Test beim Laden
+        window.onload = function() {
+            log('Finance API Test gestartet', 'info');
+            log('Prüfe localStorage...', 'info');
+            
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            const refreshToken = localStorage.getItem('refreshToken');
+            
+            if (token) {
+                log('Token gefunden', 'success');
+            } else {
+                log('Kein Token gefunden', 'error');
+            }
+            
+            if (user) {
+                log('User gefunden', 'success');
+            } else {
+                log('Kein User gefunden', 'error');
+            }
+            
+            if (refreshToken) {
+                log('Refresh-Token gefunden', 'success');
+            } else {
+                log('Kein Refresh-Token gefunden', 'warning');
+            }
+            
+            log('Debug-Funktionen verfügbar: testCostPositions(), testProjects(), testTokenValidity(), runComprehensiveTest()', 'info');
+        };
+    </script>
+</body>
+</html> 

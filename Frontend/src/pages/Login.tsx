@@ -1,225 +1,254 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../api/api';
-import logo from '../logo_trans_big.png';
+import { Eye, EyeOff, AlertTriangle, CheckCircle } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [serviceProviderLoading, setServiceProviderLoading] = useState(false);
-  const navigate = useNavigate();
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Prüfe URL-Parameter für Nachrichten
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const message = urlParams.get('message');
+    
+    if (message === 'session_expired') {
+      setError('Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.');
+    }
+  }, [location.search]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
+    setError('');
+    setSuccess('');
 
     try {
-      // Login-Request an die API
+      // Verwende das korrekte Format für das Backend (FormData statt JSON)
       const formData = new URLSearchParams();
-      formData.append('username', email);
-      
-      // Automatisch das richtige Passwort für bekannte Test-Accounts verwenden
-      let loginPassword = password;
-      if (email === 'test-dienstleister@buildwise.de') {
-        loginPassword = 'test1234';
-        console.log('🔧 Automatisch Passwort für Dienstleister-Test-Account verwendet');
-      }
-      
-      formData.append('password', loginPassword);
+      formData.append('username', email); // Backend erwartet 'username' statt 'email'
+      formData.append('password', password);
 
-      const response = await api.post('/auth/login', formData, {
+      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
+        body: formData,
       });
 
-      const { access_token, user } = response.data;
-      
-      // Token und User-Daten speichern
-      login(access_token, user);
-      
-      // Debug-Logging für Benutzerrolle
-      console.log('🔍 Login erfolgreich:', {
-        user: user,
-        user_type: user?.user_type,
-        email: user?.email,
-        isServiceProvider: user?.user_type === 'service_provider' || user?.email?.includes('dienstleister')
-      });
-      
-      // Weiterleitung basierend auf Benutzerrolle
-      const isServiceProvider = user?.user_type === 'service_provider' || user?.email?.includes('dienstleister');
-      if (isServiceProvider) {
-        console.log('🚀 Weiterleitung zu Dienstleister-Dashboard: /service-provider');
-        navigate('/service-provider');
-      } else {
-        console.log('🚀 Weiterleitung zu Bauträger-Dashboard: /');
-      navigate('/');
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Bessere Fehlerbehandlung
+        if (response.status === 422) {
+          // Validierungsfehler
+          if (data.detail && Array.isArray(data.detail)) {
+            const errorMessages = data.detail.map((err: any) => 
+              `${err.loc?.join('.')}: ${err.msg}`
+            ).join(', ');
+            throw new Error(`Validierungsfehler: ${errorMessages}`);
+          } else if (typeof data.detail === 'string') {
+            throw new Error(data.detail);
+          } else {
+            throw new Error('Ungültige Anmeldedaten. Bitte überprüfen Sie E-Mail und Passwort.');
+          }
+        } else if (response.status === 401) {
+          throw new Error('Ungültige Anmeldedaten. Bitte überprüfen Sie E-Mail und Passwort.');
+        } else {
+          throw new Error(data.detail || 'Login fehlgeschlagen');
+        }
       }
+
+      // Token und User-Daten speichern
+      login(data.access_token, data.user);
       
+      // Refresh-Token speichern (falls verfügbar)
+      if (data.refresh_token) {
+        localStorage.setItem('refreshToken', data.refresh_token);
+      }
+
+      setSuccess('Login erfolgreich! Weiterleitung...');
+
+      // Automatische Weiterleitung nach erfolgreichem Login
+      const redirectPath = localStorage.getItem('redirectAfterLogin') || '/';
+      localStorage.removeItem('redirectAfterLogin'); // Cleanup
+      
+      setTimeout(() => {
+        navigate(redirectPath);
+      }, 1000);
+
     } catch (err: any) {
       console.error('Login error:', err);
-      if (err.response?.data?.detail) {
-        setError(err.response.data.detail);
-      } else {
-        setError('Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
-      }
+      setError(err.message || 'Ein Fehler ist aufgetreten');
     } finally {
       setLoading(false);
     }
   };
 
-  // Dienstleister-Test-Login
   const handleServiceProviderTest = async () => {
+    setLoading(true);
     setError('');
-    setServiceProviderLoading(true);
+    setSuccess('');
 
     try {
-      // Test-Login mit Dienstleister-Zugangsdaten
+      // Verwende das korrekte Format für das Backend
       const formData = new URLSearchParams();
       formData.append('username', 'test-dienstleister@buildwise.de');
-      formData.append('password', 'test1234');  // Korrigiertes Passwort
+      formData.append('password', 'test1234');
 
-      const response = await api.post('/auth/login', formData, {
+      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
+        body: formData,
       });
 
-      const { access_token, user } = response.data;
-      
-      // Debug-Logging für Dienstleister-Test
-      console.log('🔍 Dienstleister-Test Login erfolgreich:', {
-        user: user,
-        user_type: user?.user_type,
-        email: user?.email,
-        isServiceProvider: user?.user_type === 'service_provider' || user?.email?.includes('dienstleister')
-      });
-      
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Bessere Fehlerbehandlung
+        if (response.status === 422) {
+          if (data.detail && Array.isArray(data.detail)) {
+            const errorMessages = data.detail.map((err: any) => 
+              `${err.loc?.join('.')}: ${err.msg}`
+            ).join(', ');
+            throw new Error(`Validierungsfehler: ${errorMessages}`);
+          } else if (typeof data.detail === 'string') {
+            throw new Error(data.detail);
+          } else {
+            throw new Error('Ungültige Anmeldedaten für Dienstleister-Test.');
+          }
+        } else if (response.status === 401) {
+          throw new Error('Ungültige Anmeldedaten für Dienstleister-Test.');
+        } else {
+          throw new Error(data.detail || 'Dienstleister-Login fehlgeschlagen');
+        }
+      }
+
       // Token und User-Daten speichern
-      login(access_token, user);
+      login(data.access_token, data.user);
       
-      // Weiterleitung zur Dienstleisteransicht
-      console.log('🚀 Weiterleitung zu Dienstleister-Dashboard: /service-provider');
-      navigate('/service-provider');
-      
+      // Refresh-Token speichern (falls verfügbar)
+      if (data.refresh_token) {
+        localStorage.setItem('refreshToken', data.refresh_token);
+      }
+
+      setSuccess('Dienstleister-Login erfolgreich! Weiterleitung...');
+
+      setTimeout(() => {
+        navigate('/service-provider');
+      }, 1000);
+
     } catch (err: any) {
       console.error('Service provider login error:', err);
-      if (err.response?.data?.detail) {
-        setError(err.response.data.detail);
-      } else {
-        setError('Fehler beim Dienstleister-Test-Login. Bitte versuchen Sie es erneut.');
-      }
+      setError(err.message || 'Ein Fehler ist aufgetreten');
     } finally {
-      setServiceProviderLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#3d4952] to-[#2c3e50] flex items-center justify-center p-4">
-      <div className="max-w-md w-full space-y-8">
-        {/* Logo und Titel */}
-        <div className="text-center">
-          <div className="flex items-center justify-center mb-6">
-            <img src={logo} alt="BuildWise Logo" className="h-80 w-auto" />
-          </div>
-          <h2 className="text-3xl font-bold text-white mb-2">BuildWise</h2>
-          <p className="text-gray-300">Melden Sie sich in Ihrem Konto an</p>
+    <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center p-4">
+      <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 w-full max-w-md border border-white/20 shadow-2xl">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-[#ffbd59] mb-2">BuildWise</h1>
+          <p className="text-gray-300">Anmelden zu Ihrem Konto</p>
         </div>
 
-        {/* Login-Formular */}
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            {/* E-Mail */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
-                E-Mail-Adresse
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-300"
-                placeholder="ihre.email@beispiel.de"
-              />
-            </div>
+        {/* Error Banner */}
+        {error && (
+          <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-4 py-3 flex items-center gap-3 mb-6 rounded-xl">
+            <AlertTriangle size={20} />
+            <span>{error}</span>
+          </div>
+        )}
 
-            {/* Passwort */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
-                Passwort
-              </label>
+        {/* Success Banner */}
+        {success && (
+          <div className="bg-green-500/20 border border-green-500/30 text-green-300 px-4 py-3 flex items-center gap-3 mb-6 rounded-xl">
+            <CheckCircle size={20} />
+            <span>{success}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              E-Mail-Adresse
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-300"
+              placeholder="ihre.email@beispiel.de"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Passwort
+            </label>
+            <div className="relative">
               <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-300"
+                className="w-full px-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-300 pr-12"
                 placeholder="Ihr Passwort"
+                required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </div>
           </div>
 
-          {/* Fehlermeldung */}
-          {error && (
-            <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 text-red-300 text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* Login-Button */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gradient-to-r from-[#ffbd59] to-[#ffa726] hover:from-[#ffa726] hover:to-[#ffbd59] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#ffbd59] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105"
+            className="w-full py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? (
-              <div className="flex items-center">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                Anmeldung läuft...
-              </div>
-            ) : (
-              'Anmelden'
-            )}
+            {loading ? 'Anmelden...' : 'Anmelden'}
           </button>
-
-          {/* Dienstleister-Test-Button */}
-          <button
-            type="button"
-            onClick={handleServiceProviderTest}
-            disabled={serviceProviderLoading}
-            className="w-full flex justify-center py-3 px-4 border border-[#ffbd59]/30 rounded-xl shadow-sm text-sm font-medium text-[#ffbd59] bg-white/5 backdrop-blur-lg hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#ffbd59] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105"
-          >
-            {serviceProviderLoading ? (
-              <div className="flex items-center">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#ffbd59] mr-2"></div>
-                Dienstleister-Login läuft...
-              </div>
-            ) : (
-              'Dienstleister-Test (admin)'
-            )}
-          </button>
-
-          {/* Demo-Zugangsdaten */}
-          <div className="mt-6 p-4 bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl">
-            <h3 className="text-sm font-medium text-gray-300 mb-2">Demo-Zugangsdaten:</h3>
-            <div className="text-xs text-gray-400 space-y-1">
-              <p><strong>Bauträger:</strong> admin@buildwise.de / admin123</p>
-              <p><strong>Dienstleister:</strong> test-dienstleister@buildwise.de / test1234</p>
-            </div>
-          </div>
         </form>
+
+        {/* Service Provider Test Button */}
+        <div className="mt-6 pt-6 border-t border-white/20">
+          <button
+            onClick={handleServiceProviderTest}
+            disabled={loading}
+            className="w-full py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Laden...' : 'Dienstleister-Test (admin)'}
+          </button>
+        </div>
+
+        {/* Debug Info */}
+        <div className="mt-6 pt-6 border-t border-white/20">
+          <details className="text-xs text-gray-400">
+            <summary className="cursor-pointer hover:text-gray-300">Debug-Informationen</summary>
+            <div className="mt-2 space-y-1">
+              <div>Token: {localStorage.getItem('token') ? '✅ Vorhanden' : '❌ Fehlt'}</div>
+              <div>User: {localStorage.getItem('user') ? '✅ Vorhanden' : '❌ Fehlt'}</div>
+              <div>URL: {window.location.href}</div>
+            </div>
+          </details>
+        </div>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 interface AuthContextType {
   token: string | null;
   user: any;
+  isInitialized: boolean;
   login: (token: string, user: any) => void;
   logout: () => void;
   isServiceProvider: () => boolean;
@@ -11,11 +12,38 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
-  const [user, setUser] = useState<any>(() => {
-    const u = localStorage.getItem('user');
-    return u ? JSON.parse(u) : null;
-  });
+  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Initialisiere Auth-Daten beim ersten Laden
+  useEffect(() => {
+    console.log('🔧 Initialisiere AuthContext...');
+    
+    const storedToken = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    
+    console.log('🔑 Token aus localStorage:', storedToken ? '✅ Vorhanden' : '❌ Fehlt');
+    console.log('👤 User aus localStorage:', storedUser ? '✅ Vorhanden' : '❌ Fehlt');
+    
+    if (storedToken) {
+      setToken(storedToken);
+    }
+    
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        console.log('👤 User-Daten geparst:', userData);
+        setUser(userData);
+      } catch (error) {
+        console.error('❌ Fehler beim Parsen der User-Daten:', error);
+        localStorage.removeItem('user'); // Entferne ungültige Daten
+      }
+    }
+    
+    setIsInitialized(true);
+    console.log('✅ AuthContext initialisiert');
+  }, []);
 
   useEffect(() => {
     if (token) localStorage.setItem('token', token);
@@ -43,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ token, user, login, logout, isServiceProvider }}>
+    <AuthContext.Provider value={{ token, user, isInitialized, login, logout, isServiceProvider }}>
       {children}
     </AuthContext.Provider>
   );

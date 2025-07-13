@@ -1644,6 +1644,13 @@ export default function Trades() {
                 <XCircle size={24} className="text-gray-400" />
               </button>
             </div>
+            {/* Projekt-Label (nicht editierbar) */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-1">Projekt</label>
+              <div className="px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white">
+                {projects.find(p => p.id === selectedProject)?.name || `Projekt-ID: ${selectedProject}`}
+              </div>
+            </div>
             
             <form onSubmit={handleCreateTrade} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

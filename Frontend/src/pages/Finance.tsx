@@ -163,6 +163,26 @@ export default function Finance() {
     loadProjects();
   }, [location.search]);
 
+  // Automatisch das erste Projekt auswählen, wenn keines in der URL steht
+  useEffect(() => {
+    if (projects.length > 0 && selectedProject === 'all') {
+      console.log('🔍 Automatisch erstes Projekt auswählen:', projects[0].id);
+      setSelectedProject(projects[0].id.toString());
+    }
+  }, [projects, selectedProject]);
+
+  // Fallback: Wenn nach 3 Sekunden noch kein Projekt ausgewählt ist, wähle Projekt 4
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (selectedProject === 'all' && projects.length === 0) {
+        console.log('🔧 Fallback: Wähle Projekt 4 als Standard');
+        setSelectedProject('4');
+      }
+    }, 3000);
+    
+    return () => clearTimeout(timer);
+  }, [selectedProject, projects]);
+
   useEffect(() => {
     if (selectedProject !== 'all') {
       loadFinanceData();
@@ -178,9 +198,15 @@ export default function Finance() {
   });
 
   const loadFinanceData = async () => {
-    if (selectedProject === 'all') return;
+    if (selectedProject === 'all') {
+      console.log('⚠️ Kein Projekt ausgewählt, überspringe Datenladung');
+      return;
+    }
     
+    console.log('🚀 Starte Finanzdaten-Ladung für Projekt:', selectedProject);
     setLoading(true);
+    setError('');
+    
     try {
       // Mock data für Ausgaben
       const mockExpenses: Expense[] = [
@@ -220,11 +246,60 @@ export default function Finance() {
       // Lade Kostenpositionen aus akzeptierten Angeboten
       try {
         console.log('🔍 Lade Kostenpositionen aus akzeptierten Angeboten für Projekt:', selectedProject);
+        
+        // Prüfe Token vor API-Call
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Kein Token verfügbar. Bitte melden Sie sich erneut an.');
+        }
+        
+        console.log('🔑 Token verfügbar, starte API-Call...');
+        
         const costPositionsData = await costPositionService.getCostPositionsFromAcceptedQuotes(parseInt(selectedProject));
         console.log('✅ Kostenpositionen geladen:', costPositionsData);
+        console.log('📊 Anzahl Kostenpositionen:', costPositionsData.length);
+        
+        if (costPositionsData.length === 0) {
+          console.log('ℹ️ Keine Kostenpositionen gefunden - möglicherweise keine akzeptierten Angebote vorhanden');
+        }
+        
         setCostPositions(costPositionsData);
-      } catch (error) {
-        console.log('Keine Kostenpositionen gefunden, verwende leere Liste:', error);
+        setSuccess(`Finanzdaten erfolgreich geladen (${costPositionsData.length} Kostenpositionen)`);
+        
+      } catch (error: any) {
+        console.error('❌ Fehler beim Laden der Kostenpositionen:', error);
+        
+        // Detaillierte Fehleranalyse
+        if (error.response) {
+          console.error('📡 HTTP Status:', error.response.status);
+          console.error('📡 Response Data:', error.response.data);
+          
+          if (error.response.status === 401) {
+            setError('Sitzung abgelaufen. Bitte melden Sie sich erneut an.');
+            // Automatische Weiterleitung zur Login-Seite
+            setTimeout(() => {
+              window.location.href = '/login?message=session_expired';
+            }, 3000);
+            return;
+          } else if (error.response.status === 403) {
+            setError('Keine Berechtigung für dieses Projekt.');
+          } else if (error.response.status === 404) {
+            setError('Projekt nicht gefunden.');
+          } else if (error.response.status >= 500) {
+            setError('Backend-Fehler. Bitte versuchen Sie es später erneut.');
+          } else {
+            setError(`API-Fehler: ${error.response.data?.detail || error.message}`);
+          }
+        } else if (error.request) {
+          console.error('🌐 Network Error:', error.request);
+          setError('Verbindungsfehler. Bitte prüfen Sie Ihre Internetverbindung.');
+        } else {
+          console.error('💥 Unexpected Error:', error);
+          setError(`Unerwarteter Fehler: ${error.message}`);
+        }
+        
+        // Fallback: Leere Liste setzen
+        console.log('🔄 Setze leere Kostenpositionen-Liste als Fallback');
         setCostPositions([]);
       }
 
@@ -243,9 +318,8 @@ export default function Finance() {
       ];
       setBudgets(mockBudgets);
 
-      setSuccess('Finanzdaten erfolgreich geladen');
     } catch (error: any) {
-      console.error('Fehler beim Laden der Finanzdaten:', error);
+      console.error('💥 Allgemeiner Fehler beim Laden der Finanzdaten:', error);
       setError('Fehler beim Laden der Finanzdaten: ' + (error?.message || error));
     } finally {
       setLoading(false);
@@ -614,7 +688,7 @@ export default function Finance() {
               <div>
                 <h1 className="text-3xl font-bold text-[#ffbd59]">Finanzen</h1>
                 <p className="text-gray-300">
-                  Budget- und Kostenverwaltung für Ihre Projekte
+                  Budget- und Kostenverwaltung für Ihr Projekt
                   {selectedProject !== 'all' && (
                     <span className="block text-sm text-[#ffbd59] mt-1">
                       Projekt-ID: {selectedProject}
@@ -717,60 +791,6 @@ export default function Finance() {
                 {formatCurrency(costPositions.reduce((sum, cp) => sum + cp.paid_amount, 0))}
               </h3>
               <p className="text-sm text-gray-400">Bereits bezahlt</p>
-            </div>
-          </div>
-
-          {/* Project Selector */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-6 border border-white/20">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-white">Projekt auswählen</h2>
-              <div className="flex items-center gap-3">
-                <Search className="w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Projekte durchsuchen..."
-                  className="px-4 py-2 bg-white/10 backdrop-blur-lg border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div
-                onClick={() => handleProjectChange('all')}
-                className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                  selectedProject === 'all'
-                    ? 'border-[#ffbd59] bg-[#ffbd59]/10'
-                    : 'border-white/20 hover:border-white/30 bg-white/5'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Building className="w-6 h-6 text-[#ffbd59]" />
-                  <div>
-                    <h3 className="font-medium text-white">Alle Projekte</h3>
-                    <p className="text-sm text-gray-400">Gesamtübersicht</p>
-                  </div>
-                </div>
-              </div>
-              {projects.map((project) => (
-                <div
-                  key={project.id}
-                  onClick={() => handleProjectChange(project.id.toString())}
-                  className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                    selectedProject === project.id.toString()
-                      ? 'border-[#ffbd59] bg-[#ffbd59]/10'
-                      : 'border-white/20 hover:border-white/30 bg-white/5'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Building className="w-6 h-6 text-[#ffbd59]" />
-                    <div>
-                      <h3 className="font-medium text-white">{project.name}</h3>
-                      <p className="text-sm text-gray-400">
-                        Budget: {formatCurrency(project.budget || 0)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
 
