@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   Settings, 
@@ -29,6 +29,7 @@ import logo from '../logo_trans_big.png';
 
 export default function Navbar() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { user, logout, isServiceProvider } = useAuth();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -37,7 +38,7 @@ export default function Navbar() {
 
   const handleLogout = () => {
     logout();
-    window.location.href = '/login';
+    navigate('/login');
   };
 
   const toggleDarkMode = () => {

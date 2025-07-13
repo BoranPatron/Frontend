@@ -31,20 +31,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null;
   });
   
-  // Setze isInitialized sofort auf true, wenn Daten vorhanden sind
-  const [isInitialized, setIsInitialized] = useState(!!(storedToken || storedUser));
+  // Initialisiere isInitialized auf false und setze es nach der Initialisierung auf true
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialisiere Auth-Daten beim ersten Laden (für den Fall, dass localStorage sich ändert)
+  // Initialisiere Auth-Daten beim ersten Laden
   useEffect(() => {
     console.log('🔧 Initialisiere AuthContext...');
     
     console.log('🔑 Token aus localStorage:', storedToken ? '✅ Vorhanden' : '❌ Fehlt');
     console.log('👤 User aus localStorage:', storedUser ? '✅ Vorhanden' : '❌ Fehlt');
     
-    // Falls noch nicht initialisiert, setze es jetzt
-    if (!isInitialized) {
-      setIsInitialized(true);
-    }
+    // Setze isInitialized auf true, nachdem die Initialisierung abgeschlossen ist
+    setIsInitialized(true);
     
     console.log('✅ AuthContext initialisiert');
   }, []);

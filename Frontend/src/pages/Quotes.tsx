@@ -372,7 +372,7 @@ export default function Trades() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setTimeout(() => {
-          window.location.href = '/login';
+          navigate('/login');
         }, 2000);
       } else if (err.message?.includes('NetworkError')) {
         setError('Verbindungsfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
@@ -433,7 +433,7 @@ export default function Trades() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setTimeout(() => {
-          window.location.href = '/login';
+          navigate('/login');
         }, 2000);
       } else if (err.message?.includes('NetworkError')) {
         setError('Verbindungsfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
@@ -665,7 +665,7 @@ export default function Trades() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setTimeout(() => {
-          window.location.href = '/login';
+          navigate('/login');
         }, 2000);
       } else if (err.message?.includes('NetworkError')) {
         setError('Verbindungsfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
@@ -722,7 +722,7 @@ export default function Trades() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setTimeout(() => {
-          window.location.href = '/login';
+          navigate('/login');
         }, 2000);
       } else if (err.message?.includes('NetworkError')) {
         setError('Verbindungsfehler. Bitte überprüfen Sie Ihre Internetverbindung.');

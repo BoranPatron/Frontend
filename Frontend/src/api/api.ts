@@ -147,7 +147,8 @@ api.interceptors.response.use(
         if (!window.location.pathname.includes('/login')) {
           const currentPath = window.location.pathname + window.location.search;
           localStorage.setItem('redirectAfterLogin', currentPath);
-          window.location.href = '/login?message=session_expired';
+          // Verwende window.location.replace für bessere Navigation
+          window.location.replace('/login?message=session_expired');
         }
         
         return Promise.reject(refreshError);
