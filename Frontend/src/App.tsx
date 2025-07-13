@@ -68,18 +68,24 @@ function AppContent() {
   const location = window.location.pathname;
   const isLoginPage = location === '/login';
 
+  // Prüfe auch direkt localStorage für schnelle Anzeige
+  const hasStoredToken = localStorage.getItem('token');
+  const hasStoredUser = localStorage.getItem('user');
+
   // Debug-Logging für Navbar-Anzeige
   console.log('🔍 AppContent Debug:', {
     hasToken: !!token,
     hasUser: !!user,
     isInitialized,
+    hasStoredToken: !!hasStoredToken,
+    hasStoredUser: !!hasStoredUser,
     isLoginPage,
     currentPath: location,
-    shouldShowNavbar: !isLoginPage && token && isInitialized
+    shouldShowNavbar: !isLoginPage && (isInitialized || token || user || hasStoredToken || hasStoredUser)
   });
 
-  // Warte auf Initialisierung
-  if (!isInitialized) {
+  // Warte auf Initialisierung nur wenn keine Auth-Daten vorhanden sind
+  if (!isInitialized && !hasStoredToken && !hasStoredUser) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center">
         <div className="text-center">
@@ -92,8 +98,8 @@ function AppContent() {
 
   return (
     <>
-      {/* Navbar anzeigen, wenn nicht auf der Login-Seite und AuthContext initialisiert und (Token ODER User) vorhanden ist */}
-      {!isLoginPage && isInitialized && (token || user) && <Navbar />}
+      {/* Navbar anzeigen, wenn nicht auf der Login-Seite und Auth-Daten vorhanden sind */}
+      {!isLoginPage && (isInitialized || token || user || hasStoredToken || hasStoredUser) && <Navbar />}
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={

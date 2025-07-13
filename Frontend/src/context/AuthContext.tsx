@@ -12,36 +12,40 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  // Prüfe localStorage sofort beim Start
+  const storedToken = localStorage.getItem('token');
+  const storedUser = localStorage.getItem('user');
+  
+  // Initialisiere State basierend auf localStorage
+  const [token, setToken] = useState<string | null>(storedToken);
+  const [user, setUser] = useState<any>(() => {
+    if (storedUser) {
+      try {
+        return JSON.parse(storedUser);
+      } catch (error) {
+        console.error('❌ Fehler beim Parsen der User-Daten:', error);
+        localStorage.removeItem('user');
+        return null;
+      }
+    }
+    return null;
+  });
+  
+  // Setze isInitialized sofort auf true, wenn Daten vorhanden sind
+  const [isInitialized, setIsInitialized] = useState(!!(storedToken || storedUser));
 
-  // Initialisiere Auth-Daten beim ersten Laden
+  // Initialisiere Auth-Daten beim ersten Laden (für den Fall, dass localStorage sich ändert)
   useEffect(() => {
     console.log('🔧 Initialisiere AuthContext...');
-    
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
     
     console.log('🔑 Token aus localStorage:', storedToken ? '✅ Vorhanden' : '❌ Fehlt');
     console.log('👤 User aus localStorage:', storedUser ? '✅ Vorhanden' : '❌ Fehlt');
     
-    if (storedToken) {
-      setToken(storedToken);
+    // Falls noch nicht initialisiert, setze es jetzt
+    if (!isInitialized) {
+      setIsInitialized(true);
     }
     
-    if (storedUser) {
-      try {
-        const userData = JSON.parse(storedUser);
-        console.log('👤 User-Daten geparst:', userData);
-        setUser(userData);
-      } catch (error) {
-        console.error('❌ Fehler beim Parsen der User-Daten:', error);
-        localStorage.removeItem('user'); // Entferne ungültige Daten
-      }
-    }
-    
-    setIsInitialized(true);
     console.log('✅ AuthContext initialisiert');
   }, []);
 

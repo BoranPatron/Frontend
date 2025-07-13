@@ -2,17 +2,24 @@ import axios from 'axios';
 
 // Dynamische API-URL basierend auf der aktuellen Host-URL
 export const getApiBaseUrl = () => {
+  // Prüfe zuerst Environment-Variable (für Render.com)
+  const envApiUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envApiUrl) {
+    console.log('🔧 API Base URL (Environment):', envApiUrl);
+    return envApiUrl;
+  }
+  
+  // Fallback: Lokale Entwicklung
   const hostname = window.location.hostname;
-  // Wenn localhost, verwende localhost für Backend
-  // Ansonsten verwende die gleiche IP-Adresse wie das Frontend
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     const baseUrl = 'http://localhost:8000/api/v1';
-    console.log('🔧 API Base URL:', baseUrl);
+    console.log('🔧 API Base URL (Local):', baseUrl);
     return baseUrl;
   }
+  
   // Für Netzwerk-Zugriff verwende die gleiche IP wie das Frontend
   const baseUrl = `http://${hostname}:8000/api/v1`;
-  console.log('🔧 API Base URL:', baseUrl);
+  console.log('🔧 API Base URL (Network):', baseUrl);
   return baseUrl;
 };
 
