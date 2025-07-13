@@ -29,9 +29,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Building,
-  MapPin
+  MapPin,
+  Plus,
+  Settings
 } from 'lucide-react';
-import logo from '../logo_trans_big.png';
+import logo from '../logo_bw.png';
+import { useAuth } from '../context/AuthContext';
 
 // Interface für echte Projekte aus der API
 interface Project {
@@ -57,12 +60,23 @@ interface Project {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { user, isServiceProvider } = useAuth();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [currentProjectIndex, setCurrentProjectIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
+  const [newProjectData, setNewProjectData] = useState({
+    name: '',
+    description: '',
+    project_type: 'NEW_BUILD',
+    address: '',
+    budget: 0,
+    is_public: true,
+    allow_quotes: true
+  });
 
   // Lade echte Projekte aus der API
   useEffect(() => {
@@ -181,6 +195,50 @@ export default function Dashboard() {
     }
   };
 
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      // Hier würde die API-Call zum Erstellen des Projekts stehen
+      // Für jetzt simulieren wir das Erstellen
+      const newProject: Project = {
+        id: Date.now(),
+        name: newProjectData.name,
+        description: newProjectData.description,
+        project_type: newProjectData.project_type,
+        status: 'active',
+        progress_percentage: 0,
+        budget: newProjectData.budget,
+        current_costs: 0,
+        address: newProjectData.address,
+        is_public: newProjectData.is_public,
+        allow_quotes: newProjectData.allow_quotes,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      setProjects([...projects, newProject]);
+      setCurrentProjectIndex(projects.length);
+      setShowCreateProjectModal(false);
+      setNewProjectData({
+        name: '',
+        description: '',
+        project_type: 'NEW_BUILD',
+        address: '',
+        budget: 0,
+        is_public: true,
+        allow_quotes: true
+      });
+      
+      // Lade Projekte neu
+      await loadProjects();
+    } catch (error) {
+      setError('Fehler beim Erstellen des Projekts');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Hilfsfunktionen für Projekt-Daten
   const getProjectTypeLabel = (type: string) => {
     switch (type) {
@@ -237,114 +295,136 @@ export default function Dashboard() {
   const projectStats = getMockProjectStats(currentProject);
 
   // Dynamische Dashboard-Karten basierend auf aktuellem Projekt
-  const getDashboardCards = () => [
-    {
-      title: "Manager",
-      description: "Projekt- und Gewerkverwaltung",
-      icon: <Home size={32} />,
-      onClick: onManagerClick,
-      ariaLabel: "Projekt- und Gewerkverwaltung öffnen",
-      status: (isOnline ? 'online' : 'offline') as 'online' | 'offline',
-      progress: { value: currentProject.progress_percentage, label: "Projektfortschritt" },
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <Users size={16} />
-          <span>{projectStats.activeTrades} aktive Gewerke</span>
-        </div>
-      )
-    },
-    {
-      title: "Docs",
-      description: "Dokumentenmanagement & Uploads",
-      icon: <FileText size={32} />,
-      onClick: onDocsClick,
-      ariaLabel: "Dokumentenmanagement öffnen",
-      badge: { text: `${projectStats.newDocuments} neue`, color: "blue" as const },
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <Upload size={16} />
-          <span>Foto-Upload verfügbar</span>
-        </div>
-      )
-    },
-    {
-      title: "To Do",
-      description: "Aufgabenmanagement & Tracking",
-      icon: <CheckSquare size={32} />,
-      onClick: onTodoClick,
-      ariaLabel: "Aufgabenmanagement öffnen",
-      badge: { text: `${projectStats.openTasks} offen`, color: "yellow" as const },
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <Clock size={16} />
-          <span>Stundenerfassung</span>
-        </div>
-      )
-    },
-    {
-      title: "Finance",
-      description: "Budget, Ausgaben & Forecasts",
-      icon: <Euro size={32} />,
-      onClick: onFinanceClick,
-      ariaLabel: "Finanzmanagement öffnen",
-      progress: { 
-        value: currentProject.budget ? Math.round((currentProject.current_costs / currentProject.budget) * 100) : 0, 
-        label: "Budget-Auslastung" 
+  const getDashboardCards = () => {
+    const baseCards = [
+      {
+        title: "Manager",
+        description: "Projekt- und Gewerkverwaltung",
+        icon: <Home size={32} />,
+        onClick: onManagerClick,
+        ariaLabel: "Projekt- und Gewerkverwaltung öffnen",
+        status: (isOnline ? 'online' : 'offline') as 'online' | 'offline',
+        progress: { value: currentProject.progress_percentage, label: "Projektfortschritt" },
+        children: (
+          <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+            <Users size={16} />
+            <span>{projectStats.activeTrades} aktive Gewerke</span>
+          </div>
+        )
       },
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <Calculator size={16} />
-          <span>€ {currentProject.current_costs.toLocaleString()} / € {(currentProject.budget || 0).toLocaleString()}</span>
-        </div>
-      )
-    },
-    {
-      title: "Gewerke",
-      description: "Gewerkeverwaltung & Ausschreibungen",
-      icon: <Handshake size={32} />,
-      onClick: onOfferingClick,
-      ariaLabel: "Gewerkeverwaltung öffnen",
-      badge: { text: `${projectStats.newQuotes} neue`, color: "green" as const },
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <BarChart3 size={16} />
-          <span>Ausschreibungen verfügbar</span>
-        </div>
-      )
-    },
-    {
-      title: "Visualize",
-      description: "Pläne, Fotos & Visualisierungen",
-      icon: <Eye size={32} />,
-      onClick: onVisualizeClick,
-      ariaLabel: "Visualisierungen öffnen",
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <Camera size={16} />
-          <span>Site-Photos</span>
-        </div>
-      )
-    },
-    {
-      title: "Roadmap",
-      description: "Zeitliche Übersicht & Gantt-Diagramm",
-      icon: <TrendingUp size={32} />,
-      onClick: () => {
-        if (projects.length > 0) {
-          navigate(`/roadmap?project=${currentProject.id}`);
-        } else {
-          navigate('/roadmap');
-        }
+      {
+        title: "Docs",
+        description: "Dokumentenmanagement & Uploads",
+        icon: <FileText size={32} />,
+        onClick: onDocsClick,
+        ariaLabel: "Dokumentenmanagement öffnen",
+        badge: { text: `${projectStats.newDocuments} neue`, color: "blue" as const },
+        children: (
+          <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+            <Upload size={16} />
+            <span>Foto-Upload verfügbar</span>
+          </div>
+        )
       },
-      ariaLabel: "Roadmap und Zeitplanung öffnen",
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <Calendar size={16} />
-          <span>Gantt & Timeline</span>
-        </div>
-      )
+      {
+        title: "To Do",
+        description: "Aufgabenmanagement & Tracking",
+        icon: <CheckSquare size={32} />,
+        onClick: onTodoClick,
+        ariaLabel: "Aufgabenmanagement öffnen",
+        badge: { text: `${projectStats.openTasks} offen`, color: "yellow" as const },
+        children: (
+          <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+            <Clock size={16} />
+            <span>Stundenerfassung</span>
+          </div>
+        )
+      },
+      {
+        title: "Finance",
+        description: "Budget, Ausgaben & Forecasts",
+        icon: <Euro size={32} />,
+        onClick: onFinanceClick,
+        ariaLabel: "Finanzmanagement öffnen",
+        progress: { 
+          value: currentProject.budget ? Math.round((currentProject.current_costs / currentProject.budget) * 100) : 0, 
+          label: "Budget-Auslastung" 
+        },
+        children: (
+          <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+            <Calculator size={16} />
+            <span>€ {currentProject.current_costs.toLocaleString()} / € {(currentProject.budget || 0).toLocaleString()}</span>
+          </div>
+        )
+      },
+      {
+        title: "Gewerke",
+        description: "Gewerkeverwaltung & Ausschreibungen",
+        icon: <Handshake size={32} />,
+        onClick: onOfferingClick,
+        ariaLabel: "Gewerkeverwaltung öffnen",
+        badge: { text: `${projectStats.newQuotes} neue`, color: "green" as const },
+        children: (
+          <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+            <BarChart3 size={16} />
+            <span>Ausschreibungen verfügbar</span>
+          </div>
+        )
+      },
+      {
+        title: "Visualize",
+        description: "Pläne, Fotos & Visualisierungen",
+        icon: <Eye size={32} />,
+        onClick: onVisualizeClick,
+        ariaLabel: "Visualisierungen öffnen",
+        children: (
+          <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+            <Camera size={16} />
+            <span>Site-Photos</span>
+          </div>
+        )
+      },
+      {
+        title: "Roadmap",
+        description: "Zeitliche Übersicht & Gantt-Diagramm",
+        icon: <TrendingUp size={32} />,
+        onClick: () => {
+          if (projects.length > 0) {
+            navigate(`/roadmap?project=${currentProject.id}`);
+          } else {
+            navigate('/roadmap');
+          }
+        },
+        ariaLabel: "Roadmap und Zeitplanung öffnen",
+        children: (
+          <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+            <Calendar size={16} />
+            <span>Gantt & Timeline</span>
+          </div>
+        )
+      }
+    ];
+
+    // Füge "Projekt anlegen" Button hinzu, wenn keine Projekte vorhanden sind
+    if (projects.length === 0) {
+      baseCards.unshift({
+        title: "Projekt anlegen",
+        description: "Neues Bauprojekt erstellen",
+        icon: <Plus size={32} />,
+        onClick: () => setShowCreateProjectModal(true),
+        ariaLabel: "Neues Projekt erstellen",
+        badge: { text: "Neu", color: "green" as const },
+        children: (
+          <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+            <Building size={16} />
+            <span>Projekt erstellen</span>
+          </div>
+        )
+      });
     }
-  ];
+
+    return baseCards;
+  };
 
   const dashboardCards = getDashboardCards();
 
@@ -387,10 +467,25 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-          {/* Online/Offline Status */}
-          <div className={`flex items-center gap-3 px-5 py-2 rounded-full text-base font-medium backdrop-blur-md border ${isOnline ? 'bg-green-500/20 text-green-300 border-green-500/30' : 'bg-red-500/20 text-red-300 border-red-500/30'}`}>
-            {isOnline ? <Wifi size={18} className="animate-pulse" /> : <WifiOff size={18} />}
-            <span>{isOnline ? 'Online' : 'Offline'}</span>
+          
+          {/* Header Actions */}
+          <div className="flex items-center gap-3">
+            {/* Online/Offline Status */}
+            <div className={`flex items-center gap-3 px-5 py-2 rounded-full text-base font-medium backdrop-blur-md border ${isOnline ? 'bg-green-500/20 text-green-300 border-green-500/30' : 'bg-red-500/20 text-red-300 border-red-500/30'}`}>
+              {isOnline ? <Wifi size={18} className="animate-pulse" /> : <WifiOff size={18} />}
+              <span>{isOnline ? 'Online' : 'Offline'}</span>
+            </div>
+            
+            {/* Projekt anlegen Button (wenn Projekte vorhanden sind) */}
+            {projects.length > 0 && (
+              <button
+                onClick={() => setShowCreateProjectModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-lg font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                <Plus size={18} />
+                <span>Projekt anlegen</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -408,115 +503,118 @@ export default function Dashboard() {
         )}
 
         {/* Swipeable Project Info */}
-        <div 
-          {...swipeHandlers}
-          className={`relative mb-6 transition-all duration-300 ${isTransitioning ? 'opacity-75 scale-95' : 'opacity-100 scale-100'}`}
-        >
-          {/* Swipe-Indikatoren */}
-          {projects.length > 1 && (
-            <>
-              <div className="absolute top-1/2 left-4 transform -translate-y-1/2 z-10">
-                <button
-                  onClick={() => handleSwipe('right')}
-                  disabled={currentProjectIndex === 0}
-                  className={`p-2 rounded-full backdrop-blur-md border transition-all duration-300 ${
-                    currentProjectIndex === 0 
-                      ? 'bg-gray-500/20 text-gray-500 border-gray-500/30 cursor-not-allowed' 
-                      : 'bg-white/10 text-white border-white/20 hover:bg-white/20 hover:scale-110'
-                  }`}
-                  aria-label="Vorheriges Projekt"
-                >
-                  <ChevronLeft size={20} />
-                </button>
+        {projects.length > 0 ? (
+          <div 
+            {...swipeHandlers}
+            className={`relative mb-6 transition-all duration-300 ${isTransitioning ? 'opacity-75 scale-95' : 'opacity-100 scale-100'}`}
+          >
+            {/* Swipe-Indikatoren */}
+            {projects.length > 1 && (
+              <>
+                <div className="absolute top-1/2 left-4 transform -translate-y-1/2 z-10">
+                  <button
+                    onClick={() => handleSwipe('right')}
+                    disabled={currentProjectIndex === 0}
+                    className={`p-2 rounded-full backdrop-blur-md border transition-all duration-300 ${
+                      currentProjectIndex === 0 
+                        ? 'bg-gray-500/20 text-gray-500 border-gray-500/30 cursor-not-allowed' 
+                        : 'bg-white/10 text-white border-white/20 hover:bg-white/20 hover:scale-110'
+                    }`}
+                    aria-label="Vorheriges Projekt"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                </div>
+                
+                <div className="absolute top-1/2 right-4 transform -translate-y-1/2 z-10">
+                  <button
+                    onClick={() => handleSwipe('left')}
+                    disabled={currentProjectIndex === projects.length - 1}
+                    className={`p-2 rounded-full backdrop-blur-md border transition-all duration-300 ${
+                      currentProjectIndex === projects.length - 1 
+                        ? 'bg-gray-500/20 text-gray-500 border-gray-500/30 cursor-not-allowed' 
+                        : 'bg-white/10 text-white border-white/20 hover:bg-white/20 hover:scale-110'
+                    }`}
+                    aria-label="Nächstes Projekt"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Project Info Card */}
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:border-[#ffbd59]/30 transition-all duration-300">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <h2 className="text-2xl font-bold text-white mb-2">{currentProject.name}</h2>
+                  <p className="text-gray-300 text-sm mb-3">{currentProject.description}</p>
+                  <div className="flex flex-wrap gap-3 text-xs">
+                    <span className={`px-3 py-1 rounded-full ${getStatusColor(currentProject.status)}`}>
+                      {getStatusLabel(currentProject.status)}
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                      {getProjectTypeLabel(currentProject.project_type)}
+                    </span>
+                    {currentProject.address && (
+                      <span className="px-3 py-1 rounded-full bg-gray-500/20 text-gray-300 border border-gray-500/30">
+                        📍 {currentProject.address}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-[#ffbd59] mb-1">
+                    {currentProject.progress_percentage}%
+                  </div>
+                  <div className="text-sm text-gray-400">Fortschritt</div>
+                </div>
               </div>
               
-              <div className="absolute top-1/2 right-4 transform -translate-y-1/2 z-10">
-                <button
-                  onClick={() => handleSwipe('left')}
-                  disabled={currentProjectIndex === projects.length - 1}
-                  className={`p-2 rounded-full backdrop-blur-md border transition-all duration-300 ${
-                    currentProjectIndex === projects.length - 1 
-                      ? 'bg-gray-500/20 text-gray-500 border-gray-500/30 cursor-not-allowed' 
-                      : 'bg-white/10 text-white border-white/20 hover:bg-white/20 hover:scale-110'
-                  }`}
-                  aria-label="Nächstes Projekt"
-                >
-                  <ChevronRight size={20} />
-                </button>
+              {/* Progress Bar */}
+              <div className="w-full bg-gray-700/50 rounded-full h-3 mb-4">
+                <div 
+                  className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-3 rounded-full transition-all duration-1000 ease-out"
+                  style={{ width: `${currentProject.progress_percentage}%` }}
+                />
               </div>
-            </>
-          )}
-
-          {/* Project Info */}
-          <div className="text-center px-16">
-            <h2 className="text-3xl font-bold text-[#ffbd59] mb-2 flex items-center justify-center gap-3">
-              <Zap size={28} className="animate-bounce" />
-              Willkommen zurück
-            </h2>
-            
-            {/* Projekt-Navigation-Indikatoren */}
-            {projects.length > 1 && (
-              <div className="flex justify-center gap-2 mb-4">
-                {projects.map((_, index) => (
-                  <div
-                    key={index}
-                    className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                      index === currentProjectIndex 
-                        ? 'bg-[#ffbd59] scale-125' 
-                        : 'bg-gray-500/50'
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
-
-            <div className="flex flex-wrap items-center justify-center gap-6 text-gray-300 mb-4">
-              <div className="flex items-center gap-2">
-                <Building size={16} className="text-[#ffbd59]" />
-                <span>Projekt: <span className="font-semibold text-white">{currentProject.name}</span></span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Award size={16} className="text-[#ffbd59]" />
-                <span>Phase: <span className={`font-semibold ${getStatusColor(currentProject.status)}`}>{getStatusLabel(currentProject.status)}</span></span>
-              </div>
-              {currentProject.address && (
-                <div className="flex items-center gap-2">
-                  <MapPin size={16} className="text-[#ffbd59]" />
-                  <span>Standort: <span className="font-semibold text-white">{currentProject.address}</span></span>
+              
+              {/* Project Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="text-center">
+                  <div className="text-white font-semibold">{projectStats.activeTrades}</div>
+                  <div className="text-gray-400">Gewerke</div>
                 </div>
-              )}
-            </div>
-
-            {/* Swipe-Hinweis */}
-            {projects.length > 1 && (
-              <div className="text-xs text-gray-400 mb-4 flex items-center justify-center gap-2">
-                <span>← Swipe für andere Projekte →</span>
+                <div className="text-center">
+                  <div className="text-white font-semibold">{projectStats.openTasks}</div>
+                  <div className="text-gray-400">Aufgaben</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-white font-semibold">{projectStats.newDocuments}</div>
+                  <div className="text-gray-400">Dokumente</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-white font-semibold">{projectStats.newQuotes}</div>
+                  <div className="text-gray-400">Angebote</div>
+                </div>
               </div>
-            )}
-
-            {/* Keine Projekte Hinweis */}
-            {projects.length === 0 && (
-              <div className="text-sm text-gray-400 mb-4 flex items-center justify-center gap-2">
-                <span>Erstellen Sie Ihr erstes Projekt im Manager</span>
-              </div>
-            )}
-          </div>
-
-          {/* Progress Bar */}
-          <div className="space-y-3">
-            <div className="flex justify-between text-base">
-              <span className="text-gray-300">Projektfortschritt</span>
-              <span className="text-[#ffbd59] font-bold text-lg">{currentProject.progress_percentage}%</span>
-            </div>
-            <div className="relative w-full bg-gray-700/50 rounded-full h-5 backdrop-blur-sm border border-gray-600/30">
-              <div 
-                className="absolute inset-0 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-5 rounded-full transition-all duration-1000 ease-out shadow-lg" 
-                style={{ width: `${currentProject.progress_percentage}%` }} 
-              />
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent h-5 rounded-full animate-pulse"></div>
             </div>
           </div>
-        </div>
+        ) : (
+          /* No Projects State */
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 mb-6 text-center">
+            <Building size={64} className="text-[#ffbd59] mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">Willkommen bei BuildWise!</h2>
+            <p className="text-gray-300 mb-6">Erstellen Sie Ihr erstes Bauprojekt, um loszulegen.</p>
+            <button
+              onClick={() => setShowCreateProjectModal(true)}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-lg font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 mx-auto"
+            >
+              <Plus size={20} />
+              <span>Erstes Projekt anlegen</span>
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Offline Banner */}
@@ -528,108 +626,113 @@ export default function Dashboard() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 p-8 relative z-10">
-        <div className="max-w-7xl mx-auto">
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-            <div className="group bg-white/10 backdrop-blur-lg rounded-2xl p-7 shadow-xl border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-2">
-              <div className="flex items-center">
-                <div className="p-4 bg-gradient-to-br from-green-400 to-green-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <Users className="w-7 h-7 text-white" />
-                </div>
-                <div className="ml-5">
-                  <p className="text-base font-medium text-gray-300">Aktive Gewerke</p>
-                  <p className="text-3xl font-bold text-white">{projectStats.activeTrades}</p>
-                </div>
-              </div>
-            </div>
-            <div className="group bg-white/10 backdrop-blur-lg rounded-2xl p-7 shadow-xl border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-2">
-              <div className="flex items-center">
-                <div className="p-4 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <Clock className="w-7 h-7 text-white" />
-                </div>
-                <div className="ml-5">
-                  <p className="text-base font-medium text-gray-300">Offene Aufgaben</p>
-                  <p className="text-3xl font-bold text-white">{projectStats.openTasks}</p>
-                </div>
-              </div>
-            </div>
-            <div className="group bg-white/10 backdrop-blur-lg rounded-2xl p-7 shadow-xl border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-2">
-              <div className="flex items-center">
-                <div className="p-4 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <AlertTriangle className="w-7 h-7 text-white" />
-                </div>
-                <div className="ml-5">
-                  <p className="text-base font-medium text-gray-300">Benachrichtigungen</p>
-                  <p className="text-3xl font-bold text-white">{projectStats.notifications}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Main Dashboard Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
-            {dashboardCards.map((card, index) => (
-              <div key={index} className="transform hover:scale-105 transition-all duration-300">
-                <DashboardCard
-                  title={card.title}
-                  icon={card.icon}
-                  onClick={card.onClick}
-                  ariaLabel={card.ariaLabel}
-                  status={card.status}
-                  badge={card.badge}
-                  progress={card.progress}
-                >
-                  {card.children}
-                </DashboardCard>
-              </div>
-            ))}
-          </div>
-
-          {/* Recent Activity Section */}
-          <div className="mt-16 bg-white/10 backdrop-blur-lg rounded-3xl p-10 shadow-2xl border border-white/20">
-            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-              <Clock size={24} className="text-[#ffbd59]" />
-              Letzte Aktivitäten - {currentProject.name}
-            </h2>
-            <div className="space-y-4">
-              <div className="flex items-center p-4 bg-white/5 rounded-xl backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300">
-                <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-green-600 rounded-full mr-4 animate-pulse"></div>
-                <span className="text-sm text-gray-200">Neues Angebot für Projekt "{currentProject.name}" erhalten</span>
-                <span className="ml-auto text-xs text-gray-400">{projectStats.lastActivity}</span>
-              </div>
-              <div className="flex items-center p-4 bg-white/5 rounded-xl backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300">
-                <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full mr-4 animate-pulse" style={{animationDelay: '1s'}}></div>
-                <span className="text-sm text-gray-200">Dokument "Bauantrag.pdf" hochgeladen</span>
-                <span className="ml-auto text-xs text-gray-400">vor 4 Stunden</span>
-              </div>
-              <div className="flex items-center p-4 bg-white/5 rounded-xl backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300">
-                <div className="w-3 h-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full mr-4 animate-pulse" style={{animationDelay: '2s'}}></div>
-                <span className="text-sm text-gray-200">Aufgabe "Elektroinstallation planen" erstellt</span>
-                <span className="ml-auto text-xs text-gray-400">vor 1 Tag</span>
-              </div>
-            </div>
-          </div>
+      <main className="flex-1 px-8 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {dashboardCards.map((card, index) => (
+            <DashboardCard key={index} {...card} />
+          ))}
         </div>
       </main>
 
-      {/* Footer Navigation */}
-      <footer className="relative bg-gradient-to-r from-[#3d4952]/95 to-[#51646f]/95 backdrop-blur-lg text-white px-8 py-7 border-t border-[#ffbd59]/20 mt-10">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <button 
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-3 px-7 py-3 bg-gradient-to-r from-[#51646f] to-[#607583] text-[#ffbd59] rounded-xl hover:from-[#607583] hover:to-[#6b7a8a] transition-all duration-300 transform hover:scale-105 shadow-lg border border-[#ffbd59]/20 font-semibold text-lg"
-            aria-label="Zurück zur vorherigen Seite"
-          >
-            <span>← Zurück</span>
-          </button>
-          <div className="flex items-center gap-6 text-base text-gray-300">
-            <span className="font-semibold">BuildWise v1.0</span>
-            <span className="text-[#ffbd59]">•</span>
-            <span>© 2025</span>
+      {/* Create Project Modal */}
+      {showCreateProjectModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+            <h2 className="text-2xl font-bold text-[#3d4952] mb-6 flex items-center gap-3">
+              <Plus size={24} className="text-[#ffbd59]" />
+              Neues Projekt anlegen
+            </h2>
+            
+            <form onSubmit={handleCreateProject} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Projektname *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newProjectData.name}
+                  onChange={(e) => setNewProjectData({...newProjectData, name: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  placeholder="z.B. Einfamilienhaus Musterstraße"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Beschreibung
+                </label>
+                <textarea
+                  value={newProjectData.description}
+                  onChange={(e) => setNewProjectData({...newProjectData, description: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  rows={3}
+                  placeholder="Beschreibung des Bauprojekts..."
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Projekttyp *
+                </label>
+                <select
+                  required
+                  value={newProjectData.project_type}
+                  onChange={(e) => setNewProjectData({...newProjectData, project_type: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                >
+                  <option value="NEW_BUILD">Neubau</option>
+                  <option value="RENOVATION">Renovierung</option>
+                  <option value="EXTENSION">Anbau</option>
+                  <option value="REFURBISHMENT">Sanierung</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Adresse
+                </label>
+                <input
+                  type="text"
+                  value={newProjectData.address}
+                  onChange={(e) => setNewProjectData({...newProjectData, address: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  placeholder="Musterstraße 123, 12345 Musterstadt"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Budget (€)
+                </label>
+                <input
+                  type="number"
+                  value={newProjectData.budget}
+                  onChange={(e) => setNewProjectData({...newProjectData, budget: parseInt(e.target.value) || 0})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  placeholder="300000"
+                />
+              </div>
+              
+              <div className="flex items-center gap-4 pt-4">
+                <button
+                  type="submit"
+                  className="flex-1 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] py-3 px-6 rounded-lg font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300"
+                >
+                  Projekt erstellen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateProjectModal(false)}
+                  className="flex-1 bg-gray-300 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-400 transition-all duration-300"
+                >
+                  Abbrechen
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-      </footer>
+      )}
     </div>
   );
 } 
