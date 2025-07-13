@@ -199,26 +199,20 @@ export default function Dashboard() {
     e.preventDefault();
     try {
       setLoading(true);
-      // Hier würde die API-Call zum Erstellen des Projekts stehen
-      // Für jetzt simulieren wir das Erstellen
-      const newProject: Project = {
-        id: Date.now(),
+      setError("");
+      // API-Call zum Backend
+      const created = await import('../api/projectService').then(m => m.createProject({
         name: newProjectData.name,
         description: newProjectData.description,
         project_type: newProjectData.project_type,
         status: 'active',
-        progress_percentage: 0,
         budget: newProjectData.budget,
-        current_costs: 0,
         address: newProjectData.address,
         is_public: newProjectData.is_public,
         allow_quotes: newProjectData.allow_quotes,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      
-      setProjects([...projects, newProject]);
-      setCurrentProjectIndex(projects.length);
+      }));
+      // Nach erfolgreichem Anlegen: Projekte neu laden
+      await loadProjects();
       setShowCreateProjectModal(false);
       setNewProjectData({
         name: '',
@@ -229,10 +223,7 @@ export default function Dashboard() {
         is_public: true,
         allow_quotes: true
       });
-      
-      // Lade Projekte neu
-      await loadProjects();
-    } catch (error) {
+    } catch (error: any) {
       setError('Fehler beim Erstellen des Projekts');
     } finally {
       setLoading(false);
