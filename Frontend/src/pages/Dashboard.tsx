@@ -13,7 +13,8 @@ import {
   Clock, 
   TrendingUp,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Palette
 } from 'lucide-react';
 import DashboardCard from '../components/DashboardCard';
 import { useProject } from '../context/ProjectContext';
@@ -132,6 +133,14 @@ export default function Dashboard() {
       navigate(`/visualize?project=${selectedProject.id}`);
     } else {
       navigate('/visualize');
+    }
+  };
+  
+  const onCanvasClick = () => {
+    if (selectedProject) {
+      navigate(`/project/${selectedProject.id}/canvas`);
+    } else {
+      navigate('/canvas');
     }
   };
 
@@ -371,6 +380,22 @@ export default function Dashboard() {
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <BarChart3 size={16} />
           <span>Daten visualisieren</span>
+        </div>
+      )
+    },
+    {
+      title: "Canvas",
+      description: "Unlimited Canvas & Kollaboration",
+      icon: <Palette size={32} />,
+      onClick: onCanvasClick,
+      ariaLabel: "Canvas und Kollaboration öffnen",
+      cardId: "canvas",
+      path: "/canvas",
+      iconString: "<Palette size={16} />",
+      children: (
+        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+          <Palette size={16} />
+          <span>Sticky Notes & Zeichnungen</span>
         </div>
       )
     }

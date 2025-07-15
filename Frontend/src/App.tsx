@@ -19,6 +19,7 @@ import GlobalMessages from './pages/GlobalMessages';
 import Roadmap from './pages/Roadmap';
 import GlobalProjects from './pages/GlobalProjects';
 import BuildWiseFees from './pages/BuildWiseFees';
+import Canvas from './pages/Canvas';
 
 // Error Boundary
 class ErrorBoundary extends React.Component<
@@ -206,6 +207,16 @@ function AppContent() {
         <Route path="/visualize" element={
           <ProtectedRoute>
             <Visualize />
+          </ProtectedRoute>
+        } />
+        <Route path="/canvas" element={
+          <ProtectedRoute>
+            <Canvas />
+          </ProtectedRoute>
+        } />
+        <Route path="/project/:projectId/canvas" element={
+          <ProtectedRoute>
+            <Canvas />
           </ProtectedRoute>
         } />
         <Route path="/messages" element={
