@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   Settings, 
@@ -31,7 +31,6 @@ import FavoritesBar from './FavoritesBar';
 
 export default function Navbar() {
   const { pathname } = useLocation();
-  const navigate = useNavigate();
   const { user, logout, isServiceProvider } = useAuth();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -40,7 +39,7 @@ export default function Navbar() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    window.location.href = '/login';
   };
 
   const toggleDarkMode = () => {

@@ -161,7 +161,6 @@ export default function Trades() {
   // State für Filter und Suche
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [showOnlyOwnTrades, setShowOnlyOwnTrades] = useState(true); // Neuer State für Dienstleister-Filter
   
   // State für Modal
   const [showTradeModal, setShowTradeModal] = useState(false);
@@ -249,155 +248,33 @@ export default function Trades() {
     setError('');
     try {
       let tradesData: Trade[] = [];
-      
-      // Prüfe Token vor API-Call
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Kein Token verfügbar. Bitte melden Sie sich erneut an.');
-      }
-      
-      console.log('🔑 Token verfügbar, starte API-Call...');
-      
       if (isServiceProvider()) {
         // Dienstleister: alle Milestones (Ausschreibungen) global laden
         console.log('👷 Service provider detected, loading all milestones...');
-        try {
-          tradesData = await getAllMilestones();
-          console.log('✅ Service provider milestones loaded:', tradesData);
-        } catch (error) {
-          console.error('❌ Error loading service provider milestones:', error);
-          // Fallback: Erstelle Mock-Daten für Dienstleister
-          tradesData = [
-            {
-              id: 1,
-              title: "Elektroinstallation",
-              description: "Vollständige Elektroinstallation für das Wohnhaus",
-              status: "planned",
-              priority: "high",
-              progress_percentage: 0,
-              planned_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-              category: "Elektro",
-              budget: 25000,
-              is_critical: true,
-              notify_on_completion: true,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: 2,
-              title: "Sanitärinstallation",
-              description: "Sanitär- und Heizungsinstallation",
-              status: "planned",
-              priority: "medium",
-              progress_percentage: 0,
-              planned_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-              category: "Sanitär",
-              budget: 35000,
-              is_critical: false,
-              notify_on_completion: true,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }
-          ];
-          console.log('📋 Using fallback data for service provider');
-        }
+        tradesData = await getAllMilestones();
+        console.log('✅ Service provider milestones loaded:', tradesData);
       } else {
-        // Bauträger: Milestones für spezifisches Projekt laden
-        if (!selectedProject) {
-          console.log('⚠️ No project selected, loading first available project...');
-          // Lade das erste verfügbare Projekt
-          try {
-            const projects = await getProjects();
-            if (projects && projects.length > 0) {
-              setSelectedProject(projects[0].id.toString());
-              console.log('✅ Selected first project:', projects[0].id);
-            } else {
-              throw new Error('Keine Projekte verfügbar');
-            }
-          } catch (error) {
-            console.error('❌ Error loading projects:', error);
-            throw new Error('Keine Projekte verfügbar. Bitte erstellen Sie zuerst ein Projekt.');
-          }
-        }
-        
-        console.log('🏗️ Loading milestones for project:', selectedProject);
-        try {
-          tradesData = await getMilestones(parseInt(selectedProject));
+        // Bauträger: Trades projektbasiert laden (wie bisher)
+        console.log('🏗️ Professional detected, loading project-based milestones...');
+        if (selectedProject) {
+          console.log('📋 Loading milestones for project:', selectedProject);
+          tradesData = await getMilestones(selectedProject);
           console.log('✅ Project milestones loaded:', tradesData);
-        } catch (error) {
-          console.error('❌ Error loading project milestones:', error);
-          // Fallback: Erstelle Mock-Daten für Bauträger
-          tradesData = [
-            {
-              id: 1,
-              title: "Fundament",
-              description: "Betonfundament für das Wohnhaus",
-              status: "in_progress",
-              priority: "critical",
-              progress_percentage: 75,
-              planned_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-              category: "Bau",
-              budget: 45000,
-              is_critical: true,
-              notify_on_completion: true,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: 2,
-              title: "Mauerwerk",
-              description: "Hochziehen der Außenwände",
-              status: "planned",
-              priority: "high",
-              progress_percentage: 0,
-              planned_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-              category: "Bau",
-              budget: 80000,
-              is_critical: true,
-              notify_on_completion: true,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: 3,
-              title: "Dachstuhl",
-              description: "Holzdachstuhl mit Dacheindeckung",
-              status: "planned",
-              priority: "medium",
-              progress_percentage: 0,
-              planned_date: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
-              category: "Dach",
-              budget: 65000,
-              is_critical: false,
-              notify_on_completion: true,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }
-          ];
-          console.log('📋 Using fallback data for project');
+        } else {
+          console.log('⚠️ No selected project, skipping milestone load');
+          setTrades([]);
+          setIsLoadingTrades(false);
+          return;
         }
       }
-      
-      console.log('📊 Final trades data:', tradesData);
+      console.log('📊 Setting trades state with:', tradesData);
       setTrades(tradesData);
       
-      // Lade Quotes für alle Trades
-      if (tradesData.length > 0) {
-        await loadAllTradeQuotes(tradesData);
-      }
-      
-    } catch (error: any) {
-      console.error('❌ Error in loadTrades:', error);
-      setError(error.message || 'Fehler beim Laden der Gewerke');
-      
-      // Zeige benutzerfreundliche Fehlermeldung
-      if (error.message.includes('Token')) {
-        setError('Sitzung abgelaufen. Bitte melden Sie sich erneut an.');
-      } else if (error.message.includes('Projekt')) {
-        setError('Keine Projekte verfügbar. Bitte erstellen Sie zuerst ein Projekt.');
-      } else {
-        setError('Fehler beim Laden der Gewerke. Bitte versuchen Sie es später erneut.');
-      }
+      // Lade Angebote für alle Gewerke
+      await loadAllTradeQuotes(tradesData);
+    } catch (err: any) {
+      console.error('❌ Error in loadTrades:', err);
+      setError('Fehler beim Laden der Gewerke');
     } finally {
       setIsLoadingTrades(false);
     }
@@ -498,7 +375,7 @@ export default function Trades() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setTimeout(() => {
-          navigate('/login');
+          window.location.href = '/login';
         }, 2000);
       } else if (err.message?.includes('NetworkError')) {
         setError('Verbindungsfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
@@ -559,7 +436,7 @@ export default function Trades() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setTimeout(() => {
-          navigate('/login');
+          window.location.href = '/login';
         }, 2000);
       } else if (err.message?.includes('NetworkError')) {
         setError('Verbindungsfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
@@ -791,7 +668,7 @@ export default function Trades() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setTimeout(() => {
-          navigate('/login');
+          window.location.href = '/login';
         }, 2000);
       } else if (err.message?.includes('NetworkError')) {
         setError('Verbindungsfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
@@ -848,7 +725,7 @@ export default function Trades() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setTimeout(() => {
-          navigate('/login');
+          window.location.href = '/login';
         }, 2000);
       } else if (err.message?.includes('NetworkError')) {
         setError('Verbindungsfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
@@ -956,6 +833,20 @@ export default function Trades() {
     }
     // eslint-disable-next-line
   }, [selectedProject, isServiceProviderUser]);
+
+  const activeCount = trades.filter(t => t.status !== 'completed' && t.status !== 'abgeschlossen').length;
+  
+  // Berechne Gewerke ohne Angebote
+  const tradesWithoutQuotes = trades.filter(trade => {
+    const quotes = allTradeQuotes[trade.id] || [];
+    return quotes.length === 0;
+  }).length;
+  
+  // Berechne Gewerke mit ausstehenden Angeboten (nicht akzeptiert)
+  const tradesWithPendingQuotes = trades.filter(trade => {
+    const quotes = allTradeQuotes[trade.id] || [];
+    return quotes.length > 0 && quotes.every(quote => quote.status !== 'accepted');
+  }).length;
 
   const handleCreateTrade = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1124,32 +1015,8 @@ export default function Trades() {
     
     const matchesStatus = filterStatus === 'all' || trade.status === filterStatus;
     
-    // Für Dienstleister: Filtere nach eigenen Gewerken
-    let matchesOwnFilter = true;
-    if (isServiceProviderUser && showOnlyOwnTrades) {
-      // Prüfe ob der Dienstleister ein Angebot für dieses Gewerk hat
-      const quotes = allTradeQuotes[trade.id] || [];
-      const hasOwnQuote = quotes.some(quote => quote.service_provider_id === user?.id);
-      matchesOwnFilter = hasOwnQuote;
-    }
-    
-    return matchesSearch && matchesStatus && matchesOwnFilter;
+    return matchesSearch && matchesStatus;
   });
-
-  // Berechne Statistiken basierend auf gefilterten Trades
-  const activeCount = filteredTrades.filter(t => t.status !== 'completed' && t.status !== 'abgeschlossen').length;
-  
-  // Berechne Gewerke ohne Angebote
-  const tradesWithoutQuotes = filteredTrades.filter(trade => {
-    const quotes = allTradeQuotes[trade.id] || [];
-    return quotes.length === 0;
-  }).length;
-  
-  // Berechne Gewerke mit ausstehenden Angeboten (nicht akzeptiert)
-  const tradesWithPendingQuotes = filteredTrades.filter(trade => {
-    const quotes = allTradeQuotes[trade.id] || [];
-    return quotes.length > 0 && quotes.every(quote => quote.status !== 'accepted');
-  }).length;
 
   // Debug-Handler
   const handleDebugDeleteAll = async () => {
@@ -1368,20 +1235,6 @@ export default function Trades() {
                 <option value="cancelled">Abgebrochen</option>
               </select>
             </div>
-            
-            {/* Toggle für Dienstleister: Nur eigene Gewerke */}
-            {isServiceProviderUser && (
-              <button
-                onClick={() => setShowOnlyOwnTrades(!showOnlyOwnTrades)}
-                className={`px-4 py-3 rounded-xl font-semibold transition-all duration-300 ${
-                  showOnlyOwnTrades
-                    ? 'bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952]'
-                    : 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
-                }`}
-              >
-                {showOnlyOwnTrades ? 'Nur eigene' : 'Alle anzeigen'}
-              </button>
-            )}
           </div>
 
           {/* Gewerke Grid */}

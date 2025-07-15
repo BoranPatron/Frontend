@@ -278,7 +278,7 @@ export default function Finance() {
             setError('Sitzung abgelaufen. Bitte melden Sie sich erneut an.');
             // Automatische Weiterleitung zur Login-Seite
             setTimeout(() => {
-              navigate('/login?message=session_expired');
+              window.location.href = '/login?message=session_expired';
             }, 3000);
             return;
           } else if (error.response.status === 403) {
