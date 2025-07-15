@@ -1,4 +1,4 @@
-// Debug-Skript für Login-Probleme
+// Debug-Skript für Login-Problem - Backend-Format-Test
 // Führe dies in der Browser-Konsole aus
 
 console.log('🔍 Debug: Login-Problem - Backend-Format-Test');
@@ -99,6 +99,69 @@ async function testAuthEndpoint() {
   }
 }
 
+// Teste 401-Timing-Problem
+async function test401Timing() {
+  console.log('🔍 Teste 401-Timing-Problem...');
+  
+  // Prüfe localStorage vor Login
+  console.log('📊 localStorage vor Login:');
+  console.log('- Token:', localStorage.getItem('token') ? '✅ Vorhanden' : '❌ Fehlt');
+  console.log('- User:', localStorage.getItem('user') ? '✅ Vorhanden' : '❌ Fehlt');
+  
+  // Simuliere Login
+  try {
+    const formData = new URLSearchParams();
+    formData.append('username', 'admin@buildwise.de');
+    formData.append('password', 'admin123');
+
+    const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log('✅ Login erfolgreich');
+      console.log('📊 Token erhalten:', data.access_token ? '✅ Ja' : '❌ Nein');
+      console.log('📊 User erhalten:', data.user ? '✅ Ja' : '❌ Nein');
+      
+      // Prüfe localStorage nach Login
+      console.log('📊 localStorage nach Login:');
+      console.log('- Token:', localStorage.getItem('token') ? '✅ Vorhanden' : '❌ Fehlt');
+      console.log('- User:', localStorage.getItem('user') ? '✅ Vorhanden' : '❌ Fehlt');
+      
+      // Teste API-Call nach Login
+      console.log('🔍 Teste API-Call nach Login...');
+      const apiResponse = await fetch('http://localhost:8000/api/v1/projects', {
+        headers: {
+          'Authorization': `Bearer ${data.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log(`📡 API-Call Status: ${apiResponse.status}`);
+      
+      if (apiResponse.ok) {
+        console.log('✅ API-Call erfolgreich');
+        return { success: true, timing: 'normal' };
+      } else {
+        console.log('❌ API-Call fehlgeschlagen');
+        return { success: false, timing: '401_error' };
+      }
+    } else {
+      console.log('❌ Login fehlgeschlagen:', data);
+      return { success: false, timing: 'login_failed' };
+    }
+  } catch (error) {
+    console.error('❌ Login-Test Fehler:', error);
+    return { success: false, timing: 'error' };
+  }
+}
+
 // Umfassender Test
 async function runLoginDebug() {
   console.log('🚀 Starte umfassenden Login-Debug...');
@@ -106,7 +169,8 @@ async function runLoginDebug() {
   const results = {
     backendAvailable: false,
     authEndpointAvailable: false,
-    workingFormat: null
+    workingFormat: null,
+    timingTest: null
   };
   
   // Teste Backend-Verfügbarkeit
@@ -132,6 +196,15 @@ async function runLoginDebug() {
     console.log(`✅ Funktionales Format gefunden: ${formatTest.format}`);
   }
   
+  // Teste 401-Timing-Problem
+  results.timingTest = await test401Timing();
+  
+  // Empfehlungen basierend auf Ergebnissen
+  if (results.timingTest?.timing === '401_error') {
+    console.error('💡 Problem: 401-Fehler nach Login - Timing-Problem erkannt');
+    console.log('💡 Lösung: AuthContext-Initialisierung verbessern');
+  }
+  
   return results;
 }
 
@@ -140,6 +213,7 @@ console.log('🔧 Debug-Funktionen verfügbar:');
 console.log('- testBackendAvailability() - Teste Backend-Verfügbarkeit');
 console.log('- testAuthEndpoint() - Teste Auth-Endpunkt');
 console.log('- testLoginFormats() - Teste verschiedene Login-Formate');
+console.log('- test401Timing() - Teste 401-Timing-Problem');
 console.log('- runLoginDebug() - Umfassender Test');
 
 // Führe automatischen Test aus

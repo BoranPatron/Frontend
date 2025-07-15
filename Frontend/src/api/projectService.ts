@@ -1,8 +1,10 @@
-import api from './api';
+import api, { safeApiCall } from './api';
 
 export async function getProjects() {
-  const res = await api.get('/projects');
-  return res.data;
+  return safeApiCall(async () => {
+    const res = await api.get('/projects');
+    return res.data;
+  });
 }
 
 export async function getProject(id: number) {
