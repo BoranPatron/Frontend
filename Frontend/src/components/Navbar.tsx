@@ -23,9 +23,11 @@ import {
   Users,
   Calendar,
   Handshake,
-  DollarSign
+  DollarSign,
+  Star
 } from 'lucide-react';
 import logo from '../logo_trans_big.png';
+import FavoritesBar from './FavoritesBar';
 
 export default function Navbar() {
   const { pathname } = useLocation();
@@ -100,6 +102,9 @@ export default function Navbar() {
               </Link>
               )}
 
+              {/* Favoriten-Leiste */}
+              <FavoritesBar />
+
               {/* Projekt-Manager Dropdown - nur für Bauträger */}
               {!isServiceProvider() && (
               <div className="relative group">
@@ -108,30 +113,17 @@ export default function Navbar() {
                     ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
                     : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
                 }`}>
-                  <Target size={18} />
-                  <span>Projekte</span>
+                  <Star size={18} />
+                  <span>Favoriten</span>
                   <ChevronDown size={16} className="group-hover:rotate-180 transition-transform" />
                 </button>
                 
                 <div className="absolute top-full left-0 mt-2 w-64 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
                   <div className="p-2">
-                    {currentProjectId ? (
-                      <Link
-                        to={`/project/${currentProjectId}`}
-                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white"
-                      >
-                        <Building size={16} className="text-[#ffbd59]" />
-                        <div>
-                          <div className="font-medium">Aktuelles Projekt</div>
-                          <div className="text-sm text-gray-300">#{currentProjectId}</div>
-                        </div>
-                      </Link>
-                    ) : (
-                      <div className="p-3 text-gray-300 text-sm">
-                        Kein Projekt ausgewählt
-                      </div>
-                    )}
-                    <div className="border-t border-white/10 mt-2 pt-2">
+                    <div className="p-3 text-gray-300 text-sm border-b border-white/10">
+                      Konfigurieren Sie Ihre Favoriten für schnellen Zugriff
+                    </div>
+                    <div className="mt-2">
                       <Link
                         to="/tasks"
                         className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white"
@@ -152,6 +144,13 @@ export default function Navbar() {
                       >
                         <Handshake size={16} className="text-[#ffbd59]" />
                         <span>Gewerke</span>
+                      </Link>
+                      <Link
+                        to="/documents"
+                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white"
+                      >
+                        <FileText size={16} className="text-[#ffbd59]" />
+                        <span>Dokumente</span>
                       </Link>
                     </div>
                   </div>

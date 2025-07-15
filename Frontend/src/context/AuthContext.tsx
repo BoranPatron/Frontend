@@ -7,62 +7,102 @@ interface AuthContextType {
   login: (token: string, user: any) => void;
   logout: () => void;
   isServiceProvider: () => boolean;
+  isAuthenticated: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Prüfe localStorage sofort beim Start
-  const storedToken = localStorage.getItem('token');
-  const storedUser = localStorage.getItem('user');
-  
-  // Initialisiere State basierend auf localStorage
-  const [token, setToken] = useState<string | null>(storedToken);
-  const [user, setUser] = useState<any>(() => {
-    if (storedUser) {
-      try {
-        return JSON.parse(storedUser);
-      } catch (error) {
-        console.error('❌ Fehler beim Parsen der User-Daten:', error);
-        localStorage.removeItem('user');
-        return null;
-      }
-    }
-    return null;
-  });
-  
-  // Initialisiere isInitialized auf false und setze es nach der Initialisierung auf true
+  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  // Initialisiere Auth-Daten beim ersten Laden
+  // Initialisiere Auth-Daten beim ersten Laden mit Verzögerung
   useEffect(() => {
     console.log('🔧 Initialisiere AuthContext...');
     
-    console.log('🔑 Token aus localStorage:', storedToken ? '✅ Vorhanden' : '❌ Fehlt');
-    console.log('👤 User aus localStorage:', storedUser ? '✅ Vorhanden' : '❌ Fehlt');
+    const initializeAuth = () => {
+      try {
+        const storedToken = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+        
+        console.log('🔑 Token aus localStorage:', storedToken ? '✅ Vorhanden' : '❌ Fehlt');
+        console.log('👤 User aus localStorage:', storedUser ? '✅ Vorhanden' : '❌ Fehlt');
+        
+        if (storedToken) {
+          setToken(storedToken);
+          console.log('✅ Token gesetzt');
+        }
+        
+        if (storedUser) {
+          try {
+            const userData = JSON.parse(storedUser);
+            console.log('👤 User-Daten geparst:', userData);
+            setUser(userData);
+            console.log('✅ User gesetzt');
+          } catch (error) {
+            console.error('❌ Fehler beim Parsen der User-Daten:', error);
+            localStorage.removeItem('user'); // Entferne ungültige Daten
+            setUser(null);
+          }
+        }
+        
+        setIsInitialized(true);
+        setIsInitializing(false);
+        console.log('✅ AuthContext initialisiert');
+        console.log('📊 Finaler Auth-Status:', {
+          hasToken: !!storedToken,
+          hasUser: !!storedUser,
+          isInitialized: true
+        });
+      } catch (error) {
+        console.error('❌ Fehler bei AuthContext-Initialisierung:', error);
+        setIsInitialized(true);
+        setIsInitializing(false);
+      }
+    };
+
+    // Verzögerte Initialisierung für bessere Stabilität
+    const timer = setTimeout(initializeAuth, 100);
     
-    // Setze isInitialized auf true, nachdem die Initialisierung abgeschlossen ist
-    setIsInitialized(true);
-    
-    console.log('✅ AuthContext initialisiert');
+    return () => clearTimeout(timer);
   }, []);
 
+  // Token-Persistierung - nur nach der Initialisierung
   useEffect(() => {
-    if (token) localStorage.setItem('token', token);
-    else localStorage.removeItem('token');
-  }, [token]);
+    if (!isInitializing) {
+      if (token) {
+        localStorage.setItem('token', token);
+        console.log('💾 Token in localStorage gespeichert');
+      } else {
+        localStorage.removeItem('token');
+        console.log('🗑️ Token aus localStorage entfernt');
+      }
+    }
+  }, [token, isInitializing]);
 
+  // User-Persistierung - nur nach der Initialisierung
   useEffect(() => {
-    if (user) localStorage.setItem('user', JSON.stringify(user));
-    else localStorage.removeItem('user');
-  }, [user]);
+    if (!isInitializing) {
+      if (user) {
+        localStorage.setItem('user', JSON.stringify(user));
+        console.log('💾 User in localStorage gespeichert');
+      } else {
+        localStorage.removeItem('user');
+        console.log('🗑️ User aus localStorage entfernt');
+      }
+    }
+  }, [user, isInitializing]);
 
   const login = (newToken: string, newUser: any) => {
+    console.log('🔐 Login durchgeführt:', { hasToken: !!newToken, hasUser: !!newUser });
     setToken(newToken);
     setUser(newUser);
   };
 
   const logout = () => {
+    console.log('🚪 Logout durchgeführt');
     setToken(null);
     setUser(null);
   };
@@ -72,8 +112,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return user?.user_type === 'service_provider' || user?.email?.includes('dienstleister');
   };
 
+  // Hilfsfunktion um zu prüfen, ob der Benutzer authentifiziert ist
+  const isAuthenticated = () => {
+    return !!user && !!token;
+  };
+
+  // Debug-Logging für Auth-Status
+  useEffect(() => {
+    if (isInitialized) {
+      console.log('🔍 AuthContext Status Update:', {
+        hasToken: !!token,
+        hasUser: !!user,
+        isInitialized,
+        isAuthenticated: isAuthenticated(),
+        isServiceProvider: isServiceProvider()
+      });
+    }
+  }, [token, user, isInitialized]);
+
   return (
-    <AuthContext.Provider value={{ token, user, isInitialized, login, logout, isServiceProvider }}>
+    <AuthContext.Provider value={{ 
+      token, 
+      user, 
+      isInitialized, 
+      login, 
+      logout, 
+      isServiceProvider,
+      isAuthenticated 
+    }}>
       {children}
     </AuthContext.Provider>
   );

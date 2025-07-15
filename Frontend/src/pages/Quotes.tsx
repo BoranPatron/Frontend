@@ -50,6 +50,7 @@ import {
   Info
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useProject } from '../context/ProjectContext';
 import { getMilestones, createMilestone, updateMilestone, getAllMilestones, deleteMilestone } from '../api/milestoneService';
 import { getProjects } from '../api/projectService';
 
@@ -116,6 +117,7 @@ interface Project {
 // Interface für Gewerke
 interface Trade {
   id: number;
+  project_id: number; // <--- Hinzugefügt für saubere Zuordnung
   title: string;
   description: string;
   status: string;
@@ -141,6 +143,7 @@ export default function Trades() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isServiceProvider } = useAuth();
+  const { selectedProject: currentProject } = useProject();
   
   // Prüfe ob der Benutzer ein Dienstleister ist
   const isServiceProviderUser = isServiceProvider();
@@ -151,7 +154,7 @@ export default function Trades() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
-  // State für Projekte
+  // State für Projekte (für Dienstleister)
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
   
@@ -673,7 +676,7 @@ export default function Trades() {
         valid_until: offerForm.valid_until,
         start_date: offerForm.start_date,
         completion_date: offerForm.completion_date,
-        project_id: selectedProject || offerTrade.id,
+        project_id: offerTrade.project_id, // KORREKTUR: Immer die Projekt-ID des Gewerks verwenden
         milestone_id: offerTrade.id,
         service_provider_id: user?.id || 0, // Aktueller Benutzer als Dienstleister
         status: 'submitted', // Neues Angebot hat Status "submitted"
@@ -920,7 +923,13 @@ export default function Trades() {
         console.log('🔄 Loading projects...');
         const projects = await getProjects();
         console.log('📋 Projects loaded:', projects);
-        if (projects.length > 0 && !selectedProject) {
+        setProjects(projects);
+        
+        // Für Bauträger: Verwende das aktuell ausgewählte Projekt
+        if (!isServiceProviderUser && currentProject) {
+          console.log('🔧 Using current project from context:', currentProject.id);
+          setSelectedProject(currentProject.id);
+        } else if (isServiceProviderUser && projects.length > 0 && !selectedProject) {
           console.log('🔧 Setting selectedProject to first project:', projects[0].id);
           setSelectedProject(projects[0].id);
         } else if (projects.length === 0) {
@@ -934,7 +943,7 @@ export default function Trades() {
     };
     
     loadProjectsIfNeeded();
-  }, []);
+  }, [currentProject, isServiceProviderUser]);
 
   // Lade Gewerke/Ausschreibungen korrekt je nach Rolle
   useEffect(() => {

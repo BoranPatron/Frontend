@@ -1,6 +1,7 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ProjectProvider } from './context/ProjectContext';
 import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import ServiceProviderDashboard from './pages/ServiceProviderDashboard';
@@ -52,9 +53,26 @@ class ErrorBoundary extends React.Component<
   }
 }
 
+// Verbesserte Loading-Komponente
+function LoadingSpinner() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ffbd59] mx-auto mb-4"></div>
+        <p className="text-white">Lade Anwendung...</p>
+        <p className="text-gray-400 text-sm mt-2">Bitte warten Sie einen Moment</p>
+      </div>
+    </div>
+  );
+}
+
 // Geschützte Route-Komponente
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, isInitialized } = useAuth();
+  
+  if (!isInitialized) {
+    return <LoadingSpinner />;
+  }
   
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -63,43 +81,66 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function AppContent() {
-  const { user, token, isInitialized } = useAuth();
-  const location = window.location.pathname;
-  const isLoginPage = location === '/login';
-
-  // Prüfe auch direkt localStorage für schnelle Anzeige
-  const hasStoredToken = localStorage.getItem('token');
-  const hasStoredUser = localStorage.getItem('user');
+// Navbar-Wrapper-Komponente für bessere Kontrolle
+function NavbarWrapper() {
+  const { user, isInitialized } = useAuth();
+  const location = useLocation();
+  const isLoginPage = location.pathname === '/login';
 
   // Debug-Logging für Navbar-Anzeige
-  console.log('🔍 AppContent Debug:', {
-    hasToken: !!token,
+  console.log('🔍 NavbarWrapper Debug:', {
     hasUser: !!user,
     isInitialized,
-    hasStoredToken: !!hasStoredToken,
-    hasStoredUser: !!hasStoredUser,
     isLoginPage,
-    currentPath: location,
-    shouldShowNavbar: !isLoginPage && (isInitialized || token || user || hasStoredToken || hasStoredUser)
+    currentPath: location.pathname,
+    shouldShowNavbar: !isLoginPage && isInitialized && !!user
   });
 
-  // Warte auf Initialisierung nur wenn keine Auth-Daten vorhanden sind
-  if (!isInitialized && !hasStoredToken && !hasStoredUser) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ffbd59] mx-auto mb-4"></div>
-          <p className="text-white">Lade Anwendung...</p>
-        </div>
-      </div>
-    );
+  // Zeige Navbar nur wenn:
+  // 1. Nicht auf Login-Seite
+  // 2. AuthContext ist initialisiert
+  // 3. Benutzer ist authentifiziert (user existiert)
+  if (isLoginPage) {
+    console.log('🚫 Navbar ausgeblendet: Auf Login-Seite');
+    return null;
   }
+  
+  if (!isInitialized) {
+    console.log('🚫 Navbar ausgeblendet: AuthContext nicht initialisiert');
+    return null;
+  }
+  
+  if (!user) {
+    console.log('🚫 Navbar ausgeblendet: Kein User vorhanden');
+    return null;
+  }
+
+  console.log('✅ Navbar wird angezeigt');
+  return <Navbar />;
+}
+
+function AppContent() {
+  const { isInitialized, user } = useAuth();
+
+  console.log('🔍 AppContent Debug:', {
+    isInitialized,
+    hasUser: !!user,
+    currentPath: window.location.pathname
+  });
+
+  // Warte auf Initialisierung
+  if (!isInitialized) {
+    console.log('⏳ Warte auf AuthContext-Initialisierung...');
+    return <LoadingSpinner />;
+  }
+
+  console.log('✅ AppContent gerendert - AuthContext initialisiert');
 
   return (
     <>
-      {/* Navbar anzeigen, wenn nicht auf der Login-Seite und Auth-Daten vorhanden sind */}
-      {!isLoginPage && (isInitialized || token || user || hasStoredToken || hasStoredUser) && <Navbar />}
+      {/* Navbar wird durch NavbarWrapper gesteuert */}
+      <NavbarWrapper />
+      
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={
@@ -193,7 +234,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <AppContent />
+        <ProjectProvider>
+          <AppContent />
+        </ProjectProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

@@ -32,6 +32,41 @@ export const getApiBaseUrl = () => {
   return baseUrl;
 };
 
+// Hilfsfunktion um auf AuthContext-Initialisierung zu warten
+export const waitForAuth = async (maxWaitTime = 5000): Promise<boolean> => {
+  const startTime = Date.now();
+  
+  while (Date.now() - startTime < maxWaitTime) {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    
+    if (token && user) {
+      console.log('✅ AuthContext bereit - Token und User verfügbar');
+      return true;
+    }
+    
+    // Warte 100ms bevor nächster Check
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
+  console.log('⚠️ Timeout: AuthContext nicht bereit nach', maxWaitTime, 'ms');
+  return false;
+};
+
+// Sichere API-Aufrufe mit AuthContext-Wartezeit
+export const safeApiCall = async <T>(
+  apiCall: () => Promise<T>,
+  maxWaitTime = 5000
+): Promise<T> => {
+  const authReady = await waitForAuth(maxWaitTime);
+  
+  if (!authReady) {
+    throw new Error('AuthContext nicht bereit - Token oder User fehlt');
+  }
+  
+  return apiCall();
+};
+
 const api = axios.create({
   baseURL: getApiBaseUrl(),
   withCredentials: false,
@@ -67,6 +102,9 @@ api.interceptors.request.use(
     const token = localStorage.getItem('token');
     if (token && !config.url?.includes('/auth/login')) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log(`🔑 Token hinzugefügt für: ${config.method?.toUpperCase()} ${config.url}`);
+    } else if (!config.url?.includes('/auth/login')) {
+      console.log(`⚠️ Kein Token verfügbar für: ${config.method?.toUpperCase()} ${config.url}`);
     }
     
     console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data);
@@ -98,7 +136,8 @@ api.interceptors.response.use(
     // Token-Refresh bei 401 Fehlern (außer bei Login-Anfragen)
     if (error.response?.status === 401 && 
         !originalRequest._retry && 
-        !error.config?.url?.includes('/auth/login')) {
+        !error.config?.url?.includes('/auth/login') &&
+        !error.config?.url?.includes('/auth/refresh')) {
       
       if (isRefreshing) {
         // Warte auf laufenden Refresh
@@ -116,23 +155,35 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // Versuche Token-Refresh (falls implementiert)
+        // Prüfe ob Refresh-Token verfügbar ist
         const refreshToken = localStorage.getItem('refreshToken');
         if (refreshToken) {
-          const response = await axios.post(`${getApiBaseUrl()}/auth/refresh`, {
-            refresh_token: refreshToken
-          });
-          
-          const newToken = response.data.access_token;
-          localStorage.setItem('token', newToken);
-          
-          processQueue(null, newToken);
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          
-          return api(originalRequest);
+          try {
+            console.log('🔄 Versuche Token-Refresh...');
+            const response = await axios.post(`${getApiBaseUrl()}/auth/refresh`, {
+              refresh_token: refreshToken
+            });
+            
+            const newToken = response.data.access_token;
+            localStorage.setItem('token', newToken);
+            console.log('✅ Token erfolgreich erneuert');
+            
+            processQueue(null, newToken);
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            
+            return api(originalRequest);
+          } catch (refreshRequestError) {
+            console.error('🔐 Token-Refresh Request fehlgeschlagen:', refreshRequestError);
+            // Refresh-Token ist ungültig, entferne ihn
+            localStorage.removeItem('refreshToken');
+            throw new Error('Refresh token is invalid');
+          }
         } else {
-          // Kein Refresh-Token verfügbar, leite zur Login-Seite weiter
-          throw new Error('No refresh token available');
+          // Kein Refresh-Token verfügbar - das ist normal bei diesem Backend
+          console.log('ℹ️ Kein Refresh-Token verfügbar - normal bei diesem Backend');
+          // Behandle dies nicht als Fehler, sondern als normalen 401
+          processQueue(null, null);
+          return Promise.reject(error);
         }
       } catch (refreshError) {
         console.error('🔐 Token-Refresh fehlgeschlagen:', refreshError);
@@ -158,7 +209,11 @@ api.interceptors.response.use(
     }
     
     // Andere Fehlerbehandlung
-    if (error.response?.status === 403) {
+    if (error.response?.status === 401) {
+      console.log('ℹ️ 401 Unauthorized - Token abgelaufen oder ungültig');
+      // Bei 401-Fehlern nicht als kritischer Fehler behandeln
+      return Promise.reject(error);
+    } else if (error.response?.status === 403) {
       console.error('🚫 Forbidden - Keine Berechtigung');
     } else if (error.response?.status === 404) {
       console.error('🔍 Not Found - Endpunkt nicht gefunden');

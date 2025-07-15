@@ -11,7 +11,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const { login } = useAuth();
+  const { login, isInitialized } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -24,6 +24,18 @@ export default function Login() {
       setError('Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.');
     }
   }, [location.search]);
+
+  // Warte auf AuthContext-Initialisierung
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ffbd59] mx-auto mb-4"></div>
+          <p className="text-white">Initialisiere Anwendung...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,13 +90,13 @@ export default function Login() {
 
       setSuccess('Login erfolgreich! Weiterleitung...');
 
-      // Automatische Weiterleitung nach erfolgreichem Login
+      // Verzögerte Weiterleitung für bessere Stabilität
       const redirectPath = localStorage.getItem('redirectAfterLogin') || '/';
       localStorage.removeItem('redirectAfterLogin'); // Cleanup
       
       setTimeout(() => {
         navigate(redirectPath);
-      }, 1000);
+      }, 1500); // Erhöht auf 1.5 Sekunden für bessere Stabilität
 
     } catch (err: any) {
       console.error('Login error:', err);
@@ -145,9 +157,10 @@ export default function Login() {
 
       setSuccess('Dienstleister-Login erfolgreich! Weiterleitung...');
 
+      // Verzögerte Weiterleitung für bessere Stabilität
       setTimeout(() => {
         navigate('/service-provider');
-      }, 1000);
+      }, 1500); // Erhöht auf 1.5 Sekunden für bessere Stabilität
 
     } catch (err: any) {
       console.error('Service provider login error:', err);
@@ -222,33 +235,26 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white font-bold py-3 px-6 rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
             {loading ? 'Anmelden...' : 'Anmelden'}
           </button>
         </form>
 
-        {/* Service Provider Test Button */}
+        {/* Dienstleister-Test Button */}
         <div className="mt-6 pt-6 border-t border-white/20">
           <button
             onClick={handleServiceProviderTest}
             disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-3 px-6 rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
-            {loading ? 'Laden...' : 'Dienstleister-Test (admin)'}
+            {loading ? 'Teste...' : 'Dienstleister-Test (admin)'}
           </button>
         </div>
 
-        {/* Debug Info */}
-        <div className="mt-6 pt-6 border-t border-white/20">
-          <details className="text-xs text-gray-400">
-            <summary className="cursor-pointer hover:text-gray-300">Debug-Informationen</summary>
-            <div className="mt-2 space-y-1">
-              <div>Token: {localStorage.getItem('token') ? '✅ Vorhanden' : '❌ Fehlt'}</div>
-              <div>User: {localStorage.getItem('user') ? '✅ Vorhanden' : '❌ Fehlt'}</div>
-              <div>URL: {window.location.href}</div>
-            </div>
-          </details>
+        {/* Debug-Info */}
+        <div className="mt-4 text-xs text-gray-400 text-center">
+          <p>Debug: AuthContext initialisiert: {isInitialized ? 'Ja' : 'Nein'}</p>
         </div>
       </div>
     </div>
