@@ -1,37 +1,60 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useProject } from '../context/ProjectContext';
+import { getMilestones, createMilestone, updateMilestone, getAllMilestones, deleteMilestone } from '../api/milestoneService';
+import { getProjects } from '../api/projectService';
+
+import { getQuotesForMilestone, createMockQuotesForMilestone, acceptQuote, resetQuote, createQuote, updateQuote, deleteQuote, submitQuote, rejectQuote, withdrawQuote } from '../api/quoteService';
+import { uploadDocument } from '../api/documentService';
+import api from '../api/api';
+import TradeCreationForm from '../components/TradeCreationForm';
+import CostEstimateForm from '../components/CostEstimateForm';
+import TradeDetailsModal from '../components/TradeDetailsModal';
+import CostEstimateDetailsModal from '../components/CostEstimateDetailsModal';
+import OrderConfirmationGenerator from '../components/OrderConfirmationGenerator';
 import { 
-  Handshake,
-  Plus,
-  Edit,
-  Trash2,
+  Plus, 
+  FileText, 
+  Users, 
+  MessageSquare, 
+  Euro, 
+  Calendar, 
+  Target, 
+  CheckCircle, 
+  X, 
+  Edit, 
+  Trash2, 
+  Eye, 
+  Download, 
+  Upload, 
+  Send, 
+  Award, 
+  Gavel,
   AlertTriangle,
-  CheckCircle,
-  XCircle,
+  Clock,
+  Star,
+  Handshake,
+  Building,
+  Shield,
   ArrowLeft,
+  ChevronRight,
+  ChevronDown,
+  Ban,
+  RotateCcw,
+  XCircle,
+  User,
+  Mail,
+  Phone,
+  Globe,
+  Brain,
+  Info,
+  AlertCircle,
   Search,
   Filter,
   TrendingUp,
-  Calendar,
-  User,
-  Euro,
-  Star,
-  Eye,
-  Download,
-  Send,
-  Check,
-  X,
-  Clock,
-  Award,
-  Target,
-  Shield,
   Zap,
   MoreHorizontal,
-  FileText,
-  Building,
-  Phone,
-  Mail,
-  Globe,
   MapPin,
   ClipboardList,
   Droplets,
@@ -39,23 +62,10 @@ import {
   Hammer,
   TreePine,
   Wrench,
-  Brain,
-  RotateCcw,
-  ChevronDown,
-  ChevronRight,
   ChevronUp,
   MessageCircle,
-  Ban,
-  AlertCircle,
-  Info
+  Calculator
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { useProject } from '../context/ProjectContext';
-import { getMilestones, createMilestone, updateMilestone, getAllMilestones, deleteMilestone } from '../api/milestoneService';
-import { getProjects } from '../api/projectService';
-
-import { getQuotesForMilestone, createMockQuotesForMilestone, acceptQuote, resetQuote, createQuote, updateQuote, deleteQuote, submitQuote, rejectQuote, withdrawQuote } from '../api/quoteService';
-import api from '../api/api';
 
 interface Quote {
   id: number;
@@ -94,6 +104,29 @@ interface Quote {
   updated_at: string;
   submitted_at: string | null;
   accepted_at: string | null;
+  // Neue Felder für professionellen Prozess
+  phase: 'cost_estimate' | 'tender' | 'bidding' | 'evaluation' | 'awarded';
+  cost_estimate_amount?: number;
+  tender_documents?: string[];
+  technical_specifications?: string;
+  legal_requirements?: string;
+  submission_deadline?: string;
+  evaluation_criteria?: string[];
+  invited_service_providers?: number[];
+  questions_and_answers?: Array<{
+    question: string;
+    answer: string;
+    asked_by: number;
+    answered_by: number;
+    asked_at: string;
+    answered_at: string;
+  }>;
+  negotiation_history?: Array<{
+    action: string;
+    details: string;
+    timestamp: string;
+    user_id: number;
+  }>;
 }
 
 interface ServiceProvider {
@@ -117,13 +150,13 @@ interface Project {
 // Interface für Gewerke
 interface Trade {
   id: number;
-  project_id: number; // <--- Hinzugefügt für saubere Zuordnung
+  project_id: number;
   title: string;
   description: string;
-  status: string;
+  status: 'planning' | 'cost_estimate' | 'tender' | 'bidding' | 'evaluation' | 'awarded' | 'in_progress' | 'completed' | 'delayed' | 'cancelled';
   priority: string;
   progress_percentage: number;
-  planned_date: string;  // Pflichtfeld vom Backend
+  planned_date: string;
   start_date?: string;
   end_date?: string;
   actual_date?: string;
@@ -137,6 +170,105 @@ interface Trade {
   created_at: string;
   updated_at: string;
   completed_at?: string;
+  
+  // Kategorie-spezifische Felder
+  category_specific_fields?: {
+    // Elektro
+    electrical_voltage?: string;
+    electrical_power?: string;
+    electrical_circuits?: number;
+    electrical_switches?: number;
+    electrical_outlets?: number;
+    electrical_lighting_points?: number;
+    
+    // Sanitär
+    plumbing_fixtures?: number;
+    plumbing_pipes_length?: number;
+    plumbing_water_heater?: boolean;
+    plumbing_sewage_system?: boolean;
+    plumbing_water_supply?: boolean;
+    
+    // Heizung
+    heating_system_type?: string;
+    heating_power?: string;
+    heating_radiators?: number;
+    heating_thermostats?: number;
+    heating_boiler?: boolean;
+    
+    // Dach
+    roof_material?: string;
+    roof_area?: number;
+    roof_pitch?: number;
+    roof_insulation?: boolean;
+    roof_gutters?: boolean;
+    roof_skylights?: number;
+    
+    // Fenster/Türen
+    windows_count?: number;
+    windows_type?: string;
+    windows_glazing?: string;
+    doors_count?: number;
+    doors_type?: string;
+    doors_material?: string;
+    
+    // Boden
+    floor_material?: string;
+    floor_area?: number;
+    floor_subfloor?: string;
+    floor_insulation?: boolean;
+    
+    // Wand
+    wall_material?: string;
+    wall_area?: number;
+    wall_insulation?: boolean;
+    wall_paint?: boolean;
+    
+    // Fundament
+    foundation_type?: string;
+    foundation_depth?: number;
+    foundation_soil_type?: string;
+    foundation_waterproofing?: boolean;
+    
+    // Garten/Landschaft
+    garden_area?: number;
+    garden_irrigation?: boolean;
+    garden_lighting?: boolean;
+    garden_paths?: boolean;
+    garden_plants?: boolean;
+    
+    // Sonstiges
+    custom_fields?: Record<string, any>;
+  };
+  
+  // Dokumente und Dateien
+  documents?: Array<{
+    id: number;
+    title: string;
+    file_name: string;
+    file_path: string;
+    file_size: number;
+    mime_type: string;
+    uploaded_at: string;
+  }>;
+  
+  // Technische Spezifikationen
+  technical_specifications?: string;
+  quality_requirements?: string;
+  safety_requirements?: string;
+  environmental_requirements?: string;
+  
+  // Neue Felder für professionellen Prozess
+  phase: 'cost_estimate' | 'tender' | 'bidding' | 'evaluation' | 'awarded';
+  cost_estimate_deadline?: string;
+  tender_deadline?: string;
+  bidding_deadline?: string;
+  legal_requirements?: string;
+  evaluation_criteria?: string[];
+  invited_service_providers?: number[];
+  awarded_service_provider?: number;
+  contract_documents?: string[];
+  warranty_period?: number;
+  payment_terms?: string;
 }
 
 export default function Trades() {
@@ -242,6 +374,72 @@ export default function Trades() {
   const [withdrawingQuote, setWithdrawingQuote] = useState<Quote | null>(null);
   const [withdrawLoading, setWithdrawLoading] = useState(false);
 
+  // Neue State-Variablen für TradeCreationForm
+  const [showTradeCreationForm, setShowTradeCreationForm] = useState(false);
+  const [showCostEstimateForm, setShowCostEstimateForm] = useState(false);
+  const [selectedTradeForEstimate, setSelectedTradeForEstimate] = useState<Trade | null>(null);
+
+  // State für TradeDetailsModal
+  const [showTradeDetailsModal, setShowTradeDetailsModal] = useState(false);
+  const [selectedTradeForDetails, setSelectedTradeForDetails] = useState<Trade | null>(null);
+
+  // State für CostEstimateDetailsModal (Bauträger-Ansicht)
+  const [showCostEstimateDetailsModal, setShowCostEstimateDetailsModal] = useState(false);
+  const [selectedTradeForCostEstimateDetails, setSelectedTradeForCostEstimateDetails] = useState<Trade | null>(null);
+
+  // State für Auftragsbestätigung
+  const [showOrderConfirmationGenerator, setShowOrderConfirmationGenerator] = useState(false);
+  const [orderConfirmationData, setOrderConfirmationData] = useState<any>(null);
+
+  // Handler für Auftragsbestätigung-Generierung
+  const handleGenerateOrderConfirmation = async (documentData: any) => {
+    try {
+      console.log('📋 Erstelle Auftragsbestätigung-Dokument:', documentData);
+      
+      // Erstelle FormData für Dokument-Upload
+      const formData = new FormData();
+      
+      // Erstelle Blob aus dem Dokument-Inhalt
+      const contentBlob = new Blob([documentData.content], { type: 'text/plain' });
+      const contentFile = new File([contentBlob], 'auftragsbestätigung.txt', { type: 'text/plain' });
+      
+      formData.append('file', contentFile);
+      formData.append('project_id', documentData.project_id.toString());
+      formData.append('title', documentData.title);
+      formData.append('description', documentData.description);
+      formData.append('document_type', documentData.document_type);
+      formData.append('category', documentData.category);
+      formData.append('tags', documentData.tags);
+      formData.append('is_public', documentData.is_public.toString());
+      
+      // Upload Dokument
+      const uploadedDocument = await uploadDocument(formData);
+      console.log('✅ Auftragsbestätigung erfolgreich erstellt:', uploadedDocument);
+      
+      // Schließe Modal
+      setShowOrderConfirmationGenerator(false);
+      setOrderConfirmationData(null);
+      
+      // Zeige Erfolgsmeldung
+      setSuccess('Auftragsbestätigung erfolgreich erstellt und im Dokumentenbereich abgelegt!');
+      setTimeout(() => setSuccess(''), 5000);
+      
+      // Navigiere zum Dokumentenbereich
+      setTimeout(() => {
+        window.open(`/documents?project=${documentData.project_id}`, '_blank');
+      }, 2000);
+      
+    } catch (error: any) {
+      console.error('❌ Fehler beim Erstellen der Auftragsbestätigung:', error);
+      setError(`Fehler beim Erstellen der Auftragsbestätigung: ${error.message}`);
+    }
+  };
+
+  const handleCloseOrderConfirmationGenerator = () => {
+    setShowOrderConfirmationGenerator(false);
+    setOrderConfirmationData(null);
+  };
+
   const loadTrades = async () => {
     console.log('🔍 loadTrades called with:', { selectedProject, isServiceProvider: isServiceProvider() });
     setIsLoadingTrades(true);
@@ -334,11 +532,11 @@ export default function Trades() {
   const handleAcceptQuote = async (quoteId: number) => {
     // Bestätigungsdialog für verbindliche Annahme
     const confirmed = window.confirm(
-      '⚠️ WICHTIG: Angebot verbindlich annehmen?\n\n' +
-      'Durch die Annahme dieses Angebots gehen Sie eine verbindliche Vereinbarung ein. ' +
-      'Alle anderen Angebote für dieses Gewerk werden automatisch abgelehnt. ' +
+      '⚠️ WICHTIG: Kostenvoranschlag verbindlich annehmen?\n\n' +
+      'Durch die Annahme dieses Kostenvoranschlags gehen Sie eine verbindliche Vereinbarung ein. ' +
+      'Alle anderen Kostenvoranschläge für dieses Gewerk werden automatisch abgelehnt. ' +
       'Das angenommene Angebot wird als Kostenposition in der Finanzübersicht angezeigt.\n\n' +
-      'Möchten Sie das Angebot wirklich annehmen?'
+      'Möchten Sie den Kostenvoranschlag wirklich annehmen?'
     );
     
     if (!confirmed) {
@@ -355,7 +553,30 @@ export default function Trades() {
       }
       console.log('🔐 Token vorhanden, sende Anfrage...');
       await acceptQuote(quoteId);
-      console.log('✅ Angebot erfolgreich akzeptiert');
+      console.log('✅ Kostenvoranschlag erfolgreich akzeptiert');
+      
+      // Finde das angenommene Angebot und das zugehörige Gewerk
+      const acceptedQuote = allTradeQuotes[selectedTradeForCostEstimateDetails?.id || 0]?.find(q => q.id === quoteId);
+      if (acceptedQuote && selectedTradeForCostEstimateDetails && currentProject) {
+        console.log('📋 Erstelle Auftragsbestätigung für:', {
+          project: currentProject,
+          trade: selectedTradeForCostEstimateDetails,
+          quote: acceptedQuote,
+          user: user
+        });
+        
+        // Setze Daten für Auftragsbestätigung
+        setOrderConfirmationData({
+          project: currentProject,
+          trade: selectedTradeForCostEstimateDetails,
+          quote: acceptedQuote,
+          user: user
+        });
+        
+        // Öffne Auftragsbestätigung-Generator
+        setShowOrderConfirmationGenerator(true);
+      }
+      
       // Lade die Angebote neu, um den Status zu aktualisieren
       if (selectedTrade) {
         console.log('🔄 Lade Angebote neu...');
@@ -365,7 +586,7 @@ export default function Trades() {
       console.log('🔄 Lade alle Gewerke neu...');
       await loadTrades();
       // Zeige Erfolgsmeldung
-      setSuccess('Angebot erfolgreich angenommen! Das Angebot wurde als Kostenposition in der Finanzübersicht hinzugefügt.');
+      setSuccess('Kostenvoranschlag erfolgreich angenommen! Auftragsbestätigung wird erstellt...');
       setTimeout(() => setSuccess(''), 5000);
     } catch (err: any) {
       console.error('❌ Error accepting quote:', err);
@@ -380,7 +601,7 @@ export default function Trades() {
       } else if (err.message?.includes('NetworkError')) {
         setError('Verbindungsfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
       } else {
-        setError(`Fehler beim Akzeptieren des Angebots: ${err.message || 'Unbekannter Fehler'}`);
+        setError(`Fehler beim Akzeptieren des Kostenvoranschlags: ${err.message || 'Unbekannter Fehler'}`);
       }
     }
   };
@@ -834,7 +1055,7 @@ export default function Trades() {
     // eslint-disable-next-line
   }, [selectedProject, isServiceProviderUser]);
 
-  const activeCount = trades.filter(t => t.status !== 'completed' && t.status !== 'abgeschlossen').length;
+  const activeCount = trades.filter(t => t.status !== 'completed').length;
   
   // Berechne Gewerke ohne Angebote
   const tradesWithoutQuotes = trades.filter(trade => {
@@ -848,88 +1069,106 @@ export default function Trades() {
     return quotes.length > 0 && quotes.every(quote => quote.status !== 'accepted');
   }).length;
 
-  const handleCreateTrade = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validierung
-    if (!tradeForm.title.trim()) {
-      setError('Bitte geben Sie einen Titel für das Gewerk ein.');
-      return;
-    }
-    
-    if (tradeForm.category === 'eigene' && !tradeForm.customCategory.trim()) {
-      setError('Bitte geben Sie eine eigene Kategorie ein.');
-      return;
-    }
-    
-    if (!tradeForm.start_date || !tradeForm.end_date) {
-      setError('Bitte geben Sie Start- und Enddatum ein.');
-      return;
-    }
-    
-    if (new Date(tradeForm.end_date) <= new Date(tradeForm.start_date)) {
-      setError('Das Enddatum muss nach dem Startdatum liegen.');
-      return;
-    }
-    
-    // Prüfe ob ein Projekt ausgewählt ist
-    if (!selectedProject) {
-      setError('Bitte wählen Sie ein Projekt aus.');
-      return;
-    }
-    
+  // Neue Funktion für TradeCreationForm
+  const handleCreateTradeWithForm = async (tradeData: any) => {
     try {
-      setIsLoadingTrades(true);
-      setError('');
+      console.log('🔧 Erstelle Gewerk mit erweiterten Daten:', tradeData);
       
-      const category = tradeForm.category === 'eigene' ? tradeForm.customCategory : tradeForm.category;
-      
-      const tradeData = {
-        project_id: selectedProject,
-        title: tradeForm.title.trim(),
-        description: tradeForm.description.trim(),
-        status: 'planned',
-        category: category,
-        planned_date: tradeForm.start_date,
-        start_date: tradeForm.start_date,
-        end_date: tradeForm.end_date,
-        actual_costs: 0.0,
-        notes: tradeForm.notes.trim() || undefined,
-        priority: tradeForm.priority,
-        is_critical: tradeForm.is_critical,
+      // API-Call für die Gewerk-Erstellung
+      const milestoneData = {
+        title: tradeData.title,
+        description: tradeData.description,
+        project_id: tradeData.project_id,
+        status: 'planned', // Backend erwartet 'planned' statt 'planning'
+        priority: tradeData.priority,
+        planned_date: tradeData.planned_date, // Backend erwartet YYYY-MM-DD Format
+        category: tradeData.category,
+        notes: tradeData.notes,
+        is_critical: false,
         notify_on_completion: true
       };
       
-      if (editingTrade) {
-        // Bearbeite existierendes Gewerk
-        console.log('📝 Updating trade with data:', tradeData);
-        await updateMilestone(editingTrade.id, tradeData);
-        setSuccess('Gewerk erfolgreich aktualisiert!');
-      } else {
-        // Erstelle neues Gewerk
-        console.log('📝 Creating new trade with data:', tradeData);
-        await createMilestone(tradeData);
-        setSuccess('Gewerk erfolgreich erstellt!');
-      }
+      console.log('📡 Sende Milestone-Daten:', milestoneData);
+      await createMilestone(milestoneData);
       
-      setShowTradeModal(false);
-      setEditingTrade(null);
-      resetTradeForm();
+      // Erfolgreich erstellt
+      console.log('✅ Gewerk erfolgreich erstellt');
       
-      // Lade Gewerke neu
-      console.log('🔄 Reloading trades after operation...');
+      // Modal schließen und Daten neu laden
+      setShowTradeCreationForm(false);
+      await loadTrades();
       
-      // Warte kurz, damit das Backend die Daten verarbeitet hat
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const milestonesData = await getAllMilestones();
-      console.log('✅ Trades reloaded successfully after operation:', milestonesData);
-      setTrades(milestonesData);
+    } catch (error) {
+      console.error('❌ Fehler beim Erstellen des Gewerks:', error);
+      throw error;
+    }
+  };
+
+  // Kostenvoranschlag-Funktionen
+  const openCostEstimateModal = (trade: Trade) => {
+    console.log('🔧 openCostEstimateModal aufgerufen für Trade:', trade);
+    console.log('🔧 currentProject:', currentProject);
+    console.log('🔧 user:', user);
+    setSelectedTradeForEstimate(trade);
+    setShowCostEstimateForm(true);
+  };
+
+  const openTradeDetailsModal = (trade: Trade) => {
+    setSelectedTradeForDetails(trade);
+    setShowTradeDetailsModal(true);
+  };
+
+  const handleCostEstimateSubmit = async (costEstimateData: any) => {
+    try {
+      console.log('🔧 Erstelle Kostenvoranschlag:', costEstimateData);
       
-    } catch (error: any) {
-      console.error('Fehler beim Speichern des Gewerks:', error);
-      setError(error.message || 'Fehler beim Speichern des Gewerks');
-    } finally {
-      setIsLoadingTrades(false);
+      // API-Call für die Kostenvoranschlag-Erstellung
+      const quoteData = {
+        title: costEstimateData.title,
+        description: costEstimateData.description,
+        project_id: costEstimateData.project_id,
+        milestone_id: costEstimateData.trade_id,
+        service_provider_id: user?.id || 0,
+        total_amount: parseFloat(costEstimateData.total_amount),
+        currency: costEstimateData.currency,
+        valid_until: costEstimateData.valid_until,
+        estimated_duration: parseInt(costEstimateData.estimated_duration),
+        start_date: costEstimateData.start_date,
+        completion_date: costEstimateData.completion_date,
+        labor_cost: costEstimateData.labor_cost ? parseFloat(costEstimateData.labor_cost) : 0,
+        material_cost: costEstimateData.material_cost ? parseFloat(costEstimateData.material_cost) : 0,
+        overhead_cost: costEstimateData.overhead_cost ? parseFloat(costEstimateData.overhead_cost) : 0,
+        payment_terms: costEstimateData.payment_terms,
+        warranty_period: costEstimateData.warranty_period ? parseInt(costEstimateData.warranty_period) : 24,
+        status: 'submitted',
+        company_name: costEstimateData.company_name,
+        contact_person: costEstimateData.contact_person,
+        phone: costEstimateData.phone,
+        email: costEstimateData.email,
+        website: costEstimateData.website
+      };
+      
+      console.log('📡 Sende Kostenvoranschlag-Daten:', quoteData);
+      await createQuote(quoteData);
+      
+      // Erfolgreich erstellt
+      console.log('✅ Kostenvoranschlag erfolgreich erstellt');
+      
+      // Modal schließen und Daten neu laden
+      setShowCostEstimateForm(false);
+      setSelectedTradeForEstimate(null);
+      
+      // Erfolgsmeldung anzeigen
+      setSuccess('Kostenvoranschlag erfolgreich abgegeben!');
+      setTimeout(() => setSuccess(''), 5000);
+      
+      // Daten neu laden
+      await loadTrades();
+      
+    } catch (error) {
+      console.error('❌ Fehler beim Erstellen des Kostenvoranschlags:', error);
+      setError('Fehler beim Erstellen des Kostenvoranschlags: ' + (error as any).message);
+      throw error;
     }
   };
 
@@ -943,7 +1182,7 @@ export default function Trades() {
       
       // Update local state
       setTrades(prev => prev.map(t => 
-        t.id === tradeId ? { ...t, status: newStatus } : t
+        t.id === tradeId ? { ...t, status: newStatus as any } : t
       ));
       
       setSuccess(`Status von "${trade.title}" erfolgreich geändert!`);
@@ -990,6 +1229,50 @@ export default function Trades() {
       is_critical: trade.is_critical
     });
     setShowTradeModal(true);
+  };
+
+  const handleDeleteTrade = async (tradeId: number) => {
+    if (!window.confirm('Möchten Sie dieses Gewerk wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+      setDeletingTrade(null);
+      return;
+    }
+
+    try {
+      setDeletingTrade(tradeId);
+      console.log('🗑️ Lösche Gewerk:', tradeId);
+      
+      // Prüfe ob bereits Angebote angenommen wurden
+      const quotes = allTradeQuotes[tradeId] || [];
+      const acceptedQuotes = quotes.filter(q => q.status === 'accepted');
+      
+      if (acceptedQuotes.length > 0) {
+        alert('Dieses Gewerk kann nicht gelöscht werden, da bereits Angebote angenommen wurden.');
+        setDeletingTrade(null);
+        return;
+      }
+
+      // Lösche das Gewerk
+      await api.delete(`/milestones/${tradeId}`);
+      
+      console.log('✅ Gewerk erfolgreich gelöscht');
+      setSuccess('Gewerk erfolgreich gelöscht');
+      
+      // Aktualisiere die lokale Liste
+      setTrades(prev => prev.filter(t => t.id !== tradeId));
+      
+      // Entferne die Angebote aus dem lokalen State
+      setAllTradeQuotes(prev => {
+        const newQuotes = { ...prev };
+        delete newQuotes[tradeId];
+        return newQuotes;
+      });
+      
+    } catch (error: any) {
+      console.error('❌ Fehler beim Löschen des Gewerks:', error);
+      setError('Fehler beim Löschen des Gewerks: ' + (error.response?.data?.detail || error.message));
+    } finally {
+      setDeletingTrade(null);
+    }
   };
 
   const resetTradeForm = () => {
@@ -1067,55 +1350,44 @@ export default function Trades() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460]">
-      {/* Debug-Button nur im Entwicklungsmodus */}
-      {process.env.NODE_ENV === 'development' && (
-        <button
-          onClick={handleDebugDeleteAll}
-          className="mb-8 px-6 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition shadow-lg border-2 border-red-800"
-        >
-          Debug: Alle Gewerke, Angebote & Kostenpositionen löschen
-        </button>
-      )}
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <header className="mb-8">
-          <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">
+              {isServiceProviderUser ? 'Kostenvoranschläge' : 'Gewerke'}
+            </h1>
+            <p className="text-gray-300">
+              {isServiceProviderUser 
+                ? 'Verwalten Sie Ihre Kostenvoranschläge für verschiedene Gewerke'
+                : 'Erstellen und verwalten Sie Gewerke für Ihr Bauprojekt'
+              }
+            </p>
+          </div>
+          
+          {!isServiceProviderUser && (
             <div className="flex items-center gap-4">
               <button
-                onClick={() => navigate(-1)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                onClick={() => setShowTradeCreationForm(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-[#ffbd59] text-[#2c3539] rounded-lg font-semibold hover:bg-[#ffa726] transition-colors"
               >
-                <ArrowLeft size={20} className="text-[#ffbd59]" />
+                <Plus size={20} />
+                Gewerk erstellen
               </button>
-              <div>
-                <h1 className="text-3xl font-bold text-[#ffbd59]">
-                  {isServiceProviderUser ? 'Ausschreibungen' : 'Gewerke'}
-                </h1>
-                <p className="text-gray-300">
-                  {isServiceProviderUser 
-                    ? 'Verfügbare Ausschreibungen & Angebote' 
-                    : 'Gewerkeverwaltung & Vergleich'
-                  }
-                  {selectedProject && (
-                    <span className="block text-sm text-[#ffbd59] mt-1">
-                      Projekt-ID: {selectedProject}
-                    </span>
-                  )}
-                </p>
-              </div>
             </div>
-            {!isServiceProviderUser && (
-            <button
-              onClick={() => setShowTradeModal(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold"
-            >
-              <Plus size={20} />
-              Gewerk erstellen
-            </button>
-            )}
-          </div>
-        </header>
+          )}
+        </div>
+
+        {/* Debug-Button nur im Entwicklungsmodus */}
+        {import.meta.env.DEV && (
+          <button
+            onClick={handleDebugDeleteAll}
+            className="mb-8 px-6 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition shadow-lg border-2 border-red-800"
+          >
+            Debug: Alle Gewerke, Angebote & Kostenpositionen löschen
+          </button>
+        )}
 
         {/* Error Banner */}
         {error && (
@@ -1143,1506 +1415,639 @@ export default function Trades() {
           </div>
         )}
 
-        <div className="max-w-7xl mx-auto">
-          {/* Debug Info */}
-          <div className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 px-6 py-4 mb-6 rounded-lg">
-            <h3 className="font-bold mb-2">Debug Info:</h3>
-            <p>Loading: {isLoadingTrades.toString()}</p>
-            <p>Trades Count: {trades.length}</p>
-            <p>FilteredTrades Count: {filteredTrades.length}</p>
-            <p>Error: {error || 'Kein Fehler'}</p>
-            <p>Current URL: {window.location.href}</p>
+        {/* Debug Info */}
+        <div className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 px-6 py-4 mb-6 rounded-lg">
+          <h3 className="font-bold mb-2">Debug Info:</h3>
+          <p>Loading: {isLoadingTrades.toString()}</p>
+          <p>Trades Count: {trades.length}</p>
+          <p>FilteredTrades Count: {filteredTrades.length}</p>
+          <p>Error: {error || 'Kein Fehler'}</p>
+          <p>Current URL: {window.location.href}</p>
+        </div>
+
+        {/* Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl">
+                <Handshake size={24} className="text-white" />
+              </div>
+              <span className="text-sm text-gray-400">Gesamt</span>
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-1">{trades.length}</h3>
+            <p className="text-sm text-gray-400">Gewerke</p>
           </div>
 
-          {/* Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl">
-                  <Handshake size={24} className="text-white" />
-                </div>
-                <span className="text-sm text-gray-400">Gesamt</span>
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl">
+                <Eye size={24} className="text-white" />
               </div>
-              <h3 className="text-2xl font-bold text-white mb-1">{trades.length}</h3>
-              <p className="text-sm text-gray-400">Gewerke</p>
+              <span className="text-sm text-gray-400">Aktive Gewerke</span>
             </div>
-
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl">
-                  <Eye size={24} className="text-white" />
-                </div>
-                <span className="text-sm text-gray-400">Aktive Gewerke</span>
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-1">
-                {activeCount}
-              </h3>
-              <p className="text-sm text-gray-400">Anzahl aktiver Gewerke</p>
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-red-400 to-red-600 rounded-xl">
-                  <AlertTriangle size={24} className="text-white" />
-                </div>
-                <span className="text-sm text-gray-400">Ohne Angebote</span>
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-1">
-                {tradesWithoutQuotes}
-              </h3>
-              <p className="text-sm text-gray-400">Gewerke ohne Angebote</p>
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl">
-                  <Clock size={24} className="text-white" />
-                </div>
-                <span className="text-sm text-gray-400">Ausstehend</span>
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-1">
-                {tradesWithPendingQuotes}
-              </h3>
-              <p className="text-sm text-gray-400">Gewerke mit ausstehenden Angeboten</p>
-            </div>
+            <h3 className="text-2xl font-bold text-white mb-1">
+              {activeCount}
+            </h3>
+            <p className="text-sm text-gray-400">Anzahl aktiver Gewerke</p>
           </div>
 
-          {/* Search and Filter */}
-          <div className="flex flex-col md:flex-row gap-4 mb-8">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Gewerke durchsuchen..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-              />
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-br from-red-400 to-red-600 rounded-xl">
+                <AlertTriangle size={24} className="text-white" />
+              </div>
+              <span className="text-sm text-gray-400">Ohne Angebote</span>
             </div>
-            
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="pl-10 pr-8 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent appearance-none cursor-pointer"
-              >
-                <option value="all">Alle Status</option>
-                <option value="planned">Geplant</option>
-                <option value="in_progress">Aktiv</option>
-                <option value="completed">Abgeschlossen</option>
-                <option value="delayed">Verzögert</option>
-                <option value="cancelled">Abgebrochen</option>
-              </select>
-            </div>
+            <h3 className="text-2xl font-bold text-white mb-1">
+              {tradesWithoutQuotes}
+            </h3>
+            <p className="text-sm text-gray-400">Gewerke ohne Angebote</p>
           </div>
 
-          {/* Gewerke Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filteredTrades.map((trade) => (
-              <div 
-                key={trade.id} 
-                className={`group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl ${
-                  isServiceProviderUser ? '' : 'cursor-pointer'
-                }`}
-                onClick={isServiceProviderUser ? undefined : () => openQuotesModal(trade)}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl">
-                      <Wrench size={20} className="text-white" />
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl">
+                <Clock size={24} className="text-white" />
+              </div>
+              <span className="text-sm text-gray-400">Ausstehend</span>
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-1">
+              {tradesWithPendingQuotes}
+            </h3>
+            <p className="text-sm text-gray-400">Gewerke mit ausstehenden Angeboten</p>
+          </div>
+        </div>
+
+        {/* Search and Filter */}
+        <div className="flex flex-col md:flex-row gap-4 mb-8">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              placeholder="Gewerke durchsuchen..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+            />
+          </div>
+          
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="pl-10 pr-8 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent appearance-none cursor-pointer"
+            >
+              <option value="all">Alle Status</option>
+              <option value="planned">Geplant</option>
+              <option value="in_progress">Aktiv</option>
+              <option value="completed">Abgeschlossen</option>
+              <option value="delayed">Verzögert</option>
+              <option value="cancelled">Abgebrochen</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Gewerke Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {filteredTrades.map((trade) => (
+            <div 
+              key={trade.id} 
+              className={`group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl ${
+                isServiceProviderUser ? '' : 'cursor-pointer'
+              }`}
+              onClick={isServiceProviderUser ? undefined : () => {
+                // Prüfe ob Kostenvoranschläge vorhanden sind
+                const quotes = allTradeQuotes[trade.id] || [];
+                if (quotes.length > 0) {
+                  // Öffne CostEstimateDetailsModal für Bauträger
+                  setSelectedTradeForCostEstimateDetails(trade);
+                  setShowCostEstimateDetailsModal(true);
+                } else {
+                  // Öffne normale TradeDetailsModal wenn keine Kostenvoranschläge vorhanden
+                  openTradeDetailsModal(trade);
+                }
+              }}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl">
+                    <Wrench size={20} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-lg group-hover:text-[#ffbd59] transition-colors">
+                      {trade.title}
+                    </h3>
+                    <p className="text-sm text-gray-400">{trade.description}</p>
+                  </div>
+                </div>
+                
+                {/* Actions Menu - nur für Bauträger */}
+                {!isServiceProviderUser && (() => {
+                  const quotes = allTradeQuotes[trade.id] || [];
+                  const acceptedQuotes = quotes.filter(q => q.status === 'accepted');
+                  const canEdit = acceptedQuotes.length === 0;
+                  
+                  return canEdit ? (
+                    <div className="relative" onClick={(e) => e.stopPropagation()}>
+                      <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                        <MoreHorizontal size={16} className="text-gray-400" />
+                      </button>
+                      <div className="absolute right-0 top-full mt-2 w-48 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10">
+                        <button
+                          onClick={() => openEditModal(trade)}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/10 transition-colors rounded-t-xl"
+                        >
+                          <Edit size={16} />
+                          <span>Bearbeiten</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTrade(trade.id)}
+                          disabled={deletingTrade === trade.id}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-red-500/20 text-red-300 transition-colors rounded-b-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {deletingTrade === trade.id ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-300"></div>
+                              <span>Lösche...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 size={16} />
+                              <span>Löschen</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-white text-lg group-hover:text-[#ffbd59] transition-colors">
-                        {trade.title}
-                      </h3>
-                      <p className="text-sm text-gray-400">{trade.description}</p>
-                    </div>
+                  ) : null;
+                })()}
+                
+
+              </div>
+
+              {/* Gewerk Details */}
+              <div className="space-y-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-400">Kategorie</span>
+                  <div className="flex items-center gap-2">
+                    {getCategoryIcon(trade.category || '')}
+                    <span className="text-sm font-medium text-white">{getCategoryLabel(trade.category || '')}</span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-1">
+                    <Calendar size={14} className="text-gray-400" />
+                    <span className="text-gray-400">Geplant:</span>
+                    <span className="text-white ml-1">{trade.planned_date ? new Date(trade.planned_date).toLocaleDateString('de-DE') : '—'}</span>
                   </div>
                   
-                  {/* Actions Menu - nur für Bauträger */}
-                  {!isServiceProviderUser && (
-                  <div className="relative" onClick={(e) => e.stopPropagation()}>
-                    <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                      <MoreHorizontal size={16} className="text-gray-400" />
-                    </button>
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10">
-                      <button
-                        onClick={() => openEditModal(trade)}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/10 transition-colors rounded-t-xl"
-                      >
-                        <Edit size={16} />
-                        <span>Bearbeiten</span>
-                      </button>
-                      <button
-                        onClick={() => setDeletingTrade(trade.id)}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-red-500/20 text-red-300 transition-colors rounded-b-xl"
-                      >
-                        <Trash2 size={16} />
-                        <span>Löschen</span>
-                      </button>
-                    </div>
-                  </div>
-                  )}
-                </div>
-
-                {/* Gewerk Details */}
-                <div className="space-y-4 mb-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-400">Kategorie</span>
-                    <div className="flex items-center gap-2">
-                      {getCategoryIcon(trade.category || '')}
-                      <span className="text-sm font-medium text-white">{getCategoryLabel(trade.category || '')}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-4 text-sm">
+                  {trade.start_date && trade.end_date && (
                     <div className="flex items-center gap-1">
                       <Calendar size={14} className="text-gray-400" />
-                      <span className="text-gray-400">Geplant:</span>
-                      <span className="text-white ml-1">{trade.planned_date ? new Date(trade.planned_date).toLocaleDateString('de-DE') : '—'}</span>
-                    </div>
-                    
-                    {trade.start_date && trade.end_date && (
-                      <div className="flex items-center gap-1">
-                        <Calendar size={14} className="text-gray-400" />
-                        <span className="text-gray-400">Dauer:</span>
-                        <span className="text-white ml-1">{Math.round((new Date(trade.end_date).getTime() - new Date(trade.start_date).getTime()) / (1000 * 60 * 60 * 24))} Tage</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {trade.budget && (
-                    <div className="flex items-center gap-1 text-sm">
-                      <span className="text-gray-400">Budget:</span>
-                      <span className="text-white">{trade.budget.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</span>
-                    </div>
-                  )}
-                  
-                  {trade.contractor && (
-                    <div className="flex items-center gap-1 text-sm">
-                      <span className="text-gray-400">Auftragnehmer:</span>
-                      <span className="text-white">{trade.contractor}</span>
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center gap-1 text-sm">
-                    <TrendingUp size={14} className="text-gray-400" />
-                    <span className="text-gray-400">Fortschritt:</span>
-                    <span className="text-white ml-1">{trade.progress_percentage || 0}%</span>
-                  </div>
-                  
-                  {trade.is_critical && (
-                    <div className="flex items-center gap-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
-                      <Shield size={14} className="text-red-400" />
-                      <span className="text-sm text-red-300 font-medium">Kritisches Gewerk</span>
+                      <span className="text-gray-400">Dauer:</span>
+                      <span className="text-white ml-1">{Math.round((new Date(trade.end_date).getTime() - new Date(trade.start_date).getTime()) / (1000 * 60 * 60 * 24))} Tage</span>
                     </div>
                   )}
                 </div>
+                
+                {trade.budget && (
+                  <div className="flex items-center gap-1 text-sm">
+                    <span className="text-gray-400">Budget:</span>
+                    <span className="text-white">{trade.budget.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</span>
+                  </div>
+                )}
+                
+                {trade.contractor && (
+                  <div className="flex items-center gap-1 text-sm">
+                    <span className="text-gray-400">Auftragnehmer:</span>
+                    <span className="text-white">{trade.contractor}</span>
+                  </div>
+                )}
+                
+                <div className="flex items-center gap-1 text-sm">
+                  <TrendingUp size={14} className="text-gray-400" />
+                  <span className="text-gray-400">Fortschritt:</span>
+                  <span className="text-white ml-1">{trade.progress_percentage || 0}%</span>
+                </div>
+                
+                {trade.is_critical && (
+                  <div className="flex items-center gap-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <Shield size={14} className="text-red-400" />
+                    <span className="text-sm text-red-300 font-medium">Kritisches Gewerk</span>
+                  </div>
+                )}
+              </div>
 
-                {/* Angenommenes Angebot Details */}
-                {(() => {
-                  const quotes = allTradeQuotes[trade.id] || [];
-                  const acceptedQuote = quotes.find(q => q.status === 'accepted');
-                  
-                  if (acceptedQuote) {
-                    return (
-                      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <CheckCircle size={16} className="text-green-400" />
-                          <span className="text-sm font-medium text-green-300">Angenommenes Angebot</span>
+              {/* Angenommenes Kostenvoranschlag Details */}
+              {(() => {
+                const quotes = allTradeQuotes[trade.id] || [];
+                const acceptedQuote = quotes.find(q => q.status === 'accepted');
+                
+                if (acceptedQuote) {
+                  return (
+                    <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <CheckCircle size={16} className="text-green-400" />
+                        <span className="text-sm font-medium text-green-300">Angenommener Kostenvoranschlag</span>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-400">Kostenvoranschlag:</span>
+                          <span className="text-sm font-medium text-white">{acceptedQuote.title}</span>
                         </div>
                         
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-400">Angebot:</span>
-                            <span className="text-sm font-medium text-white">{acceptedQuote.title}</span>
-                          </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-400">Betrag:</span>
-                            <span className="text-lg font-bold text-[#ffbd59]">
-                              {acceptedQuote.total_amount.toLocaleString('de-DE', { style: 'currency', currency: acceptedQuote.currency })}
-                            </span>
-                          </div>
-                          
-                          {acceptedQuote.company_name && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-400">Firma:</span>
-                              <span className="text-sm text-white">{acceptedQuote.company_name}</span>
-                            </div>
-                          )}
-                          
-                          {acceptedQuote.contact_person && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-400">Ansprechpartner:</span>
-                              <span className="text-sm text-white">{acceptedQuote.contact_person}</span>
-                            </div>
-                          )}
-                          
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-400">Dauer:</span>
-                            <span className="text-sm text-white">{acceptedQuote.estimated_duration} Tage</span>
-                          </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-400">Garantie:</span>
-                            <span className="text-sm text-white">{acceptedQuote.warranty_period} Monate</span>
-                          </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-400">Risiko:</span>
-                            <span className={`text-sm ${acceptedQuote.risk_score > 30 ? 'text-red-400' : acceptedQuote.risk_score > 15 ? 'text-yellow-400' : 'text-green-400'}`}>
-                              {acceptedQuote.risk_score}%
-                            </span>
-                          </div>
-                          
-                          {acceptedQuote.contact_released && (
-                            <div className="mt-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                              <div className="flex items-center gap-2 text-sm">
-                                <User size={14} className="text-blue-400" />
-                                <span className="text-blue-300 font-medium">Kontaktdaten freigegeben</span>
-                              </div>
-                              {acceptedQuote.phone && (
-                                <div className="flex items-center gap-1 text-xs text-gray-400 mt-1">
-                                  <Phone size={12} />
-                                  <span>{acceptedQuote.phone}</span>
-                                </div>
-                              )}
-                              {acceptedQuote.email && (
-                                <div className="flex items-center gap-1 text-xs text-gray-400">
-                                  <Mail size={12} />
-                                  <span>{acceptedQuote.email}</span>
-                                </div>
-                              )}
-                              {acceptedQuote.website && (
-                                <div className="flex items-center gap-1 text-xs text-gray-400">
-                                  <Globe size={12} />
-                                  <span>{acceptedQuote.website}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  }
-                  
-                  // Zeige Anzahl der verfügbaren Angebote
-                  const availableQuotes = quotes.filter(q => q.status === 'submitted');
-                  const acceptedQuotes = quotes.filter(q => q.status === 'accepted');
-                  const underReviewQuotes = quotes.filter(q => q.status === 'under_review');
-                  
-                  if (availableQuotes.length > 0 || acceptedQuotes.length > 0 || underReviewQuotes.length > 0) {
-                    return (
-                      <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FileText size={16} className="text-blue-400" />
-                          <span className="text-sm font-medium text-blue-300">
-                            {quotes.length} Angebot{quotes.length > 1 ? 'e' : ''} verfügbar
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-400">Betrag:</span>
+                          <span className="text-lg font-bold text-[#ffbd59]">
+                            {acceptedQuote.total_amount.toLocaleString('de-DE', { style: 'currency', currency: acceptedQuote.currency })}
                           </span>
                         </div>
-                        <div className="flex flex-wrap gap-2 text-xs">
-                          {availableQuotes.length > 0 && (
-                            <span className="bg-green-500/20 text-green-300 px-2 py-1 rounded">
-                              {availableQuotes.length} zur Annahme
-                            </span>
-                          )}
-                          {underReviewQuotes.length > 0 && (
-                            <span className="bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded">
-                              {underReviewQuotes.length} in Prüfung
-                            </span>
-                          )}
-                          {acceptedQuotes.length > 0 && (
-                            <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
-                              {acceptedQuotes.length} angenommen
-                            </span>
-                          )}
+                        
+                        {acceptedQuote.company_name && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-400">Firma:</span>
+                            <span className="text-sm text-white">{acceptedQuote.company_name}</span>
+                          </div>
+                        )}
+                        
+                        {acceptedQuote.contact_person && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-400">Ansprechpartner:</span>
+                            <span className="text-sm text-white">{acceptedQuote.contact_person}</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-400">Dauer:</span>
+                          <span className="text-sm text-white">{acceptedQuote.estimated_duration} Tage</span>
                         </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-400">Garantie:</span>
+                          <span className="text-sm text-white">{acceptedQuote.warranty_period} Monate</span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-400">Risiko:</span>
+                          <span className={`text-sm ${acceptedQuote.risk_score > 30 ? 'text-red-400' : acceptedQuote.risk_score > 15 ? 'text-yellow-400' : 'text-green-400'}`}>
+                            {acceptedQuote.risk_score}%
+                          </span>
+                        </div>
+                        
+                        {acceptedQuote.contact_released && (
+                          <div className="mt-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                            <div className="flex items-center gap-2 text-sm">
+                              <User size={14} className="text-blue-400" />
+                              <span className="text-blue-300 font-medium">Kontaktdaten freigegeben</span>
+                            </div>
+                            {acceptedQuote.phone && (
+                              <div className="flex items-center gap-1 text-xs text-gray-400 mt-1">
+                                <Phone size={12} />
+                                <span>{acceptedQuote.phone}</span>
+                              </div>
+                            )}
+                            {acceptedQuote.email && (
+                              <div className="flex items-center gap-1 text-xs text-gray-400">
+                                <Mail size={12} />
+                                <span>{acceptedQuote.email}</span>
+                              </div>
+                            )}
+                            {acceptedQuote.website && (
+                              <div className="flex items-center gap-1 text-xs text-gray-400">
+                                <Globe size={12} />
+                                <span>{acceptedQuote.website}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    );
-                  }
-                  
-                  return null;
-                })()}
+                    </div>
+                  );
+                }
+                
+                // Zeige Anzahl der verfügbaren Kostenvoranschläge
+                const availableQuotes = quotes.filter(q => q.status === 'submitted');
+                const acceptedQuotes = quotes.filter(q => q.status === 'accepted');
+                const underReviewQuotes = quotes.filter(q => q.status === 'under_review');
+                
+                if (availableQuotes.length > 0 || acceptedQuotes.length > 0 || underReviewQuotes.length > 0) {
+                  return (
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <FileText size={16} className="text-blue-400" />
+                        <span className="text-sm font-medium text-blue-300">
+                          {quotes.length} Kostenvoranschlag{quotes.length > 1 ? 'e' : ''} verfügbar
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {availableQuotes.length > 0 && (
+                          <span className="bg-green-500/20 text-green-300 px-2 py-1 rounded">
+                            {availableQuotes.length} zur Annahme
+                          </span>
+                        )}
+                        {underReviewQuotes.length > 0 && (
+                          <span className="bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded">
+                            {underReviewQuotes.length} in Prüfung
+                          </span>
+                        )}
+                        {acceptedQuotes.length > 0 && (
+                          <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
+                            {acceptedQuotes.length} angenommen
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return null;
+              })()}
 
-                {/* Status and AI Analysis */}
-                <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    {/* Klickbarer Status */}
+              {/* Status and AI Analysis */}
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {/* Klickbarer Status */}
+                  <div className="relative group" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => {
+                        const statuses = ['planned', 'in_progress', 'completed', 'delayed', 'cancelled'];
+                        const currentIndex = statuses.indexOf(trade.status);
+                        const nextStatus = statuses[(currentIndex + 1) % statuses.length];
+                        handleQuickStatusChange(trade.id, nextStatus);
+                      }}
+                      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium backdrop-blur-md border ${getStatusColor(trade.status)} hover:scale-105 transition-all duration-200 cursor-pointer group`}
+                      title="Klicken zum Ändern des Status"
+                    >
+                      {getStatusLabel(trade.status)}
+                      <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px]">↻</span>
+                    </button>
+                  </div>
+                  
+                  {/* Klickbare Priorität */}
+                  {trade.priority && (
                     <div className="relative group" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => {
-                          const statuses = ['planned', 'in_progress', 'completed', 'delayed', 'cancelled'];
-                          const currentIndex = statuses.indexOf(trade.status);
-                          const nextStatus = statuses[(currentIndex + 1) % statuses.length];
-                          handleQuickStatusChange(trade.id, nextStatus);
+                          const priorities = ['low', 'medium', 'high', 'critical'];
+                          const currentIndex = priorities.indexOf(trade.priority);
+                          const nextPriority = priorities[(currentIndex + 1) % priorities.length];
+                          handleQuickPriorityChange(trade.id, nextPriority);
                         }}
-                        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium backdrop-blur-md border ${getStatusColor(trade.status)} hover:scale-105 transition-all duration-200 cursor-pointer group`}
-                        title="Klicken zum Ändern des Status"
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-white/10 border border-white/20 ${getPriorityColor(trade.priority)} hover:scale-105 transition-all duration-200 cursor-pointer group`}
+                        title="Klicken zum Ändern der Priorität"
                       >
-                        {getStatusLabel(trade.status)}
+                        <span>{getPriorityLabel(trade.priority)}</span>
                         <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px]">↻</span>
                       </button>
                     </div>
-                    
-                    {/* Klickbare Priorität */}
-                    {trade.priority && (
-                      <div className="relative group" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => {
-                            const priorities = ['low', 'medium', 'high', 'critical'];
-                            const currentIndex = priorities.indexOf(trade.priority);
-                            const nextPriority = priorities[(currentIndex + 1) % priorities.length];
-                            handleQuickPriorityChange(trade.id, nextPriority);
-                          }}
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-white/10 border border-white/20 ${getPriorityColor(trade.priority)} hover:scale-105 transition-all duration-200 cursor-pointer group`}
-                          title="Klicken zum Ändern der Priorität"
-                        >
-                          <span>{getPriorityLabel(trade.priority)}</span>
-                          <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px]">↻</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
-                {/* Angebot abgeben Button für Dienstleister */}
-                {isServiceProviderUser && (() => {
-                  const quotes = allTradeQuotes[trade.id] || [];
-                  const myQuote = quotes.find(q => q.service_provider_id === user?.id);
-                  
-                  if (myQuote) {
-                    // Angebot bereits abgegeben - zeige Status
-                    return (
-                      <div className="mt-4 space-y-3">
-                        {/* Status-Badge */}
-                        <div className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold ${
-                          myQuote.status === 'accepted' 
-                            ? 'bg-green-500/20 border border-green-500/30 text-green-300'
-                            : myQuote.status === 'rejected'
-                            ? 'bg-red-500/20 border border-red-500/30 text-red-300'
-                            : myQuote.status === 'under_review'
-                            ? 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-300'
-                            : 'bg-blue-500/20 border border-blue-500/30 text-blue-300'
-                        }`}>
-                          {myQuote.status === 'accepted' && <CheckCircle size={16} />}
-                          {myQuote.status === 'rejected' && <XCircle size={16} />}
-                          {myQuote.status === 'under_review' && <Clock size={16} />}
-                          {myQuote.status === 'submitted' && <Send size={16} />}
-                          <span>
-                            {myQuote.status === 'accepted' && 'Angebot angenommen'}
-                            {myQuote.status === 'rejected' && 'Angebot abgelehnt'}
-                            {myQuote.status === 'under_review' && 'In Prüfung'}
-                            {myQuote.status === 'submitted' && isServiceProviderUser && 'Angebot eingereicht'}
+              </div>
+              {/* Details einsehen Button für alle Benutzer */}
+              <div className="mt-4">
+                <button
+                  className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openTradeDetailsModal(trade);
+                  }}
+                >
+                  <Eye size={16} className="inline mr-2" />
+                  Details einsehen
+                </button>
+              </div>
+
+              {/* Angebot abgeben Button für Dienstleister */}
+              {isServiceProviderUser && (() => {
+                const quotes = allTradeQuotes[trade.id] || [];
+                const myQuote = quotes.find(q => q.service_provider_id === user?.id);
+                
+                if (myQuote) {
+                  // Angebot bereits abgegeben - zeige Status
+                  return (
+                    <div className="mt-4 space-y-3">
+                      {/* Status-Badge */}
+                      <div className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold ${
+                        myQuote.status === 'accepted' 
+                          ? 'bg-green-500/20 border border-green-500/30 text-green-300'
+                          : myQuote.status === 'rejected'
+                          ? 'bg-red-500/20 border border-red-500/30 text-red-300'
+                          : myQuote.status === 'under_review'
+                          ? 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-300'
+                          : 'bg-blue-500/20 border border-blue-500/30 text-blue-300'
+                      }`}>
+                        {myQuote.status === 'accepted' && <CheckCircle size={16} />}
+                        {myQuote.status === 'rejected' && <XCircle size={16} />}
+                        {myQuote.status === 'under_review' && <Clock size={16} />}
+                        {myQuote.status === 'submitted' && <Send size={16} />}
+                        <span>
+                          {myQuote.status === 'accepted' && 'Angebot angenommen'}
+                          {myQuote.status === 'rejected' && 'Angebot abgelehnt'}
+                          {myQuote.status === 'under_review' && 'In Prüfung'}
+                          {myQuote.status === 'submitted' && isServiceProviderUser && 'Angebot eingereicht'}
+                        </span>
+                      </div>
+                      
+                      {/* Angebot-Details */}
+                      <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-semibold text-white text-sm">Ihr Kostenvoranschlag</h4>
+                          <span className="text-lg font-bold text-[#ffbd59]">
+                            {myQuote.total_amount.toLocaleString('de-DE', { style: 'currency', currency: myQuote.currency })}
                           </span>
                         </div>
                         
-                        {/* Angebot-Details */}
-                        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-semibold text-white text-sm">Ihr Angebot</h4>
-                            <span className="text-lg font-bold text-[#ffbd59]">
-                              {myQuote.total_amount.toLocaleString('de-DE', { style: 'currency', currency: myQuote.currency })}
-                            </span>
+                        <div className="grid grid-cols-2 gap-3 text-xs text-gray-400">
+                          <div>
+                            <span>Dauer:</span>
+                            <div className="text-white font-medium">{myQuote.estimated_duration} Tage</div>
                           </div>
-                          
-                          <div className="grid grid-cols-2 gap-3 text-xs text-gray-400">
-                            <div>
-                              <span>Dauer:</span>
-                              <div className="text-white font-medium">{myQuote.estimated_duration} Tage</div>
-                            </div>
-                            <div>
-                              <span>Gültig bis:</span>
-                              <div className="text-white font-medium">{new Date(myQuote.valid_until).toLocaleDateString('de-DE')}</div>
-                            </div>
-                            {myQuote.labor_cost && (
-                              <div>
-                                <span>Arbeitskosten:</span>
-                                <div className="text-white font-medium">
-                                  {myQuote.labor_cost.toLocaleString('de-DE', { style: 'currency', currency: myQuote.currency })}
-                                </div>
-                              </div>
-                            )}
-                            {myQuote.material_cost && (
-                              <div>
-                                <span>Materialkosten:</span>
-                                <div className="text-white font-medium">
-                                  {myQuote.material_cost.toLocaleString('de-DE', { style: 'currency', currency: myQuote.currency })}
-                                </div>
-                              </div>
-                            )}
+                          <div>
+                            <span>Gültig bis:</span>
+                            <div className="text-white font-medium">{new Date(myQuote.valid_until).toLocaleDateString('de-DE')}</div>
                           </div>
+                          {myQuote.labor_cost && (
+                            <div>
+                              <span>Arbeitskosten:</span>
+                              <div className="text-white font-medium">
+                                {myQuote.labor_cost.toLocaleString('de-DE', { style: 'currency', currency: myQuote.currency })}
+                              </div>
+                            </div>
+                          )}
+                          {myQuote.material_cost && (
+                            <div>
+                              <span>Materialkosten:</span>
+                              <div className="text-white font-medium">
+                                {myQuote.material_cost.toLocaleString('de-DE', { style: 'currency', currency: myQuote.currency })}
+                              </div>
+                            </div>
+                          )}
+                          {myQuote.overhead_cost && (
+                            <div>
+                              <span>Gemeinkosten:</span>
+                              <div className="text-white font-medium">
+                                {myQuote.overhead_cost.toLocaleString('de-DE', { style: 'currency', currency: myQuote.currency })}
+                              </div>
+                            </div>
+                          )}
+                          {myQuote.payment_terms && (
+                            <div>
+                              <span>Zahlungsbedingungen:</span>
+                              <div className="text-white font-medium">{myQuote.payment_terms}</div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Details und Zurückziehen Buttons */}
+                        <div className="mt-3 space-y-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openQuoteDetailsModal(myQuote);
+                            }}
+                            className="w-full px-3 py-2 bg-[#ffbd59]/20 text-[#ffbd59] text-xs rounded-lg hover:bg-[#ffbd59]/30 transition-colors"
+                          >
+                            Details anzeigen
+                          </button>
                           
-                          {/* Details Button */}
-                          <div className="mt-3">
+                          {/* Zurückziehen Button nur für Dienstleister */}
+                          {isServiceProviderUser && myQuote.status === 'submitted' && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openQuoteDetailsModal(myQuote);
+                                if (window.confirm('Möchten Sie diesen Kostenvoranschlag wirklich zurückziehen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+                                  handleWithdrawQuote(myQuote.id);
+                                }
                               }}
-                              className="w-full px-3 py-2 bg-[#ffbd59]/20 text-[#ffbd59] text-xs rounded-lg hover:bg-[#ffbd59]/30 transition-colors"
+                              className="w-full px-3 py-2 bg-red-500/20 text-red-300 text-xs rounded-lg hover:bg-red-500/30 transition-colors"
                             >
-                              Details anzeigen
+                              Zurückziehen
                             </button>
-                          </div>
+                          )}
                         </div>
                       </div>
-                    );
-                  } else {
-                    // Kein Angebot abgegeben - zeige Button
-                    return (
+                    </div>
+                  );
+                } else {
+                  // Kein Angebot abgegeben - zeige Button unten rechts
+                  return (
+                    <div className="mt-4">
                       <button
-                        className="w-full px-4 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg mt-4"
+                        className="w-full px-4 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg"
                         onClick={(e) => {
                           e.stopPropagation();
-                          openOfferModal(trade);
+                          console.log('🔧 Button-Click erkannt für Trade:', trade);
+                          openCostEstimateModal(trade);
                         }}
+                        style={{ display: 'block', visibility: 'visible' }}
                       >
-                        <Handshake size={16} className="inline mr-2" />
-                        Angebot abgeben
+                        <Calculator size={16} className="inline mr-2" />
+                        Kostenvoranschlag abgeben
                       </button>
-                    );
-                  }
-                })()}
-              </div>
-            ))}
-          </div>
-
-          {/* Empty State */}
-          {filteredTrades.length === 0 && (
-            <div className="text-center py-12">
-              <div className="p-6 bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 max-w-md mx-auto">
-                <Wrench size={48} className="text-gray-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-white mb-2">Keine Gewerke gefunden</h3>
-                <p className="text-gray-400 mb-6">
-                  {searchTerm || filterStatus !== 'all' 
-                    ? 'Versuchen Sie andere Suchkriterien oder Filter.'
-                    : 'Es sind aktuell keine ausgeschriebenen Gewerke verfügbar.'
-                  }
-                </p>
-                {/* Button nur für Bauträger anzeigen */}
-                {!isServiceProviderUser && !searchTerm && filterStatus === 'all' && (
-                  <button
-                    onClick={() => setShowTradeModal(true)}
-                    className="px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 font-semibold"
-                  >
-                    Erstes Gewerk erstellen
-                  </button>
-                )}
-              </div>
+                    </div>
+                  );
+                }
+              })()}
             </div>
-          )}
+          ))}
         </div>
-      </div>
 
-      {/* Add/Edit Gewerk Modal */}
-      {showTradeModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">
-                {editingTrade ? 'Gewerk bearbeiten' : 'Neues Gewerk erstellen'}
-              </h2>
-              <button
-                onClick={() => {
-                  setShowTradeModal(false);
-                  resetTradeForm();
-                }}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <XCircle size={24} className="text-gray-400" />
-              </button>
-            </div>
-            {/* Projekt-Label (nicht editierbar) */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-300 mb-1">Projekt</label>
-              <div className="px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white">
-                {projects.find(p => p.id === selectedProject)?.name || `Projekt-ID: ${selectedProject}`}
-              </div>
-            </div>
-            
-            <form onSubmit={handleCreateTrade} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Titel *</label>
-                  <input
-                    type="text"
-                    required
-                    value={tradeForm.title}
-                    onChange={(e) => setTradeForm({...tradeForm, title: e.target.value})}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    placeholder="z.B. Elektroinstallation"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Gewerk-Kategorie</label>
-                  <select
-                    value={tradeForm.category}
-                    onChange={(e) => setTradeForm({...tradeForm, category: e.target.value})}
-                    className="w-full px-4 py-3 bg-[#3d4952] text-white border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                  >
-                    <option value="">Kategorie auswählen</option>
-                    <option value="fundament">Fundament</option>
-                    <option value="rohbau">Rohbau</option>
-                    <option value="dach">Dach</option>
-                    <option value="elektro">Elektro</option>
-                    <option value="sanitaer">Sanitär</option>
-                    <option value="heizung">Heizung</option>
-                    <option value="fenster">Fenster & Türen</option>
-                    <option value="innenausbau">Innenausbau</option>
-                    <option value="aussenanlagen">Außenanlagen</option>
-                    <option value="eigene">Eigene</option>
-                  </select>
-                </div>
-                
-                {/* Eigene Kategorie Textfeld - nur anzeigen wenn "Eigene" ausgewählt */}
-                {tradeForm.category === 'eigene' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Ihre Kategorie</label>
-                    <input
-                      type="text"
-                      value={tradeForm.customCategory}
-                      onChange={(e) => setTradeForm({...tradeForm, customCategory: e.target.value})}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                      placeholder="z.B. Gartenbau, Malerarbeiten, Bodenbeläge..."
-                    />
-                  </div>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Beschreibung</label>
-                <textarea
-                  value={tradeForm.description}
-                  onChange={(e) => setTradeForm({...tradeForm, description: e.target.value})}
-                  rows={3}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                  placeholder="Beschreiben Sie das Gewerk, wichtige Details, Anforderungen..."
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Priorität</label>
-                  <select
-                    value={tradeForm.priority}
-                    onChange={(e) => setTradeForm({...tradeForm, priority: e.target.value as 'low' | 'medium' | 'high' | 'critical'})}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                  >
-                    <option value="low">Niedrig</option>
-                    <option value="medium">Mittel</option>
-                    <option value="high">Hoch</option>
-                    <option value="critical">Kritisch</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Startdatum</label>
-                  <input
-                    type="date"
-                    value={tradeForm.start_date}
-                    onChange={(e) => {
-                      const newStartDate = e.target.value;
-                      let newEndDate = tradeForm.end_date;
-                      
-                      // Wenn das Enddatum leer ist oder vor dem neuen Startdatum liegt, setze es auf 7 Tage später
-                      if (!newEndDate || (newEndDate && newEndDate <= newStartDate)) {
-                        const startDate = new Date(newStartDate);
-                        const endDate = new Date(startDate);
-                        endDate.setDate(startDate.getDate() + 7);
-                        newEndDate = endDate.toISOString().split('T')[0];
-                      }
-                      
-                      setTradeForm({
-                        ...tradeForm, 
-                        start_date: newStartDate,
-                        end_date: newEndDate
-                      });
-                    }}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Enddatum</label>
-                <input
-                  type="date"
-                  value={tradeForm.end_date}
-                  onChange={(e) => setTradeForm({...tradeForm, end_date: e.target.value})}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Notizen</label>
-                <textarea
-                  value={tradeForm.notes}
-                  onChange={(e) => setTradeForm({...tradeForm, notes: e.target.value})}
-                  rows={3}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                  placeholder="Zusätzliche Notizen, Anmerkungen, Besonderheiten..."
-                />
-              </div>
-              
-              <div className="flex items-center space-x-4">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={tradeForm.is_critical}
-                    onChange={(e) => setTradeForm({...tradeForm, is_critical: e.target.checked})}
-                    className="w-4 h-4 text-[#ffbd59] bg-white/10 border-white/20 rounded focus:ring-[#ffbd59] focus:ring-2"
-                  />
-                  <span className="text-sm font-medium text-gray-300">Kritisches Gewerk</span>
-                </label>
-              </div>
-              
-              <div className="flex gap-4 pt-6">
-                <button
-                  type="submit"
-                  className="flex-1 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] font-bold py-3 rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105"
-                >
-                  {editingTrade ? 'Änderungen speichern' : 'Gewerk erstellen'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowTradeModal(false);
-                    resetTradeForm();
-                  }}
-                  className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
-                >
-                  Abbrechen
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {deletingTrade && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-md">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Trash2 size={32} className="text-red-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Gewerk löschen</h3>
+        {/* Empty State */}
+        {filteredTrades.length === 0 && (
+          <div className="text-center py-12">
+            <div className="p-6 bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 max-w-md mx-auto">
+              <Wrench size={48} className="text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">Keine Gewerke gefunden</h3>
               <p className="text-gray-400 mb-6">
-                Sind Sie sicher, dass Sie dieses Gewerk löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.
+                {searchTerm || filterStatus !== 'all' 
+                  ? 'Versuchen Sie andere Suchkriterien oder Filter.'
+                  : 'Es sind aktuell keine ausgeschriebenen Gewerke verfügbar.'
+                }
               </p>
-              <div className="flex gap-4">
+              {/* Button nur für Bauträger anzeigen */}
+              {!isServiceProviderUser && !searchTerm && filterStatus === 'all' && (
                 <button
-                  onClick={async () => {
-                    try {
-                      await deleteMilestone(deletingTrade);
-                    setDeletingTrade(null);
-                      await loadTrades();
-                    } catch (err) {
-                      setError('Fehler beim Löschen des Gewerks');
-                      setDeletingTrade(null);
-                    }
-                  }}
-                  className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition-all duration-300"
+                  onClick={() => setShowTradeModal(true)}
+                  className="px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 font-semibold"
                 >
-                  Löschen
+                  Erstes Gewerk erstellen
                 </button>
-                <button
-                  onClick={() => setDeletingTrade(null)}
-                  className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
-                >
-                  Abbrechen
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Angebote Modal */}
-      {showQuotesModal && selectedTrade && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-2xl font-bold text-white mb-2">
-                  Angebote für: {selectedTrade.title}
-                </h3>
-                <p className="text-gray-400">{selectedTrade.description}</p>
-              </div>
-              <button
-                onClick={() => setShowQuotesModal(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <X size={24} className="text-gray-400" />
-              </button>
-            </div>
-
-            {tradeQuotes.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="p-6 bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 max-w-md mx-auto">
-                  <FileText size={48} className="text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-white mb-2">Keine Angebote verfügbar</h3>
-                  <p className="text-gray-400">
-                    Für dieses Gewerk sind noch keine Angebote eingegangen.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {tradeQuotes
-                  .sort((a, b) => {
-                    // Sortierung: submitted -> under_review -> accepted -> rejected
-                    const statusOrder = { submitted: 0, under_review: 1, accepted: 2, rejected: 3 };
-                    const statusComparison = (statusOrder[a.status as keyof typeof statusOrder] || 4) - (statusOrder[b.status as keyof typeof statusOrder] || 4);
-                    
-                    // Bei gleichem Status nach Erstellungsdatum sortieren (neueste zuerst)
-                    if (statusComparison === 0) {
-                      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-                    }
-                    
-                    return statusComparison;
-                  })
-                  .map((quote) => (
-                  <div key={quote.id} className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-                    <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="font-bold text-white text-lg">{quote.title}</h4>
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getQuoteStatusColor(quote.status)}`}>
-                              {getQuoteStatusLabel(quote.status)}
-                            </span>
-                          </div>
-                        <p className="text-sm text-gray-400 mb-3">{quote.description}</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-[#ffbd59] mb-1">
-                          {quote.total_amount.toLocaleString('de-DE', { style: 'currency', currency: quote.currency })}
-                        </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {formatDate(quote.created_at)}
-                        </div>
-                      </div>
-                    </div>
-                      {/* Basisdaten */}
-                      <div className="space-y-2 mb-4">
-                        {quote.company_name && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <User size={14} className="text-[#ffbd59]" />
-                            <span className="text-gray-400">Firma:</span>
-                            <span className="text-white font-medium">{quote.company_name}</span>
-                          </div>
-                        )}
-                        {quote.contact_person && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <User size={14} className="text-[#ffbd59]" />
-                            <span className="text-gray-400">Ansprechpartner:</span>
-                            <span className="text-white font-medium">{quote.contact_person}</span>
-                          </div>
-                        )}
-                        {quote.email && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Mail size={14} className="text-[#ffbd59]" />
-                            <span className="text-gray-400">E-Mail:</span>
-                            <span className="text-white font-medium">{quote.email}</span>
-                          </div>
-                        )}
-                        {quote.phone && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Phone size={14} className="text-[#ffbd59]" />
-                            <span className="text-gray-400">Telefon:</span>
-                            <span className="text-white font-medium">{quote.phone}</span>
-                          </div>
-                        )}
-                        {quote.website && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Globe size={14} className="text-[#ffbd59]" />
-                            <span className="text-gray-400">Webseite:</span>
-                            <span className="text-white font-medium">{quote.website}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex justify-end">
-                        <button
-                          onClick={() => openQuoteDetailsModal(quote)}
-                          className="px-4 py-2 bg-[#ffbd59]/20 text-[#ffbd59] text-xs rounded-lg hover:bg-[#ffbd59]/30 transition-colors"
-                        >
-                          Details anzeigen
-                        </button>
-                      </div>
-                      {!isServiceProviderUser && (quote.status === 'submitted' || quote.status === 'under_review') && (
-                        <div className="flex gap-3 mt-4">
-                          <button
-                            onClick={() => handleAcceptQuote(quote.id)}
-                            className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-3 rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105"
-                          >
-                            <CheckCircle size={16} className="inline mr-2" />
-                            Angebot annehmen
-                          </button>
-                          <button
-                            onClick={() => openRejectModal(quote)}
-                            className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold py-3 rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105"
-                          >
-                            <XCircle size={16} className="inline mr-2" />
-                            Angebot ablehnen
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Angebotsformular-Modal */}
-      {showOfferModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-[#3d4952] rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative p-0 border border-[#ffbd59]/30">
-            <button className="absolute top-4 right-4 text-gray-400 hover:text-[#ffbd59] z-10" onClick={closeOfferModal}><X size={24} /></button>
-            <h2 className="text-2xl font-bold mb-2 px-8 pt-8 text-[#ffbd59]">Angebot abgeben für: {offerTrade?.title}</h2>
-            <form onSubmit={handleOfferSubmit} className="divide-y divide-[#ffbd59]/20">
-              {/* Abschnitt 1: Basisdaten */}
-              <section>
-                <button type="button" className={`w-full flex justify-between items-center px-8 py-4 transition rounded-t-2xl ${openOfferSection === 'basis' ? 'bg-[#ffbd59]/10' : 'bg-white/5 hover:bg-[#ffbd59]/10'}`} onClick={() => handleAccordionToggle('basis')}>
-                  <span className="text-lg font-semibold" style={{ color: openOfferSection === 'basis' ? '#ffbd59' : '#fff' }}>1. Basisdaten</span>
-                  <span>{openOfferSection === 'basis' ? <ChevronDown size={20} color="#ffbd59" /> : <ChevronRight size={20} color="#ffbd59" />}</span>
-                </button>
-                {openOfferSection === 'basis' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-8 pb-6 pt-2 bg-white/5">
-                        <div>
-                      <label className="block text-sm font-medium text-[#ffbd59]">Preis (€) *</label>
-                      <input type="number" name="total_amount" value={offerForm.total_amount} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                        </div>
-                        <div>
-                      <label className="block text-sm font-medium text-[#ffbd59]">Währung *</label>
-                      <select name="currency" value={offerForm.currency || 'EUR'} onChange={handleOfferCurrencyChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]">
-                        <option value="EUR">EUR</option>
-                        <option value="USD">USD</option>
-                        <option value="CHF">CHF</option>
-                      </select>
-                        </div>
-                        <div>
-                      <label className="block text-sm font-medium text-[#ffbd59]">Gültig bis *</label>
-                      <input type="date" name="valid_until" value={offerForm.valid_until} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                        </div>
-                        <div>
-                      <label className="block text-sm font-medium text-[#ffbd59]">Startdatum *</label>
-                      <input type="date" name="start_date" value={offerForm.start_date || ''} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                        </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[#ffbd59]">Vorausichtliche Fertigstellung *</label>
-                      <input type="date" name="completion_date" value={offerForm.completion_date || ''} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-white">Beschreibung</label>
-                      <textarea name="description" value={offerForm.description} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                    </div>
-                  </div>
-                )}
-              </section>
-              {/* Abschnitt 2: Kalkulation */}
-              <section>
-                <button type="button" className={`w-full flex justify-between items-center px-8 py-4 transition ${openOfferSection === 'kalkulation' ? 'bg-[#ffbd59]/10' : 'bg-white/5 hover:bg-[#ffbd59]/10'}`} onClick={() => handleAccordionToggle('kalkulation')}>
-                  <span className="text-lg font-semibold" style={{ color: openOfferSection === 'kalkulation' ? '#ffbd59' : '#fff' }}>2. Kalkulation</span>
-                  <span>{openOfferSection === 'kalkulation' ? <ChevronDown size={20} color="#ffbd59" /> : <ChevronRight size={20} color="#ffbd59" />}</span>
-                </button>
-                {openOfferSection === 'kalkulation' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-8 pb-6 pt-2 bg-white/5">
-                    <div>
-                      <label className="block text-sm font-medium text-white">Arbeitskosten</label>
-                      <input type="number" name="labor_cost" value={offerForm.labor_cost || ''} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-white">Materialkosten</label>
-                      <input type="number" name="material_cost" value={offerForm.material_cost || ''} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-white">Gemeinkosten</label>
-                      <input type="number" name="overhead_cost" value={offerForm.overhead_cost || ''} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                      </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-white">Garantie (Monate)</label>
-                      <input type="number" name="warranty_period" value={offerForm.warranty_period || ''} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                        </div>
-                    <div>
-                      <label className="block text-sm font-medium text-white">Zahlungsbedingungen</label>
-                      <select name="payment_terms" value={offerForm.payment_terms || ''} onChange={handleOfferPaymentTermsChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]">
-                        <option value="">Bitte wählen Sie...</option>
-                        <option value="Sofort nach Rechnungserhalt">Sofort nach Rechnungserhalt</option>
-                        <option value="14 Tage netto">14 Tage netto</option>
-                        <option value="30 Tage netto">30 Tage netto</option>
-                        <option value="45 Tage netto">45 Tage netto</option>
-                        <option value="60 Tage netto">60 Tage netto</option>
-                        <option value="50% bei Auftragserteilung, 50% bei Fertigstellung">50% bei Auftragserteilung, 50% bei Fertigstellung</option>
-                        <option value="30% bei Auftragserteilung, 70% bei Fertigstellung">30% bei Auftragserteilung, 70% bei Fertigstellung</option>
-                        <option value="25% bei Auftragserteilung, 25% bei 50% Fortschritt, 50% bei Fertigstellung">25% bei Auftragserteilung, 25% bei 50% Fortschritt, 50% bei Fertigstellung</option>
-                        <option value="custom">Eigene Zahlungsbedingungen definieren...</option>
-                      </select>
-                      {offerForm.payment_terms === 'custom' && (
-                        <input 
-                          type="text" 
-                          name="payment_terms_custom" 
-                          placeholder="Geben Sie Ihre eigenen Zahlungsbedingungen ein..."
-                          className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59] mt-2"
-                          onChange={(e) => setOfferForm(prev => ({ ...prev, payment_terms: e.target.value }))}
-                        />
-                      )}
-                      </div>
-                  </div>
-                )}
-              </section>
-              {/* Abschnitt 3: Kontakt & Upload */}
-              <section>
-                <button type="button" className={`w-full flex justify-between items-center px-8 py-4 transition rounded-b-2xl ${openOfferSection === 'kontakt' ? 'bg-[#ffbd59]/10' : 'bg-white/5 hover:bg-[#ffbd59]/10'}`} onClick={() => handleAccordionToggle('kontakt')}>
-                  <span className="text-lg font-semibold" style={{ color: openOfferSection === 'kontakt' ? '#ffbd59' : '#fff' }}>3. Kontakt & Upload</span>
-                  <span>{openOfferSection === 'kontakt' ? <ChevronDown size={20} color="#ffbd59" /> : <ChevronRight size={20} color="#ffbd59" />}</span>
-                </button>
-                {openOfferSection === 'kontakt' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-8 pb-8 pt-2 bg-white/5">
-                    <div>
-                      <label className="block text-sm font-medium text-[#ffbd59]">Firmenname *</label>
-                      <input type="text" name="company_name" value={offerForm.company_name || ''} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[#ffbd59]">Ansprechpartner *</label>
-                      <input type="text" name="contact_person" value={offerForm.contact_person || ''} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[#ffbd59]">E-Mail *</label>
-                      <input type="email" name="email" value={offerForm.email || ''} onChange={handleOfferFormChange} required className="w-full border border-[#ffbd59]/40 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-white">Telefon</label>
-                      <input type="text" name="phone" value={offerForm.phone || ''} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-white">Webseite</label>
-                      <input type="text" name="website" value={offerForm.website || ''} onChange={handleOfferFormChange} className="w-full border border-white/20 rounded p-2 bg-[#3d4952] text-white focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59]" />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-white">PDF-Angebot (optional)</label>
-                      <input type="file" accept="application/pdf" onChange={handleOfferFileChange} className="w-full" />
-                    </div>
-                  </div>
-                )}
-              </section>
-              {/* Fehler- und Erfolgsanzeige */}
-              <div className="px-8 py-4">
-                {offerError && <div className="text-red-600 text-sm mb-2">{offerError}</div>}
-                <button type="submit" className="w-full bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl font-semibold py-3 hover:from-[#ffa726] hover:to-[#ff9800] transition-colors mt-2" disabled={offerLoading}>
-                  {offerLoading ? 'Wird gesendet...' : 'Angebot absenden'}
-                </button>
-                {offerSuccess && <div className="text-green-600 text-sm mt-2">{offerSuccess}</div>}
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Angebot-Details-Modal */}
-      {showQuoteDetailsModal && selectedQuote && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-2xl font-bold text-white mb-2">
-                  Angebot Details
-                </h3>
-                <p className="text-gray-400">{selectedQuote.title}</p>
-                          </div>
-              <button
-                onClick={() => setShowQuoteDetailsModal(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <X size={24} className="text-gray-400" />
-              </button>
-                          </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Linke Spalte - Hauptinformationen */}
-              <div className="space-y-6">
-                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                    <Euro size={20} className="text-[#ffbd59]" />
-                    Preisdetails
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Gesamtpreis:</span>
-                      <span className="text-2xl font-bold text-[#ffbd59]">
-                        {selectedQuote.total_amount.toLocaleString('de-DE', { style: 'currency', currency: selectedQuote.currency })}
-                      </span>
-                        </div>
-                    {selectedQuote.labor_cost && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Arbeitskosten:</span>
-                        <span className="text-white font-medium">
-                          {selectedQuote.labor_cost.toLocaleString('de-DE', { style: 'currency', currency: selectedQuote.currency })}
-                          </span>
-                        </div>
-                    )}
-                    {selectedQuote.material_cost && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Materialkosten:</span>
-                        <span className="text-white font-medium">
-                          {selectedQuote.material_cost.toLocaleString('de-DE', { style: 'currency', currency: selectedQuote.currency })}
-                        </span>
-                      </div>
-                    )}
-                    {selectedQuote.overhead_cost && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Gemeinkosten:</span>
-                        <span className="text-white font-medium">
-                          {selectedQuote.overhead_cost.toLocaleString('de-DE', { style: 'currency', currency: selectedQuote.currency })}
-                        </span>
-                      </div>
-                    )}
-                    {selectedQuote.price_deviation && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Preisabweichung:</span>
-                        <span className={`font-medium ${selectedQuote.price_deviation > 10 ? 'text-red-400' : selectedQuote.price_deviation > 5 ? 'text-yellow-400' : 'text-green-400'}`}>
-                          {selectedQuote.price_deviation}%
-                        </span>
-                      </div>
-                    )}
-                    {selectedQuote.currency && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Währung:</span>
-                        <span className="text-white font-medium">{selectedQuote.currency}</span>
-                      </div>
-                    )}
-                    {selectedQuote.payment_terms && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Zahlungsbedingungen:</span>
-                        <span className="text-white font-medium">{selectedQuote.payment_terms}</span>
-                      </div>
-                    )}
-                      </div>
-                    </div>
-
-                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                    <Calendar size={20} className="text-[#ffbd59]" />
-                    Zeitplan
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Startdatum:</span>
-                      <span className="text-white font-medium">{new Date(selectedQuote.start_date).toLocaleDateString('de-DE')}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Fertigstellung:</span>
-                      <span className="text-white font-medium">{new Date(selectedQuote.completion_date).toLocaleDateString('de-DE')}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Gültig bis:</span>
-                      <span className="text-white font-medium">{new Date(selectedQuote.valid_until).toLocaleDateString('de-DE')}</span>
-                    </div>
-                    {selectedQuote.estimated_duration && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Geschätzte Dauer:</span>
-                        <span className="text-white font-medium">{selectedQuote.estimated_duration} Tage</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Erstellt am:</span>
-                      <span className="text-white font-medium">{new Date(selectedQuote.created_at).toLocaleDateString('de-DE')}</span>
-                    </div>
-                    {selectedQuote.submitted_at && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Eingereicht am:</span>
-                        <span className="text-white font-medium">{new Date(selectedQuote.submitted_at).toLocaleDateString('de-DE')}</span>
-                      </div>
-                    )}
-                    {selectedQuote.accepted_at && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Angenommen am:</span>
-                        <span className="text-white font-medium">{new Date(selectedQuote.accepted_at).toLocaleDateString('de-DE')}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Zuletzt aktualisiert:</span>
-                      <span className="text-white font-medium">{new Date(selectedQuote.updated_at).toLocaleDateString('de-DE')}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Rechte Spalte - Zusätzliche Details */}
-              <div className="space-y-6">
-                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                    <Shield size={20} className="text-[#ffbd59]" />
-                    Qualität & Garantie
-                  </h4>
-                  <div className="space-y-3">
-                    {selectedQuote.warranty_period && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Garantie:</span>
-                        <span className="text-white font-medium">{selectedQuote.warranty_period} Monate</span>
-                      </div>
-                    )}
-                    {selectedQuote.risk_score && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Risiko-Score:</span>
-                        <span className={`font-medium ${selectedQuote.risk_score > 30 ? 'text-red-400' : selectedQuote.risk_score > 15 ? 'text-yellow-400' : 'text-green-400'}`}>
-                          {selectedQuote.risk_score}%
-                        </span>
-                      </div>
-                    )}
-                    {selectedQuote.payment_terms && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Zahlungsbedingungen:</span>
-                        <span className="text-white font-medium">{selectedQuote.payment_terms}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                    <Target size={20} className="text-[#ffbd59]" />
-                    Projekt & Dienstleister
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Projekt-ID:</span>
-                      <span className="text-white font-medium">{selectedQuote.project_id}</span>
-                    </div>
-                    {selectedQuote.milestone_id && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Gewerk-ID:</span>
-                        <span className="text-white font-medium">{selectedQuote.milestone_id}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Dienstleister-ID:</span>
-                      <span className="text-white font-medium">{selectedQuote.service_provider_id}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Angebot-ID:</span>
-                      <span className="text-white font-medium">{selectedQuote.id}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                    <Info size={20} className="text-[#ffbd59]" />
-                    Zusätzliche Informationen
-                  </h4>
-                  <div className="space-y-3">
-                    {selectedQuote.contact_released !== undefined && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Kontakt freigegeben:</span>
-                        <span className={`font-medium ${selectedQuote.contact_released ? 'text-green-400' : 'text-red-400'}`}>
-                          {selectedQuote.contact_released ? 'Ja' : 'Nein'}
-                        </span>
-                      </div>
-                    )}
-                    {selectedQuote.rating && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Bewertung:</span>
-                        <span className="text-white font-medium">{selectedQuote.rating}/5</span>
-                      </div>
-                    )}
-                    {selectedQuote.feedback && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Feedback:</span>
-                        <span className="text-white font-medium">{selectedQuote.feedback}</span>
-                      </div>
-                    )}
-                    {selectedQuote.rejection_reason && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Ablehnungsgrund:</span>
-                        <span className="text-red-400 font-medium">{selectedQuote.rejection_reason}</span>
-                      </div>
-                    )}
-                    {selectedQuote.pdf_upload_path && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">PDF verfügbar:</span>
-                        <span className="text-green-400 font-medium">Ja</span>
-                      </div>
-                    )}
-                    {selectedQuote.additional_documents && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Zusätzliche Dokumente:</span>
-                        <span className="text-white font-medium">{selectedQuote.additional_documents}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                    <User size={20} className="text-[#ffbd59]" />
-                    Kontaktdaten
-                  </h4>
-                  <div className="space-y-3">
-                    {selectedQuote.company_name && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Firma:</span>
-                        <span className="text-white font-medium">{selectedQuote.company_name}</span>
-                      </div>
-                    )}
-                    {selectedQuote.contact_person && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Ansprechpartner:</span>
-                        <span className="text-white font-medium">{selectedQuote.contact_person}</span>
-                      </div>
-                    )}
-                    {selectedQuote.email && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">E-Mail:</span>
-                        <span className="text-white font-medium">{selectedQuote.email}</span>
-                      </div>
-                    )}
-                    {selectedQuote.phone && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Telefon:</span>
-                        <span className="text-white font-medium">{selectedQuote.phone}</span>
-                      </div>
-                    )}
-                    {selectedQuote.website && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400">Webseite:</span>
-                        <span className="text-white font-medium">{selectedQuote.website}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {selectedQuote.description && (
-                  <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                      <FileText size={20} className="text-[#ffbd59]" />
-                      Beschreibung
-                    </h4>
-                    <p className="text-gray-300 leading-relaxed">{selectedQuote.description}</p>
-                  </div>
-                )}
-
-                {selectedQuote.ai_recommendation && (
-                  <div className="bg-[#ffbd59]/10 backdrop-blur-lg rounded-xl p-6 border border-[#ffbd59]/20">
-                    <h4 className="text-lg font-semibold text-[#ffbd59] mb-4 flex items-center gap-2">
-                      <Brain size={20} />
-                      KI-Empfehlung
-                    </h4>
-                    <p className="text-white leading-relaxed">{selectedQuote.ai_recommendation}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Status-Badge und Aktionen */}
-            <div className="mt-6 flex flex-col items-center gap-4">
-              <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold ${
-                selectedQuote.status === 'accepted' 
-                  ? 'bg-green-500/20 border border-green-500/30 text-green-300'
-                  : selectedQuote.status === 'rejected'
-                  ? 'bg-red-500/20 border border-red-500/30 text-red-300'
-                  : selectedQuote.status === 'under_review'
-                  ? 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-300'
-                  : 'bg-blue-500/20 border border-blue-500/30 text-blue-300'
-              }`}>
-                {selectedQuote.status === 'accepted' && <CheckCircle size={16} />}
-                {selectedQuote.status === 'rejected' && <XCircle size={16} />}
-                {selectedQuote.status === 'under_review' && <Clock size={16} />}
-                {/* Kein Send-Icon mehr anzeigen */}
-                <span>
-                  {selectedQuote.status === 'accepted' && 'Angebot angenommen'}
-                  {selectedQuote.status === 'rejected' && 'Angebot abgelehnt'}
-                  {selectedQuote.status === 'under_review' && 'In Prüfung'}
-                  {selectedQuote.status === 'submitted' && isServiceProviderUser && 'Angebot eingereicht'}
-                </span>
-              </div>
-              
-              {/* Dienstleister-spezifische Aktionen */}
-              {isServiceProviderUser && selectedQuote.status !== 'accepted' && selectedQuote.status !== 'rejected' && (
-                    <div className="flex gap-3">
-                        <button
-                    onClick={() => openWithdrawModal(selectedQuote)}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold"
-                    title="Angebot zurückziehen"
-                        >
-                    <RotateCcw size={16} />
-                    Angebot zurückziehen
-                        </button>
-                  
-                  <button className="flex items-center gap-2 px-6 py-3 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all duration-300">
-                    <Download size={16} />
-                    PDF herunterladen
-                  </button>
-                          </div>
-              )}
-              
-              {/* Erneutes Angebot für abgelehnte Angebote */}
-              {isServiceProviderUser && selectedQuote.status === 'rejected' && (
-                <div className="flex gap-3">
-                          <button
-                    onClick={() => handleNewOfferFromRejected(selectedQuote)}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold"
-                    title="Erneutes Angebot abgeben"
-                          >
-                            <RotateCcw size={16} />
-                    Erneutes Angebot abgeben
-                  </button>
-                  
-                  <button className="flex items-center gap-2 px-6 py-3 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all duration-300">
-                    <Download size={16} />
-                    PDF herunterladen
-                          </button>
-                </div>
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Reject-Modal */}
-      {showRejectModal && rejectingQuote && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-md">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <Ban size={24} className="text-red-400" />
-                Angebot ablehnen
-              </h3>
-                          <button
-                onClick={() => {
-                  setShowRejectModal(false);
-                  setRejectingQuote(null);
-                  setRejectionReason('');
-                }}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <X size={24} className="text-gray-400" />
-                          </button>
-            </div>
+        {/* TradeCreationForm Modal */}
+        {showTradeCreationForm && currentProject && (
+          <TradeCreationForm
+            isOpen={showTradeCreationForm}
+            onClose={() => setShowTradeCreationForm(false)}
+            onSubmit={handleCreateTradeWithForm}
+            projectId={currentProject.id}
+          />
+        )}
 
-            <div className="mb-6">
-              <p className="text-gray-300 mb-4">
-                Möchten Sie das Angebot von <strong>{rejectingQuote.company_name}</strong> für <strong>{rejectingQuote.title}</strong> ablehnen?
-              </p>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Ablehnungsgrund (optional)
-                </label>
-                <textarea
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Geben Sie einen Grund für die Ablehnung an..."
-                  rows={3}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                />
-              </div>
-            </div>
+        {/* CostEstimateForm Modal */}
+        {showCostEstimateForm && selectedTradeForEstimate && (
+          <CostEstimateForm
+            isOpen={showCostEstimateForm}
+            onClose={() => {
+              setShowCostEstimateForm(false);
+              setSelectedTradeForEstimate(null);
+            }}
+            onSubmit={handleCostEstimateSubmit}
+            trade={selectedTradeForEstimate}
+            project={currentProject || {
+              id: selectedTradeForEstimate.project_id,
+              name: 'Unbekanntes Projekt',
+              description: 'Projekt-Details nicht verfügbar'
+            }}
+          />
+        )}
 
-            <div className="flex gap-4">
-              <button
-                onClick={() => handleRejectQuote(rejectingQuote.id, rejectionReason)}
-                disabled={rejectLoading}
-                className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold py-3 rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {rejectLoading ? (
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    <span className="ml-2">Wird abgelehnt...</span>
-                        </div>
-                      ) : (
-                  <>
-                    <Ban size={16} className="inline mr-2" />
-                    Angebot ablehnen
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  setShowRejectModal(false);
-                  setRejectingQuote(null);
-                  setRejectionReason('');
-                }}
-                className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
-              >
-                Abbrechen
-              </button>
-            </div>
-          </div>
-                        </div>
-                      )}
-                      
-      {/* Withdraw-Modal */}
-      {showWithdrawModal && withdrawingQuote && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#3d4952] rounded-2xl p-8 w-full max-w-md">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <RotateCcw size={24} className="text-orange-400" />
-                Angebot zurückziehen
-              </h3>
-              <button
-                onClick={() => {
-                  setShowWithdrawModal(false);
-                  setWithdrawingQuote(null);
-                }}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <X size={24} className="text-gray-400" />
-                      </button>
-                    </div>
+        {/* TradeDetailsModal */}
+        {showTradeDetailsModal && selectedTradeForDetails && (
+          <TradeDetailsModal
+            isOpen={showTradeDetailsModal}
+            onClose={() => {
+              setShowTradeDetailsModal(false);
+              setSelectedTradeForDetails(null);
+            }}
+            trade={selectedTradeForDetails}
+            quotes={allTradeQuotes[selectedTradeForDetails.id] || []}
+            project={currentProject}
+          />
+        )}
 
-            <div className="mb-6">
-              <p className="text-gray-300 mb-4">
-                Möchten Sie Ihr Angebot für <strong>{withdrawingQuote.title}</strong> wirklich zurückziehen?
-              </p>
-              <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertCircle size={16} className="text-orange-400" />
-                  <span className="text-sm font-medium text-orange-300">Wichtiger Hinweis</span>
-                  </div>
-                <p className="text-sm text-orange-200">
-                  Diese Aktion kann nicht rückgängig gemacht werden. Das Angebot wird unwiderruflich gelöscht.
-                </p>
-              </div>
-            </div>
+        {/* CostEstimateDetailsModal für Bauträger */}
+        {showCostEstimateDetailsModal && selectedTradeForCostEstimateDetails && (
+          <CostEstimateDetailsModal
+            isOpen={showCostEstimateDetailsModal}
+            onClose={() => {
+              setShowCostEstimateDetailsModal(false);
+              setSelectedTradeForCostEstimateDetails(null);
+            }}
+            trade={selectedTradeForCostEstimateDetails}
+            quotes={allTradeQuotes[selectedTradeForCostEstimateDetails.id] || []}
+            project={currentProject}
+            onAcceptQuote={handleAcceptQuote}
+            onRejectQuote={handleRejectQuote}
+            onResetQuote={handleResetQuote}
+          />
+        )}
 
-            <div className="flex gap-4">
-              <button
-                onClick={() => handleWithdrawQuote(withdrawingQuote.id)}
-                disabled={withdrawLoading}
-                className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-3 rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {withdrawLoading ? (
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    <span className="ml-2">Wird zurückgezogen...</span>
-                  </div>
-                ) : (
-                  <>
-                    <RotateCcw size={16} className="inline mr-2" />
-                    Angebot zurückziehen
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  setShowWithdrawModal(false);
-                  setWithdrawingQuote(null);
-                }}
-                className="flex-1 bg-white/10 text-white font-bold py-3 rounded-xl hover:bg-white/20 transition-all duration-300"
-              >
-                Abbrechen
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        {/* OrderConfirmationGenerator */}
+        {showOrderConfirmationGenerator && orderConfirmationData && (
+          <OrderConfirmationGenerator
+            data={orderConfirmationData}
+            onGenerate={handleGenerateOrderConfirmation}
+            onClose={handleCloseOrderConfirmationGenerator}
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -2828,4 +2233,4 @@ function formatCurrency(amount: number) {
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('de-DE');
-} 
+}
