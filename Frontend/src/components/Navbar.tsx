@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -24,10 +24,24 @@ import {
   Calendar,
   Handshake,
   DollarSign,
-  Star
+  Star,
+  CheckSquare,
+  MessageSquare,
+  TrendingUp,
+  Upload,
+  Clock
 } from 'lucide-react';
 import logo from '../logo_trans_big.png';
-import FavoritesBar from './FavoritesBar';
+import FavoritesManager from './FavoritesManager';
+
+interface FavoriteItem {
+  id: string;
+  title: string;
+  path: string;
+  icon: string;
+  category: 'navigation' | 'tools' | 'projects';
+  isActive?: boolean;
+}
 
 export default function Navbar() {
   const { pathname } = useLocation();
@@ -36,6 +50,81 @@ export default function Navbar() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showFavoritesManager, setShowFavoritesManager] = useState(false);
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+
+  // Favoriten aus localStorage laden
+  useEffect(() => {
+    const loadFavorites = () => {
+      const savedFavorites = localStorage.getItem('buildwise-favorites');
+      if (savedFavorites) {
+        try {
+          const parsedFavorites = JSON.parse(savedFavorites);
+          console.log('🔍 Favoriten geladen:', parsedFavorites);
+          setFavorites(parsedFavorites);
+        } catch (error) {
+          console.error('Fehler beim Laden der Favoriten:', error);
+        }
+      } else {
+        console.log('🔍 Keine Favoriten im localStorage gefunden');
+        setFavorites([]);
+      }
+    };
+
+    loadFavorites();
+
+    // Event-Listener für localStorage-Änderungen
+    const handleStorageChange = () => {
+      console.log('🔄 localStorage geändert - Favoriten neu laden');
+      loadFavorites();
+    };
+
+    // Event-Listener für benutzerdefinierte Events
+    const handleCustomStorageChange = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      // Prüfe ob das Event von der Navbar selbst ausgelöst wurde
+      if (customEvent.detail?.source === 'Navbar') {
+        return;
+      }
+      console.log('🔄 Custom storage event - Favoriten neu laden');
+      loadFavorites();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('favoritesChanged', handleCustomStorageChange);
+    
+    // Initial load
+    loadFavorites();
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('favoritesChanged', handleCustomStorageChange);
+    };
+  }, []);
+
+  // Icon-Rendering für Favoriten
+  const renderIcon = (iconString: string) => {
+    const iconMap: { [key: string]: React.ReactNode } = {
+      '<Home size={16} />': <Home size={16} />,
+      '<Target size={16} />': <Target size={16} />,
+      '<Euro size={16} />': <Euro size={16} />,
+      '<FileText size={16} />': <FileText size={16} />,
+      '<BarChart3 size={16} />': <BarChart3 size={16} />,
+      '<Calendar size={16} />': <Calendar size={16} />,
+      '<Handshake size={16} />': <Handshake size={16} />,
+      '<DollarSign size={16} />': <DollarSign size={16} />,
+      '<MessageCircle size={16} />': <MessageCircle size={16} />,
+      '<Users size={16} />': <Users size={16} />,
+      '<Globe size={16} />': <Globe size={16} />,
+      '<Building size={16} />': <Building size={16} />,
+      '<CheckSquare size={16} />': <CheckSquare size={16} />,
+      '<MessageSquare size={16} />': <MessageSquare size={16} />,
+      '<TrendingUp size={16} />': <TrendingUp size={16} />,
+      '<Upload size={16} />': <Upload size={16} />,
+      '<Clock size={16} />': <Clock size={16} />
+    };
+    return iconMap[iconString] || <Star size={16} />;
+  };
 
   const handleLogout = () => {
     logout();
@@ -101,10 +190,7 @@ export default function Navbar() {
               </Link>
               )}
 
-              {/* Favoriten-Leiste */}
-              <FavoritesBar />
-
-              {/* Projekt-Manager Dropdown - nur für Bauträger */}
+              {/* Favoriten Dropdown - nur für Bauträger */}
               {!isServiceProvider() && (
               <div className="relative group">
                 <button className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
@@ -119,38 +205,40 @@ export default function Navbar() {
                 
                 <div className="absolute top-full left-0 mt-2 w-64 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
                   <div className="p-2">
-                    <div className="p-3 text-gray-300 text-sm border-b border-white/10">
-                      Konfigurieren Sie Ihre Favoriten für schnellen Zugriff
+                    <div className="flex items-center justify-between p-3 text-gray-300 text-sm border-b border-white/10">
+                      <span>Ihre konfigurierten Favoriten</span>
+                      <button
+                        onClick={() => setShowFavoritesManager(true)}
+                        className="p-1 hover:bg-white/10 rounded transition-colors"
+                        title="Favoriten verwalten"
+                      >
+                        <Settings size={14} className="text-[#ffbd59]" />
+                      </button>
                     </div>
-                    <div className="mt-2">
-                      <Link
-                        to="/tasks"
-                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white"
-                      >
-                        <Target size={16} className="text-[#ffbd59]" />
-                        <span>Aufgaben</span>
-                      </Link>
-                      <Link
-                        to="/finance"
-                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white"
-                      >
-                        <Euro size={16} className="text-[#ffbd59]" />
-                        <span>Finanzen</span>
-                      </Link>
-                      <Link
-                        to="/quotes"
-                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white"
-                      >
-                        <Handshake size={16} className="text-[#ffbd59]" />
-                        <span>Gewerke</span>
-                      </Link>
-                      <Link
-                        to="/documents"
-                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white"
-                      >
-                        <FileText size={16} className="text-[#ffbd59]" />
-                        <span>Dokumente</span>
-                      </Link>
+                    <div className="mt-2 max-h-64 overflow-y-auto">
+                      {favorites.length > 0 ? (
+                        favorites.map((favorite) => (
+                          <Link
+                            key={favorite.id}
+                            to={favorite.path}
+                            className={`flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white ${
+                              isActive(favorite.path) ? 'bg-white/10 text-[#ffbd59]' : ''
+                            }`}
+                          >
+                            <div className="text-[#ffbd59]">
+                              {renderIcon(favorite.icon)}
+                            </div>
+                            <span>{favorite.title}</span>
+                          </Link>
+                        ))
+                      ) : (
+                        <div className="p-3 text-gray-400 text-sm text-center">
+                          <Star size={16} className="mx-auto mb-2 opacity-50" />
+                          <p>Keine Favoriten konfiguriert</p>
+                          <p className="text-xs mt-1">Klicken Sie auf das Zahnrad zum Konfigurieren</p>
+                          <p className="text-xs mt-1 text-gray-500">Debug: {favorites.length} Favoriten geladen</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -437,6 +525,12 @@ export default function Navbar() {
           }}
         />
       )}
+
+      {/* FavoritesManager Modal */}
+      <FavoritesManager 
+        isOpen={showFavoritesManager} 
+        onClose={() => setShowFavoritesManager(false)} 
+      />
     </nav>
   );
 } 

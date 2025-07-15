@@ -36,6 +36,9 @@ export default function ServiceProviderDashboard() {
       ariaLabel: "Messenger öffnen",
       status: 'online' as 'online',
       badge: { text: '3 neue', color: "blue" as const },
+      cardId: "messenger",
+      path: "/messages",
+      iconString: "<MessageCircle size={16} />",
       children: (
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <Users size={16} />
@@ -50,6 +53,9 @@ export default function ServiceProviderDashboard() {
       onClick: () => navigate('/quotes'),
       ariaLabel: "Gewerke und Ausschreibungen öffnen",
       badge: { text: `${projectStats.newQuotes} neue`, color: "green" as const },
+      cardId: "service-quotes",
+      path: "/quotes",
+      iconString: "<Handshake size={16} />",
       children: (
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <BarChart3 size={16} />
@@ -109,6 +115,9 @@ export default function ServiceProviderDashboard() {
                 ariaLabel={card.ariaLabel}
                 status={card.status}
                 badge={card.badge}
+                cardId={card.cardId}
+                path={card.path}
+                iconString={card.iconString}
               >
                 {card.children}
               </DashboardCard>

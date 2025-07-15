@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { Star } from 'lucide-react';
 
 interface DashboardCardProps {
   title: string;
@@ -15,6 +16,10 @@ interface DashboardCardProps {
     value: number;
     label: string;
   };
+  // Neue Props für Favoriten-System
+  cardId: string;
+  path: string;
+  iconString: string;
 }
 
 export default function DashboardCard({ 
@@ -25,8 +30,46 @@ export default function DashboardCard({
   ariaLabel, 
   status,
   badge,
-  progress 
+  progress,
+  cardId,
+  path,
+  iconString
 }: DashboardCardProps) {
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  // Prüfe ob Karte in Favoriten ist
+  useEffect(() => {
+    const checkFavoriteStatus = () => {
+      const savedFavorites = localStorage.getItem('buildwise-favorites');
+      if (savedFavorites) {
+        const favorites = JSON.parse(savedFavorites);
+        setIsFavorite(favorites.some((fav: any) => fav.id === cardId));
+      }
+    };
+
+    checkFavoriteStatus();
+
+    // Event-Listener für localStorage-Änderungen (nur prüfen, keine Events auslösen)
+    const handleStorageChange = () => {
+      console.log('🔄 DashboardCard: localStorage geändert - Status prüfen');
+      checkFavoriteStatus();
+    };
+
+    // Event-Listener für benutzerdefinierte Events (nur prüfen, keine Events auslösen)
+    const handleFavoritesChanged = () => {
+      console.log('🔄 DashboardCard: Favoriten geändert - Status prüfen');
+      checkFavoriteStatus();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('favoritesChanged', handleFavoritesChanged);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('favoritesChanged', handleFavoritesChanged);
+    };
+  }, [cardId]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'online': return 'text-green-400';
@@ -46,6 +89,45 @@ export default function DashboardCard({
     }
   };
 
+  const handleFavoriteToggle = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Verhindert das Auslösen des onClick der Karte
+    
+    const savedFavorites = localStorage.getItem('buildwise-favorites');
+    let favorites = savedFavorites ? JSON.parse(savedFavorites) : [];
+    
+    if (isFavorite) {
+      // Entferne aus Favoriten
+      favorites = favorites.filter((fav: any) => fav.id !== cardId);
+    } else {
+      // Prüfe ob bereits in Favoriten (verhindert Duplikate)
+      const exists = favorites.some((fav: any) => fav.id === cardId);
+      if (!exists) {
+        // Füge zu Favoriten hinzu
+        favorites.push({
+          id: cardId,
+          title: title,
+          path: path,
+          icon: iconString,
+          category: 'tools'
+        });
+      }
+    }
+    
+    localStorage.setItem('buildwise-favorites', JSON.stringify(favorites));
+    setIsFavorite(!isFavorite);
+    
+    // Benutzerdefiniertes Event auslösen für andere Komponenten
+    window.dispatchEvent(new CustomEvent('favoritesChanged', {
+      detail: { favorites: favorites, changedCardId: cardId }
+    }));
+    
+    console.log('🔍 DashboardCard: Favorit geändert:', {
+      cardId,
+      isFavorite: !isFavorite,
+      totalFavorites: favorites.length
+    });
+  };
+
   return (
     <button
       className="group relative bg-white/10 backdrop-blur-lg rounded-3xl p-8 cursor-pointer transition-all duration-500 hover:bg-white/15 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:ring-opacity-50 min-h-[320px] w-full border border-white/20 hover:border-[#ffbd59]/30 transform hover:-translate-y-2 hover:scale-105"
@@ -56,9 +138,23 @@ export default function DashboardCard({
       {/* Animated Background Glow */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59]/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
       
+      {/* Favoriten-Stern */}
+      <button
+        onClick={handleFavoriteToggle}
+        className={`absolute top-4 left-4 z-10 p-2 rounded-full transition-all duration-300 ${
+          isFavorite 
+            ? 'bg-[#ffbd59] text-[#2c3539] shadow-lg' 
+            : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-[#ffbd59]'
+        }`}
+        title={isFavorite ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}
+        type="button"
+      >
+        <Star size={16} className={isFavorite ? 'fill-current' : ''} />
+      </button>
+      
       {/* Status Indicator */}
       {status && (
-        <div className={`absolute top-4 left-4 flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium backdrop-blur-md border ${
+        <div className={`absolute top-4 left-16 flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium backdrop-blur-md border ${
           status === 'online' 
             ? 'bg-green-500/20 text-green-300 border-green-500/30' 
             : status === 'offline'

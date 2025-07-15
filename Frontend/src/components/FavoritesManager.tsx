@@ -64,42 +64,84 @@ export default function FavoritesManager({ isOpen, onClose }: FavoritesManagerPr
 
   // Lade Favoriten beim Start
   useEffect(() => {
-    const savedFavorites = localStorage.getItem('buildwise-favorites');
-    if (savedFavorites) {
-      setFavorites(JSON.parse(savedFavorites));
-    } else {
-      // Standard-Favoriten basierend auf Benutzerrolle
-      const defaultFavorites: FavoriteItem[] = isServiceProvider() 
-        ? [
-            { id: 'dashboard', title: 'Dashboard', path: '/service-provider', icon: '<Home size={16} />', category: 'navigation' as const },
-            { id: 'messages', title: 'Messenger', path: '/messages', icon: '<MessageCircle size={16} />', category: 'tools' as const },
-            { id: 'quotes', title: 'Gewerke', path: '/quotes', icon: '<Handshake size={16} />', category: 'tools' as const },
-          ]
-        : [
-            { id: 'dashboard', title: 'Dashboard', path: '/', icon: '<Home size={16} />', category: 'navigation' as const },
-            { id: 'tasks', title: 'Aufgaben', path: '/tasks', icon: '<Target size={16} />', category: 'tools' as const },
-            { id: 'finance', title: 'Finanzen', path: '/finance', icon: '<Euro size={16} />', category: 'tools' as const },
-          ];
-      setFavorites(defaultFavorites);
-      localStorage.setItem('buildwise-favorites', JSON.stringify(defaultFavorites));
-    }
+    const loadFavorites = () => {
+      const savedFavorites = localStorage.getItem('buildwise-favorites');
+      if (savedFavorites) {
+        setFavorites(JSON.parse(savedFavorites));
+      } else {
+        // Standard-Favoriten basierend auf Benutzerrolle
+        const defaultFavorites: FavoriteItem[] = isServiceProvider() 
+          ? [
+              { id: 'dashboard', title: 'Dashboard', path: '/service-provider', icon: '<Home size={16} />', category: 'navigation' as const },
+              { id: 'messages', title: 'Messenger', path: '/messages', icon: '<MessageCircle size={16} />', category: 'tools' as const },
+              { id: 'quotes', title: 'Gewerke', path: '/quotes', icon: '<Handshake size={16} />', category: 'tools' as const },
+            ]
+          : [
+              { id: 'dashboard', title: 'Dashboard', path: '/', icon: '<Home size={16} />', category: 'navigation' as const },
+              { id: 'tasks', title: 'Aufgaben', path: '/tasks', icon: '<Target size={16} />', category: 'tools' as const },
+              { id: 'finance', title: 'Finanzen', path: '/finance', icon: '<Euro size={16} />', category: 'tools' as const },
+            ];
+        setFavorites(defaultFavorites);
+        localStorage.setItem('buildwise-favorites', JSON.stringify(defaultFavorites));
+      }
+    };
+
+    loadFavorites();
+
+    // Event-Listener für localStorage-Änderungen
+    const handleStorageChange = () => {
+      console.log('🔄 FavoritesManager: localStorage geändert - Favoriten neu laden');
+      loadFavorites();
+    };
+
+    // Event-Listener für benutzerdefinierte Events
+    const handleFavoritesChanged = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      // Prüfe ob das Event vom FavoritesManager selbst ausgelöst wurde
+      if (customEvent.detail?.source === 'FavoritesManager') {
+        return;
+      }
+      console.log('🔄 FavoritesManager: Favoriten geändert - Favoriten neu laden', customEvent.detail);
+      loadFavorites();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('favoritesChanged', handleFavoritesChanged as EventListener);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('favoritesChanged', handleFavoritesChanged as EventListener);
+    };
   }, [isServiceProvider]);
 
   // Speichere Favoriten bei Änderungen
   useEffect(() => {
     if (favorites.length > 0) {
       localStorage.setItem('buildwise-favorites', JSON.stringify(favorites));
+      // Events werden bereits in den einzelnen Funktionen ausgelöst
     }
   }, [favorites]);
 
   const handleAddFavorite = (item: FavoriteItem) => {
     if (!favorites.find(fav => fav.id === item.id)) {
-      setFavorites([...favorites, item]);
+      const newFavorites = [...favorites, item];
+      setFavorites(newFavorites);
+      // Sofort speichern und Event auslösen
+      localStorage.setItem('buildwise-favorites', JSON.stringify(newFavorites));
+      window.dispatchEvent(new CustomEvent('favoritesChanged', {
+        detail: { favorites: newFavorites, source: 'FavoritesManager' }
+      }));
     }
   };
 
   const handleRemoveFavorite = (id: string) => {
-    setFavorites(favorites.filter(fav => fav.id !== id));
+    const newFavorites = favorites.filter(fav => fav.id !== id);
+    setFavorites(newFavorites);
+    // Sofort speichern und Event auslösen
+    localStorage.setItem('buildwise-favorites', JSON.stringify(newFavorites));
+    window.dispatchEvent(new CustomEvent('favoritesChanged', {
+      detail: { favorites: newFavorites, source: 'FavoritesManager' }
+    }));
   };
 
   const handleDragStart = (index: number) => {
@@ -115,6 +157,11 @@ export default function FavoritesManager({ isOpen, onClose }: FavoritesManagerPr
       newFavorites.splice(index, 0, draggedItem);
       setFavorites(newFavorites);
       setDragIndex(index);
+      // Sofort speichern und Event auslösen
+      localStorage.setItem('buildwise-favorites', JSON.stringify(newFavorites));
+      window.dispatchEvent(new CustomEvent('favoritesChanged', {
+        detail: { favorites: newFavorites, source: 'FavoritesManager' }
+      }));
     }
   };
 
@@ -268,6 +315,8 @@ export default function FavoritesManager({ isOpen, onClose }: FavoritesManagerPr
                 onClick={() => {
                   setFavorites([]);
                   localStorage.removeItem('buildwise-favorites');
+                  // Event auslösen für andere Komponenten
+                  window.dispatchEvent(new Event('storage'));
                 }}
                 className="px-4 py-2 text-sm text-red-400 hover:bg-red-500/20 rounded-lg transition-colors"
               >

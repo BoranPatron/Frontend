@@ -277,6 +277,9 @@ export default function Dashboard() {
       ariaLabel: "Projekt- und Gewerkverwaltung öffnen",
       status: (isOnline ? 'online' : 'offline') as 'online' | 'offline',
       progress: { value: currentProject.progress_percentage, label: "Projektfortschritt" },
+      cardId: "manager",
+      path: "/",
+      iconString: "<Home size={16} />",
       children: (
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <Users size={16} />
@@ -291,6 +294,9 @@ export default function Dashboard() {
       onClick: onDocsClick,
       ariaLabel: "Dokumentenmanagement öffnen",
       badge: { text: `${projectStats.newDocuments} neue`, color: "blue" as const },
+      cardId: "docs",
+      path: "/documents",
+      iconString: "<FileText size={16} />",
       children: (
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <Upload size={16} />
@@ -305,6 +311,9 @@ export default function Dashboard() {
       onClick: onTodoClick,
       ariaLabel: "Aufgabenmanagement öffnen",
       badge: { text: `${projectStats.openTasks} offen`, color: "yellow" as const },
+      cardId: "tasks",
+      path: "/tasks",
+      iconString: "<CheckSquare size={16} />",
       children: (
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <Clock size={16} />
@@ -322,6 +331,9 @@ export default function Dashboard() {
         value: getBudgetUtilization(currentProject), 
         label: "Budget-Auslastung" 
       },
+      cardId: "finance",
+      path: "/finance",
+      iconString: "<Euro size={16} />",
       children: (
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <TrendingUp size={16} />
@@ -336,6 +348,9 @@ export default function Dashboard() {
       onClick: onOfferingClick,
       ariaLabel: "Angebote und Ausschreibungen öffnen",
       badge: { text: `${projectStats.newQuotes} neue`, color: "green" as const },
+      cardId: "quotes",
+      path: "/quotes",
+      iconString: "<MessageSquare size={16} />",
       children: (
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <MessageSquare size={16} />
@@ -349,6 +364,9 @@ export default function Dashboard() {
       icon: <BarChart3 size={32} />,
       onClick: onVisualizeClick,
       ariaLabel: "Analytics und Berichte öffnen",
+      cardId: "visualize",
+      path: "/visualize",
+      iconString: "<BarChart3 size={16} />",
       children: (
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <BarChart3 size={16} />
@@ -464,6 +482,9 @@ export default function Dashboard() {
             status={card.status}
             badge={card.badge}
             progress={card.progress}
+            cardId={card.cardId}
+            path={card.path}
+            iconString={card.iconString}
           >
             {card.children}
           </DashboardCard>
