@@ -2,14 +2,32 @@ import api, { safeApiCall } from './api';
 
 export async function getProjects() {
   return safeApiCall(async () => {
-    const res = await api.get('/projects');
-    return res.data;
+    try {
+      const res = await api.get('/projects');
+      return res.data;
+    } catch (error: any) {
+      // Spezielle Behandlung für Authentifizierungsfehler
+      if (error.name === 'AuthenticationError' || error.response?.status === 401) {
+        console.log('🔐 Authentifizierung erforderlich für Projekte');
+        throw new Error('Bitte melden Sie sich an, um Projekte zu laden');
+      }
+      throw error;
+    }
   });
 }
 
 export async function getProject(id: number) {
-  const res = await api.get(`/projects/${id}`);
-  return res.data;
+  try {
+    const res = await api.get(`/projects/${id}`);
+    return res.data;
+  } catch (error: any) {
+    // Spezielle Behandlung für Authentifizierungsfehler
+    if (error.name === 'AuthenticationError' || error.response?.status === 401) {
+      console.log('🔐 Authentifizierung erforderlich für Projekt-Details');
+      throw new Error('Bitte melden Sie sich an, um Projekt-Details zu laden');
+    }
+    throw error;
+  }
 }
 
 interface ProjectData {
@@ -29,20 +47,56 @@ interface ProjectData {
 }
 
 export async function createProject(data: ProjectData) {
-  const res = await api.post('/projects', data);
-  return res.data;
+  try {
+    const res = await api.post('/projects', data);
+    return res.data;
+  } catch (error: any) {
+    // Spezielle Behandlung für Authentifizierungsfehler
+    if (error.name === 'AuthenticationError' || error.response?.status === 401) {
+      console.log('🔐 Authentifizierung erforderlich für Projekt-Erstellung');
+      throw new Error('Bitte melden Sie sich an, um Projekte zu erstellen');
+    }
+    throw error;
+  }
 }
 
 export async function updateProject(id: number, data: Partial<ProjectData>) {
-  const res = await api.put(`/projects/${id}`, data);
-  return res.data;
+  try {
+    const res = await api.put(`/projects/${id}`, data);
+    return res.data;
+  } catch (error: any) {
+    // Spezielle Behandlung für Authentifizierungsfehler
+    if (error.name === 'AuthenticationError' || error.response?.status === 401) {
+      console.log('🔐 Authentifizierung erforderlich für Projekt-Updates');
+      throw new Error('Bitte melden Sie sich an, um Projekte zu bearbeiten');
+    }
+    throw error;
+  }
 }
 
 export async function deleteProject(id: number) {
-  await api.delete(`/projects/${id}`);
+  try {
+    await api.delete(`/projects/${id}`);
+  } catch (error: any) {
+    // Spezielle Behandlung für Authentifizierungsfehler
+    if (error.name === 'AuthenticationError' || error.response?.status === 401) {
+      console.log('🔐 Authentifizierung erforderlich für Projekt-Löschung');
+      throw new Error('Bitte melden Sie sich an, um Projekte zu löschen');
+    }
+    throw error;
+  }
 }
 
 export async function getProjectDashboard(id: number) {
-  const res = await api.get(`/projects/${id}/dashboard`);
-  return res.data;
+  try {
+    const res = await api.get(`/projects/${id}/dashboard`);
+    return res.data;
+  } catch (error: any) {
+    // Spezielle Behandlung für Authentifizierungsfehler
+    if (error.name === 'AuthenticationError' || error.response?.status === 401) {
+      console.log('🔐 Authentifizierung erforderlich für Projekt-Dashboard');
+      throw new Error('Bitte melden Sie sich an, um das Projekt-Dashboard zu laden');
+    }
+    throw error;
+  }
 } 

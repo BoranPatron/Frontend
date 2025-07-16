@@ -1,32 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  DollarSign, 
-  FileText, 
   Download, 
+  FileText, 
+  DollarSign, 
+  Calendar, 
   CheckCircle, 
+  XCircle, 
   Clock, 
   AlertTriangle,
-  Calendar,
-  TrendingUp,
-  BarChart3,
-  Receipt
+  Filter,
+  RefreshCw,
+  Plus,
+  Trash2,
+  Edit,
+  Eye,
+  Receipt,
+  TrendingUp
 } from 'lucide-react';
 import { 
   getBuildWiseFees, 
   getBuildWiseFeeStatistics, 
   markFeeAsPaid, 
-  generateInvoice,
-  downloadInvoice
+  generateInvoice, 
+  downloadInvoice,
+  formatCurrency as formatCurrencyUtil,
+  getStatusLabel as getStatusLabelUtil,
+  getStatusColor as getStatusColorUtil
 } from '../api/buildwiseFeeService';
 import type { BuildWiseFee, BuildWiseFeeStatistics } from '../api/buildwiseFeeService';
+import { getApiBaseUrl } from '../api/api';
 
 export default function BuildWiseFees() {
   const [fees, setFees] = useState<BuildWiseFee[]>([]);
   const [statistics, setStatistics] = useState<BuildWiseFeeStatistics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [success, setSuccess] = useState<string>('');
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const [selectedProject, setSelectedProject] = useState<number | null>(null);
 
   useEffect(() => {
     loadData();
@@ -68,11 +82,189 @@ export default function BuildWiseFees() {
 
   const handleDownloadInvoice = async (feeId: number) => {
     try {
-      const result = await downloadInvoice(feeId);
-      // TODO: Implementiere tatsächlichen Download
-      console.log('Download-Link:', result.download_url);
-    } catch (error) {
-      console.error('Fehler beim Download der Rechnung:', error);
+      console.log('📥 Starte PDF-Download für Gebühr:', feeId);
+      
+      // Hole Token für Authorization
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('Kein Token verfügbar');
+        setError('Kein Token verfügbar');
+        return;
+      }
+      
+      // Versuche Backend-Download
+      const response = await fetch(`${getApiBaseUrl()}/buildwise-fees/${feeId}/download-invoice`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Backend-Download erfolgreich:', data);
+        
+        // Lade PDF vom Backend
+        const pdfResponse = await fetch(`${getApiBaseUrl()}/buildwise-fees/${feeId}/invoice.pdf`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (pdfResponse.ok) {
+          const blob = await pdfResponse.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = data.filename || `buildwise_invoice_${feeId}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          
+          setSuccess('PDF-Rechnung erfolgreich heruntergeladen!');
+          setTimeout(() => setSuccess(''), 5000);
+        } else {
+          throw new Error(`PDF-Download fehlgeschlagen: ${pdfResponse.status}`);
+        }
+      } else {
+        throw new Error(`Download fehlgeschlagen: ${response.status}`);
+      }
+    } catch (error: any) {
+      console.error('❌ PDF-Download fehlgeschlagen:', error);
+      
+      // Fallback: Generiere einfache PDF im Frontend
+      try {
+        console.log('🔄 Verwende Frontend-Fallback für PDF-Generierung...');
+        await generateFrontendPDF(feeId);
+      } catch (fallbackError) {
+        console.error('❌ Auch Frontend-Fallback fehlgeschlagen:', fallbackError);
+        setError(`PDF-Download fehlgeschlagen: ${error.message}`);
+      }
+    }
+  };
+
+  // Frontend-Fallback für PDF-Generierung
+  const generateFrontendPDF = async (feeId: number) => {
+    try {
+      // Finde die Gebühr in den geladenen Daten
+      const fee = fees.find(f => f.id === feeId);
+      if (!fee) {
+        throw new Error('Gebühr nicht gefunden');
+      }
+
+      // Erstelle HTML-Inhalt für die Rechnung
+      const invoiceHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>BuildWise Rechnung</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .header h1 { color: #2c3539; margin: 0; }
+            .header h2 { color: #ffbd59; margin: 10px 0; }
+            .section { margin: 20px 0; }
+            .section h3 { color: #ffbd59; border-bottom: 2px solid #ffbd59; padding-bottom: 5px; }
+            .info-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+            .info-table td { padding: 8px; border-bottom: 1px solid #eee; }
+            .info-table td:first-child { font-weight: bold; width: 200px; }
+            .calculation { background: #f9f9f9; padding: 15px; margin: 20px 0; }
+            .calculation table { width: 100%; }
+            .calculation td { padding: 5px; }
+            .calculation td:first-child { font-weight: bold; }
+            .footer { margin-top: 40px; font-size: 12px; color: #666; }
+            @media print {
+              body { margin: 20px; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>BUILDWISE GMBH</h1>
+            <h2>Rechnung</h2>
+          </div>
+          
+          <div class="section">
+            <h3>Rechnungsinformationen</h3>
+            <table class="info-table">
+              <tr><td>Rechnungsnummer:</td><td>${fee.invoice_number || `BW-${fee.id.toString().padStart(6, '0')}`}</td></tr>
+              <tr><td>Rechnungsdatum:</td><td>${formatDate(fee.invoice_date || '')}</td></tr>
+              <tr><td>Fälligkeitsdatum:</td><td>${formatDate(fee.due_date || '')}</td></tr>
+              <tr><td>Status:</td><td>${getStatusLabel(fee.status)}</td></tr>
+            </table>
+          </div>
+          
+          <div class="section">
+            <h3>Gebühren-Details</h3>
+            <table class="info-table">
+              <tr><td>Gebührenbetrag:</td><td>${formatCurrency(fee.fee_amount)}</td></tr>
+              <tr><td>Gebühren-Prozentsatz:</td><td>${fee.fee_percentage}%</td></tr>
+              <tr><td>Angebotsbetrag:</td><td>${formatCurrency(fee.quote_amount)}</td></tr>
+              <tr><td>Währung:</td><td>${fee.currency}</td></tr>
+            </table>
+          </div>
+          
+          <div class="section">
+            <h3>Steuerberechnung</h3>
+            <div class="calculation">
+              <table>
+                <tr><td>Netto-Betrag:</td><td>${formatCurrency(fee.fee_amount)}</td></tr>
+                <tr><td>Steuersatz:</td><td>${fee.tax_rate || 19.0}%</td></tr>
+                <tr><td>Steuerbetrag:</td><td>${formatCurrency(fee.fee_amount * ((fee.tax_rate || 19.0) / 100))}</td></tr>
+                <tr><td><strong>Brutto-Betrag:</strong></td><td><strong>${formatCurrency(fee.fee_amount * (1 + (fee.tax_rate || 19.0) / 100))}</strong></td></tr>
+              </table>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <strong>BuildWise GmbH</strong><br>
+            Musterstraße 123<br>
+            12345 Musterstadt<br>
+            Deutschland<br><br>
+            
+            <strong>Kontakt:</strong><br>
+            E-Mail: info@buildwise.de<br>
+            Telefon: +49 123 456789<br>
+            Website: www.buildwise.de<br><br>
+            
+            <strong>Bankverbindung:</strong><br>
+            IBAN: DE12 3456 7890 1234 5678 90<br>
+            BIC: DEUTDEDB123<br>
+            Bank: Deutsche Bank AG
+          </div>
+          
+          <div class="no-print" style="margin-top: 30px; text-align: center;">
+            <button onclick="window.print()">PDF drucken</button>
+            <button onclick="window.close()">Schließen</button>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Öffne neues Fenster mit der Rechnung
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(invoiceHTML);
+        printWindow.document.close();
+        
+        // Automatisch drucken nach kurzer Verzögerung
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+        
+        setSuccess('Rechnung erfolgreich generiert!');
+        setTimeout(() => setSuccess(''), 5000);
+      } else {
+        throw new Error('Popup-Blocker verhindert das Öffnen der Rechnung');
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Frontend-PDF-Generierung fehlgeschlagen:', error);
+      throw error;
     }
   };
 
@@ -283,7 +475,7 @@ export default function BuildWiseFees() {
                 <tr key={fee.id} className="hover:bg-[#3d4952] transition">
                   <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-white">{fee.invoice_number || `BW-${fee.id}`}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="text-sm font-medium text-white">{formatCurrency(fee.total_amount)}</div>
+                    <div className="text-sm font-medium text-white">{formatCurrency(fee.fee_amount)}</div>
                     <div className="text-xs text-gray-400">{fee.fee_percentage}% von akzeptierten Angeboten</div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">

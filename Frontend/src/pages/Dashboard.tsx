@@ -44,7 +44,7 @@ interface Project {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { isInitialized } = useAuth();
+  const { isInitialized, isAuthenticated } = useAuth();
   const { 
     projects, 
     selectedProject, 
@@ -71,6 +71,14 @@ export default function Dashboard() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // Weiterleitung zur Login-Seite wenn nicht authentifiziert
+  useEffect(() => {
+    if (isInitialized && !isAuthenticated()) {
+      console.log('🔐 Benutzer nicht authentifiziert - Weiterleitung zur Login-Seite');
+      navigate('/login?message=please_login');
+    }
+  }, [isInitialized, isAuthenticated, navigate]);
 
   // Swipe-Handler für Projekt-Navigation
   const handleSwipe = (direction: 'left' | 'right') => {
@@ -239,6 +247,26 @@ export default function Dashboard() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ffbd59] mx-auto mb-4"></div>
           <p className="text-white">Initialisiere Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Zeige Login-Aufforderung wenn nicht authentifiziert
+  if (!isAuthenticated()) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="bg-blue-500/20 border border-blue-500/30 rounded-xl p-6 mb-4">
+            <h2 className="text-xl font-semibold text-blue-300 mb-2">Anmeldung erforderlich</h2>
+            <p className="text-blue-200 mb-4">Bitte melden Sie sich an, um auf Ihre Projekte zuzugreifen.</p>
+            <button
+              onClick={() => navigate('/login')}
+              className="bg-[#ffbd59] text-[#2c3539] px-4 py-2 rounded-lg font-medium hover:bg-[#ffa726] transition-colors"
+            >
+              Zum Login
+            </button>
+          </div>
         </div>
       </div>
     );

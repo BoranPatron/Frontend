@@ -194,8 +194,11 @@ api.interceptors.response.use(
     // Andere Fehlerbehandlung
     if (error.response?.status === 401) {
       console.log('ℹ️ 401 Unauthorized - Token abgelaufen oder ungültig');
-      // Bei 401-Fehlern nicht als kritischer Fehler behandeln
-      return Promise.reject(error);
+      // Bei 401-Fehlern nicht als kritischer Fehler behandeln, sondern als normale Authentifizierungsaufforderung
+      const authError = new Error('Authentication required');
+      authError.name = 'AuthenticationError';
+      (authError as any).response = error.response;
+      return Promise.reject(authError);
     } else if (error.response?.status === 403) {
       console.error('🚫 Forbidden - Keine Berechtigung');
     } else if (error.response?.status === 404) {

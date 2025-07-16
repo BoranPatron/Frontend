@@ -139,18 +139,25 @@ export default function DashboardCard({
       <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59]/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
       
       {/* Favoriten-Stern */}
-      <button
+      <div
         onClick={handleFavoriteToggle}
-        className={`absolute top-4 left-4 z-10 p-2 rounded-full transition-all duration-300 ${
+        className={`absolute top-4 left-4 z-10 p-2 rounded-full transition-all duration-300 cursor-pointer ${
           isFavorite 
             ? 'bg-[#ffbd59] text-[#2c3539] shadow-lg' 
             : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-[#ffbd59]'
         }`}
         title={isFavorite ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}
-        type="button"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleFavoriteToggle(e as any);
+          }
+        }}
       >
         <Star size={16} className={isFavorite ? 'fill-current' : ''} />
-      </button>
+      </div>
       
       {/* Status Indicator */}
       {status && (

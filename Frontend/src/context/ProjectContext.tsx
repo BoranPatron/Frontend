@@ -39,23 +39,29 @@ interface ProjectContextType {
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
-  const { isInitialized, user } = useAuth();
+  const { isInitialized, user, isAuthenticated } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedProjectIndex, setSelectedProjectIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Lade Projekte nur wenn AuthContext initialisiert ist und User vorhanden ist
+  // Lade Projekte nur wenn AuthContext initialisiert ist und User authentifiziert ist
   useEffect(() => {
-    if (isInitialized && user) {
-      console.log('🔍 AuthContext bereit - lade Projekte...');
-      loadProjects();
-    } else if (isInitialized && !user) {
-      console.log('🔍 AuthContext initialisiert, aber kein User - setze Loading auf false');
-      setIsLoading(false);
+    if (isInitialized) {
+      if (isAuthenticated() && user) {
+        console.log('🔍 Benutzer authentifiziert - lade Projekte...');
+        loadProjects();
+      } else {
+        console.log('🔍 Benutzer nicht authentifiziert - setze Loading auf false');
+        setIsLoading(false);
+        setProjects([]);
+        setSelectedProject(null);
+        setSelectedProjectIndex(0);
+        setError('');
+      }
     }
-  }, [isInitialized, user]);
+  }, [isInitialized, user, isAuthenticated]);
 
   // Persistiere Projektauswahl in localStorage
   useEffect(() => {
@@ -103,10 +109,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   }, [projects]);
 
   const loadProjects = async () => {
-    // Prüfe nochmal ob User vorhanden ist
-    if (!user) {
-      console.log('⚠️ Kein User vorhanden - überspringe Projekt-Loading');
+    // Prüfe nochmal ob User authentifiziert ist
+    if (!isAuthenticated() || !user) {
+      console.log('⚠️ Benutzer nicht authentifiziert - überspringe Projekt-Loading');
       setIsLoading(false);
+      setProjects([]);
+      setSelectedProject(null);
+      setSelectedProjectIndex(0);
+      setError('');
       return;
     }
 
@@ -128,10 +138,20 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err: any) {
       console.error('❌ Fehler beim Laden der Projekte:', err);
-      setError(err.message || 'Fehler beim Laden der Projekte');
-      setProjects([]);
-      setSelectedProject(null);
-      setSelectedProjectIndex(0);
+      
+      // Spezielle Behandlung für 401-Fehler (nicht authentifiziert)
+      if (err.response?.status === 401) {
+        console.log('🔐 401 Unauthorized - Benutzer nicht authentifiziert');
+        setError('Bitte melden Sie sich an, um Projekte zu laden');
+        setProjects([]);
+        setSelectedProject(null);
+        setSelectedProjectIndex(0);
+      } else {
+        setError(err.message || 'Fehler beim Laden der Projekte');
+        setProjects([]);
+        setSelectedProject(null);
+        setSelectedProjectIndex(0);
+      }
     } finally {
       setIsLoading(false);
     }

@@ -6,6 +6,7 @@ import { getMilestones, createMilestone, updateMilestone, getAllMilestones, dele
 import { getProjects } from '../api/projectService';
 
 import { getQuotesForMilestone, createMockQuotesForMilestone, acceptQuote, resetQuote, createQuote, updateQuote, deleteQuote, submitQuote, rejectQuote, withdrawQuote } from '../api/quoteService';
+import { createFeeFromQuote } from '../api/buildwiseFeeService';
 import { uploadDocument } from '../api/documentService';
 import api from '../api/api';
 import TradeCreationForm from '../components/TradeCreationForm';
@@ -564,6 +565,20 @@ export default function Trades() {
           quote: acceptedQuote,
           user: user
         });
+        
+        // Erstelle automatisch BuildWise-Gebühr
+        try {
+          console.log('💰 Erstelle BuildWise-Gebühr für akzeptiertes Angebot...');
+          const buildwiseFee = await createFeeFromQuote(
+            quoteId,
+            acceptedQuote.id, // Verwende quoteId als cost_position_id (temporär)
+            1.0 // 1% Gebühr
+          );
+          console.log('✅ BuildWise-Gebühr erfolgreich erstellt:', buildwiseFee);
+        } catch (feeError: any) {
+          console.error('❌ Fehler beim Erstellen der BuildWise-Gebühr:', feeError);
+          // Gebühren-Fehler nicht kritisch behandeln, da Angebot bereits akzeptiert wurde
+        }
         
         // Setze Daten für Auftragsbestätigung
         setOrderConfirmationData({
