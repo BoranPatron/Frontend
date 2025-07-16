@@ -1,4 +1,5 @@
 import api, { safeApiCall } from './api';
+import { getApiBaseUrl } from './api';
 
 export interface BuildWiseFee {
   id: number;
@@ -123,16 +124,54 @@ export async function getBuildWiseFees(
   skip: number = 0,
   limit: number = 100
 ): Promise<BuildWiseFee[]> {
-  return safeApiCall(async () => {
-    const params: any = { skip, limit };
-    if (month) params.month = month;
-    if (year) params.year = year;
-    if (projectId) params.project_id = projectId;
-    if (status) params.status = status;
+  try {
+    console.log('🔍 Lade BuildWise-Gebühren mit Parametern:', { month, year, projectId, status, skip, limit });
     
-    const res = await api.get('/buildwise-fees/', { params });
-    return res.data;
-  });
+    const params = new URLSearchParams();
+    if (skip > 0) params.append('skip', skip.toString());
+    if (limit !== 100) params.append('limit', limit.toString());
+    if (projectId) params.append('project_id', projectId.toString());
+    if (status) params.append('status', status);
+    if (month) params.append('month', month.toString());
+    if (year) params.append('year', year.toString());
+    
+    const url = `${getApiBaseUrl()}/buildwise-fees/?${params.toString()}`;
+    console.log('🚀 API Request URL:', url);
+    
+    const response = await api.get(url);
+    console.log('✅ BuildWise-Gebühren erfolgreich geladen:', response.data);
+    console.log('📊 Anzahl geladener Gebühren:', response.data.length);
+    
+    // Debug: Zeige Details der ersten 3 Gebühren
+    if (response.data.length > 0) {
+      console.log('📋 Erste Gebühren:');
+      response.data.slice(0, 3).forEach((fee: BuildWiseFee, index: number) => {
+        console.log(`  Gebühr ${index + 1}: ID=${fee.id}, Project=${fee.project_id}, Status=${fee.status}, Amount=${fee.fee_amount}`);
+      });
+    }
+    
+    return response.data;
+    
+  } catch (error: any) {
+    console.error('❌ Fehler beim Laden der BuildWise-Gebühren:', error);
+    
+    // Fallback: Versuche ohne Filter
+    if (month || year || projectId || status) {
+      console.log('🔄 Versuche Fallback ohne Filter...');
+      try {
+        const fallbackResponse = await api.get(`${getApiBaseUrl()}/buildwise-fees/?skip=${skip}&limit=${limit}`);
+        console.log('✅ Fallback erfolgreich:', fallbackResponse.data);
+        console.log('📊 Anzahl Gebühren im Fallback:', fallbackResponse.data.length);
+        return fallbackResponse.data;
+      } catch (fallbackError: any) {
+        console.error('❌ Fallback fehlgeschlagen:', fallbackError);
+      }
+    }
+    
+    // Leerer Fallback
+    console.log('⚠️ Verwende leeren Fallback');
+    return [];
+  }
 }
 
 export async function getBuildWiseFeeStatistics(): Promise<BuildWiseFeeStatistics> {

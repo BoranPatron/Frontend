@@ -49,14 +49,23 @@ export default function BuildWiseFees() {
   const loadData = async () => {
     try {
       setLoading(true);
+      console.log('🔍 Lade BuildWise-Gebühren...');
+      console.log('📅 Ausgewählter Monat/Year:', selectedMonth, selectedYear);
+      
       const [feesData, statsData] = await Promise.all([
         getBuildWiseFees(selectedMonth, selectedYear),
         getBuildWiseFeeStatistics()
       ]);
+      
+      console.log('📊 Geladene Gebühren:', feesData);
+      console.log('📈 Statistiken:', statsData);
+      
       setFees(feesData);
       setStatistics(statsData);
+      
+      console.log('✅ BuildWise-Gebühren erfolgreich geladen');
     } catch (error) {
-      console.error('Fehler beim Laden der BuildWise-Gebühren:', error);
+      console.error('❌ Fehler beim Laden der BuildWise-Gebühren:', error);
     } finally {
       setLoading(false);
     }
@@ -73,10 +82,26 @@ export default function BuildWiseFees() {
 
   const handleGenerateInvoice = async (feeId: number) => {
     try {
+      console.log('📄 Generiere PDF-Rechnung für Gebühr:', feeId);
+      
+      // Generiere PDF
       await generateInvoice(feeId);
-      await loadData(); // Daten neu laden
+      
+      // Warte kurz und lade dann Daten neu
+      setTimeout(async () => {
+        await loadData();
+        
+        // Versuche automatisch den Download zu starten
+        try {
+          await handleDownloadInvoice(feeId);
+        } catch (downloadError) {
+          console.log('Automatischer Download fehlgeschlagen, aber PDF wurde generiert');
+        }
+      }, 1000);
+      
     } catch (error) {
       console.error('Fehler beim Generieren der Rechnung:', error);
+      setError('Fehler beim Generieren der Rechnung');
     }
   };
 
@@ -488,12 +513,14 @@ export default function BuildWiseFees() {
                       {fee.status === 'open' && (
                         <button onClick={() => handleMarkAsPaid(fee.id)} className="text-green-400 hover:text-green-300" title="Als bezahlt markieren"><CheckCircle className="w-5 h-5" /></button>
                       )}
-                      {!fee.invoice_pdf_generated && (
-                        <button onClick={() => handleGenerateInvoice(fee.id)} className="text-[#ffbd59] hover:text-[#ffa726]" title="PDF-Rechnung generieren"><FileText className="w-5 h-5" /></button>
-                      )}
-                      {fee.invoice_pdf_generated && (
-                        <button onClick={() => handleDownloadInvoice(fee.id)} className="text-[#ffbd59] hover:text-[#ffa726]" title="PDF-Rechnung herunterladen"><Download className="w-5 h-5" /></button>
-                      )}
+                      {/* Zeige immer einen Download-Button */}
+                      <button 
+                        onClick={() => fee.invoice_pdf_generated ? handleDownloadInvoice(fee.id) : handleGenerateInvoice(fee.id)} 
+                        className="text-[#ffbd59] hover:text-[#ffa726]" 
+                        title={fee.invoice_pdf_generated ? "PDF-Rechnung herunterladen" : "PDF-Rechnung generieren und herunterladen"}
+                      >
+                        <Download className="w-5 h-5" />
+                      </button>
                     </div>
                   </td>
                 </tr>
