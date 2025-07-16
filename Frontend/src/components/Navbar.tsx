@@ -245,12 +245,27 @@ export default function Navbar() {
               </div>
               )}
 
-              {/* BuildWise-Gebühren - nur für Bauträger */}
+              {/* Pro-Button - nur für Bauträger */}
               {!isServiceProvider() && (
               <Link
                 to="/buildwise-fees"
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
                   isActive('/buildwise-fees') 
+                    ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold shadow-lg' 
+                    : 'text-purple-200 hover:bg-purple-500/20 hover:text-purple-100 border border-purple-400/30'
+                }`}
+              >
+                <Star size={18} />
+                <span>Pro</span>
+              </Link>
+              )}
+
+              {/* BuildWise-Gebühren - nur für Dienstleister */}
+              {isServiceProvider() && (
+              <Link
+                to="/service-provider-buildwise-fees"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                  isActive('/service-provider-buildwise-fees') 
                     ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
                     : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
                 }`}

@@ -62,7 +62,8 @@ export default function ServiceProviderDashboard() {
           <span>Angebote abgeben</span>
         </div>
       )
-    }
+    },
+
   ];
 
   const dashboardCards = getDashboardCards();

@@ -19,6 +19,7 @@ import GlobalMessages from './pages/GlobalMessages';
 import Roadmap from './pages/Roadmap';
 import GlobalProjects from './pages/GlobalProjects';
 import BuildWiseFees from './pages/BuildWiseFees';
+import ServiceProviderBuildWiseFees from './pages/ServiceProviderBuildWiseFees';
 import Canvas from './pages/Canvas';
 
 // Error Boundary
@@ -202,6 +203,11 @@ function AppContent() {
         <Route path="/buildwise-fees" element={
           <ProtectedRoute>
             <BuildWiseFees />
+          </ProtectedRoute>
+        } />
+        <Route path="/service-provider-buildwise-fees" element={
+          <ProtectedRoute>
+            <ServiceProviderBuildWiseFees />
           </ProtectedRoute>
         } />
         <Route path="/visualize" element={

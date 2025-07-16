@@ -173,6 +173,14 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center p-4">
       <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 w-full max-w-md border border-white/20 shadow-2xl">
         <div className="text-center mb-8">
+          {/* Logo zentral über der Login-Eingabe */}
+          <div className="flex justify-center mb-6">
+            <img 
+              src="/src/logo_trans_big.png" 
+              alt="BuildWise Logo" 
+              className="h-40 w-auto object-contain"
+            />
+          </div>
           <h1 className="text-3xl font-bold text-[#ffbd59] mb-2">BuildWise</h1>
           <p className="text-gray-300">Anmelden zu Ihrem Konto</p>
         </div>
