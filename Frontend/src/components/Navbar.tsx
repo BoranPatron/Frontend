@@ -30,7 +30,8 @@ import {
   TrendingUp,
   Upload,
   Clock,
-  MapPin
+  MapPin,
+  Plus
 } from 'lucide-react';
 import logo from '../logo_trans_big.png';
 import FavoritesManager from './FavoritesManager';
@@ -53,6 +54,9 @@ export default function Navbar() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showFavoritesManager, setShowFavoritesManager] = useState(false);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+  
+  // State für Projekt-Erstellung
+  const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
 
   // Favoriten aus localStorage laden
   useEffect(() => {
@@ -135,6 +139,15 @@ export default function Navbar() {
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
     document.documentElement.classList.toggle('dark');
+  };
+
+  // Projekt-Erstellung Funktionen
+  const handleCreateProjectClick = () => {
+    setShowCreateProjectModal(true);
+  };
+
+  const handleCloseCreateProjectModal = () => {
+    setShowCreateProjectModal(false);
   };
 
   const getProjectIdFromPath = () => {
@@ -342,6 +355,19 @@ export default function Navbar() {
             </div>
           </div>
 
+          {/* Mittiger "Neues Projekt" Button - nur für Bauträger */}
+          {!isServiceProvider() && (
+            <div className="hidden md:flex items-center justify-center flex-1">
+              <button
+                onClick={handleCreateProjectClick}
+                className="flex items-center gap-2 bg-[#ffbd59] hover:bg-[#ffa726] text-[#2c3539] px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+              >
+                <Plus size={16} />
+                <span className="text-sm">Neues Projekt</span>
+              </button>
+            </div>
+          )}
+
           {/* Rechte Seite */}
           <div className="flex items-center gap-4">
             {/* Benachrichtigungen */}
@@ -548,6 +574,54 @@ export default function Navbar() {
         isOpen={showFavoritesManager} 
         onClose={() => setShowFavoritesManager(false)} 
       />
+
+      {/* Projekt-Erstellungs-Modal */}
+      {showCreateProjectModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">Neues Projekt erstellen</h2>
+                <button
+                  onClick={handleCloseCreateProjectModal}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="text-center py-8">
+                <div className="text-gray-500 mb-4">
+                  <Plus size={48} className="mx-auto mb-4 text-[#ffbd59]" />
+                  <h3 className="text-lg font-semibold text-gray-700 mb-2">Projekt-Erstellung</h3>
+                  <p className="text-gray-500">
+                    Die Projekt-Erstellung wird über das Dashboard verwaltet.
+                  </p>
+                </div>
+                
+                <div className="space-y-4">
+                  <button
+                    onClick={() => {
+                      handleCloseCreateProjectModal();
+                      window.location.href = '/';
+                    }}
+                    className="bg-[#ffbd59] hover:bg-[#ffa726] text-[#2c3539] px-6 py-3 rounded-lg font-semibold transition-colors duration-200"
+                  >
+                    Zum Dashboard
+                  </button>
+                  
+                  <button
+                    onClick={handleCloseCreateProjectModal}
+                    className="text-gray-500 hover:text-gray-700 px-6 py-3 rounded-lg transition-colors duration-200"
+                  >
+                    Abbrechen
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 } 
