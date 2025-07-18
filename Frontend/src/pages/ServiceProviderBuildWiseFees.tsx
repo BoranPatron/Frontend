@@ -99,8 +99,10 @@ export default function ServiceProviderBuildWiseFees() {
           await handleDownloadInvoice(feeId);
         } catch (downloadError) {
           console.log('Automatischer Download fehlgeschlagen, aber PDF wurde generiert');
+          setSuccess('PDF-Rechnung wurde generiert. Sie können sie jetzt herunterladen.');
+          setTimeout(() => setSuccess(''), 5000);
         }
-      }, 1000);
+      }, 2000); // Erhöhe Wartezeit auf 2 Sekunden
       
     } catch (error) {
       console.error('Fehler beim Generieren der Rechnung:', error);
@@ -120,33 +122,27 @@ export default function ServiceProviderBuildWiseFees() {
         return;
       }
       
-      // Versuche Backend-Download
-      const response = await fetch(`${getApiBaseUrl()}/buildwise-fees/${feeId}/download-invoice`, {
+      // Direkter PDF-Download ohne separate Metadaten-Abfrage
+      const pdfResponse = await fetch(`${getApiBaseUrl()}/buildwise-fees/${feeId}/invoice.pdf`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
         }
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Backend-Download erfolgreich:', data);
+      console.log('📄 PDF-Response Status:', pdfResponse.status);
+      console.log('📄 PDF-Response Headers:', Object.fromEntries(pdfResponse.headers.entries()));
+      
+      if (pdfResponse.ok) {
+        const blob = await pdfResponse.blob();
+        console.log('📄 PDF Blob Größe:', blob.size);
+        console.log('📄 PDF Blob Type:', blob.type);
         
-        // Lade PDF vom Backend
-        const pdfResponse = await fetch(`${getApiBaseUrl()}/buildwise-fees/${feeId}/invoice.pdf`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (pdfResponse.ok) {
-          const blob = await pdfResponse.blob();
+        if (blob.size > 0) {
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = data.filename || `buildwise_invoice_${feeId}.pdf`;
+          a.download = `buildwise_invoice_${feeId}.pdf`;
           document.body.appendChild(a);
           a.click();
           window.URL.revokeObjectURL(url);
@@ -155,10 +151,21 @@ export default function ServiceProviderBuildWiseFees() {
           setSuccess('PDF-Rechnung erfolgreich heruntergeladen!');
           setTimeout(() => setSuccess(''), 5000);
         } else {
-          throw new Error(`PDF-Download fehlgeschlagen: ${pdfResponse.status}`);
+          throw new Error('PDF-Datei ist leer');
         }
       } else {
-        throw new Error(`Download fehlgeschlagen: ${response.status}`);
+        const errorText = await pdfResponse.text();
+        console.error('PDF-Download Fehler:', errorText);
+        
+        if (pdfResponse.status === 404) {
+          setError('PDF-Rechnung wurde noch nicht generiert. Bitte generieren Sie zuerst die Rechnung.');
+        } else if (pdfResponse.status === 401) {
+          setError('Nicht autorisiert. Bitte melden Sie sich erneut an.');
+        } else if (pdfResponse.status === 500) {
+          setError('Server-Fehler beim PDF-Download. Bitte versuchen Sie es später erneut.');
+        } else {
+          throw new Error(`PDF-Download fehlgeschlagen: ${pdfResponse.status} - ${errorText}`);
+        }
       }
     } catch (error: any) {
       console.error('❌ PDF-Download fehlgeschlagen:', error);
@@ -314,7 +321,7 @@ export default function ServiceProviderBuildWiseFees() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-300">Bezahlt</p>
-                  <p className="text-2xl font-bold text-green-400">{formatCurrency(statistics.paid_fees)}</p>
+                  <p className="text-2xl font-bold text-green-400">{formatCurrency(statistics.total_paid)}</p>
                 </div>
                 <CheckCircle className="w-8 h-8 text-green-400" />
               </div>
@@ -322,8 +329,8 @@ export default function ServiceProviderBuildWiseFees() {
             <div className="bg-white/5 backdrop-blur-lg rounded-lg p-6 border border-white/10">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-300">Ausstehend</p>
-                  <p className="text-2xl font-bold text-yellow-400">{formatCurrency(statistics.pending_fees)}</p>
+                  <p className="text-sm text-gray-300">Offen</p>
+                  <p className="text-2xl font-bold text-yellow-400">{formatCurrency(statistics.total_open)}</p>
                 </div>
                 <Clock className="w-8 h-8 text-yellow-400" />
               </div>
@@ -332,7 +339,7 @@ export default function ServiceProviderBuildWiseFees() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-300">Überfällig</p>
-                  <p className="text-2xl font-bold text-red-400">{formatCurrency(statistics.overdue_fees)}</p>
+                  <p className="text-2xl font-bold text-red-400">{formatCurrency(statistics.total_overdue)}</p>
                 </div>
                 <AlertTriangle className="w-8 h-8 text-red-400" />
               </div>

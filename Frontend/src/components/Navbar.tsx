@@ -29,7 +29,8 @@ import {
   MessageSquare,
   TrendingUp,
   Upload,
-  Clock
+  Clock,
+  MapPin
 } from 'lucide-react';
 import logo from '../logo_trans_big.png';
 import FavoritesManager from './FavoritesManager';
@@ -300,6 +301,7 @@ export default function Navbar() {
                     <Handshake size={18} />
                     <span>Gewerke</span>
                   </Link>
+
                 </>
               )}
 

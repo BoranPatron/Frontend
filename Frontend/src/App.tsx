@@ -21,6 +21,7 @@ import GlobalProjects from './pages/GlobalProjects';
 import BuildWiseFees from './pages/BuildWiseFees';
 import ServiceProviderBuildWiseFees from './pages/ServiceProviderBuildWiseFees';
 import Canvas from './pages/Canvas';
+import GeoSearch from './pages/GeoSearch';
 
 // Error Boundary
 class ErrorBoundary extends React.Component<
@@ -233,6 +234,11 @@ function AppContent() {
         <Route path="/messages/:projectId" element={
           <ProtectedRoute>
             <Messages />
+          </ProtectedRoute>
+        } />
+        <Route path="/geo-search" element={
+          <ProtectedRoute>
+            <GeoSearch />
           </ProtectedRoute>
         } />
         {/* Fallback für unbekannte Routen */}
