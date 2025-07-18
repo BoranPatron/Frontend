@@ -96,6 +96,11 @@
   /* WICHTIG: Keine transform-Eigenschaft hier */
 }
 
+/* Erweiterte Tooltips für Cluster-Marker */
+.cluster-marker .leaflet-marker-icon > div {
+  position: relative;
+}
+
 /* Animation für Cluster-Marker */
 @keyframes clusterPulse {
   0% {
@@ -153,5 +158,12 @@
   
   .cluster-marker .leaflet-marker-icon > div > div {
     font-size: 10px;
+  }
+  
+  /* Kleinere Tooltips auf mobilen Geräten */
+  .cluster-marker .leaflet-marker-icon > div::after {
+    max-width: 250px;
+    font-size: 11px;
+    padding: 6px 10px;
   }
 }

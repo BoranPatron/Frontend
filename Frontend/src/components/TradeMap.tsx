@@ -285,6 +285,11 @@ export default function TradeMap({
       ">${icon.options.html}</div>`;
     }).join('');
     
+    // Erstelle Tooltip-Inhalt für Hover
+    const tooltipContent = trades.map(trade => 
+      `• ${trade.title} (${trade.category || 'Unbekannt'})`
+    ).join('<br>');
+    
     return L.divIcon({
       html: `
         <div style="
@@ -298,8 +303,14 @@ export default function TradeMap({
           display: flex;
           align-items: center;
           justify-content: center;
+          cursor: pointer;
           /* WICHTIG: Keine transform-Eigenschaft hier */
-        ">
+        " 
+        title="${trades.length} Gewerke an dieser Adresse"
+        data-tooltip="${tooltipContent}"
+        data-trades-count="${trades.length}"
+        class="cluster-marker-container"
+        >
           ${iconsHTML}
           ${trades.length > 4 ? `<div style="
             position: absolute;
@@ -325,6 +336,124 @@ export default function TradeMap({
       iconAnchor: [width / 2, height / 2], // Wichtig: Anker muss genau in der Mitte sein
       popupAnchor: [0, -height / 2]
     });
+  };
+
+  // Erstelle Tooltip-Element für Cluster-Marker
+  const createTooltip = () => {
+    const tooltip = document.createElement('div');
+    tooltip.id = 'cluster-tooltip';
+    tooltip.style.cssText = `
+      position: absolute;
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: normal;
+      z-index: 10000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+      pointer-events: none;
+      max-width: 300px;
+      text-align: left;
+      line-height: 1.4;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transform: translateX(-50%);
+    `;
+    document.body.appendChild(tooltip);
+    return tooltip;
+  };
+
+  // Aktiviere Hover-Funktionalität für Cluster-Marker
+  const activateClusterHover = () => {
+    let tooltip = document.getElementById('cluster-tooltip');
+    if (!tooltip) {
+      tooltip = createTooltip();
+    }
+
+    const clusterMarkers = document.querySelectorAll('.cluster-marker-container');
+    
+    clusterMarkers.forEach(marker => {
+      // Entferne bestehende Event-Listener
+      const existingEnterHandler = (marker as any)._mouseEnterHandler;
+      const existingLeaveHandler = (marker as any)._mouseLeaveHandler;
+      
+      if (existingEnterHandler) {
+        marker.removeEventListener('mouseenter', existingEnterHandler);
+      }
+      if (existingLeaveHandler) {
+        marker.removeEventListener('mouseleave', existingLeaveHandler);
+      }
+      
+      // Mouse Enter Handler
+      const mouseEnterHandler = (e: Event) => {
+        const tooltipContent = marker.getAttribute('data-tooltip');
+        const tradesCount = marker.getAttribute('data-trades-count');
+        
+        if (tooltipContent) {
+          tooltip.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 4px;">
+              ${tradesCount} Gewerke an dieser Adresse:
+            </div>
+            <div style="font-size: 11px;">
+              ${tooltipContent}
+            </div>
+          `;
+          
+          // Positioniere Tooltip
+          const rect = marker.getBoundingClientRect();
+          tooltip.style.left = rect.left + rect.width / 2 + 'px';
+          tooltip.style.top = rect.top - 10 + 'px';
+          
+          // Zeige Tooltip
+          tooltip.style.opacity = '1';
+          tooltip.style.visibility = 'visible';
+        }
+      };
+      
+      // Mouse Leave Handler
+      const mouseLeaveHandler = () => {
+        tooltip.style.opacity = '0';
+        tooltip.style.visibility = 'hidden';
+      };
+      
+      // Speichere Handler für späteres Entfernen
+      (marker as any)._mouseEnterHandler = mouseEnterHandler;
+      (marker as any)._mouseLeaveHandler = mouseLeaveHandler;
+      
+      // Füge Event-Listener hinzu
+      marker.addEventListener('mouseenter', mouseEnterHandler);
+      marker.addEventListener('mouseleave', mouseLeaveHandler);
+    });
+  };
+
+  // Aktiviere Hover nach dem Rendering
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      activateClusterHover();
+    }, 1000); // Warte 1 Sekunde nach dem Rendering
+    
+    return () => {
+      clearTimeout(timer);
+      // Entferne Tooltip beim Cleanup
+      const tooltip = document.getElementById('cluster-tooltip');
+      if (tooltip) {
+        tooltip.remove();
+      }
+    };
+  }, [trades]); // Aktiviere neu wenn sich trades ändern
+
+  // Funktion zum Auflösen von Clustern beim Zoomen
+  const handleClusterZoom = (cluster: any[], position: [number, number]) => {
+    if (mapRef.current) {
+      // Zoom zur Cluster-Position
+      mapRef.current.setView(position, Math.max(mapRef.current.getZoom() + 2, 16));
+      
+      // Optional: Zeige eine Benachrichtigung über die Anzahl der Gewerke
+      console.log(`🔍 Cluster aufgelöst: ${cluster.length} Gewerke an dieser Position`);
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -651,8 +780,8 @@ export default function TradeMap({
                 icon={createClusterIcon(cluster)}
                 eventHandlers={{
                   click: () => {
-                    // Zeige alle Gewerke im Cluster an
-                    cluster.forEach(trade => onTradeClick(trade));
+                    // Verwende die neue Cluster-Zoom-Funktion
+                    handleClusterZoom(cluster, position);
                   }
                 }}
               >
