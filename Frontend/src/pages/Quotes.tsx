@@ -158,6 +158,11 @@ interface Project {
   id: number;
   name: string;
   description: string;
+  address_street?: string;
+  address_zip?: string;
+  address_city?: string;
+  address_latitude?: number;
+  address_longitude?: number;
 }
 
 // Interface für Gewerke
@@ -294,6 +299,8 @@ interface CombinedTrade extends Trade {
   address_street?: string;
   address_zip?: string;
   address_city?: string;
+  address_latitude?: number;
+  address_longitude?: number;
 }
 
 // Interface für gruppierte Projekte mit Gewerken
@@ -1692,17 +1699,33 @@ export default function Trades() {
         project_status: geoTrade.project_status,
         address_street: geoTrade.address_street,
         address_zip: geoTrade.address_zip,
-        address_city: geoTrade.address_city
+        address_city: geoTrade.address_city,
+        // Koordinaten für Karten-Anzeige hinzufügen
+        address_latitude: geoTrade.address_latitude,
+        address_longitude: geoTrade.address_longitude
       }));
 
       return geoTradeResults;
     }
     
-    // Für Bauträger: Lokale Gewerke
-    const localTrades: CombinedTrade[] = filteredTrades.map(trade => ({
-      ...trade,
-      isGeoResult: false
-    }));
+    // Für Bauträger: Lokale Gewerke mit Projekt-Koordinaten
+    const localTrades: CombinedTrade[] = filteredTrades.map(trade => {
+      // Finde das zugehörige Projekt für Koordinaten
+      const project = projects.find(p => p.id === trade.project_id);
+      
+      return {
+        ...trade,
+        isGeoResult: false,
+        // Projekt-Koordinaten für Karten-Anzeige hinzufügen
+        address_latitude: project?.address_latitude,
+        address_longitude: project?.address_longitude,
+        // Projekt-Adressdaten für Anzeige
+        project_name: project?.name,
+        address_street: project?.address_street,
+        address_zip: project?.address_zip,
+        address_city: project?.address_city
+      };
+    });
 
     return localTrades;
   };

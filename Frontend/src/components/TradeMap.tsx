@@ -20,7 +20,7 @@ interface TradeMapProps {
   showAcceptedTrades: boolean;
 }
 
-// Custom Icons für verschiedene Gewerk-Kategorien
+// Korrigierte Custom Icons für verschiedene Gewerk-Kategorien
 const createCustomIcon = (color: string, icon: any) => {
   return L.divIcon({
     html: `
@@ -36,14 +36,15 @@ const createCustomIcon = (color: string, icon: any) => {
         box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         color: white;
         font-size: 16px;
+        /* WICHTIG: Keine transform-Eigenschaft hier */
       ">
         ${icon}
       </div>
     `,
     className: 'custom-marker',
     iconSize: [32, 32],
-    iconAnchor: [16, 32],
-    popupAnchor: [0, -32]
+    iconAnchor: [16, 16], // Wichtig: Anker muss genau in der Mitte sein
+    popupAnchor: [0, -16]
   });
 };
 
@@ -81,13 +82,41 @@ const getTradeIcon = (category: string) => {
   }
 };
 
-// Map Controller für automatische Zentrierung
+// MapController mit Event-Handlers für Benutzerbewegungen
 function MapController({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap();
   
   useEffect(() => {
+    // Event-Handler für Benutzerbewegungen
+    const handleMapMove = () => {
+      console.log('🗺️ Map moved:', map.getCenter(), 'Zoom:', map.getZoom());
+    };
+    
+    const handleMapZoom = () => {
+      console.log('🔍 Map zoomed:', map.getZoom());
+    };
+    
+    const handleMapClick = (e: any) => {
+      console.log('🖱️ Map clicked at:', e.latlng);
+    };
+    
+    // Event-Listener hinzufügen
+    map.on('move', handleMapMove);
+    map.on('zoom', handleMapZoom);
+    map.on('click', handleMapClick);
+    
+    // Cleanup
+    return () => {
+      map.off('move', handleMapMove);
+      map.off('zoom', handleMapZoom);
+      map.off('click', handleMapClick);
+    };
+  }, [map]);
+  
+  // Aktualisiere Kartenposition bei Props-Änderungen
+  useEffect(() => {
     map.setView(center, zoom);
-  }, [map, center, zoom]);
+  }, [center, zoom, map]);
   
   return null;
 }
@@ -100,6 +129,8 @@ export default function TradeMap({
   showAcceptedTrades 
 }: TradeMapProps) {
   const mapRef = useRef<L.Map | null>(null);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([0, 0]);
+  const [mapZoom, setMapZoom] = useState(10);
   const [filteredTrades, setFilteredTrades] = useState<any[]>([]);
 
   // Filtere Gewerke basierend auf showAcceptedTrades
@@ -177,35 +208,122 @@ export default function TradeMap({
     return result;
   }, [filteredTrades, currentLocation]);
 
-  // Erstelle Cluster-Icon basierend auf Anzahl der Gewerke
-  const createClusterIcon = (count: number) => {
-    const size = Math.min(32 + count * 4, 48); // Größe basierend auf Anzahl
-    const fontSize = Math.min(12 + count, 16);
+  // Force Re-render wenn Marker nicht sichtbar sind
+  useEffect(() => {
+    if (filteredTrades.length > 0 && clusteredTrades.length === 0) {
+      console.log('🔄 Force Re-render wegen fehlender Marker');
+      // Trigger resize event für Leaflet
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 100);
+    }
+  }, [filteredTrades, clusteredTrades]);
+
+  // Aktualisiere Kartencenter bei Standort-Änderungen
+  useEffect(() => {
+    if (currentLocation) {
+      const newCenter: [number, number] = [currentLocation.latitude, currentLocation.longitude];
+      setMapCenter(newCenter);
+      
+      // Aktualisiere Kartenposition
+      if (mapRef.current) {
+        mapRef.current.setView(newCenter, mapZoom);
+      }
+    }
+  }, [currentLocation, mapZoom]);
+
+  // Event-Handler für Kartenbewegungen
+  const handleMapMove = () => {
+    if (mapRef.current) {
+      const center = mapRef.current.getCenter();
+      setMapCenter([center.lat, center.lng]);
+      console.log('🗺️ Map center updated:', center);
+    }
+  };
+
+  const handleMapZoom = () => {
+    if (mapRef.current) {
+      const zoom = mapRef.current.getZoom();
+      setMapZoom(zoom);
+      console.log('🔍 Map zoom updated:', zoom);
+    }
+  };
+
+  // Erstelle korrigierte Cluster-Icon mit Gewerk-Icons statt gelbem Kreis
+  const createClusterIcon = (trades: any[]) => {
+    // Erstelle ein Grid von Icons basierend auf den Kategorien
+    const categories = trades.map(trade => trade.category).filter(Boolean);
+    const uniqueCategories = [...new Set(categories)];
+    
+    // Begrenze auf maximal 4 Icons für bessere Übersichtlichkeit
+    const displayCategories = uniqueCategories.slice(0, 4);
+    
+    // Berechne die Größe basierend auf der Anzahl der Icons
+    const iconSize = 16;
+    const padding = 8;
+    const iconsPerRow = Math.min(displayCategories.length, 2);
+    const rows = Math.ceil(displayCategories.length / iconsPerRow);
+    
+    const width = iconsPerRow * iconSize + (iconsPerRow - 1) * 2 + padding * 2;
+    const height = rows * iconSize + (rows - 1) * 2 + padding * 2;
+    
+    // Erstelle HTML für die Icons - OHNE transform
+    const iconsHTML = displayCategories.map((category, index) => {
+      const icon = getTradeIcon(category);
+      const row = Math.floor(index / iconsPerRow);
+      const col = index % iconsPerRow;
+      
+      return `<div style="
+        position: absolute;
+        left: ${padding + col * (iconSize + 2)}px;
+        top: ${padding + row * (iconSize + 2)}px;
+        width: ${iconSize}px;
+        height: ${iconSize}px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">${icon.options.html}</div>`;
+    }).join('');
     
     return L.divIcon({
       html: `
         <div style="
-          background: linear-gradient(135deg, #ffbd59, #ffa726);
-          border: 3px solid white;
-          border-radius: 50%;
-          width: ${size}px;
-          height: ${size}px;
+          background: rgba(255, 255, 255, 0.95);
+          border: 2px solid #ffbd59;
+          border-radius: 8px;
+          width: ${width}px;
+          height: ${height}px;
+          position: relative;
+          box-shadow: 0 4px 8px rgba(0,0,0,0.3);
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-          color: white;
-          font-size: ${fontSize}px;
-          font-weight: bold;
-          cursor: pointer;
+          /* WICHTIG: Keine transform-Eigenschaft hier */
         ">
-          ${count}
+          ${iconsHTML}
+          ${trades.length > 4 ? `<div style="
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ff4444;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            border: 2px solid white;
+            z-index: 10;
+          ">${trades.length}</div>` : ''}
         </div>
       `,
       className: 'cluster-marker',
-      iconSize: [size, size],
-      iconAnchor: [size / 2, size],
-      popupAnchor: [0, -size]
+      iconSize: [width, height],
+      iconAnchor: [width / 2, height / 2], // Wichtig: Anker muss genau in der Mitte sein
+      popupAnchor: [0, -height / 2]
     });
   };
 
@@ -279,13 +397,13 @@ export default function TradeMap({
   return (
     <div className="h-full w-full relative">
       <MapContainer
-        center={center}
-        zoom={10}
+        center={mapCenter}
+        zoom={mapZoom}
         style={{ height: '100%', width: '100%' }}
         ref={mapRef}
         className="rounded-lg"
       >
-        <MapController center={center} zoom={10} />
+        <MapController center={mapCenter} zoom={mapZoom} />
         
         {/* OpenStreetMap Tiles */}
         <TileLayer
@@ -295,7 +413,7 @@ export default function TradeMap({
         
         {/* Suchradius-Kreis */}
         <Circle
-          center={center}
+          center={mapCenter}
           radius={radiusKm * 1000} // Konvertiere km zu Metern
           pathOptions={{
             color: '#ffbd59',
@@ -305,9 +423,9 @@ export default function TradeMap({
           }}
         />
         
-        {/* Aktueller Standort Marker */}
+        {/* Aktueller Standort Marker - korrigiert */}
         <Marker
-          position={center}
+          position={mapCenter}
           icon={L.divIcon({
             html: `
               <div style="
@@ -317,24 +435,26 @@ export default function TradeMap({
                 width: 20px;
                 height: 20px;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                transform: translate(-50%, -50%);
               "></div>
             `,
             className: 'current-location-marker',
             iconSize: [20, 20],
-            iconAnchor: [10, 10]
+            iconAnchor: [10, 10], // Wichtig: Anker muss genau in der Mitte sein
+            popupAnchor: [0, -10]
           })}
         >
           <Popup>
             <div className="text-center">
               <strong>Ihr Standort</strong><br />
               <small className="text-gray-600">
-                {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
+                {currentLocation?.latitude.toFixed(4)}, {currentLocation?.longitude.toFixed(4)}
               </small>
             </div>
           </Popup>
         </Marker>
         
-        {/* Gewerke Markers mit Clustering */}
+        {/* Gewerke Markers mit Clustering - korrigiert */}
         {clusteredTrades.length === 0 ? (
           // Fallback: Zeige alle Gewerke ohne Clustering wenn keine Cluster vorhanden
           filteredTrades.map((trade, index) => {
@@ -342,8 +462,8 @@ export default function TradeMap({
             
             // Verwende currentLocation als Fallback wenn keine Koordinaten vorhanden
             const position: [number, number] = [
-              trade.address_latitude || trade.latitude || currentLocation.latitude,
-              trade.address_longitude || trade.longitude || currentLocation.longitude
+              trade.address_latitude || trade.latitude || currentLocation?.latitude || 0,
+              trade.address_longitude || trade.longitude || currentLocation?.longitude || 0
             ];
             
             return (
@@ -427,14 +547,14 @@ export default function TradeMap({
             );
           })
         ) : (
-          // Normale Clustering-Logik
+          // Normale Clustering-Logik - korrigiert
           clusteredTrades.map((cluster, clusterIndex) => {
             if (cluster.length === 1) {
               // Einzelnes Gewerk - zeige normalen Marker
               const trade = cluster[0];
               const position: [number, number] = [
-                trade.address_latitude || trade.latitude || currentLocation.latitude,
-                trade.address_longitude || trade.longitude || currentLocation.longitude
+                trade.address_latitude || trade.latitude || currentLocation?.latitude || 0,
+                trade.address_longitude || trade.longitude || currentLocation?.longitude || 0
               ];
             
             return (
@@ -517,18 +637,18 @@ export default function TradeMap({
               </Marker>
             );
           } else {
-            // Cluster mit mehreren Gewerken
+            // Cluster mit mehreren Gewerken - korrigiert mit Gewerk-Icons
             const firstTrade = cluster[0];
             const position: [number, number] = [
-              firstTrade.address_latitude || firstTrade.latitude || currentLocation.latitude,
-              firstTrade.address_longitude || firstTrade.longitude || currentLocation.longitude
+              firstTrade.address_latitude || firstTrade.latitude || currentLocation?.latitude || 0,
+              firstTrade.address_longitude || firstTrade.longitude || currentLocation?.longitude || 0
             ];
             
             return (
               <Marker
                 key={`cluster-${clusterIndex}`}
                 position={position}
-                icon={createClusterIcon(cluster.length)}
+                icon={createClusterIcon(cluster)}
                 eventHandlers={{
                   click: () => {
                     // Zeige alle Gewerke im Cluster an
