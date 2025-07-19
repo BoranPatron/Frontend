@@ -3,30 +3,34 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider } from './context/ProjectContext';
 import Navbar from './components/Navbar';
-import Dashboard from './pages/Dashboard';
-import ServiceProviderDashboard from './pages/ServiceProviderDashboard';
+import FloatingActionButton from './components/FloatingActionButton';
 import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import GlobalProjects from './pages/GlobalProjects';
 import ProjectDetail from './pages/ProjectDetail';
 import ProjectMessages from './pages/ProjectMessages';
 import ProjectAnalytics from './pages/ProjectAnalytics';
-import Tasks from './pages/Tasks';
 import Documents from './pages/Documents';
-import Finance from './pages/Finance';
-import Quotes from './pages/Quotes';
 import Visualize from './pages/Visualize';
-import Messages from './pages/Messages';
-import GlobalMessages from './pages/GlobalMessages';
 import Roadmap from './pages/Roadmap';
-import GlobalProjects from './pages/GlobalProjects';
+import Tasks from './pages/Tasks';
+import Finance from './pages/Finance';
+import Messages from './pages/Messages';
+import Quotes from './pages/Quotes';
 import BuildWiseFees from './pages/BuildWiseFees';
+import ServiceProviderDashboard from './pages/ServiceProviderDashboard';
 import ServiceProviderBuildWiseFees from './pages/ServiceProviderBuildWiseFees';
 import Canvas from './pages/Canvas';
 import GeoSearch from './pages/GeoSearch';
+import GlobalMessages from './pages/GlobalMessages';
+import './index.css';
 
+// Router-Fix: Kein doppelter Router mehr - Cache-Invalidierung
+// Timestamp: 2024-07-19 14:30:00 - Router-Fix final
 // Error Boundary
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
-  { hasError: boolean; error?: Error }
+  { hasError: boolean }
 > {
   constructor(props: { children: React.ReactNode }) {
     super(props);
@@ -34,7 +38,7 @@ class ErrorBoundary extends React.Component<
   }
 
   static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
+    return { hasError: true };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
@@ -44,10 +48,17 @@ class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: '20px', background: 'red', color: 'white', minHeight: '100vh' }}>
-          <h1>Ein Fehler ist aufgetreten!</h1>
-          <p>Error: {this.state.error?.message}</p>
-          <button onClick={() => window.location.reload()}>Seite neu laden</button>
+        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Ein Fehler ist aufgetreten</h1>
+            <p className="text-gray-400 mb-4">Bitte laden Sie die Seite neu.</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
+            >
+              Seite neu laden
+            </button>
+          </div>
         </div>
       );
     }
@@ -84,171 +95,51 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Navbar-Wrapper-Komponente für bessere Kontrolle
-function NavbarWrapper() {
-  const { user, isInitialized } = useAuth();
-  const location = useLocation();
-  const isLoginPage = location.pathname === '/login';
-
-  // Debug-Logging für Navbar-Anzeige
-  console.log('🔍 NavbarWrapper Debug:', {
-    hasUser: !!user,
-    isInitialized,
-    isLoginPage,
-    currentPath: location.pathname,
-    shouldShowNavbar: !isLoginPage && isInitialized && !!user
-  });
-
-  // Zeige Navbar nur wenn:
-  // 1. Nicht auf Login-Seite
-  // 2. AuthContext ist initialisiert
-  // 3. Benutzer ist authentifiziert (user existiert)
-  if (isLoginPage) {
-    console.log('🚫 Navbar ausgeblendet: Auf Login-Seite');
-    return null;
-  }
-  
-  if (!isInitialized) {
-    console.log('🚫 Navbar ausgeblendet: AuthContext nicht initialisiert');
-    return null;
-  }
-  
-  if (!user) {
-    console.log('🚫 Navbar ausgeblendet: Kein User vorhanden');
-    return null;
-  }
-
-  console.log('✅ Navbar wird angezeigt');
-  return <Navbar />;
-}
-
+// App Content Component - Router-Fix implementiert
 function AppContent() {
-  const { isInitialized, user } = useAuth();
-
-  console.log('🔍 AppContent Debug:', {
-    isInitialized,
-    hasUser: !!user,
-    currentPath: window.location.pathname
-  });
-
-  // Warte auf Initialisierung
-  if (!isInitialized) {
-    console.log('⏳ Warte auf AuthContext-Initialisierung...');
-    return <LoadingSpinner />;
-  }
-
-  console.log('✅ AppContent gerendert - AuthContext initialisiert');
-
+  const { isServiceProvider } = useAuth();
+  
   return (
     <>
-      {/* Navbar wird durch NavbarWrapper gesteuert */}
-      <NavbarWrapper />
+      <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460]">
+        <Navbar />
+        <main className="pt-16">
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/global-projects" element={<GlobalProjects />} />
+            <Route path="/project/:id" element={<ProjectDetail />} />
+            <Route path="/project/:id/messages" element={<ProjectMessages />} />
+            <Route path="/project/:id/analytics" element={<ProjectAnalytics />} />
+            <Route path="/documents" element={<Documents />} />
+            <Route path="/visualize" element={<Visualize />} />
+            <Route path="/roadmap" element={<Roadmap />} />
+            <Route path="/tasks" element={<Tasks />} />
+            <Route path="/finance" element={<Finance />} />
+            <Route path="/messages" element={<Messages />} />
+            <Route path="/quotes" element={<Quotes />} />
+            <Route path="/buildwise-fees" element={<BuildWiseFees />} />
+            <Route path="/service-provider" element={<ServiceProviderDashboard />} />
+            <Route path="/service-provider-buildwise-fees" element={<ServiceProviderBuildWiseFees />} />
+            <Route path="/canvas" element={<Canvas />} />
+            <Route path="/geo-search" element={<GeoSearch />} />
+            <Route path="/global-messages" element={<GlobalMessages />} />
+          </Routes>
+        </main>
+      </div>
       
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/" element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        } />
-        <Route path="/service-provider" element={
-          <ProtectedRoute>
-            <ServiceProviderDashboard />
-          </ProtectedRoute>
-        } />
-        <Route path="/global-projects" element={
-          <ProtectedRoute>
-            <GlobalProjects />
-          </ProtectedRoute>
-        } />
-        <Route path="/roadmap" element={
-          <ProtectedRoute>
-            <Roadmap />
-          </ProtectedRoute>
-        } />
-        <Route path="/project/:id" element={
-          <ProtectedRoute>
-            <ProjectDetail />
-          </ProtectedRoute>
-        } />
-        <Route path="/project/:id/messages" element={
-          <ProtectedRoute>
-            <ProjectMessages />
-          </ProtectedRoute>
-        } />
-        <Route path="/project/:id/analytics" element={
-          <ProtectedRoute>
-            <ProjectAnalytics />
-          </ProtectedRoute>
-        } />
-        <Route path="/tasks" element={
-          <ProtectedRoute>
-            <Tasks />
-          </ProtectedRoute>
-        } />
-        <Route path="/documents" element={
-          <ProtectedRoute>
-            <Documents />
-          </ProtectedRoute>
-        } />
-        <Route path="/finance" element={
-          <ProtectedRoute>
-            <Finance />
-          </ProtectedRoute>
-        } />
-        <Route path="/quotes" element={
-          <ProtectedRoute>
-            <Quotes />
-          </ProtectedRoute>
-        } />
-        <Route path="/buildwise-fees" element={
-          <ProtectedRoute>
-            <BuildWiseFees />
-          </ProtectedRoute>
-        } />
-        <Route path="/service-provider-buildwise-fees" element={
-          <ProtectedRoute>
-            <ServiceProviderBuildWiseFees />
-          </ProtectedRoute>
-        } />
-        <Route path="/visualize" element={
-          <ProtectedRoute>
-            <Visualize />
-          </ProtectedRoute>
-        } />
-        <Route path="/canvas" element={
-          <ProtectedRoute>
-            <Canvas />
-          </ProtectedRoute>
-        } />
-        <Route path="/project/:projectId/canvas" element={
-          <ProtectedRoute>
-            <Canvas />
-          </ProtectedRoute>
-        } />
-        <Route path="/messages" element={
-          <ProtectedRoute>
-            <GlobalMessages />
-          </ProtectedRoute>
-        } />
-        <Route path="/messages/:projectId" element={
-          <ProtectedRoute>
-            <Messages />
-          </ProtectedRoute>
-        } />
-        <Route path="/geo-search" element={
-          <ProtectedRoute>
-            <GeoSearch />
-          </ProtectedRoute>
-        } />
-        {/* Fallback für unbekannte Routen */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      
-      {/* Unaufälliger Developer-Footer */}
-      <footer className="fixed bottom-0 right-0 p-1">
-        <span className="text-xs text-gray-300 font-mono">22</span>
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white py-4 text-center">
+        <div className="container mx-auto">
+          <p className="text-sm text-gray-400">
+            © 2024 BuildWise. Alle Rechte vorbehalten.
+          </p>
+          <span className="text-xs text-gray-300 font-mono">22</span>
+        </div>
       </footer>
+      
+      {/* Floating Action Button */}
+      <FloatingActionButton isServiceProvider={isServiceProvider()} />
     </>
   );
 }
