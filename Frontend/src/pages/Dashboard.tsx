@@ -70,6 +70,10 @@ export default function Dashboard() {
     description: '',
     project_type: 'new_build',
     address: '',
+    address_street: '',
+    address_zip: '',
+    address_city: '',
+    address_country: 'Deutschland',
     property_size: '',
     construction_area: '',
     start_date: '',
@@ -186,6 +190,10 @@ export default function Dashboard() {
       description: '',
       project_type: 'new_build',
       address: '',
+      address_street: '',
+      address_zip: '',
+      address_city: '',
+      address_country: 'Deutschland',
       property_size: '',
       construction_area: '',
       start_date: '',
@@ -217,6 +225,10 @@ export default function Dashboard() {
         project_type: projectForm.project_type,
         status: 'planning', // Standard-Status für neue Projekte
         address: projectForm.address.trim() || undefined,
+        address_street: projectForm.address_street?.trim() || undefined,
+        address_zip: projectForm.address_zip?.trim() || undefined,
+        address_city: projectForm.address_city?.trim() || undefined,
+        address_country: projectForm.address_country?.trim() || 'Deutschland',
         property_size: projectForm.property_size ? parseFloat(projectForm.property_size) : undefined,
         construction_area: projectForm.construction_area ? parseFloat(projectForm.construction_area) : undefined,
         start_date: projectForm.start_date || undefined,
@@ -226,6 +238,7 @@ export default function Dashboard() {
         allow_quotes: projectForm.allow_quotes
       };
 
+      console.log('🚀 Erstelle neues Projekt mit Daten:', projectData);
       const newProject = await createProject(projectData);
       console.log('✅ Neues Projekt erstellt:', newProject);
 
@@ -711,18 +724,80 @@ export default function Dashboard() {
                 </div>
 
                 {/* Adresse */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Projektadresse
-                  </label>
-                  <input
-                    type="text"
-                    name="address"
-                    value={projectForm.address}
-                    onChange={handleProjectFormChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    placeholder="z.B. Musterstraße 123, 80331 München"
-                  />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Vollständige Adresse
+                    </label>
+                    <input
+                      type="text"
+                      name="address"
+                      value={projectForm.address}
+                      onChange={handleProjectFormChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                      placeholder="z.B. Musterstraße 123, 80331 München"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Straße & Hausnummer
+                      </label>
+                      <input
+                        type="text"
+                        name="address_street"
+                        value={projectForm.address_street}
+                        onChange={handleProjectFormChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                        placeholder="z.B. Musterstraße 123"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        PLZ
+                      </label>
+                      <input
+                        type="text"
+                        name="address_zip"
+                        value={projectForm.address_zip}
+                        onChange={handleProjectFormChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                        placeholder="z.B. 80331"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Ort
+                      </label>
+                      <input
+                        type="text"
+                        name="address_city"
+                        value={projectForm.address_city}
+                        onChange={handleProjectFormChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                        placeholder="z.B. München"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Land
+                    </label>
+                    <select
+                      name="address_country"
+                      value={projectForm.address_country}
+                      onChange={handleProjectFormChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                    >
+                      <option value="Deutschland">Deutschland</option>
+                      <option value="Schweiz">Schweiz</option>
+                      <option value="Österreich">Österreich</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Projektdetails */}

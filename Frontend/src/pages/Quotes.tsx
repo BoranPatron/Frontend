@@ -2286,7 +2286,7 @@ export default function Trades() {
         </div>
         ) : (
           /* Karten-Ansicht */
-          <div className="h-[500px] bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4">
+          <div className="h-[700px] bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4">
             {currentLocation ? (
               <TradeMap
                 trades={combinedTrades}

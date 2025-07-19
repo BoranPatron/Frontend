@@ -194,6 +194,19 @@ api.interceptors.response.use(
     // Andere Fehlerbehandlung
     if (error.response?.status === 401) {
       console.log('ℹ️ 401 Unauthorized - Token abgelaufen oder ungültig');
+      
+      // Token aus localStorage entfernen
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      
+      // Benutzerfreundliche Weiterleitung zur Login-Seite
+      if (!window.location.pathname.includes('/login')) {
+        const currentPath = window.location.pathname + window.location.search;
+        localStorage.setItem('redirectAfterLogin', currentPath);
+        window.location.href = '/login?message=session_expired';
+      }
+      
       // Bei 401-Fehlern nicht als kritischer Fehler behandeln, sondern als normale Authentifizierungsaufforderung
       const authError = new Error('Authentication required');
       authError.name = 'AuthenticationError';

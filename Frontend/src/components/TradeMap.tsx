@@ -49,35 +49,97 @@ const createCustomIcon = (color: string, icon: any) => {
 };
 
 const getTradeIcon = (category: string) => {
-  switch (category?.toLowerCase()) {
+  // Debug-Logging für Kategorie-Erkennung
+  console.log('🎯 getTradeIcon called with category:', category);
+  
+  if (!category) {
+    console.log('⚠️ Keine Kategorie angegeben, verwende Standard-Icon');
+    return createCustomIcon('#6366f1', '🔧');
+  }
+  
+  const categoryLower = category.toLowerCase().trim();
+  console.log('🔍 Normalisierte Kategorie:', categoryLower);
+  
+  switch (categoryLower) {
     case 'electrical':
     case 'elektro':
+    case 'elektrik':
+    case 'electric':
+    case 'strom':
+    case 'elektroinstallation':
+    case 'elektroanlage':
+      console.log('⚡ Elektro-Kategorie erkannt, verwende Blitz-Icon');
       return createCustomIcon('#f59e0b', '⚡');
+      
     case 'plumbing':
     case 'sanitaer':
+    case 'sanitär':
+    case 'wasser':
+    case 'rohr':
+    case 'sanitaerinstallation':
+      console.log('💧 Sanitär-Kategorie erkannt, verwende Wasser-Icon');
       return createCustomIcon('#3b82f6', '💧');
+      
     case 'heating':
     case 'heizung':
+    case 'wärme':
+    case 'waerme':
+    case 'heizungsanlage':
+    case 'heizungssystem':
+      console.log('🔥 Heizung-Kategorie erkannt, verwende Feuer-Icon');
       return createCustomIcon('#ef4444', '🔥');
+      
     case 'roofing':
     case 'dach':
+    case 'dachdecker':
+    case 'dachdeckung':
+    case 'dachstuhl':
+      console.log('🏠 Dach-Kategorie erkannt, verwende Haus-Icon');
       return createCustomIcon('#8b5cf6', '🏠');
+      
     case 'windows':
     case 'fenster':
+    case 'fensterbau':
+    case 'fensterinstallation':
+    case 'glas':
+      console.log('🪟 Fenster-Kategorie erkannt, verwende Fenster-Icon');
       return createCustomIcon('#10b981', '🪟');
+      
     case 'flooring':
     case 'boden':
+    case 'bodenbelag':
+    case 'estrich':
+    case 'fliesen':
+      console.log('🏗️ Boden-Kategorie erkannt, verwende Bau-Icon');
       return createCustomIcon('#f97316', '🏗️');
+      
     case 'walls':
     case 'waende':
+    case 'wände':
+    case 'mauer':
+    case 'putz':
+    case 'trockenbau':
+      console.log('🧱 Wände-Kategorie erkannt, verwende Stein-Icon');
       return createCustomIcon('#6b7280', '🧱');
+      
     case 'foundation':
     case 'fundament':
+    case 'grundbau':
+    case 'keller':
+    case 'unterbau':
+      console.log('🏛️ Fundament-Kategorie erkannt, verwende Säulen-Icon');
       return createCustomIcon('#374151', '🏛️');
+      
     case 'landscaping':
     case 'garten':
+    case 'landschaftsbau':
+    case 'gartenbau':
+    case 'pflaster':
+      console.log('🌳 Garten-Kategorie erkannt, verwende Baum-Icon');
       return createCustomIcon('#059669', '🌳');
+      
     default:
+      console.log('🔧 Unbekannte Kategorie, verwende Standard-Icon:', categoryLower);
       return createCustomIcon('#6366f1', '🔧');
   }
 };
@@ -273,6 +335,26 @@ export default function TradeMap({
       const row = Math.floor(index / iconsPerRow);
       const col = index % iconsPerRow;
       
+      // Extrahiere das korrekte HTML aus dem Icon
+      let iconHTML = '';
+      if (icon.options && icon.options.html) {
+        // Konvertiere HTMLElement zu String falls nötig
+        if (typeof icon.options.html === 'string') {
+          iconHTML = icon.options.html;
+        } else if (icon.options.html instanceof HTMLElement) {
+          iconHTML = icon.options.html.outerHTML;
+        } else {
+          iconHTML = String(icon.options.html);
+        }
+      } else if (typeof icon === 'string') {
+        iconHTML = icon;
+      } else {
+        // Fallback: Verwende das Blitz-Icon für Elektro
+        iconHTML = '<div style="background: #f59e0b; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px;">⚡</div>';
+      }
+      
+      console.log(`🎯 Cluster Icon für Kategorie "${category}":`, iconHTML);
+      
       return `<div style="
         position: absolute;
         left: ${padding + col * (iconSize + 2)}px;
@@ -282,7 +364,7 @@ export default function TradeMap({
         display: flex;
         align-items: center;
         justify-content: center;
-      ">${icon.options.html}</div>`;
+      ">${iconHTML}</div>`;
     }).join('');
     
     // Erstelle Tooltip-Inhalt für Hover

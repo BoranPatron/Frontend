@@ -12,6 +12,18 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Hilfsfunktion zur Token-Validierung
+const isTokenValid = (token: string): boolean => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const currentTime = Math.floor(Date.now() / 1000);
+    return payload.exp > currentTime;
+  } catch (error) {
+    console.error('❌ Token-Validierung fehlgeschlagen:', error);
+    return false;
+  }
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -31,11 +43,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('👤 User aus localStorage:', storedUser ? '✅ Vorhanden' : '❌ Fehlt');
         
         if (storedToken) {
-          setToken(storedToken);
-          console.log('✅ Token gesetzt');
+          // Validiere Token vor der Verwendung
+          if (isTokenValid(storedToken)) {
+            setToken(storedToken);
+            console.log('✅ Token gesetzt (gültig)');
+          } else {
+            console.log('❌ Token ist abgelaufen - entferne aus localStorage');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setToken(null);
+            setUser(null);
+          }
         }
         
-        if (storedUser) {
+        if (storedUser && storedToken && isTokenValid(storedToken)) {
           try {
             const userData = JSON.parse(storedUser);
             console.log('👤 User-Daten geparst:', userData);
@@ -43,16 +64,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('✅ User gesetzt');
           } catch (error) {
             console.error('❌ Fehler beim Parsen der User-Daten:', error);
-            localStorage.removeItem('user'); // Entferne ungültige Daten
+            localStorage.removeItem('user');
             setUser(null);
           }
+        } else if (storedUser && (!storedToken || !isTokenValid(storedToken))) {
+          // User-Daten vorhanden aber Token ungültig - entferne alles
+          console.log('❌ Token ungültig - entferne User-Daten');
+          localStorage.removeItem('user');
+          setUser(null);
         }
         
         setIsInitialized(true);
         setIsInitializing(false);
         console.log('✅ AuthContext initialisiert');
         console.log('📊 Finaler Auth-Status:', {
-          hasToken: !!storedToken,
+          hasToken: !!storedToken && isTokenValid(storedToken),
           hasUser: !!storedUser,
           isInitialized: true
         });
@@ -114,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Hilfsfunktion um zu prüfen, ob der Benutzer authentifiziert ist
   const isAuthenticated = () => {
-    return !!user && !!token;
+    return !!user && !!token && isTokenValid(token);
   };
 
   // Debug-Logging für Auth-Status
