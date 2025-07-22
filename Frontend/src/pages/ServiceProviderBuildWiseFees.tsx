@@ -23,6 +23,7 @@ import {
   getBuildWiseFeeStatistics, 
   markFeeAsPaid, 
   generateInvoice, 
+  generateGewerkInvoice,
   downloadInvoice,
   formatCurrency as formatCurrencyUtil,
   getStatusLabel as getStatusLabelUtil,
@@ -107,6 +108,28 @@ export default function ServiceProviderBuildWiseFees() {
     } catch (error) {
       console.error('Fehler beim Generieren der Rechnung:', error);
       setError('Fehler beim Generieren der Rechnung');
+    }
+  };
+
+  const handleGenerateGewerkInvoice = async (feeId: number) => {
+    try {
+      console.log('📄 Generiere Gewerk-PDF-Rechnung für Gebühr:', feeId);
+      
+      // Generiere PDF mit Gewerk-Daten und speichere als Dokument
+      const result = await generateGewerkInvoice(feeId);
+      
+      if (result.success) {
+        setSuccess(`✅ ${result.message}`);
+        console.log('📋 Dokument gespeichert:', result.document_id);
+        
+        // Lade Daten neu
+        await loadData();
+      } else {
+        setError('Fehler beim Generieren der Gewerk-Rechnung');
+      }
+    } catch (error) {
+      console.error('Fehler beim Generieren der Gewerk-PDF-Rechnung:', error);
+      setError('Fehler beim Generieren der Gewerk-PDF-Rechnung');
     }
   };
 
@@ -486,6 +509,14 @@ export default function ServiceProviderBuildWiseFees() {
                               <CheckCircle className="w-5 h-5" />
                             </button>
                           )}
+                          {/* Gewerk-Rechnung Button */}
+                          <button 
+                            onClick={() => handleGenerateGewerkInvoice(fee.id)} 
+                            className="text-blue-400 hover:text-blue-300" 
+                            title="Gewerk-Rechnung erstellen und als Dokument speichern"
+                          >
+                            <Receipt className="w-5 h-5" />
+                          </button>
                           {/* Zeige immer einen Download-Button */}
                           <button 
                             onClick={() => fee.invoice_pdf_generated ? handleDownloadInvoice(fee.id) : handleGenerateInvoice(fee.id)} 

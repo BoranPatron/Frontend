@@ -212,6 +212,18 @@ export async function generateInvoice(feeId: number): Promise<{ message: string 
   });
 }
 
+export async function generateGewerkInvoice(feeId: number): Promise<{ 
+  success: boolean; 
+  message: string; 
+  document_id?: number; 
+  document_path?: string; 
+}> {
+  return safeApiCall(async () => {
+    const res = await api.post(`/buildwise-fees/${feeId}/generate-gewerk-invoice`);
+    return res.data;
+  });
+}
+
 export async function downloadInvoice(feeId: number): Promise<{ download_url: string; filename: string }> {
   return safeApiCall(async () => {
     const res = await api.get(`/buildwise-fees/${feeId}/download-invoice`);
