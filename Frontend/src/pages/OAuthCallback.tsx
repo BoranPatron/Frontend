@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
@@ -10,16 +10,18 @@ export default function OAuthCallback() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const hasProcessed = useRef(false);
 
   useEffect(() => {
     const handleOAuthCallback = async () => {
-      // Verhindere doppelte Verarbeitung
-      if (isProcessing) {
-        console.log('🔄 OAuth-Callback bereits in Verarbeitung...');
+      // Verhindere mehrfache Verarbeitung
+      if (isProcessing || hasProcessed.current) {
+        console.log('🔄 OAuth-Callback bereits verarbeitet oder in Verarbeitung...');
         return;
       }
       
       setIsProcessing(true);
+      hasProcessed.current = true;
       
       try {
         console.log('🔍 OAuth-Callback gestartet');
@@ -79,47 +81,20 @@ export default function OAuthCallback() {
         const data = await response.json();
         console.log(`📡 Backend-Response:`, { status: response.status, data });
 
-        // Prüfe auf spezifische Fehler, die wir ignorieren wollen
+        // Prüfe auf spezifische Fehler
         if (!response.ok) {
           const errorDetail = data.detail || '';
           
-          // Bei invalid_grant (Code bereits verwendet) - das ist normal, versuche es erneut
-          if (errorDetail.includes('Token-Austausch fehlgeschlagen') || 
-              errorDetail.includes('invalid_grant') ||
-              response.status === 400) {
-            console.log('🔄 Token-Austausch fehlgeschlagen (normal bei mehrfachen Requests), versuche erneut...');
+          // Bei invalid_grant (Code bereits verwendet) - das ist normal, aber wir sollten nicht erneut versuchen
+          if (errorDetail.includes('OAuth-Code ist abgelaufen') || 
+              errorDetail.includes('OAuth-Code bereits verwendet') || 
+              errorDetail.includes('invalid_grant')) {
+            console.log('🔄 OAuth-Code bereits verwendet oder abgelaufen (normal)');
             
-            // Kurze Verzögerung und erneuter Versuch
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            const retryResponse = await fetch(`http://localhost:8000/api/v1/auth/oauth/${provider}/callback`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                code,
-                state: state || undefined,
-              }),
-            });
-            
-            const retryData = await retryResponse.json();
-            console.log(`📡 Retry-Response:`, { status: retryResponse.status, data: retryData });
-            
-            if (retryResponse.ok) {
-              // Login erfolgreich beim zweiten Versuch
-              console.log('✅ OAuth-Login erfolgreich (Retry), setze User-Daten');
-              login(retryData.access_token, retryData.user);
-              setStatus('success');
-              setMessage(`${provider.toUpperCase()} Login erfolgreich! Weiterleitung...`);
-              
-              // Direkte Weiterleitung ohne Verzögerung
-              const redirectPath = localStorage.getItem('redirectAfterLogin') || '/';
-              localStorage.removeItem('redirectAfterLogin');
-              console.log(`🔄 Weiterleitung zu: ${redirectPath}`);
-              navigate(redirectPath);
-              return;
-            }
+            // Anstatt zu retry, zeigen wir eine freundliche Nachricht
+            setStatus('error');
+            setMessage('OAuth-Code wurde bereits verwendet oder ist abgelaufen. Bitte starten Sie den Login-Prozess erneut.');
+            return;
           }
           
           // Bei anderen Fehlern
@@ -129,7 +104,7 @@ export default function OAuthCallback() {
           return;
         }
 
-        // Login erfolgreich beim ersten Versuch
+        // Login erfolgreich
         console.log('✅ OAuth-Login erfolgreich, setze User-Daten');
         login(data.access_token, data.user);
         setStatus('success');
@@ -181,47 +156,38 @@ export default function OAuthCallback() {
         {status === 'success' && (
           <div className="space-y-4">
             <div className="flex justify-center">
-              <CheckCircle className="h-12 w-12 text-green-400" />
+              <CheckCircle className="h-12 w-12 text-green-500" />
             </div>
-            <p className="text-green-300">{message}</p>
-            <div className="flex justify-center">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#ffbd59]"></div>
-            </div>
+            <p className="text-gray-300">{message}</p>
           </div>
         )}
 
         {status === 'error' && (
           <div className="space-y-4">
             <div className="flex justify-center">
-              <AlertTriangle className="h-12 w-12 text-red-400" />
+              <AlertTriangle className="h-12 w-12 text-red-500" />
             </div>
-            <div className="text-red-300 text-sm">
-              {(() => {
-                if (typeof message === 'string') {
-                  return <p>{message}</p>;
-                } else if (Array.isArray(message)) {
-                  return (
-                    <div>
-                      {(message as any[]).map((err: any, i: number) => (
-                        <p key={i} className="mb-1">
-                          {err.msg || err.message || JSON.stringify(err)}
-                        </p>
-                      ))}
-                    </div>
-                  );
-                } else if (message && typeof message === 'object') {
-                  return <p>{JSON.stringify(message, null, 2)}</p>;
-                } else {
-                  return <p>Ein unbekannter Fehler ist aufgetreten</p>;
-                }
-              })()}
-            </div>
-            <button
-              onClick={() => navigate('/login')}
-              className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white font-bold py-2 px-6 rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300"
-            >
-              Zurück zum Login
-            </button>
+            <p className="text-gray-300">{message}</p>
+            
+            {/* Zusätzliche Hilfe bei OAuth-Fehlern */}
+            {message.includes('OAuth-Code') && (
+              <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <h3 className="text-yellow-500 font-semibold mb-2">💡 Lösung:</h3>
+                <ol className="text-sm text-gray-300 space-y-1">
+                  <li>1. Gehen Sie zurück zur <a href="/" className="text-[#ffbd59] hover:underline">Login-Seite</a></li>
+                  <li>2. Klicken Sie erneut auf "Mit Microsoft anmelden"</li>
+                  <li>3. Führen Sie den Login-Prozess erneut durch</li>
+                </ol>
+                <div className="mt-3">
+                  <button 
+                    onClick={() => window.location.href = '/'}
+                    className="bg-[#ffbd59] text-black px-4 py-2 rounded-lg hover:bg-[#ffbd59]/80 transition-colors"
+                  >
+                    Zurück zur Login-Seite
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
