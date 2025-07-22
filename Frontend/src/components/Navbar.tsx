@@ -482,6 +482,27 @@ export default function Navbar() {
 
           {/* Rechte Seite */}
           <div className="flex items-center gap-4">
+            {/* Pro-Button für Bauträger */}
+            {!isServiceProvider() && user?.user_role === 'bautraeger' && (
+              <div className="hidden md:block">
+                {user?.subscription_plan === 'pro' && user?.subscription_status === 'active' ? (
+                  // Pro-Badge für aktive Pro-User
+                  <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] rounded-full">
+                    <span className="text-[#2c3539] font-semibold text-sm">💎 Pro</span>
+                  </div>
+                ) : (
+                  // Pro-Upgrade-Button für Basis-User
+                  <button
+                    onClick={() => {/* TODO: Open UpgradeModal */}}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] hover:from-[#ffa726] hover:to-[#ff9800] text-[#2c3539] rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
+                  >
+                    <span className="text-lg">💎</span>
+                    <span>Pro</span>
+                  </button>
+                )}
+              </div>
+            )}
+            
             {/* Benachrichtigungen */}
             <div className="relative">
               <button

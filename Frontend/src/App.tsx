@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider } from './context/ProjectContext';
@@ -23,6 +23,7 @@ import ServiceProviderBuildWiseFees from './pages/ServiceProviderBuildWiseFees';
 import Canvas from './pages/Canvas';
 import GeoSearch from './pages/GeoSearch';
 import OAuthCallback from './pages/OAuthCallback';
+import RoleSelectionModal from './components/RoleSelectionModal';
 
 // Error Boundary
 class ErrorBoundary extends React.Component<
@@ -72,7 +73,62 @@ function LoadingSpinner() {
 
 // Geschützte Route-Komponente
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isInitialized } = useAuth();
+  const { user, isInitialized, roleSelected, selectRole } = useAuth();
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [sessionUserId, setSessionUserId] = useState<number | null>(null);
+  
+  useEffect(() => {
+    // Reset bei User-Wechsel (Logout/Login)
+    if (user?.id !== sessionUserId) {
+      console.log('🔄 User-Wechsel erkannt - Reset Onboarding-Check', {
+        previousUserId: sessionUserId,
+        currentUserId: user?.id
+      });
+      setOnboardingChecked(false);
+      setShowRoleModal(false);
+      setSessionUserId(user?.id || null);
+    }
+    
+    // Prüfe ob Rollenauswahl benötigt wird - aber nur einmalig pro Login-Session
+    if (user && isInitialized && !onboardingChecked) {
+      console.log('🔍 Einmalige Onboarding-Prüfung für User:', {
+        hasUser: !!user,
+        userId: user.id,
+        email: user.email,
+        userType: user.user_type,
+        userRole: user.user_role,
+        roleSelected: user.role_selected,
+        subscriptionPlan: user.subscription_plan,
+        onboardingChecked: onboardingChecked
+      });
+      
+      // Intelligente Onboarding-Logik mit OnboardingManager
+      import('./utils/OnboardingManager').then(({ OnboardingManager }) => {
+        const onboardingState = OnboardingManager.getOnboardingState(user);
+        const debugInfo = OnboardingManager.getDebugInfo(user);
+        
+        console.log('🎯 Onboarding-Analyse:', debugInfo);
+        
+        if (onboardingState.needsOnboarding) {
+          console.log('🚀 Onboarding erforderlich:', onboardingState.reason);
+          setShowRoleModal(true);
+        } else {
+          console.log('✅ Kein Onboarding erforderlich:', onboardingState.reason);
+          setShowRoleModal(false);
+        }
+        
+        setOnboardingChecked(true);
+      }).catch(error => {
+        console.error('❌ Fehler beim Laden des OnboardingManagers:', error);
+        // Fallback: Zeige Rollenauswahl falls nötig
+        if (!user.role_selected || !user.user_role) {
+          setShowRoleModal(true);
+        }
+        setOnboardingChecked(true);
+      });
+    }
+  }, [user, isInitialized, onboardingChecked, sessionUserId]);
   
   if (!isInitialized) {
     return <LoadingSpinner />;
@@ -81,6 +137,35 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+  
+  // Normale Darstellung - Modal wird parallel gerendert, nicht blockierend
+  return (
+    <>
+      {children}
+      {showRoleModal && (
+        <RoleSelectionModal 
+          onSelectRole={async (role) => {
+            console.log('🎯 Rolle ausgewählt:', role);
+            try {
+              await selectRole(role);
+              console.log('✅ Rolle erfolgreich gespeichert');
+              
+              // Modal dauerhaft schließen
+              setShowRoleModal(false);
+              
+              // Onboarding als abgeschlossen markieren (verhindert erneutes Erscheinen)
+              setOnboardingChecked(true);
+              
+              console.log('✅ Modal geschlossen - wird nicht mehr angezeigt');
+            } catch (error) {
+              console.error('❌ Fehler beim Speichern der Rolle:', error);
+              // Modal bleibt offen bei Fehlern
+            }
+          }}
+        />
+      )}
+    </>
+  );
   
   return <>{children}</>;
 }

@@ -16,6 +16,7 @@ import TradeDetailsModal from '../components/TradeDetailsModal';
 import CostEstimateDetailsModal from '../components/CostEstimateDetailsModal';
 import OrderConfirmationGenerator from '../components/OrderConfirmationGenerator';
 import TradeMap from '../components/TradeMap';
+import UpgradeModal from '../components/UpgradeModal';
 import { 
   Plus, 
   FileText, 
@@ -500,6 +501,43 @@ export default function Trades() {
   const [geoMinBudget, setGeoMinBudget] = useState<number | undefined>();
   const [geoMaxBudget, setGeoMaxBudget] = useState<number | undefined>();
   const [geoUserType, setGeoUserType] = useState<string>('');
+
+  // State für Upgrade Modal (Gewerke-Limit)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  // Funktion um Gewerke-Limit zu prüfen
+  const checkTradeLimit = () => {
+    const subscriptionPlan = user?.subscription_plan || 'basis';
+    const userRole = user?.user_role;
+    
+    // Limit nur für Bauträger in Basis-Version
+    if (userRole === 'bautraeger' && subscriptionPlan === 'basis') {
+      const tradeCount = trades.filter(trade => trade.project_id === selectedProject?.id).length;
+      const TRADE_LIMIT = 3;
+      
+      if (tradeCount >= TRADE_LIMIT) {
+        setShowUpgradeModal(true);
+        return false;
+      }
+    }
+    
+    return true;
+  };
+  
+  // Handler für Gewerk erstellen mit Limit-Prüfung
+  const handleCreateTrade = () => {
+    if (checkTradeLimit()) {
+      setShowTradeCreationForm(true);
+    }
+  };
+  
+  // Handler für Upgrade Modal
+  const handleUpgrade = async (planType: 'monthly' | 'yearly') => {
+    console.log('🚀 Upgrade zu Pro-Version:', planType);
+    // Hier würde die Upgrade-Logik implementiert werden
+    setShowUpgradeModal(false);
+    alert('Upgrade-Funktionalität wird implementiert. Kontaktieren Sie uns für Details.');
+  };
 
   // Handler für Auftragsbestätigung-Generierung
   const handleGenerateOrderConfirmation = async (documentData: any) => {
@@ -1787,13 +1825,42 @@ export default function Trades() {
           
           {!isServiceProviderUser && (
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => setShowTradeCreationForm(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-[#ffbd59] text-[#2c3539] rounded-lg font-semibold hover:bg-[#ffa726] transition-colors"
-              >
-                <Plus size={20} />
-                Gewerk erstellen
-              </button>
+              {(() => {
+                const subscriptionPlan = user?.subscription_plan || 'basis';
+                const userRole = user?.user_role;
+                const currentTradeCount = trades.filter(trade => trade.project_id === selectedProject?.id).length;
+                const isLimitReached = userRole === 'bautraeger' && subscriptionPlan === 'basis' && currentTradeCount >= 3;
+                
+                return (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleCreateTrade}
+                      disabled={isLimitReached}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-colors ${
+                        isLimitReached 
+                          ? 'bg-gray-500 text-gray-300 cursor-not-allowed' 
+                          : 'bg-[#ffbd59] text-[#2c3539] hover:bg-[#ffa726]'
+                      }`}
+                    >
+                      <Plus size={20} />
+                      Gewerk erstellen
+                    </button>
+                    
+                    {userRole === 'bautraeger' && subscriptionPlan === 'basis' && (
+                      <div className="text-sm text-gray-300">
+                        <span className={currentTradeCount >= 3 ? 'text-red-400' : 'text-gray-300'}>
+                          {currentTradeCount}/3 Gewerke
+                        </span>
+                        {currentTradeCount >= 3 && (
+                          <span className="ml-2 text-[#ffbd59] font-medium">
+                            • Pro-Version für mehr
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -2384,6 +2451,13 @@ export default function Trades() {
             onClose={handleCloseOrderConfirmationGenerator}
           />
         )}
+
+        {/* Upgrade Modal für Gewerke-Limit */}
+        <UpgradeModal 
+          isOpen={showUpgradeModal}
+          onClose={() => setShowUpgradeModal(false)}
+          onUpgrade={handleUpgrade}
+        />
       </div>
     </div>
   );

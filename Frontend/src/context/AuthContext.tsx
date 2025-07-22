@@ -8,6 +8,9 @@ interface AuthContextType {
   logout: () => void;
   isServiceProvider: () => boolean;
   isAuthenticated: () => boolean;
+  userRole: string | null;
+  roleSelected: boolean;
+  selectRole: (role: 'bautraeger' | 'dienstleister') => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,12 +32,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [roleSelected, setRoleSelected] = useState(false);
 
   // Initialisiere Auth-Daten beim ersten Laden mit Verzögerung
   useEffect(() => {
     console.log('🔧 Initialisiere AuthContext...');
     
-    const initializeAuth = () => {
+    const initializeAuth = async () => {
       try {
         const storedToken = localStorage.getItem('token');
         const storedUser = localStorage.getItem('user');
@@ -84,7 +89,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           try {
             const userData = JSON.parse(storedUser);
             console.log('👤 User-Daten geparst:', userData);
-            setUser(userData);
+            console.log('🔍 Rollen-Debug:', {
+              hasUserRole: !!userData.user_role,
+              userRole: userData.user_role,
+              hasRoleSelected: userData.role_selected !== undefined,
+              roleSelected: userData.role_selected,
+              subscriptionPlan: userData.subscription_plan
+            });
+            
+            // IMMER aktuelle User-Daten vom Backend laden (verhindert veraltete localStorage-Daten)
+            console.log('🔄 Lade immer aktuelle User-Daten vom Backend');
+            try {
+              const response = await fetch('http://localhost:8000/api/v1/users/me', {
+                headers: {
+                  'Authorization': `Bearer ${storedToken}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              
+              if (response.ok) {
+                const freshUserData = await response.json();
+                console.log('✅ Aktuelle User-Daten geladen:', freshUserData);
+                console.log('🔍 Fresh Rollen-Debug:', {
+                  hasUserRole: !!freshUserData.user_role,
+                  userRole: freshUserData.user_role,
+                  hasRoleSelected: freshUserData.role_selected !== undefined,
+                  roleSelected: freshUserData.role_selected,
+                  subscriptionPlan: freshUserData.subscription_plan
+                });
+                
+                setUser(freshUserData);
+                localStorage.setItem('user', JSON.stringify(freshUserData));
+                
+                // Setze Rollen-Informationen
+                if (freshUserData.user_role) {
+                  setUserRole(freshUserData.user_role);
+                }
+                if (freshUserData.role_selected !== undefined) {
+                  setRoleSelected(freshUserData.role_selected);
+                }
+              } else {
+                console.log('❌ Fehler beim Laden der User-Daten - verwende localStorage');
+                setUser(userData);
+                
+                // Setze Rollen-Informationen aus localStorage
+                if (userData.user_role) {
+                  setUserRole(userData.user_role);
+                }
+                if (userData.role_selected !== undefined) {
+                  setRoleSelected(userData.role_selected);
+                }
+              }
+            } catch (error) {
+              console.log('❌ Netzwerk-Fehler - verwende localStorage:', error);
+              setUser(userData);
+              
+              // Setze Rollen-Informationen aus localStorage
+              if (userData.user_role) {
+                setUserRole(userData.user_role);
+              }
+              if (userData.role_selected !== undefined) {
+                setRoleSelected(userData.role_selected);
+              }
+            }
+            
             console.log('✅ User gesetzt');
           } catch (error) {
             console.error('❌ Fehler beim Parsen der User-Daten:', error);
@@ -115,7 +183,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     // Verzögerte Initialisierung für bessere Stabilität
-    const timer = setTimeout(initializeAuth, 100);
+    const timer = setTimeout(() => {
+      initializeAuth().catch(error => {
+        console.error('❌ Async-Fehler bei AuthContext-Initialisierung:', error);
+        setIsInitialized(true);
+        setIsInitializing(false);
+      });
+    }, 100);
     
     return () => clearTimeout(timer);
   }, []);
@@ -173,6 +247,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return !!user && !!token && isTokenValid(token);
   };
 
+  // Funktion zum Auswählen der Benutzerrolle
+  const selectRole = async (role: 'bautraeger' | 'dienstleister') => {
+    try {
+      console.log('🔄 Sende Rollenauswahl:', { role, hasToken: !!token, userId: user?.id });
+      
+      const response = await fetch('http://localhost:8000/api/v1/auth/select-role', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ role })
+      });
+
+      console.log('📡 Backend Response Status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ Backend Error:', errorData);
+        throw new Error(`Fehler beim Speichern der Rolle: ${errorData}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Backend Response Data:', data);
+      
+      // Aktualisiere lokale States
+      setUserRole(role);
+      setRoleSelected(true);
+      
+      // Aktualisiere User-Objekt
+      if (user) {
+        const updatedUser = { ...user, user_role: role, role_selected: true };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      }
+      
+      console.log('✅ Rolle erfolgreich ausgewählt:', role);
+    } catch (error) {
+      console.error('❌ Fehler beim Auswählen der Rolle:', error);
+      throw error;
+    }
+  };
+
   // Debug-Logging für Auth-Status
   useEffect(() => {
     if (isInitialized) {
@@ -194,7 +311,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login, 
       logout, 
       isServiceProvider,
-      isAuthenticated 
+      isAuthenticated,
+      userRole,
+      roleSelected,
+      selectRole
     }}>
       {children}
     </AuthContext.Provider>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSwipeable } from 'react-swipeable';
 import { useAuth } from '../context/AuthContext';
@@ -50,7 +50,7 @@ interface Project {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { isInitialized, isAuthenticated } = useAuth();
+  const { isInitialized, isAuthenticated, userRole, user } = useAuth();
   const { 
     projects, 
     selectedProject, 
@@ -636,6 +636,38 @@ export default function Dashboard() {
     }
   ];
 
+  const handleResetRoleForTesting = async () => {
+    try {
+      console.log('🔧 Debug: Setze Rolle zurück...');
+      
+      const response = await fetch('http://localhost:8000/api/v1/auth/debug/reset-role', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Rolle erfolgreich zurückgesetzt:', data);
+        
+        // Zeige Bestätigung
+        alert('✅ Rolle zurückgesetzt! Seite wird neu geladen um das Modal zu testen.');
+        
+        // Seite neu laden um das Modal zu triggern
+        window.location.reload();
+      } else {
+        const error = await response.text();
+        console.error('❌ Fehler beim Zurücksetzen:', error);
+        alert('❌ Fehler beim Zurücksetzen der Rolle. Siehe Konsole für Details.');
+      }
+    } catch (error) {
+      console.error('❌ Netzwerk-Fehler:', error);
+      alert('❌ Netzwerk-Fehler beim Zurücksetzen der Rolle.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6">
       {/* Header mit Projekt-Informationen */}
@@ -764,23 +796,47 @@ export default function Dashboard() {
 
       {/* Dashboard-Karten */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {getDashboardCards().map((card, index) => (
-          <DashboardCard
-            key={index}
-            title={card.title}
-            icon={card.icon}
-            onClick={card.onClick}
-            ariaLabel={card.ariaLabel}
-            status={card.status}
-            badge={card.badge}
-            progress={card.progress}
-            cardId={card.cardId}
-            path={card.path}
-            iconString={card.iconString}
-          >
-            {card.children}
-          </DashboardCard>
-        ))}
+        {getDashboardCards()
+          .filter(card => {
+            // Filtere Karten basierend auf Benutzerrolle und Subscription
+            if (userRole === 'dienstleister') {
+              // Dienstleister sehen nur: Manager, Gewerk, Docs
+              return ['manager', 'gewerk', 'docs'].includes(card.cardId);
+            }
+            
+            if (userRole === 'bautraeger') {
+              // Prüfe Subscription-Plan
+              const subscriptionPlan = user?.subscription_plan || 'basis';
+              const subscriptionStatus = user?.subscription_status || 'inactive';
+              const isProUser = subscriptionPlan === 'pro' && subscriptionStatus === 'active';
+              
+              if (!isProUser) {
+                // Basis-Bauträger sehen nur: Manager, Gewerk, Docs
+                return ['manager', 'gewerk', 'docs'].includes(card.cardId);
+              }
+            }
+            
+            // Pro-Bauträger und Admins sehen alle Karten
+            return true;
+          })
+          .map((card, index) => (
+            <DashboardCard
+              key={index}
+              title={card.title}
+              icon={card.icon}
+              onClick={card.onClick}
+              ariaLabel={card.ariaLabel}
+              status={card.status}
+              badge={card.badge}
+              progress={card.progress}
+              cardId={card.cardId}
+              path={card.path}
+              iconString={card.iconString}
+            >
+              {card.children}
+            </DashboardCard>
+          ))
+        }
       </div>
 
       {/* Debug-Info */}
@@ -1203,6 +1259,36 @@ export default function Dashboard() {
               </form>
             </div>
           </div>
+        </div>
+      )}
+      
+      {/* Debug-Button für Rollenauswahl-Tests (nur im Entwicklungsmodus) */}
+      {import.meta.env.DEV && (
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+          <button
+            onClick={() => {
+              console.log('🔍 Debug User Status:', {
+                user: user,
+                hasRole: !!user?.user_role,
+                roleSelected: user?.role_selected,
+                createdAt: user?.created_at,
+                subscriptionPlan: user?.subscription_plan
+              });
+              alert('User-Status in der Konsole ausgegeben!');
+            }}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-medium transition-colors"
+            title="Zeigt aktuellen User-Status in der Konsole"
+          >
+            🔍 User Status (Debug)
+          </button>
+          
+          <button
+            onClick={handleResetRoleForTesting}
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-medium transition-colors"
+            title="Setzt Rolle zurück für Modal-Tests"
+          >
+            🔧 Reset Rolle (Debug)
+          </button>
         </div>
       )}
     </div>
