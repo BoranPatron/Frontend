@@ -38,9 +38,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const storedToken = localStorage.getItem('token');
         const storedUser = localStorage.getItem('user');
+        const rememberMe = localStorage.getItem('rememberMe');
+        const sessionExpiry = localStorage.getItem('sessionExpiry');
         
         console.log('🔑 Token aus localStorage:', storedToken ? '✅ Vorhanden' : '❌ Fehlt');
         console.log('👤 User aus localStorage:', storedUser ? '✅ Vorhanden' : '❌ Fehlt');
+        console.log('💾 Remember Me:', rememberMe ? '✅ Aktiv' : '❌ Inaktiv');
+        
+        // Prüfe Session-Ablauf bei "Angemeldet bleiben"
+        if (rememberMe === 'true' && sessionExpiry) {
+          const expiryDate = new Date(sessionExpiry);
+          const now = new Date();
+          
+          if (now > expiryDate) {
+            console.log('❌ Session abgelaufen - entferne alle Daten');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('rememberMe');
+            localStorage.removeItem('sessionExpiry');
+            setToken(null);
+            setUser(null);
+            setIsInitialized(true);
+            setIsInitializing(false);
+            return;
+          } else {
+            console.log('✅ Session noch gültig bis:', expiryDate.toLocaleString());
+          }
+        }
         
         if (storedToken) {
           // Validiere Token vor der Verwendung
@@ -80,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('📊 Finaler Auth-Status:', {
           hasToken: !!storedToken && isTokenValid(storedToken),
           hasUser: !!storedUser,
+          rememberMe: rememberMe === 'true',
           isInitialized: true
         });
       } catch (error) {
@@ -129,6 +154,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     console.log('🚪 Logout durchgeführt');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('rememberMe');
+    localStorage.removeItem('sessionExpiry');
     setToken(null);
     setUser(null);
   };

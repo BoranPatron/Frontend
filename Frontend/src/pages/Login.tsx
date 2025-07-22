@@ -7,6 +7,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -85,6 +86,16 @@ export default function Login() {
       // Refresh-Token speichern (falls verfügbar)
       if (data.refresh_token) {
         localStorage.setItem('refreshToken', data.refresh_token);
+      }
+      
+      // "Angemeldet bleiben" Einstellung speichern
+      if (rememberMe) {
+        localStorage.setItem('rememberMe', 'true');
+        // Session-Token für längere Gültigkeit (7 Tage)
+        localStorage.setItem('sessionExpiry', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString());
+      } else {
+        localStorage.removeItem('rememberMe');
+        localStorage.removeItem('sessionExpiry');
       }
 
       setSuccess('Login erfolgreich! Weiterleitung...');
@@ -338,6 +349,22 @@ export default function Login() {
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
+          </div>
+
+          {/* Angemeldet bleiben Checkbox */}
+          <div className="flex items-center justify-between">
+            <label className="flex items-center text-sm text-gray-300">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="mr-2 w-4 h-4 text-[#ffbd59] bg-white/10 border-white/20 rounded focus:ring-[#ffbd59] focus:ring-2"
+              />
+              Angemeldet bleiben
+            </label>
+            <span className="text-xs text-gray-400">
+              (7 Tage)
+            </span>
           </div>
 
           <button
