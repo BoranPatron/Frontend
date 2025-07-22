@@ -44,6 +44,9 @@ interface ProjectData {
   estimated_duration?: number;
   is_public: boolean;
   allow_quotes: boolean;
+  // Neue Felder für Bauphasen
+  construction_phase?: string;
+  address_country?: string;
 }
 
 export async function createProject(data: ProjectData) {

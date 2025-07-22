@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSwipeable } from 'react-swipeable';
+import { useAuth } from '../context/AuthContext';
+import { useProject } from '../context/ProjectContext';
+import { getProjects, createProject } from '../api/projectService';
+import DashboardCard from '../components/DashboardCard';
+import ConstructionPhaseTimeline from '../components/ConstructionPhaseTimeline';
 import { 
   Home, 
   FileText, 
@@ -8,20 +13,16 @@ import {
   Euro, 
   MessageSquare, 
   BarChart3, 
+  Palette, 
   Users, 
   Upload, 
   Clock, 
-  TrendingUp,
+  TrendingUp, 
+  Eye, 
+  X, 
   AlertTriangle,
-  CheckCircle,
-  Palette,
-  Plus,
-  X
+  Star
 } from 'lucide-react';
-import DashboardCard from '../components/DashboardCard';
-import { useProject } from '../context/ProjectContext';
-import { useAuth } from '../context/AuthContext';
-import { getProjects, createProject } from '../api/projectService';
 
 interface Project {
   id: number;
@@ -42,6 +43,9 @@ interface Project {
   allow_quotes: boolean;
   created_at: string;
   updated_at: string;
+  // Neue Felder für Bauphasen
+  construction_phase?: string;
+  address_country?: string;
 }
 
 export default function Dashboard() {
@@ -74,6 +78,7 @@ export default function Dashboard() {
     address_zip: '',
     address_city: '',
     address_country: 'Deutschland',
+    construction_phase: '', // Neues Feld für Bauphase
     property_size: '',
     construction_area: '',
     start_date: '',
@@ -82,6 +87,101 @@ export default function Dashboard() {
     is_public: false,
     allow_quotes: true
   });
+
+  // Bauphasen je nach Land
+  const getConstructionPhases = (country: string) => {
+    switch (country) {
+      case 'Schweiz':
+        return [
+          { value: 'vorprojekt', label: 'Vorprojekt' },
+          { value: 'projektierung', label: 'Projektierung' },
+          { value: 'baugenehmigung', label: 'Baugenehmigung' },
+          { value: 'ausschreibung', label: 'Ausschreibung' },
+          { value: 'aushub', label: 'Aushub' },
+          { value: 'fundament', label: 'Fundament' },
+          { value: 'rohbau', label: 'Rohbau' },
+          { value: 'dach', label: 'Dach' },
+          { value: 'fassade', label: 'Fassade' },
+          { value: 'innenausbau', label: 'Innenausbau' },
+          { value: 'fertigstellung', label: 'Fertigstellung' }
+        ];
+      case 'Deutschland':
+        return [
+          { value: 'planungsphase', label: 'Planungsphase' },
+          { value: 'baugenehmigung', label: 'Baugenehmigung' },
+          { value: 'ausschreibung', label: 'Ausschreibung' },
+          { value: 'aushub', label: 'Aushub' },
+          { value: 'fundament', label: 'Fundament' },
+          { value: 'rohbau', label: 'Rohbau' },
+          { value: 'dach', label: 'Dach' },
+          { value: 'fassade', label: 'Fassade' },
+          { value: 'innenausbau', label: 'Innenausbau' },
+          { value: 'fertigstellung', label: 'Fertigstellung' }
+        ];
+      case 'Österreich':
+        return [
+          { value: 'planungsphase', label: 'Planungsphase' },
+          { value: 'einreichung', label: 'Einreichung' },
+          { value: 'ausschreibung', label: 'Ausschreibung' },
+          { value: 'aushub', label: 'Aushub' },
+          { value: 'fundament', label: 'Fundament' },
+          { value: 'rohbau', label: 'Rohbau' },
+          { value: 'dach', label: 'Dach' },
+          { value: 'fassade', label: 'Fassade' },
+          { value: 'innenausbau', label: 'Innenausbau' },
+          { value: 'fertigstellung', label: 'Fertigstellung' }
+        ];
+      default:
+        return [];
+    }
+  };
+
+  const getPhaseLabel = (phase: string) => {
+    const phases = getConstructionPhases(projectForm.address_country);
+    const phaseObj = phases.find(p => p.value === phase);
+    return phaseObj ? phaseObj.label : phase;
+  };
+
+  const getPhaseColor = (phase: string) => {
+    const phaseColors: { [key: string]: string } = {
+      // Schweiz
+      'vorprojekt': 'text-blue-400',
+      'projektierung': 'text-indigo-400',
+      'baugenehmigung': 'text-yellow-400',
+      'ausschreibung': 'text-orange-400',
+      'aushub': 'text-red-400',
+      'fundament': 'text-purple-400',
+      'rohbau': 'text-pink-400',
+      'dach': 'text-indigo-400',
+      'fassade': 'text-green-400',
+      'innenausbau': 'text-teal-400',
+      'fertigstellung': 'text-emerald-400',
+      
+      // Deutschland und Österreich (gemeinsame Phasen)
+      'planungsphase': 'text-blue-400',
+      'einreichung': 'text-yellow-400'
+    };
+    return phaseColors[phase] || 'text-gray-400';
+  };
+
+  // Hilfsfunktion für Bauphasen-Informationen
+  const getConstructionPhaseInfo = (country: string, phase: string) => {
+    const phases = getConstructionPhases(country);
+    const currentPhaseIndex = phases.findIndex(p => p.value === phase);
+    const phaseLabel = phases.find(p => p.value === phase)?.label || phase;
+    
+    return {
+      phases,
+      currentPhaseIndex,
+      phaseLabel,
+      totalPhases: phases.length,
+      progressPercentage: phases.length > 0 ? ((currentPhaseIndex + 1) / phases.length) * 100 : 0
+    };
+  };
+
+  const handleProjectDetailsClick = () => {
+    navigate(`/project/${currentProject.id}`);
+  };
 
   // Online/Offline-Status überwachen
   useEffect(() => {
@@ -194,6 +294,7 @@ export default function Dashboard() {
       address_zip: '',
       address_city: '',
       address_country: 'Deutschland',
+      construction_phase: '',
       property_size: '',
       construction_area: '',
       start_date: '',
@@ -218,25 +319,26 @@ export default function Dashboard() {
     setCreateProjectError(null);
 
     try {
-      // Formatiere die Daten für die API
-      const projectData = {
-        name: projectForm.name.trim(),
-        description: projectForm.description.trim() || '',
-        project_type: projectForm.project_type,
-        status: 'planning', // Standard-Status für neue Projekte
-        address: projectForm.address.trim() || undefined,
-        address_street: projectForm.address_street?.trim() || undefined,
-        address_zip: projectForm.address_zip?.trim() || undefined,
-        address_city: projectForm.address_city?.trim() || undefined,
-        address_country: projectForm.address_country?.trim() || 'Deutschland',
-        property_size: projectForm.property_size ? parseFloat(projectForm.property_size) : undefined,
-        construction_area: projectForm.construction_area ? parseFloat(projectForm.construction_area) : undefined,
-        start_date: projectForm.start_date || undefined,
-        end_date: projectForm.end_date || undefined,
-        budget: projectForm.budget ? parseFloat(projectForm.budget) : undefined,
-        is_public: projectForm.is_public,
-        allow_quotes: projectForm.allow_quotes
-      };
+              // Formatiere die Daten für die API
+        const projectData = {
+          name: projectForm.name.trim(),
+          description: projectForm.description.trim() || '',
+          project_type: projectForm.project_type,
+          status: 'planning', // Standard-Status für neue Projekte
+          address: projectForm.address.trim() || undefined,
+          address_street: projectForm.address_street?.trim() || undefined,
+          address_zip: projectForm.address_zip?.trim() || undefined,
+          address_city: projectForm.address_city?.trim() || undefined,
+          address_country: projectForm.address_country?.trim() || 'Deutschland',
+          construction_phase: projectForm.construction_phase || undefined,
+          property_size: projectForm.property_size ? parseFloat(projectForm.property_size) : undefined,
+          construction_area: projectForm.construction_area ? parseFloat(projectForm.construction_area) : undefined,
+          start_date: projectForm.start_date || undefined,
+          end_date: projectForm.end_date || undefined,
+          budget: projectForm.budget ? parseFloat(projectForm.budget) : undefined,
+          is_public: projectForm.is_public,
+          allow_quotes: projectForm.allow_quotes
+        };
 
       console.log('🚀 Erstelle neues Projekt mit Daten:', projectData);
       const newProject = await createProject(projectData);
@@ -565,7 +667,16 @@ export default function Dashboard() {
             </div>
 
             <div className="mb-4">
-              <h2 className="text-2xl font-bold text-white mb-2">{currentProject.name}</h2>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-2xl font-bold text-white">{currentProject.name}</h2>
+                <button
+                  onClick={handleProjectDetailsClick}
+                  className="bg-[#ffbd59] text-[#2c3539] px-4 py-2 rounded-lg font-medium hover:bg-[#ffa726] transition-colors flex items-center gap-2"
+                >
+                  <Eye size={16} />
+                  Details
+                </button>
+              </div>
               <p className="text-gray-300 mb-3">{currentProject.description}</p>
               
               <div className="flex flex-wrap gap-4 text-sm">
@@ -608,6 +719,29 @@ export default function Dashboard() {
                 <span className="text-white ml-2">{formatDate(currentProject.end_date || '')}</span>
               </div>
             </div>
+
+            {/* Bauphasen-Zeitstrahl */}
+            {(currentProject as any).construction_phase && (currentProject as any).address_country && (
+              <ConstructionPhaseTimeline 
+                currentPhase={(currentProject as any).construction_phase}
+                country={(currentProject as any).address_country}
+                showLegend={true}
+                showProgress={true}
+                compact={false}
+              />
+            )}
+            
+            {/* Bauphasen-Info falls keine Phase gesetzt ist */}
+            {!((currentProject as any).construction_phase) && (
+              <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <div className="flex items-center gap-2 text-blue-300">
+                  <span className="text-sm">🏗️ Keine Bauphase ausgewählt</span>
+                </div>
+                <p className="text-xs text-blue-400 mt-1">
+                  Wählen Sie eine Bauphase im Projekt-Details, um den Fortschritt zu verfolgen.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -654,6 +788,9 @@ export default function Dashboard() {
         <p>Debug: AuthContext initialisiert: {isInitialized ? 'Ja' : 'Nein'}</p>
         <p>Debug: Projekte geladen: {projects.length}</p>
         <p>Debug: Aktuelles Projekt: {selectedProject ? selectedProject.name : 'Keines'}</p>
+        <p>Debug: Construction Phase: {(currentProject as any).construction_phase || 'NICHT GESETZT'}</p>
+        <p>Debug: Address Country: {(currentProject as any).address_country || 'NICHT GESETZT'}</p>
+        <p>Debug: Projekt-Objekt: {JSON.stringify(currentProject, null, 2)}</p>
       </div>
 
       {/* Projekt-Erstellungs-Modal */}
@@ -672,6 +809,21 @@ export default function Dashboard() {
               </div>
 
               <form onSubmit={handleCreateProject} className="space-y-6">
+                {/* Debug-Info */}
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs">
+                  <p><strong>Debug:</strong> Projekttyp = "{projectForm.project_type}"</p>
+                  <p><strong>Debug:</strong> Land = "{projectForm.address_country}"</p>
+                  <p><strong>Debug:</strong> Bedingung erfüllt = {projectForm.project_type === 'new_build' ? 'JA' : 'NEIN'}</p>
+                  <p><strong>Debug:</strong> Verfügbare Phasen = {getConstructionPhases(projectForm.address_country).length}</p>
+                  <p><strong>Debug:</strong> Bauphasen-Auswahl sichtbar = {projectForm.project_type === 'new_build' ? 'JA' : 'NEIN'}</p>
+                  <p><strong>Debug:</strong> Phasen-Array = {JSON.stringify(getConstructionPhases(projectForm.address_country).map(p => p.label))}</p>
+                  <p><strong>Debug:</strong> Projekttyp-Typ = {typeof projectForm.project_type}</p>
+                  <p><strong>Debug:</strong> Vergleich: "{projectForm.project_type}" === "new_build" = {projectForm.project_type === 'new_build'}</p>
+                  <p><strong>Debug:</strong> String-Vergleich: "{projectForm.project_type}" === "new_build" = {String(projectForm.project_type) === "new_build"}</p>
+                  <p><strong>Debug:</strong> Trim-Vergleich: "{projectForm.project_type.trim()}" === "new_build" = {projectForm.project_type.trim() === "new_build"}</p>
+                  <p><strong>Debug:</strong> Projekttyp-Länge = {projectForm.project_type.length}</p>
+                  <p><strong>Debug:</strong> Projekttyp-Char-Codes = {Array.from(projectForm.project_type).map(c => c.charCodeAt(0))}</p>
+                </div>
                 {/* Grundinformationen */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -707,6 +859,114 @@ export default function Dashboard() {
                     </select>
                   </div>
                 </div>
+
+                {/* Bauphasen-Auswahl (immer sichtbar für Debug) */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🏗️ Aktuelle Bauphase (optional)
+                  </label>
+                  <select
+                    name="construction_phase"
+                    value={projectForm.construction_phase}
+                    onChange={handleProjectFormChange}
+                    className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  >
+                    <option value="">Keine Phase ausgewählt</option>
+                    {getConstructionPhases(projectForm.address_country).map((phase) => (
+                      <option key={phase.value} value={phase.value}>
+                        {phase.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-blue-600 mt-2">
+                    💡 Wählen Sie die aktuelle Bauphase für {projectForm.address_country}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Debug: Projekttyp = "{projectForm.project_type}", Land = "{projectForm.address_country}"
+                  </p>
+                </div>
+
+                {/* Alternative Bauphasen-Auswahl (immer sichtbar) */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🔧 Alternative Bauphasen-Auswahl (immer sichtbar)
+                  </label>
+                  <p className="text-xs text-green-600 mb-2">
+                    Projekttyp: "{projectForm.project_type}" | Land: "{projectForm.address_country}"
+                  </p>
+                  <select
+                    name="construction_phase"
+                    value={projectForm.construction_phase}
+                    onChange={handleProjectFormChange}
+                    className="w-full px-3 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  >
+                    <option value="">Keine Phase ausgewählt</option>
+                    {getConstructionPhases(projectForm.address_country).map((phase) => (
+                      <option key={phase.value} value={phase.value}>
+                        {phase.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-green-600 mt-2">
+                    ✅ Diese Auswahl sollte IMMER funktionieren
+                  </p>
+                </div>
+
+                {/* Dritte Bauphasen-Auswahl (nur für Neubau) */}
+                {projectForm.project_type === 'new_build' && (
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      🏠 Bauphasen-Auswahl (nur für Neubau)
+                    </label>
+                    <p className="text-xs text-purple-600 mb-2">
+                      Diese Auswahl erscheint nur bei "Neubau"
+                    </p>
+                    <select
+                      name="construction_phase"
+                      value={projectForm.construction_phase}
+                      onChange={handleProjectFormChange}
+                      className="w-full px-3 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                    >
+                      <option value="">Keine Phase ausgewählt</option>
+                      {getConstructionPhases(projectForm.address_country).map((phase) => (
+                        <option key={phase.value} value={phase.value}>
+                          {phase.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-purple-600 mt-2">
+                      🎯 Bedingung: projectForm.project_type === 'new_build'
+                    </p>
+                  </div>
+                )}
+
+                {/* Einfache Bauphasen-Auswahl (immer sichtbar) */}
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🔥 EINFACHE Bauphasen-Auswahl (immer sichtbar)
+                  </label>
+                  <p className="text-xs text-red-600 mb-2">
+                    Diese Auswahl ist IMMER sichtbar - keine Bedingung!
+                  </p>
+                  <select
+                    name="construction_phase"
+                    value={projectForm.construction_phase}
+                    onChange={handleProjectFormChange}
+                    className="w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                  >
+                    <option value="">Keine Phase ausgewählt</option>
+                    {getConstructionPhases(projectForm.address_country).map((phase) => (
+                      <option key={phase.value} value={phase.value}>
+                        {phase.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-red-600 mt-2">
+                    ✅ Diese Auswahl sollte IMMER funktionieren - keine Bedingung!
+                  </p>
+                </div>
+
+
 
                 {/* Beschreibung */}
                 <div>
@@ -934,7 +1194,7 @@ export default function Dashboard() {
                       </>
                     ) : (
                       <>
-                        <Plus size={16} />
+                        <Star size={16} />
                         <span>Projekt erstellen</span>
                       </>
                     )}

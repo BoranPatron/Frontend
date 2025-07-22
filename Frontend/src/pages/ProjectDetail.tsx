@@ -249,6 +249,9 @@ export default function ProjectDetail() {
 
   // Modal states for adding a new trade
   const [showAddTradeModal, setShowAddTradeModal] = useState(false);
+  const [showPhaseModal, setShowPhaseModal] = useState(false);
+  const [selectedPhase, setSelectedPhase] = useState('');
+  const [isUpdatingPhase, setIsUpdatingPhase] = useState(false);
   const [tradeForm, setTradeForm] = useState({
     project_id: 0,
     name: '',
@@ -265,6 +268,69 @@ export default function ProjectDetail() {
 
   // Neue States für Projekt-Dropdown
   const [allProjects, setAllProjects] = useState<Project[]>([]);
+
+  // Bauphasen je nach Land
+  const getConstructionPhases = (country: string) => {
+    switch (country) {
+      case 'Schweiz':
+        return [
+          { value: 'vorprojekt', label: 'Vorprojekt' },
+          { value: 'projektierung', label: 'Projektierung' },
+          { value: 'baugenehmigung', label: 'Baugenehmigung' },
+          { value: 'ausschreibung', label: 'Ausschreibung' },
+          { value: 'aushub', label: 'Aushub' },
+          { value: 'fundament', label: 'Fundament' },
+          { value: 'rohbau', label: 'Rohbau' },
+          { value: 'dach', label: 'Dach' },
+          { value: 'fassade', label: 'Fassade' },
+          { value: 'innenausbau', label: 'Innenausbau' },
+          { value: 'fertigstellung', label: 'Fertigstellung' }
+        ];
+      case 'Deutschland':
+        return [
+          { value: 'planungsphase', label: 'Planungsphase' },
+          { value: 'baugenehmigung', label: 'Baugenehmigung' },
+          { value: 'ausschreibung', label: 'Ausschreibung' },
+          { value: 'aushub', label: 'Aushub' },
+          { value: 'fundament', label: 'Fundament' },
+          { value: 'rohbau', label: 'Rohbau' },
+          { value: 'dach', label: 'Dach' },
+          { value: 'fassade', label: 'Fassade' },
+          { value: 'innenausbau', label: 'Innenausbau' },
+          { value: 'fertigstellung', label: 'Fertigstellung' }
+        ];
+      case 'Österreich':
+        return [
+          { value: 'planungsphase', label: 'Planungsphase' },
+          { value: 'einreichung', label: 'Einreichung' },
+          { value: 'ausschreibung', label: 'Ausschreibung' },
+          { value: 'aushub', label: 'Aushub' },
+          { value: 'fundament', label: 'Fundament' },
+          { value: 'rohbau', label: 'Rohbau' },
+          { value: 'dach', label: 'Dach' },
+          { value: 'fassade', label: 'Fassade' },
+          { value: 'innenausbau', label: 'Innenausbau' },
+          { value: 'fertigstellung', label: 'Fertigstellung' }
+        ];
+      default:
+        return [];
+    }
+  };
+
+  // Hilfsfunktion für Bauphasen-Informationen
+  const getConstructionPhaseInfo = (country: string, phase: string) => {
+    const phases = getConstructionPhases(country);
+    const currentPhaseIndex = phases.findIndex(p => p.value === phase);
+    const phaseLabel = phases.find(p => p.value === phase)?.label || phase;
+    
+    return {
+      phases,
+      currentPhaseIndex,
+      phaseLabel,
+      totalPhases: phases.length,
+      progressPercentage: phases.length > 0 ? ((currentPhaseIndex + 1) / phases.length) * 100 : 0
+    };
+  };
 
   useEffect(() => {
     if (id) {
@@ -338,6 +404,19 @@ export default function ProjectDetail() {
       case 'extension': return 'Anbau';
       case 'refurbishment': return 'Sanierung';
       default: return type;
+    }
+  };
+
+  const getPhaseLabel = (phase: string) => {
+    switch (phase) {
+      case 'planning': return 'Planung';
+      case 'preparation': return 'Vorbereitung';
+      case 'execution': return 'Ausführung';
+      case 'completion': return 'Fertigstellung';
+      case 'completed': return 'Abgeschlossen';
+      case 'on_hold': return 'Pausiert';
+      case 'cancelled': return 'Abgebrochen';
+      default: return phase;
     }
   };
 
@@ -523,6 +602,10 @@ export default function ProjectDetail() {
 
   const handleQuickAction = (action: string) => {
     switch (action) {
+      case 'phase':
+        setSelectedPhase((project as any)?.construction_phase || '');
+        setShowPhaseModal(true);
+        break;
       case 'tasks':
         navigate(`/tasks?project=${project?.id}`);
         break;
@@ -543,6 +626,63 @@ export default function ProjectDetail() {
         break;
       default:
         break;
+    }
+  };
+
+  const handleClosePhaseModal = () => {
+    setShowPhaseModal(false);
+    setError(''); // Fehler zurücksetzen
+  };
+
+  const handlePhaseUpdate = async () => {
+    if (!project?.id || !selectedPhase) return;
+    
+    setIsUpdatingPhase(true);
+    try {
+      // Erstelle ein Update-Objekt nur mit der Phase
+      const updateData = {
+        construction_phase: selectedPhase
+      };
+      
+      console.log('🔄 Aktualisiere Phase für Projekt:', project.id, 'Neue Phase:', selectedPhase);
+      console.log('📤 Sende Update-Daten:', updateData);
+      
+      const result = await updateProject(project.id, updateData);
+      console.log('✅ Phase erfolgreich aktualisiert:', result);
+      
+      setShowPhaseModal(false);
+      setError(''); // Fehler zurücksetzen bei Erfolg
+      await loadProjectData();
+      
+    } catch (error: any) {
+      console.error('❌ Error updating phase:', error);
+      
+      // Detaillierte Fehlerbehandlung
+      if (error.response) {
+        console.error('📋 Response data:', error.response.data);
+        console.error('📊 Response status:', error.response.status);
+        console.error('📋 Response headers:', error.response.headers);
+        
+        if (error.response.status === 422) {
+          setError(`Validierungsfehler: ${JSON.stringify(error.response.data)}`);
+        } else if (error.response.status === 400) {
+          setError(`Ungültige Anfrage: ${error.response.data?.detail || error.response.data}`);
+        } else if (error.response.status === 403) {
+          setError('Keine Berechtigung für dieses Projekt');
+        } else if (error.response.status === 404) {
+          setError('Projekt nicht gefunden');
+        } else {
+          setError(`Server-Fehler: ${error.response.data?.detail || error.message}`);
+        }
+      } else if (error.request) {
+        console.error('📡 Request error:', error.request);
+        setError('Netzwerk-Fehler: Keine Verbindung zum Server');
+      } else {
+        console.error('❌ Error message:', error.message);
+        setError(`Fehler: ${error.message}`);
+      }
+    } finally {
+      setIsUpdatingPhase(false);
     }
   };
 
@@ -639,6 +779,22 @@ export default function ProjectDetail() {
               </div>
             </div>
 
+            {/* Bauphase */}
+            <div className="flex items-center gap-3 p-3 bg-white/10 rounded-lg border border-white/20">
+              <div className="p-2 bg-orange-500/20 rounded-lg">
+                <Target size={16} className="text-orange-300" />
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs">Bauphase</p>
+                <p className="text-white text-sm font-medium">
+                  {(project as any)?.construction_phase ? 
+                    getPhaseLabel((project as any).construction_phase) : 
+                    'Nicht gesetzt'
+                  }
+                </p>
+              </div>
+            </div>
+
             {/* Geschätzte Dauer */}
             {project?.estimated_duration && (
               <div className="flex items-center gap-3 p-3 bg-white/10 rounded-lg border border-white/20">
@@ -706,6 +862,13 @@ export default function ProjectDetail() {
             Schnellaktionen
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <button
+              onClick={() => handleQuickAction('phase')}
+              className="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center hover:bg-white/20 transition-all duration-300 border border-white/20"
+            >
+              <Target size={24} className="text-[#ffbd59] mx-auto mb-2" />
+              <span className="text-white text-sm font-medium">Phase ändern</span>
+            </button>
             <button
               onClick={() => handleQuickAction('tasks')}
               className="bg-white/10 backdrop-blur-lg rounded-xl p-4 text-center hover:bg-white/20 transition-all duration-300 border border-white/20"
@@ -891,8 +1054,8 @@ export default function ProjectDetail() {
                   >
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                        <Users size={20} className="text-[#ffbd59]" />
-                        Phasen
+                        <Target size={20} className="text-[#ffbd59]" />
+                        Bauphasen
                       </h3>
                       <div className={`transform transition-transform ${expandedSections.phases ? 'rotate-180' : ''}`}>
                         <svg className="w-5 h-5 text-[#ffbd59]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -903,25 +1066,141 @@ export default function ProjectDetail() {
                   </button>
                   
                   {expandedSections.phases && (
-                    <div className="px-6 pb-6 space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-white/10 rounded-lg p-3">
-                          <div className="text-white font-medium text-sm">Planung</div>
-                          <div className="text-green-400 text-xs">Abgeschlossen</div>
+                    <div className="px-6 pb-6 space-y-4">
+                      {/* Aktuelle Phase */}
+                      <div className="bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 rounded-xl p-4 border border-[#ffbd59]/20">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-[#ffbd59]/20 rounded-lg">
+                              <Target size={16} className="text-[#ffbd59]" />
+                            </div>
+                            <div>
+                              <h4 className="text-white font-semibold">Aktuelle Bauphase</h4>
+                              <p className="text-gray-400 text-sm">
+                                {(project as any)?.construction_phase ? 
+                                  getPhaseLabel((project as any).construction_phase) : 
+                                  'Keine Phase gesetzt'
+                                }
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setSelectedPhase((project as any)?.construction_phase || '');
+                              setShowPhaseModal(true);
+                            }}
+                            className="px-4 py-2 bg-[#ffbd59] text-[#2c3539] rounded-lg font-medium hover:bg-[#ffa726] transition-colors flex items-center gap-2 text-sm"
+                          >
+                            <Edit size={14} />
+                            Ändern
+                          </button>
                         </div>
-                        <div className="bg-white/10 rounded-lg p-3">
-                          <div className="text-white font-medium text-sm">Vorbereitung</div>
-                          <div className="text-blue-400 text-xs">In Bearbeitung</div>
-                        </div>
-                        <div className="bg-white/10 rounded-lg p-3">
-                          <div className="text-white font-medium text-sm">Ausführung</div>
-                          <div className="text-yellow-400 text-xs">Geplant</div>
-                        </div>
-                        <div className="bg-white/10 rounded-lg p-3">
-                          <div className="text-white font-medium text-sm">Fertigstellung</div>
-                          <div className="text-gray-400 text-xs">Offen</div>
-                        </div>
+                        
+                        {/* Phase-Fortschritt */}
+                        {(project as any)?.construction_phase && (project as any)?.address_country && (
+                          <div className="mt-4">
+                            <div className="flex justify-between text-sm mb-2">
+                              <span className="text-gray-400">Fortschritt</span>
+                              <span className="text-[#ffbd59] font-medium">
+                                {getConstructionPhaseInfo((project as any).address_country, (project as any).construction_phase).progressPercentage.toFixed(0)}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-white/20 rounded-full h-2">
+                              <div
+                                className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-2 rounded-full transition-all duration-1000"
+                                style={{ 
+                                  width: `${getConstructionPhaseInfo((project as any).address_country, (project as any).construction_phase).progressPercentage}%` 
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Bauphasen-Timeline */}
+                      {(project as any)?.address_country && (
+                        <div className="space-y-3">
+                          <h5 className="text-white font-medium text-sm">Verfügbare Bauphasen</h5>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {getConstructionPhases((project as any).address_country).map((phase, index) => {
+                              const isCurrentPhase = (project as any)?.construction_phase === phase.value;
+                              const isCompleted = index < getConstructionPhaseInfo((project as any).address_country, (project as any).construction_phase).currentPhaseIndex;
+                              
+                              return (
+                                <div
+                                  key={phase.value}
+                                  className={`relative p-3 rounded-lg border transition-all duration-300 cursor-pointer ${
+                                    isCurrentPhase 
+                                      ? 'bg-[#ffbd59]/20 border-[#ffbd59]/40 shadow-lg' 
+                                      : isCompleted
+                                      ? 'bg-green-500/10 border-green-500/30'
+                                      : 'bg-white/10 border-white/20 hover:bg-white/15'
+                                  }`}
+                                  onClick={() => {
+                                    setSelectedPhase(phase.value);
+                                    setShowPhaseModal(true);
+                                  }}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                        isCurrentPhase 
+                                          ? 'bg-[#ffbd59] text-[#2c3539]' 
+                                          : isCompleted
+                                          ? 'bg-green-500 text-white'
+                                          : 'bg-white/20 text-gray-400'
+                                      }`}>
+                                        {index + 1}
+                                      </div>
+                                      <div>
+                                        <div className={`font-medium text-sm ${
+                                          isCurrentPhase ? 'text-[#ffbd59]' : 'text-white'
+                                        }`}>
+                                          {phase.label}
+                                        </div>
+                                        <div className={`text-xs ${
+                                          isCurrentPhase 
+                                            ? 'text-[#ffbd59]/80' 
+                                            : isCompleted
+                                            ? 'text-green-400'
+                                            : 'text-gray-400'
+                                        }`}>
+                                          {isCurrentPhase ? 'Aktuell' : isCompleted ? 'Abgeschlossen' : 'Geplant'}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {isCurrentPhase && (
+                                      <div className="flex items-center gap-1">
+                                        <div className="w-2 h-2 bg-[#ffbd59] rounded-full animate-pulse"></div>
+                                        <span className="text-[#ffbd59] text-xs font-medium">Aktiv</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Info-Box */}
+                      {!((project as any)?.construction_phase) && (
+                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 bg-blue-500/20 rounded-lg">
+                              <svg className="w-5 h-5 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <div className="text-sm text-blue-300">
+                              <p className="font-medium mb-1">Bauphase auswählen</p>
+                              <p className="text-xs">
+                                Wählen Sie eine Bauphase aus, um den Projektfortschritt zu verfolgen und die nächsten Schritte zu planen.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1603,6 +1882,88 @@ export default function ProjectDetail() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Phase Change Modal */}
+      {showPhaseModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-[#3d4952]">Bauphase ändern</h2>
+              <button
+                onClick={handleClosePhaseModal}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Fehleranzeige */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-1 bg-red-100 rounded-lg">
+                      <AlertTriangle size={16} className="text-red-600" />
+                    </div>
+                    <div className="text-sm text-red-700">
+                      <p className="font-medium mb-1">Fehler beim Aktualisieren der Phase</p>
+                      <p className="text-xs">{error}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Aktuelle Bauphase
+                </label>
+                <p className="text-gray-600 mb-4">
+                  {(project as any)?.construction_phase ? 
+                    getPhaseLabel((project as any).construction_phase) : 
+                    'Keine Phase gesetzt'
+                  }
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Neue Bauphase auswählen
+                </label>
+                <select
+                  value={selectedPhase}
+                  onChange={(e) => setSelectedPhase(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                >
+                  <option value="">Phase auswählen</option>
+                  {getConstructionPhases((project as any)?.address_country || 'Deutschland').map((phase) => (
+                    <option key={phase.value} value={phase.value}>
+                      {phase.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={handleClosePhaseModal}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePhaseUpdate}
+                  disabled={!selectedPhase || isUpdatingPhase}
+                  className="px-6 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isUpdatingPhase ? 'Speichern...' : 'Speichern'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

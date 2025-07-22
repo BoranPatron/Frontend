@@ -90,9 +90,7 @@ export default function ServiceProviderBuildWiseFees() {
       // Generiere PDF
       await generateInvoice(feeId);
       
-      setSuccess('PDF-Rechnung wird generiert... Bitte warten Sie einen Moment.');
-      
-      // Warte länger und versuche dann den Download
+      // Warte kurz und lade dann Daten neu
       setTimeout(async () => {
         await loadData();
         
@@ -101,10 +99,10 @@ export default function ServiceProviderBuildWiseFees() {
           await handleDownloadInvoice(feeId);
         } catch (downloadError) {
           console.log('Automatischer Download fehlgeschlagen, aber PDF wurde generiert');
-          setSuccess('PDF-Rechnung wurde generiert. Sie können sie jetzt manuell herunterladen.');
-          setTimeout(() => setSuccess(''), 8000);
+          setSuccess('PDF-Rechnung wurde generiert. Sie können sie jetzt herunterladen.');
+          setTimeout(() => setSuccess(''), 5000);
         }
-      }, 5000); // Erhöhe Wartezeit auf 5 Sekunden
+      }, 2000); // Erhöhe Wartezeit auf 2 Sekunden
       
     } catch (error) {
       console.error('Fehler beim Generieren der Rechnung:', error);
@@ -160,12 +158,7 @@ export default function ServiceProviderBuildWiseFees() {
         console.error('PDF-Download Fehler:', errorText);
         
         if (pdfResponse.status === 404) {
-          setError('PDF-Rechnung wurde noch nicht generiert. Bitte warten Sie einen Moment und versuchen Sie es erneut.');
-          // Automatisch erneut versuchen nach 3 Sekunden
-          setTimeout(() => {
-            console.log('🔄 Automatischer Retry für PDF-Download...');
-            handleDownloadInvoice(feeId);
-          }, 3000);
+          setError('PDF-Rechnung wurde noch nicht generiert. Bitte generieren Sie zuerst die Rechnung.');
         } else if (pdfResponse.status === 401) {
           setError('Nicht autorisiert. Bitte melden Sie sich erneut an.');
         } else if (pdfResponse.status === 500) {

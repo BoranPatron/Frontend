@@ -22,6 +22,54 @@ interface DashboardCardProps {
   iconString: string;
 }
 
+// Hilfsfunktion für Bauphasen
+const getConstructionPhases = (country: string) => {
+  switch (country) {
+    case 'Schweiz':
+      return [
+        { value: 'vorprojekt', label: 'Vorprojekt' },
+        { value: 'projektierung', label: 'Projektierung' },
+        { value: 'baugenehmigung', label: 'Baugenehmigung' },
+        { value: 'ausschreibung', label: 'Ausschreibung' },
+        { value: 'aushub', label: 'Aushub' },
+        { value: 'fundament', label: 'Fundament' },
+        { value: 'rohbau', label: 'Rohbau' },
+        { value: 'dach', label: 'Dach' },
+        { value: 'fassade', label: 'Fassade' },
+        { value: 'innenausbau', label: 'Innenausbau' },
+        { value: 'fertigstellung', label: 'Fertigstellung' }
+      ];
+    case 'Deutschland':
+      return [
+        { value: 'planungsphase', label: 'Planungsphase' },
+        { value: 'baugenehmigung', label: 'Baugenehmigung' },
+        { value: 'ausschreibung', label: 'Ausschreibung' },
+        { value: 'aushub', label: 'Aushub' },
+        { value: 'fundament', label: 'Fundament' },
+        { value: 'rohbau', label: 'Rohbau' },
+        { value: 'dach', label: 'Dach' },
+        { value: 'fassade', label: 'Fassade' },
+        { value: 'innenausbau', label: 'Innenausbau' },
+        { value: 'fertigstellung', label: 'Fertigstellung' }
+      ];
+    case 'Österreich':
+      return [
+        { value: 'planungsphase', label: 'Planungsphase' },
+        { value: 'einreichung', label: 'Einreichung' },
+        { value: 'ausschreibung', label: 'Ausschreibung' },
+        { value: 'aushub', label: 'Aushub' },
+        { value: 'fundament', label: 'Fundament' },
+        { value: 'rohbau', label: 'Rohbau' },
+        { value: 'dach', label: 'Dach' },
+        { value: 'fassade', label: 'Fassade' },
+        { value: 'innenausbau', label: 'Innenausbau' },
+        { value: 'fertigstellung', label: 'Fertigstellung' }
+      ];
+    default:
+      return [];
+  }
+};
+
 export default function DashboardCard({ 
   title, 
   icon, 
@@ -128,6 +176,8 @@ export default function DashboardCard({
     });
   };
 
+
+
   return (
     <button
       className="group relative bg-white/10 backdrop-blur-lg rounded-3xl p-8 cursor-pointer transition-all duration-500 hover:bg-white/15 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:ring-opacity-50 min-h-[320px] w-full border border-white/20 hover:border-[#ffbd59]/30 transform hover:-translate-y-2 hover:scale-105"
@@ -200,6 +250,8 @@ export default function DashboardCard({
           {children}
         </div>
       )}
+
+
 
       {/* Progress Bar */}
       {progress && (

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { getProjects } from '../api/projectService';
 import { costPositionService } from '../api/costPositionService';
 import ProjectBreadcrumb from '../components/ProjectBreadcrumb';
+import FinanceAnalytics from '../components/FinanceAnalytics';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -1007,6 +1008,19 @@ export default function Finance() {
                       ))}
                     </div>
                   )}
+
+                  {/* Analytics unterhalb der Kostenpositionen */}
+                  {selectedProject !== 'all' && (
+                    <div className="mt-8">
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-lg font-semibold text-white">Finanz-Analytics</h3>
+                      </div>
+                      
+                      <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20">
+                        <FinanceAnalytics projectId={parseInt(selectedProject)} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1091,6 +1105,19 @@ export default function Finance() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Analytics unterhalb der Ausgaben */}
+              {selectedProject !== 'all' && (
+                <div className="mt-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-white">Finanz-Analytics</h3>
+                  </div>
+                  
+                  <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20">
+                    <FinanceAnalytics projectId={parseInt(selectedProject)} />
+                  </div>
                 </div>
               )}
 
@@ -1194,6 +1221,8 @@ export default function Finance() {
                   )}
                 </div>
               )}
+
+
             </div>
           </div>
         </div>
