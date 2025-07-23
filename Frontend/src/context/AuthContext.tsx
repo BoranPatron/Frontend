@@ -99,6 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             
             // IMMER aktuelle User-Daten vom Backend laden (verhindert veraltete localStorage-Daten)
             console.log('🔄 Lade immer aktuelle User-Daten vom Backend');
+            console.log('🔄 Force-Reload der User-Daten für aktuelle Subscription-Status');
             try {
               const response = await fetch('http://localhost:8000/api/v1/users/me', {
                 headers: {
@@ -124,10 +125,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // Setze Rollen-Informationen
                 if (freshUserData.user_role) {
                   setUserRole(freshUserData.user_role);
+                  console.log('✅ User-Rolle gesetzt aus Backend:', freshUserData.user_role);
                 }
                 if (freshUserData.role_selected !== undefined) {
                   setRoleSelected(freshUserData.role_selected);
+                  console.log('✅ Role-Selected gesetzt:', freshUserData.role_selected);
                 }
+                console.log('🔍 Vollständige User-Daten vom Backend:', freshUserData);
               } else {
                 console.log('❌ Fehler beim Laden der User-Daten - verwende localStorage');
                 setUser(userData);
@@ -222,8 +226,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = (newToken: string, newUser: any) => {
     console.log('🔐 Login durchgeführt:', { hasToken: !!newToken, hasUser: !!newUser });
+    console.log('🔍 Vollständige User-Daten beim Login:', newUser);
     setToken(newToken);
     setUser(newUser);
+    
+    // Setze Rollen-Informationen sofort
+    if (newUser?.user_role) {
+      setUserRole(newUser.user_role);
+      console.log('✅ User-Rolle beim Login gesetzt:', newUser.user_role);
+    }
+    if (newUser?.role_selected !== undefined) {
+      setRoleSelected(newUser.role_selected);
+      console.log('✅ Role-Selected beim Login gesetzt:', newUser.role_selected);
+    }
   };
 
   const logout = () => {
@@ -239,7 +254,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Hilfsfunktion um zu prüfen, ob der Benutzer ein Dienstleister ist
   const isServiceProvider = () => {
-    return user?.user_type === 'service_provider' || user?.email?.includes('dienstleister');
+    const result = user?.user_role === 'dienstleister' || 
+                   user?.user_role === 'DIENSTLEISTER' ||
+                   user?.user_type === 'service_provider' || 
+                   user?.email?.includes('dienstleister');
+    
+    console.log('🔍 isServiceProvider Check:', {
+      user_type: user?.user_type,
+      user_role: user?.user_role,
+      email: user?.email,
+      result: result
+    });
+    
+    return result;
   };
 
   // Hilfsfunktion um zu prüfen, ob der Benutzer authentifiziert ist
@@ -296,12 +323,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('🔍 AuthContext Status Update:', {
         hasToken: !!token,
         hasUser: !!user,
+        userRole: userRole,
+        user_role_from_user: user?.user_role,
+        subscription_plan: user?.subscription_plan,
+        subscription_status: user?.subscription_status,
+        role_selected: roleSelected,
         isInitialized,
         isAuthenticated: isAuthenticated(),
         isServiceProvider: isServiceProvider()
       });
     }
-  }, [token, user, isInitialized]);
+  }, [token, user, isInitialized, userRole, roleSelected]);
 
   return (
     <AuthContext.Provider value={{ 

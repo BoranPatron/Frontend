@@ -288,182 +288,159 @@ export default function Navbar() {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-1">
-              {/* Dashboard - unterschiedlich für Bauträger und Dienstleister */}
-              <Link
-                to={isServiceProvider() ? "/service-provider" : "/"}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                  (isActive('/') || (isServiceProvider() && isActive('/service-provider')))
-                    ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
-                    : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
-                }`}
-              >
-                <Home size={18} />
-                <span>{isServiceProvider() ? 'Dienstleister' : 'Dashboard'}</span>
-              </Link>
-
-              {/* Globale Übersicht - nur für Bauträger */}
-              {!isServiceProvider() && (
-              <Link
-                to="/global-projects"
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                  isActive('/global-projects') 
-                    ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
-                    : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
-                }`}
-              >
-                <Globe size={18} />
-                <span>Übersicht</span>
-              </Link>
-              )}
-
-              {/* Favoriten Dropdown - nur für Bauträger */}
-              {!isServiceProvider() && (
-              <div className="relative group">
-                <button className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                  isProjectActive() 
-                    ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
-                    : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
-                }`}>
-                  <Star size={18} />
-                  <span>Favoriten</span>
-                  <ChevronDown size={16} className="group-hover:rotate-180 transition-transform" />
-                </button>
-                
-                <div className="absolute top-full left-0 mt-2 w-64 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
-                  <div className="p-2">
-                    <div className="flex items-center justify-between p-3 text-gray-300 text-sm border-b border-white/10">
-                      <span>Ihre konfigurierten Favoriten</span>
-                      <button
-                        onClick={() => setShowFavoritesManager(true)}
-                        className="p-1 hover:bg-white/10 rounded transition-colors"
-                        title="Favoriten verwalten"
-                      >
-                        <Settings size={14} className="text-[#ffbd59]" />
-                      </button>
-                    </div>
-                    <div className="mt-2 max-h-64 overflow-y-auto">
-                      {favorites.length > 0 ? (
-                        favorites.map((favorite) => (
-                          <Link
-                            key={favorite.id}
-                            to={favorite.path}
-                            className={`flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white ${
-                              isActive(favorite.path) ? 'bg-white/10 text-[#ffbd59]' : ''
-                            }`}
-                          >
-                            <div className="text-[#ffbd59]">
-                              {renderIcon(favorite.icon)}
-                            </div>
-                            <span>{favorite.title}</span>
-                          </Link>
-                        ))
-                      ) : (
-                        <div className="p-3 text-gray-400 text-sm text-center">
-                          <Star size={16} className="mx-auto mb-2 opacity-50" />
-                          <p>Keine Favoriten konfiguriert</p>
-                          <p className="text-xs mt-1">Klicken Sie auf das Zahnrad zum Konfigurieren</p>
-                          <p className="text-xs mt-1 text-gray-500">Debug: {favorites.length} Favoriten geladen</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              )}
-
-              {/* Pro-Button - nur für Bauträger */}
-              {!isServiceProvider() && (
-              <Link
-                to="/buildwise-fees"
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                  isActive('/buildwise-fees') 
-                    ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold shadow-lg' 
-                    : 'text-purple-200 hover:bg-purple-500/20 hover:text-purple-100 border border-purple-400/30'
-                }`}
-              >
-                <Star size={18} />
-                <span>Pro</span>
-              </Link>
-              )}
-
-              {/* BuildWise-Gebühren - nur für Dienstleister */}
-              {isServiceProvider() && (
-              <Link
-                to="/service-provider-buildwise-fees"
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                  isActive('/service-provider-buildwise-fees') 
-                    ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
-                    : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
-                }`}
-              >
-                <DollarSign size={18} />
-                <span>Gebühren</span>
-              </Link>
-              )}
-
-              {/* Dienstleister-spezifische Navigation */}
-              {isServiceProvider() && (
+              {isServiceProvider() ? (
+                /* Dienstleister-Navigation: nur Dashboard und Gebühren */
                 <>
                   <Link
-                    to="/messages"
+                    to="/service-provider"
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                      isActive('/messages') 
+                      isActive('/service-provider')
                         ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
                         : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
                     }`}
                   >
-                    <MessageCircle size={18} />
-                    <span>Messenger</span>
-                  </Link>
-                  <Link
-                    to="/quotes"
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                      isActive('/quotes') 
-                        ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
-                        : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
-                    }`}
-                  >
-                    <Handshake size={18} />
-                    <span>Gewerke</span>
+                    <Home size={18} />
+                    <span>Dashboard</span>
                   </Link>
 
+                  <Link
+                    to="/service-provider/buildwise-fees"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                      isActive('/service-provider/buildwise-fees') 
+                        ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
+                        : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
+                    }`}
+                  >
+                    <Euro size={18} />
+                    <span>Gebühren</span>
+                  </Link>
+                </>
+              ) : (
+                /* Bauträger-Navigation: vollständige Navigation */
+                <>
+                  <Link
+                    to="/"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                      isActive('/')
+                        ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
+                        : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
+                    }`}
+                  >
+                    <Home size={18} />
+                    <span>Dashboard</span>
+                  </Link>
+
+                  <Link
+                    to="/global-projects"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                      isActive('/global-projects') 
+                        ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
+                        : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
+                    }`}
+                  >
+                    <Globe size={18} />
+                    <span>Übersicht</span>
+                  </Link>
+
+                  <div className="relative group">
+                    <button className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                      isProjectActive() 
+                        ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
+                        : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
+                    }`}>
+                      <Star size={18} />
+                      <span>Favoriten</span>
+                      <ChevronDown size={16} className="group-hover:rotate-180 transition-transform" />
+                    </button>
+                    
+                    <div className="absolute top-full left-0 mt-2 w-64 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
+                      <div className="p-2">
+                        <div className="flex items-center justify-between p-3 text-gray-300 text-sm border-b border-white/10">
+                          <span>Ihre konfigurierten Favoriten</span>
+                          <button
+                            onClick={() => setShowFavoritesManager(true)}
+                            className="p-1 hover:bg-white/10 rounded transition-colors"
+                            title="Favoriten verwalten"
+                          >
+                            <Settings size={14} className="text-[#ffbd59]" />
+                          </button>
+                        </div>
+                        <div className="mt-2 max-h-64 overflow-y-auto">
+                          {favorites.length > 0 ? (
+                            favorites.map((favorite) => (
+                              <Link
+                                key={favorite.id}
+                                to={favorite.path}
+                                className={`flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white ${
+                                  isActive(favorite.path) ? 'bg-white/10 text-[#ffbd59]' : ''
+                                }`}
+                              >
+                                <div className="text-[#ffbd59]">
+                                  {renderIcon(favorite.icon)}
+                                </div>
+                                <span>{favorite.title}</span>
+                              </Link>
+                            ))
+                          ) : (
+                            <div className="p-3 text-gray-400 text-sm text-center">
+                              <Star size={16} className="mx-auto mb-2 opacity-50" />
+                              <p>Keine Favoriten konfiguriert</p>
+                              <p className="text-xs mt-1">Klicken Sie auf das Zahnrad zum Konfigurieren</p>
+                              <p className="text-xs mt-1 text-gray-500">Debug: {favorites.length} Favoriten geladen</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Link
+                    to="/buildwise-fees"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                      isActive('/buildwise-fees') 
+                        ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold shadow-lg' 
+                        : 'text-purple-200 hover:bg-purple-500/20 hover:text-purple-100 border border-purple-400/30'
+                    }`}
+                  >
+                    <Star size={18} />
+                    <span>Pro</span>
+                  </Link>
+
+                  <div className="relative group">
+                    <button className="flex items-center gap-2 px-4 py-2 rounded-lg text-white hover:bg-white/10 hover:text-[#ffbd59] transition-all duration-300">
+                      <BarChart3 size={18} />
+                      <span>Tools</span>
+                      <ChevronDown size={16} className="group-hover:rotate-180 transition-transform" />
+                    </button>
+                    
+                    <div className="absolute top-full left-0 mt-2 w-56 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
+                      <div className="p-2">
+                        <Link
+                          to="/documents"
+                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white"
+                        >
+                          <FileText size={16} className="text-[#ffbd59]" />
+                          <span>Dokumente</span>
+                        </Link>
+                        <Link
+                          to="/visualize"
+                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white"
+                        >
+                          <BarChart3 size={16} className="text-[#ffbd59]" />
+                          <span>Visualisierung</span>
+                        </Link>
+                        <Link
+                          to="/roadmap"
+                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white"
+                        >
+                          <Calendar size={16} className="text-[#ffbd59]" />
+                          <span>Roadmap</span>
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
                 </>
               )}
-
-              {/* Tools Dropdown */}
-              <div className="relative group">
-                <button className="flex items-center gap-2 px-4 py-2 rounded-lg text-white hover:bg-white/10 hover:text-[#ffbd59] transition-all duration-300">
-                  <BarChart3 size={18} />
-                  <span>Tools</span>
-                  <ChevronDown size={16} className="group-hover:rotate-180 transition-transform" />
-                </button>
-                
-                <div className="absolute top-full left-0 mt-2 w-56 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
-                  <div className="p-2">
-                    <Link
-                      to="/documents"
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white"
-                    >
-                      <FileText size={16} className="text-[#ffbd59]" />
-                      <span>Dokumente</span>
-                    </Link>
-                    <Link
-                      to="/visualize"
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white"
-                    >
-                      <BarChart3 size={16} className="text-[#ffbd59]" />
-                      <span>Visualisierung</span>
-                    </Link>
-                    <Link
-                      to="/roadmap"
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white"
-                    >
-                      <Calendar size={16} className="text-[#ffbd59]" />
-                      <span>Roadmap</span>
-                    </Link>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -637,54 +614,84 @@ export default function Navbar() {
         {showMobileMenu && (
           <div className="md:hidden border-t border-white/10 py-4">
             <div className="space-y-2">
-              <Link
-                to="/"
-                className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                  isActive('/') ? 'bg-[#ffbd59] text-[#2c3539]' : 'text-white hover:bg-white/10'
-                }`}
-                onClick={() => setShowMobileMenu(false)}
-              >
-                <Home size={18} />
-                <span>Dashboard</span>
-              </Link>
-              
-              <Link
-                to="/global-projects"
-                className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                  isActive('/global-projects') ? 'bg-[#ffbd59] text-[#2c3539]' : 'text-white hover:bg-white/10'
-                }`}
-                onClick={() => setShowMobileMenu(false)}
-              >
-                <Globe size={18} />
-                <span>Globale Übersicht</span>
-              </Link>
-              
-              <Link
-                to="/tasks"
-                className="flex items-center gap-3 p-3 rounded-lg text-white hover:bg-white/10 transition-colors"
-                onClick={() => setShowMobileMenu(false)}
-              >
-                <Target size={18} />
-                <span>Aufgaben</span>
-              </Link>
-              
-              <Link
-                to="/finance"
-                className="flex items-center gap-3 p-3 rounded-lg text-white hover:bg-white/10 transition-colors"
-                onClick={() => setShowMobileMenu(false)}
-              >
-                <Euro size={18} />
-                <span>Finanzen</span>
-              </Link>
-              
-              <Link
-                to="/documents"
-                className="flex items-center gap-3 p-3 rounded-lg text-white hover:bg-white/10 transition-colors"
-                onClick={() => setShowMobileMenu(false)}
-              >
-                <FileText size={18} />
-                <span>Dokumente</span>
-              </Link>
+              {isServiceProvider() ? (
+                /* Dienstleister Mobile Menu: nur Dashboard und Gebühren */
+                <>
+                  <Link
+                    to="/service-provider"
+                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                      isActive('/service-provider') ? 'bg-[#ffbd59] text-[#2c3539]' : 'text-white hover:bg-white/10'
+                    }`}
+                    onClick={() => setShowMobileMenu(false)}
+                  >
+                    <Home size={18} />
+                    <span>Dashboard</span>
+                  </Link>
+                  
+                  <Link
+                    to="/service-provider/buildwise-fees"
+                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                      isActive('/service-provider/buildwise-fees') ? 'bg-[#ffbd59] text-[#2c3539]' : 'text-white hover:bg-white/10'
+                    }`}
+                    onClick={() => setShowMobileMenu(false)}
+                  >
+                    <Euro size={18} />
+                    <span>Gebühren</span>
+                  </Link>
+                </>
+              ) : (
+                /* Bauträger Mobile Menu: vollständige Navigation */
+                <>
+                  <Link
+                    to="/"
+                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                      isActive('/') ? 'bg-[#ffbd59] text-[#2c3539]' : 'text-white hover:bg-white/10'
+                    }`}
+                    onClick={() => setShowMobileMenu(false)}
+                  >
+                    <Home size={18} />
+                    <span>Dashboard</span>
+                  </Link>
+                  
+                  <Link
+                    to="/global-projects"
+                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                      isActive('/global-projects') ? 'bg-[#ffbd59] text-[#2c3539]' : 'text-white hover:bg-white/10'
+                    }`}
+                    onClick={() => setShowMobileMenu(false)}
+                  >
+                    <Globe size={18} />
+                    <span>Globale Übersicht</span>
+                  </Link>
+                  
+                  <Link
+                    to="/tasks"
+                    className="flex items-center gap-3 p-3 rounded-lg text-white hover:bg-white/10 transition-colors"
+                    onClick={() => setShowMobileMenu(false)}
+                  >
+                    <Target size={18} />
+                    <span>Aufgaben</span>
+                  </Link>
+                  
+                  <Link
+                    to="/finance"
+                    className="flex items-center gap-3 p-3 rounded-lg text-white hover:bg-white/10 transition-colors"
+                    onClick={() => setShowMobileMenu(false)}
+                  >
+                    <Euro size={18} />
+                    <span>Finanzen</span>
+                  </Link>
+                  
+                  <Link
+                    to="/documents"
+                    className="flex items-center gap-3 p-3 rounded-lg text-white hover:bg-white/10 transition-colors"
+                    onClick={() => setShowMobileMenu(false)}
+                  >
+                    <FileText size={18} />
+                    <span>Dokumente</span>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}

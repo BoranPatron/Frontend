@@ -124,7 +124,7 @@ export default function Login() {
     try {
       // Verwende das korrekte Format für das Backend
       const formData = new URLSearchParams();
-      formData.append('username', 'dienstleister@buildwise.de');
+      formData.append('username', 'test-dienstleister@buildwise.de');
       formData.append('password', 'Dienstleister123!');
 
       const response = await fetch('http://localhost:8000/api/v1/auth/login', {
@@ -148,12 +148,12 @@ export default function Login() {
           } else if (typeof data.detail === 'string') {
             throw new Error(data.detail);
           } else {
-            throw new Error('Ungültige Anmeldedaten für Dienstleister-Test.');
+            throw new Error('Ungültige Anmeldedaten für Dienstleister-Test. Prüfe ob der User existiert.');
           }
         } else if (response.status === 401) {
-          throw new Error('Ungültige Anmeldedaten für Dienstleister-Test.');
+          throw new Error('Ungültige Anmeldedaten für Dienstleister-Test. Prüfe ob der User existiert.');
         } else {
-          throw new Error(data.detail || 'Dienstleister-Login fehlgeschlagen');
+          throw new Error(data.detail || 'Dienstleister-Login fehlgeschlagen. Prüfe ob der User existiert.');
         }
       }
 

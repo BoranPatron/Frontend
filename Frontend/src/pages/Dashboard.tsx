@@ -60,6 +60,14 @@ export default function Dashboard() {
     isLoading: projectsLoading,
     error: projectsError 
   } = useProject();
+
+  // Weiterleitung für Dienstleister zur dedizierten Dienstleister-Ansicht
+  useEffect(() => {
+    if (isInitialized && isAuthenticated() && (userRole === 'dienstleister' || user?.user_role === 'DIENSTLEISTER')) {
+      navigate('/service-provider');
+      return;
+    }
+  }, [isInitialized, isAuthenticated, userRole, user, navigate]);
   
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -798,17 +806,35 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {getDashboardCards()
           .filter(card => {
+            // Debug-Logging für Filterlogik
+            console.log('🔍 Dashboard Filter Debug:', {
+              cardId: card.cardId,
+              userRole: userRole,
+              user_role_from_user: user?.user_role,
+              subscription_plan: user?.subscription_plan,
+              subscription_status: user?.subscription_status,
+              isProUser: user?.subscription_plan === 'PRO' && user?.subscription_status === 'ACTIVE',
+              fullUserObject: user
+            });
+            
             // Filtere Karten basierend auf Benutzerrolle und Subscription
-            if (userRole === 'dienstleister') {
-              // Dienstleister sehen nur: Manager, Gewerke, Docs
+            if (userRole === 'dienstleister' || userRole === 'DIENSTLEISTER' || user?.user_role === 'DIENSTLEISTER') {
+              // Dienstleister sehen nur: Manager, Gewerke, Docs (unabhängig von Subscription)
               return ['manager', 'quotes', 'docs'].includes(card.cardId);
             }
             
-            if (userRole === 'bautraeger') {
-              // Prüfe Subscription-Plan
-              const subscriptionPlan = user?.subscription_plan || 'basis';
-              const subscriptionStatus = user?.subscription_status || 'inactive';
-              const isProUser = subscriptionPlan === 'pro' && subscriptionStatus === 'active';
+            if (userRole === 'bautraeger' || userRole === 'BAUTRAEGER' || user?.user_role === 'BAUTRAEGER') {
+              // Prüfe Subscription-Plan (Backend verwendet Großbuchstaben)
+              const subscriptionPlan = user?.subscription_plan || 'BASIS';
+              const subscriptionStatus = user?.subscription_status || 'INACTIVE';
+              const isProUser = subscriptionPlan === 'PRO' && subscriptionStatus === 'ACTIVE';
+              
+              console.log('🔍 Bauträger Subscription Check:', {
+                subscriptionPlan,
+                subscriptionStatus,
+                isProUser,
+                willShowAllTiles: isProUser
+              });
               
               if (isProUser) {
                 // PRO-Bauträger sehen alle Kacheln
@@ -848,17 +874,19 @@ export default function Dashboard() {
         <p>Debug: Projekte geladen: {projects.length}</p>
         <p>Debug: Aktuelles Projekt: {selectedProject ? selectedProject.name : 'Keines'}</p>
         <p>Debug: User Role: {userRole}</p>
+        <p>Debug: User Role from User Object: {user?.user_role || 'nicht gesetzt'}</p>
         <p>Debug: Subscription Plan: {user?.subscription_plan || 'nicht gesetzt'}</p>
         <p>Debug: Subscription Status: {user?.subscription_status || 'nicht gesetzt'}</p>
-        <p>Debug: Is PRO User: {user?.subscription_plan === 'pro' && user?.subscription_status === 'active' ? 'JA' : 'NEIN'}</p>
+        <p>Debug: Is PRO User: {user?.subscription_plan === 'PRO' && user?.subscription_status === 'ACTIVE' ? 'JA' : 'NEIN'}</p>
+        <p>Debug: Full User Object: {JSON.stringify(user, null, 2)}</p>
         <p>Debug: Sichtbare Kacheln: {getDashboardCards().filter(card => {
-          if (userRole === 'dienstleister') {
+          if (userRole === 'dienstleister' || userRole === 'DIENSTLEISTER' || user?.user_role === 'DIENSTLEISTER') {
             return ['manager', 'quotes', 'docs'].includes(card.cardId);
           }
-          if (userRole === 'bautraeger') {
-            const subscriptionPlan = user?.subscription_plan || 'basis';
-            const subscriptionStatus = user?.subscription_status || 'inactive';
-            const isProUser = subscriptionPlan === 'pro' && subscriptionStatus === 'active';
+          if (userRole === 'bautraeger' || userRole === 'BAUTRAEGER' || user?.user_role === 'BAUTRAEGER') {
+            const subscriptionPlan = user?.subscription_plan || 'BASIS';
+            const subscriptionStatus = user?.subscription_status || 'INACTIVE';
+            const isProUser = subscriptionPlan === 'PRO' && subscriptionStatus === 'ACTIVE';
             if (isProUser) {
               return true;
             } else {

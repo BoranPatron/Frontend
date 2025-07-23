@@ -22,6 +22,7 @@ import BuildWiseFees from './pages/BuildWiseFees';
 import ServiceProviderBuildWiseFees from './pages/ServiceProviderBuildWiseFees';
 import Canvas from './pages/Canvas';
 import GeoSearch from './pages/GeoSearch';
+import Invoices from './pages/Invoices';
 import OAuthCallback from './pages/OAuthCallback';
 import RoleSelectionModal from './components/RoleSelectionModal';
 
@@ -294,7 +295,7 @@ function AppContent() {
             <BuildWiseFees />
           </ProtectedRoute>
         } />
-        <Route path="/service-provider-buildwise-fees" element={
+        <Route path="/service-provider/buildwise-fees" element={
           <ProtectedRoute>
             <ServiceProviderBuildWiseFees />
           </ProtectedRoute>
@@ -327,6 +328,11 @@ function AppContent() {
         <Route path="/geo-search" element={
           <ProtectedRoute>
             <GeoSearch />
+          </ProtectedRoute>
+        } />
+        <Route path="/invoices" element={
+          <ProtectedRoute>
+            <Invoices />
           </ProtectedRoute>
         } />
         {/* Fallback für unbekannte Routen */}
