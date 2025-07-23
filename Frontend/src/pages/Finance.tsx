@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getProjects } from '../api/projectService';
 import { costPositionService } from '../api/costPositionService';
+import { expenseService } from '../api/expenseService';
 import ProjectBreadcrumb from '../components/ProjectBreadcrumb';
 import FinanceAnalytics from '../components/FinanceAnalytics';
 import { 
@@ -56,7 +57,7 @@ import {
 interface Expense {
   id: number;
   title: string;
-  description: string;
+  description?: string;
   amount: number;
   category: 'material' | 'labor' | 'equipment' | 'services' | 'permits' | 'other';
   project_id: number;
@@ -138,7 +139,7 @@ export default function Finance() {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [selectedCostPosition, setSelectedCostPosition] = useState<CostPosition | null>(null);
-  const [activeTab, setActiveTab] = useState<'expenses' | 'cost-positions' | 'budget'>('cost-positions');
+  const [activeTab, setActiveTab] = useState<'expenses' | 'cost-positions'>('cost-positions');
 
   // Form state
   const [expenseForm, setExpenseForm] = useState({
@@ -193,7 +194,7 @@ export default function Finance() {
   // Filtered expenses based on search and category
   const filteredExpenses = expenses.filter(expense => {
     const matchesSearch = expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         expense.description.toLowerCase().includes(searchTerm.toLowerCase());
+                         (expense.description?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
     const matchesCategory = filterCategory === 'all' || expense.category === filterCategory;
     return matchesSearch && matchesCategory;
   });
@@ -209,40 +210,18 @@ export default function Finance() {
     setError('');
     
     try {
-      // Mock data für Ausgaben
-      const mockExpenses: Expense[] = [
-        {
-          id: 1,
-          title: 'Bauholz',
-          description: 'Kiefernholz für Dachstuhl',
-          amount: 2500.00,
-          category: 'material',
-          project_id: parseInt(selectedProject),
-          date: '2024-01-15',
-          created_at: '2024-01-15T10:00:00Z'
-        },
-        {
-          id: 2,
-          title: 'Elektriker',
-          description: 'Elektroinstallation',
-          amount: 1800.00,
-          category: 'labor',
-          project_id: parseInt(selectedProject),
-          date: '2024-01-20',
-          created_at: '2024-01-20T14:30:00Z'
-        },
-        {
-          id: 3,
-          title: 'Baugenehmigung',
-          description: 'Gebühren für Baugenehmigung',
-          amount: 450.00,
-          category: 'permits',
-          project_id: parseInt(selectedProject),
-          date: '2024-01-10',
-          created_at: '2024-01-10T09:15:00Z'
-        }
-      ];
-      setExpenses(mockExpenses);
+      // Lade Ausgaben aus der Datenbank
+      try {
+        console.log('🔍 Lade Ausgaben für Projekt:', selectedProject);
+        
+        const expensesData = await expenseService.getExpenses(parseInt(selectedProject));
+        console.log('✅ Ausgaben geladen:', expensesData);
+        setExpenses(expensesData);
+        
+      } catch (error: any) {
+        console.error('❌ Fehler beim Laden der Ausgaben:', error);
+        setExpenses([]);
+      }
 
       // Lade Kostenpositionen aus akzeptierten Angeboten
       try {
@@ -351,25 +330,23 @@ export default function Finance() {
     if (!expenseForm.title || !expenseForm.amount || selectedProject === 'all') return;
 
     try {
-      const newExpense: Expense = {
-        id: Date.now(),
+      const newExpense = await expenseService.createExpense({
         title: expenseForm.title,
-        description: expenseForm.description,
+        description: expenseForm.description || undefined,
         amount: parseFloat(expenseForm.amount),
         category: expenseForm.category,
         project_id: parseInt(selectedProject),
         date: expenseForm.date || new Date().toISOString().split('T')[0],
-        receipt_url: expenseForm.receipt_url,
-        created_at: new Date().toISOString()
-      };
+        receipt_url: expenseForm.receipt_url || undefined
+      });
 
-      setExpenses(prev => [...prev, newExpense]);
+      setExpenses(prev => [newExpense, ...prev]);
       setSuccess('Ausgabe erfolgreich hinzugefügt');
       setShowAddExpenseModal(false);
       resetExpenseForm();
     } catch (err: any) {
       console.error('Error adding expense:', err);
-      setError('Fehler beim Hinzufügen der Ausgabe');
+      setError(err.message || 'Fehler beim Hinzufügen der Ausgabe');
     }
   };
 
@@ -378,15 +355,14 @@ export default function Finance() {
     if (!editingExpense) return;
 
     try {
-      const updatedExpense: Expense = {
-        ...editingExpense,
+      const updatedExpense = await expenseService.updateExpense(editingExpense.id, {
         title: expenseForm.title,
-        description: expenseForm.description,
+        description: expenseForm.description || undefined,
         amount: parseFloat(expenseForm.amount),
         category: expenseForm.category,
         date: expenseForm.date,
-        receipt_url: expenseForm.receipt_url
-      };
+        receipt_url: expenseForm.receipt_url || undefined
+      });
 
       setExpenses(prev => prev.map(exp => exp.id === editingExpense.id ? updatedExpense : exp));
       setSuccess('Ausgabe erfolgreich aktualisiert');
@@ -395,7 +371,7 @@ export default function Finance() {
       resetExpenseForm();
     } catch (err: any) {
       console.error('Error updating expense:', err);
-      setError('Fehler beim Aktualisieren der Ausgabe');
+      setError(err.message || 'Fehler beim Aktualisieren der Ausgabe');
     }
   };
 
@@ -403,11 +379,12 @@ export default function Finance() {
     if (!confirm('Sind Sie sicher, dass Sie diese Ausgabe löschen möchten?')) return;
 
     try {
+      await expenseService.deleteExpense(expenseId);
       setExpenses(prev => prev.filter(exp => exp.id !== expenseId));
       setSuccess('Ausgabe erfolgreich gelöscht');
     } catch (err: any) {
       console.error('Error deleting expense:', err);
-      setError('Fehler beim Löschen der Ausgabe');
+      setError(err.message || 'Fehler beim Löschen der Ausgabe');
     }
   };
 
@@ -459,7 +436,7 @@ export default function Finance() {
     setEditingExpense(expense);
     setExpenseForm({
       title: expense.title,
-      description: expense.description,
+      description: expense.description || '',
       amount: expense.amount.toString(),
       category: expense.category,
       date: expense.date,
@@ -835,19 +812,7 @@ export default function Finance() {
                     )}
                   </div>
                 </button>
-                <button
-                  onClick={() => setActiveTab('budget')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                    activeTab === 'budget'
-                      ? 'border-[#ffbd59] text-[#ffbd59]'
-                      : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Target className="w-4 h-4" />
-                    Budget
-                  </div>
-                </button>
+
               </nav>
             </div>
 
@@ -1086,7 +1051,7 @@ export default function Finance() {
                               </div>
                             </div>
                           </div>
-                          <p className="text-gray-300 text-sm mb-4">{expense.description}</p>
+                          <p className="text-gray-300 text-sm mb-4">{expense.description || 'Keine Beschreibung'}</p>
                           <div className="flex items-center justify-between">
                             <button
                               onClick={() => openEditExpenseModal(expense)}
@@ -1121,106 +1086,7 @@ export default function Finance() {
                 </div>
               )}
 
-              {activeTab === 'budget' && (
-                <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-white">Budget & Finanzübersicht</h3>
-                  </div>
 
-                  {budgets.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-white mb-2">Kein Budget gesetzt</h3>
-                      <p className="text-gray-400">Setzen Sie ein Budget für Ihr Projekt.</p>
-                      <button
-                        onClick={() => setShowBudgetModal(true)}
-                        className="mt-4 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-medium rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
-                      >
-                        <Target size={20} />
-                        Budget setzen
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Budget Overview */}
-                      <div className="bg-gradient-to-br from-blue-500/20 to-indigo-500/20 backdrop-blur-lg rounded-2xl p-6 border border-blue-500/30">
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="p-2 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl">
-                            <Target className="w-6 h-6 text-white" />
-                          </div>
-                          <h4 className="text-lg font-semibold text-white">Budget-Übersicht</h4>
-                        </div>
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-300">Gesamtbudget:</span>
-                            <span className="font-bold text-lg text-white">{formatCurrency(budgets[0].total_budget)}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-300">Ausgegeben:</span>
-                            <span className="font-bold text-lg text-red-400">{formatCurrency(budgets[0].spent_amount)}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-300">Verbleibend:</span>
-                            <span className="font-bold text-lg text-green-400">{formatCurrency(budgets[0].remaining_amount)}</span>
-                          </div>
-                          <div className="pt-4">
-                            <div className="flex justify-between text-sm mb-2">
-                              <span className="text-gray-300">Budget-Auslastung</span>
-                              <span className="font-medium text-white">{getBudgetProgress().toFixed(1)}%</span>
-                            </div>
-                            <div className="w-full bg-white/20 rounded-full h-3">
-                              <div
-                                className={`h-3 rounded-full transition-all duration-300 ${
-                                  getBudgetStatus().status === 'critical' ? 'bg-red-500' :
-                                  getBudgetStatus().status === 'warning' ? 'bg-yellow-500' : 'bg-green-500'
-                                }`}
-                                style={{ width: `${Math.min(getBudgetProgress(), 100)}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Cost Breakdown */}
-                      <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur-lg rounded-2xl p-6 border border-green-500/30">
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="p-2 bg-gradient-to-br from-green-400 to-green-600 rounded-xl">
-                            <PieChart className="w-6 h-6 text-white" />
-                          </div>
-                          <h4 className="text-lg font-semibold text-white">Kostenaufschlüsselung</h4>
-                        </div>
-                        <div className="space-y-3">
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-300">Kostenpositionen:</span>
-                            <span className="font-bold text-white">{formatCurrency(costPositions.reduce((sum, cp) => sum + cp.amount, 0))}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-300">Einzelausgaben:</span>
-                            <span className="font-bold text-white">{formatCurrency(expenses.reduce((sum, exp) => sum + exp.amount, 0))}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-300">Bezahlt:</span>
-                            <span className="font-bold text-green-400">
-                              {formatCurrency(costPositions.reduce((sum, cp) => sum + cp.paid_amount, 0))}
-                            </span>
-                          </div>
-                          <div className="pt-3 border-t border-white/20">
-                            <div className="flex justify-between items-center font-semibold">
-                              <span className="text-white">Gesamtkosten:</span>
-                              <span className="text-lg text-white">
-                                {formatCurrency(
-                                  costPositions.reduce((sum, cp) => sum + cp.amount, 0) +
-                                  expenses.reduce((sum, exp) => sum + exp.amount, 0)
-                                )}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
 
 
             </div>
