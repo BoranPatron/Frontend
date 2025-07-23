@@ -800,8 +800,8 @@ export default function Dashboard() {
           .filter(card => {
             // Filtere Karten basierend auf Benutzerrolle und Subscription
             if (userRole === 'dienstleister') {
-              // Dienstleister sehen nur: Manager, Gewerk, Docs
-              return ['manager', 'gewerk', 'docs'].includes(card.cardId);
+              // Dienstleister sehen nur: Manager, Gewerke, Docs
+              return ['manager', 'quotes', 'docs'].includes(card.cardId);
             }
             
             if (userRole === 'bautraeger') {
@@ -810,13 +810,16 @@ export default function Dashboard() {
               const subscriptionStatus = user?.subscription_status || 'inactive';
               const isProUser = subscriptionPlan === 'pro' && subscriptionStatus === 'active';
               
-              if (!isProUser) {
-                // Basis-Bauträger sehen nur: Manager, Gewerk, Docs
-                return ['manager', 'gewerk', 'docs'].includes(card.cardId);
+              if (isProUser) {
+                // PRO-Bauträger sehen alle Kacheln
+                return true;
+              } else {
+                // BASIS-Bauträger sehen nur: Manager, Gewerke, Docs
+                return ['manager', 'quotes', 'docs'].includes(card.cardId);
               }
             }
             
-            // Pro-Bauträger und Admins sehen alle Karten
+            // Admins sehen alle Karten
             return true;
           })
           .map((card, index) => (
@@ -844,9 +847,28 @@ export default function Dashboard() {
         <p>Debug: AuthContext initialisiert: {isInitialized ? 'Ja' : 'Nein'}</p>
         <p>Debug: Projekte geladen: {projects.length}</p>
         <p>Debug: Aktuelles Projekt: {selectedProject ? selectedProject.name : 'Keines'}</p>
+        <p>Debug: User Role: {userRole}</p>
+        <p>Debug: Subscription Plan: {user?.subscription_plan || 'nicht gesetzt'}</p>
+        <p>Debug: Subscription Status: {user?.subscription_status || 'nicht gesetzt'}</p>
+        <p>Debug: Is PRO User: {user?.subscription_plan === 'pro' && user?.subscription_status === 'active' ? 'JA' : 'NEIN'}</p>
+        <p>Debug: Sichtbare Kacheln: {getDashboardCards().filter(card => {
+          if (userRole === 'dienstleister') {
+            return ['manager', 'quotes', 'docs'].includes(card.cardId);
+          }
+          if (userRole === 'bautraeger') {
+            const subscriptionPlan = user?.subscription_plan || 'basis';
+            const subscriptionStatus = user?.subscription_status || 'inactive';
+            const isProUser = subscriptionPlan === 'pro' && subscriptionStatus === 'active';
+            if (isProUser) {
+              return true;
+            } else {
+              return ['manager', 'quotes', 'docs'].includes(card.cardId);
+            }
+          }
+          return true;
+        }).map(card => card.cardId).join(', ')}</p>
         <p>Debug: Construction Phase: {(currentProject as any).construction_phase || 'NICHT GESETZT'}</p>
         <p>Debug: Address Country: {(currentProject as any).address_country || 'NICHT GESETZT'}</p>
-        <p>Debug: Projekt-Objekt: {JSON.stringify(currentProject, null, 2)}</p>
       </div>
 
       {/* Projekt-Erstellungs-Modal */}
