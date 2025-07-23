@@ -21,7 +21,8 @@ import {
   Eye, 
   X, 
   AlertTriangle,
-  Star
+  Star,
+  MapPin
 } from 'lucide-react';
 
 interface Project {
@@ -718,6 +719,17 @@ export default function Dashboard() {
                 </button>
               </div>
               <p className="text-gray-300 mb-3">{currentProject.description}</p>
+              
+              {/* Anschrift hinzufügen */}
+              {currentProject.address && (
+                <div className="mb-3 p-3 bg-white/5 rounded-lg border border-white/10">
+                  <div className="flex items-center gap-2 text-sm">
+                    <MapPin size={14} className="text-[#ffbd59]" />
+                    <span className="text-gray-400">Anschrift:</span>
+                    <span className="text-white font-medium">{currentProject.address}</span>
+                  </div>
+                </div>
+              )}
               
               <div className="flex flex-wrap gap-4 text-sm">
                 <span className={`px-3 py-1 rounded-full ${getStatusColor(currentProject.status)} bg-white/10`}>

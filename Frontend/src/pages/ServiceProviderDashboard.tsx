@@ -25,6 +25,7 @@ import DashboardCard from '../components/DashboardCard';
 import CostEstimateForm from '../components/CostEstimateForm';
 import TradeMap from '../components/TradeMap';
 import TradeDetailsModal from '../components/TradeDetailsModal';
+import QuoteStatusIndicator from '../components/QuoteStatusIndicator';
 import { 
   searchTradesInRadius, 
   type TradeSearchRequest, 
@@ -586,7 +587,11 @@ export default function ServiceProviderDashboard() {
                 /* Listen-Ansicht */
                 <div className="space-y-3 max-h-64 overflow-y-auto">
                   {geoTrades.slice(0, 5).map((trade, index) => (
-                    <div key={index} className="bg-white/5 rounded-lg p-3 border border-white/10">
+                    <div 
+                      key={index} 
+                      className="bg-white/5 rounded-lg p-3 border border-white/10 cursor-pointer hover:bg-white/10 transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
+                      onClick={() => handleTradeDetails(trade)}
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="font-medium text-white">{trade.title || 'Gewerk'}</div>
@@ -600,20 +605,11 @@ export default function ServiceProviderDashboard() {
                           {trade.budget && (
                             <div className="text-sm text-[#ffbd59] mt-1">Budget: {trade.budget.toLocaleString('de-DE')} €</div>
                           )}
+                          {/* Quote-Status-Anzeige */}
+                          <QuoteStatusIndicator tradeId={trade.id} />
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleTradeDetails(trade)}
-                            className="px-3 py-1 bg-blue-500 text-white rounded text-sm font-medium hover:bg-blue-600"
-                          >
-                            Details
-                          </button>
-                          <button
-                            onClick={() => handleCreateQuote(trade)}
-                            className="px-3 py-1 bg-[#ffbd59] text-[#2c3539] rounded text-sm font-medium hover:bg-[#ffa726]"
-                          >
-                            Angebot abgeben
-                          </button>
+                        <div className="text-center text-[#ffbd59] text-xs font-medium">
+                          Klicken für Details →
                         </div>
                       </div>
                     </div>
@@ -759,7 +755,6 @@ export default function ServiceProviderDashboard() {
           setShowTradeDetails(false);
           setDetailTrade(null);
         }}
-        onCreateQuote={handleCreateQuote}
       />
     </div>
   );

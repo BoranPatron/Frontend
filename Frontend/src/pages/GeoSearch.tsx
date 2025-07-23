@@ -543,74 +543,103 @@ export default function GeoSearch() {
                   currentLocation={currentLocation}
                   radiusKm={radiusKm}
                   onTradeClick={handleTradeClick}
-                  showAcceptedTrades={showAcceptedTrades}
                 />
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 geo-search-grid">
                 {filteredTrades.map((trade) => (
                   <div
                     key={`trade-${trade.id}`}
-                    className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-colors cursor-pointer"
+                    className="group bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-2xl border border-white/10 hover:border-[#ffbd59]/30"
                     onClick={() => handleTradeClick(trade)}
                   >
+                    {/* Status Badge */}
                     <div className="flex items-start justify-between mb-3">
-                      <h3 className="font-semibold text-white text-lg">{trade.title}</h3>
+                      <h3 className="font-semibold text-white text-base line-clamp-2 group-hover:text-[#ffbd59] transition-colors">
+                        {trade.title}
+                      </h3>
                       <span 
-                        className="text-xs px-2 py-1 rounded-full text-white"
+                        className="text-xs px-2 py-1 rounded-full text-white flex-shrink-0 ml-2"
                         style={{ backgroundColor: getStatusColor(trade.status) }}
                       >
                         {getStatusLabel(trade.status)}
                       </span>
                     </div>
 
+                    {/* Beschreibung */}
                     {trade.description && (
-                      <p className="text-gray-300 text-sm mb-3">{trade.description}</p>
+                      <p className="text-gray-300 text-sm mb-3 line-clamp-2">{trade.description}</p>
                     )}
 
-                    <div className="space-y-2 text-sm">
+                    {/* Projekt-Info */}
+                    {trade.project_name && (
+                      <div className="mb-3 p-2 bg-white/5 rounded-lg">
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-gray-400">📁 Projekt:</span>
+                          <span className="text-white font-medium line-clamp-1">{trade.project_name}</span>
+                        </div>
+                        {trade.project_type && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            Typ: {trade.project_type}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Details Grid */}
+                    <div className="space-y-2 text-xs">
                       {trade.category && (
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-400">Kategorie:</span>
+                          <span className="text-gray-400">🏷️ Kategorie:</span>
                           <span className="text-white">{getCategoryLabel(trade.category)}</span>
                         </div>
                       )}
 
                       {trade.budget && (
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-400">Budget:</span>
+                          <span className="text-gray-400">💰 Budget:</span>
                           <span className="text-white font-medium">{formatCurrency(trade.budget)}</span>
                         </div>
                       )}
 
                       {trade.distance_km && (
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-400">Entfernung:</span>
+                          <span className="text-gray-400">📍 Entfernung:</span>
                           <span className="text-white">{trade.distance_km.toFixed(1)} km</span>
-                        </div>
-                      )}
-
-                      {trade.project_name && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-400">Projekt:</span>
-                          <span className="text-white">{trade.project_name}</span>
                         </div>
                       )}
 
                       {trade.address_street && (
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-400">Adresse:</span>
-                          <span className="text-white text-xs">
+                          <span className="text-gray-400">🏠 Adresse:</span>
+                          <span className="text-white text-xs line-clamp-1">
                             {trade.address_street}, {trade.address_zip} {trade.address_city}
+                          </span>
+                        </div>
+                      )}
+
+                      {trade.priority && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">⚡ Priorität:</span>
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            trade.priority === 'high' ? 'bg-red-500/20 text-red-300' :
+                            trade.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
+                            trade.priority === 'low' ? 'bg-green-500/20 text-green-300' :
+                            'bg-gray-500/20 text-gray-300'
+                          }`}>
+                            {trade.priority === 'high' ? 'Hoch' :
+                             trade.priority === 'medium' ? 'Mittel' :
+                             trade.priority === 'low' ? 'Niedrig' : trade.priority}
                           </span>
                         </div>
                       )}
                     </div>
 
+                    {/* Klick-Hinweis */}
                     <div className="mt-4 pt-3 border-t border-white/10">
-                      <button className="w-full bg-[#ffbd59] text-[#2c3539] px-3 py-2 rounded text-sm font-medium hover:bg-[#ffa726] transition-colors">
-                        Details anzeigen
-                      </button>
+                      <div className="text-center text-[#ffbd59] text-xs font-medium group-hover:text-[#ffa726] transition-colors">
+                        Klicken für Details →
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -644,12 +673,6 @@ export default function GeoSearch() {
           isOpen={!!selectedTrade}
           onClose={closeTradeDetails}
           trade={selectedTrade}
-          quotes={[]}
-          project={{
-            id: selectedTrade.project_id,
-            name: selectedTrade.project_name || 'Unbekanntes Projekt',
-            description: ''
-          }}
         />
       )}
     </div>

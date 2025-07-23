@@ -334,7 +334,6 @@ export default function TradeMap({
 
   const createSingleTradePopup = (trade: TradeSearchResult) => {
     const categoryInfo = getCategoryIcon(trade.category);
-    
     return `
       <div class="p-3 min-w-[250px]">
         <div class="flex items-center gap-2 mb-2">
@@ -361,12 +360,9 @@ export default function TradeMap({
           ${trade.planned_date ? `<p><strong>Geplant:</strong> ${new Date(trade.planned_date).toLocaleDateString('de-DE')}</p>` : ''}
         </div>
         
-        <button 
-          onclick="window.dispatchEvent(new CustomEvent('tradeMarkerClick', {detail: ${JSON.stringify(trade).replace(/"/g, '&quot;')}}))"
-          class="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300"
-        >
-          🎯 Angebot abgeben
-        </button>
+        <div class="text-center text-yellow-600 text-sm font-medium">
+          Klicken für Details →
+        </div>
       </div>
     `;
   };
@@ -400,12 +396,7 @@ export default function TradeMap({
           <p class="text-xs text-gray-600 mb-2">${trade.description || 'Keine Beschreibung'}</p>
           <div class="flex items-center justify-between">
             <span class="text-xs text-gray-500">${trade.project_name}</span>
-            <button 
-              onclick="window.dispatchEvent(new CustomEvent('tradeMarkerClick', {detail: ${JSON.stringify(trade).replace(/"/g, '&quot;')}}))"
-              class="bg-yellow-500 text-white px-2 py-1 rounded text-xs hover:bg-yellow-600 transition-colors"
-            >
-              Angebot
-            </button>
+            <span class="text-xs text-yellow-600 font-medium">Klicken für Details</span>
           </div>
         </div>
       `;

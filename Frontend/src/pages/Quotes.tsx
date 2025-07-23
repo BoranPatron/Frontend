@@ -2201,11 +2201,11 @@ export default function Trades() {
 
         {/* Gewerke Anzeige basierend auf Tab */}
         {activeTab === 'list' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {combinedTrades.map((trade) => (
             <div 
               key={`${trade.isGeoResult ? 'geo' : 'local'}-${trade.id}`} 
-              className={`group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl cursor-pointer ${
+              className={`group bg-white/10 backdrop-blur-lg rounded-2xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:scale-105 hover:shadow-2xl cursor-pointer ${
                 trade.isGeoResult ? 'border-[#ffbd59]/50' : ''
               }`}
               onClick={() => {
@@ -2224,43 +2224,43 @@ export default function Trades() {
               {/* Geo-Badge für Geo-Ergebnisse */}
               {trade.isGeoResult && (
                 <div className="flex items-center gap-2 mb-3">
-                  <MapPin size={16} className="text-[#ffbd59]" />
-                  <span className="text-[#ffbd59] text-sm font-medium">
+                  <MapPin size={14} className="text-[#ffbd59]" />
+                  <span className="text-[#ffbd59] text-xs font-medium">
                     {trade.distance_km?.toFixed(1)}km entfernt
                   </span>
                   {trade.project_name && (
-                    <span className="text-gray-400 text-sm">
+                    <span className="text-gray-400 text-xs">
                       • {trade.project_name}
                     </span>
                   )}
                 </div>
               )}
 
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg">
                     {getCategoryIcon(trade.category || '')}
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-white group-hover:text-[#ffbd59] transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-semibold text-white group-hover:text-[#ffbd59] transition-colors line-clamp-2">
                       {trade.title}
                     </h3>
-                    <p className="text-gray-300 text-sm">{trade.description}</p>
+                    <p className="text-gray-300 text-xs line-clamp-2 mt-1">{trade.description}</p>
                     {/* Projekt-Info für Geo-Gewerke */}
                     {trade.isGeoResult && trade.project_name && (
-                      <p className="text-gray-400 text-xs mt-1">
+                      <p className="text-gray-400 text-xs mt-1 line-clamp-1">
                         📁 {trade.project_name} ({trade.project_type})
                       </p>
                     )}
                     {/* Adresse für Geo-Gewerke */}
                     {trade.isGeoResult && trade.address_street && (
-                      <p className="text-gray-400 text-xs">
+                      <p className="text-gray-400 text-xs line-clamp-1">
                         📍 {trade.address_street}, {trade.address_zip} {trade.address_city}
                       </p>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-1 flex-shrink-0">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(trade.status)}`}>
                     {getStatusLabel(trade.status)}
                   </span>
@@ -2272,62 +2272,92 @@ export default function Trades() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
-                  <p className="text-gray-400 text-sm">Fortschritt</p>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-gray-700 rounded-full h-2">
+                  <p className="text-gray-400 text-xs">Fortschritt</p>
+                  <div className="flex items-center gap-1">
+                    <div className="flex-1 bg-gray-700 rounded-full h-1.5">
                       <div 
-                        className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-2 rounded-full transition-all duration-300"
+                        className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-1.5 rounded-full transition-all duration-300"
                         style={{ width: `${trade.progress_percentage}%` }}
                       ></div>
                     </div>
-                    <span className="text-white text-sm font-medium">{trade.progress_percentage}%</span>
+                    <span className="text-white text-xs font-medium">{trade.progress_percentage}%</span>
                   </div>
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Priorität</p>
+                  <p className="text-gray-400 text-xs">Priorität</p>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(trade.priority)}`}>
                     {getPriorityLabel(trade.priority)}
                   </span>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-sm text-gray-300">
-                <div className="flex items-center gap-4">
+              <div className="flex items-center justify-between text-xs text-gray-300 mb-3">
+                <div className="flex items-center gap-2">
                   <span>📅 {formatDate(trade.planned_date)}</span>
                   {trade.budget && (
                     <span>💰 {formatCurrency(trade.budget)}</span>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  {isServiceProviderUser ? (
-                    <span className="text-[#ffbd59]">
-                      {allTradeQuotes[trade.id]?.length || 0} Angebote
-                    </span>
-                  ) : (
-                    <span className="text-[#ffbd59]">
-                      {allTradeQuotes[trade.id]?.length || 0} Angebote
-                    </span>
+                <div className="flex items-center gap-1">
+                  {/* Angebot-Status Badge für Bauträger */}
+                  {!isServiceProviderUser && (
+                    <div className="flex items-center gap-1">
+                      {(() => {
+                        const quotes = allTradeQuotes[trade.id] || [];
+                        const acceptedQuotes = quotes.filter(q => q.status === 'accepted');
+                        const pendingQuotes = quotes.filter(q => q.status === 'submitted' || q.status === 'under_review');
+                        
+                        if (acceptedQuotes.length > 0) {
+                          return (
+                            <span className="px-2 py-1 bg-green-500/20 text-green-300 border border-green-500/30 rounded-full text-xs font-medium">
+                              ✅ Angebot angenommen
+                            </span>
+                          );
+                        } else if (pendingQuotes.length > 0) {
+                          return (
+                            <span className="px-2 py-1 bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 rounded-full text-xs font-medium">
+                              ⏳ {pendingQuotes.length} Angebot{pendingQuotes.length > 1 ? 'e' : ''} ausstehend
+                            </span>
+                          );
+                        } else if (quotes.length === 0) {
+                          return (
+                            <span className="px-2 py-1 bg-gray-500/20 text-gray-300 border border-gray-500/30 rounded-full text-xs font-medium">
+                              ❌ Keine Angebote
+                            </span>
+                          );
+                        } else {
+                          return (
+                            <span className="px-2 py-1 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-full text-xs font-medium">
+                              📋 {quotes.length} Angebot{quotes.length > 1 ? 'e' : ''}
+                            </span>
+                          );
+                        }
+                      })()}
+                    </div>
                   )}
+                  <span className="text-[#ffbd59]">
+                    {allTradeQuotes[trade.id]?.length || 0} Angebote
+                  </span>
                 </div>
               </div>
 
               {isServiceProviderUser && (
-                <div className="mt-4 pt-4 border-t border-white/10">
+                <div className="pt-3 border-t border-white/10">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-400">Status:</span>
-                      <span className={`text-sm font-medium ${getStatusColor(trade.status)}`}>
+                      <span className="text-xs text-gray-400">Status:</span>
+                      <span className={`text-xs font-medium ${getStatusColor(trade.status)}`}>
                         {getStatusLabel(trade.status)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       {/* Angebot-Status für Dienstleister */}
                       {hasServiceProviderQuote(trade.id) ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-400">Ihr Angebot:</span>
-                          <span className={`text-sm font-medium ${getQuoteStatusColor(getServiceProviderQuoteStatus(trade.id) || '')}`}>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-gray-400">Ihr Angebot:</span>
+                          <span className={`text-xs font-medium ${getQuoteStatusColor(getServiceProviderQuoteStatus(trade.id) || '')}`}>
                             {getQuoteStatusLabel(getServiceProviderQuoteStatus(trade.id) || '')}
                           </span>
                         </div>
@@ -2338,9 +2368,9 @@ export default function Trades() {
                             e.stopPropagation(); // Verhindert das Öffnen des Modals
                             openCostEstimateModal(trade);
                           }}
-                          className="px-4 py-2 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-colors text-sm font-medium flex items-center gap-2"
+                          className="px-3 py-1.5 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-colors text-xs font-medium flex items-center gap-1"
                         >
-                          <Plus size={16} />
+                          <Plus size={12} />
                           Angebot abgeben
                         </button>
                       )}
@@ -2348,6 +2378,13 @@ export default function Trades() {
                   </div>
                 </div>
               )}
+
+              {/* Klick-Hinweis */}
+              <div className="mt-3 pt-2 border-t border-white/10">
+                <div className="text-center text-[#ffbd59] text-xs font-medium">
+                  Klicken für Details →
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -2436,6 +2473,7 @@ export default function Trades() {
             onAcceptQuote={handleAcceptQuote}
             onRejectQuote={handleRejectQuote}
             onResetQuote={handleResetQuote}
+            onShowTradeDetails={() => openTradeDetailsModal(selectedTradeForCostEstimateDetails)}
           />
         )}
 

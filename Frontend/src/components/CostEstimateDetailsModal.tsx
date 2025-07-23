@@ -55,6 +55,7 @@ interface CostEstimateDetailsModalProps {
   onAcceptQuote: (quoteId: number) => void;
   onRejectQuote: (quoteId: number, reason: string) => void;
   onResetQuote: (quoteId: number) => void;
+  onShowTradeDetails?: () => void; // Neue Prop für Gewerk Details
 }
 
 export default function CostEstimateDetailsModal({ 
@@ -65,7 +66,8 @@ export default function CostEstimateDetailsModal({
   project,
   onAcceptQuote,
   onRejectQuote,
-  onResetQuote
+  onResetQuote,
+  onShowTradeDetails
 }: CostEstimateDetailsModalProps) {
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -413,7 +415,8 @@ export default function CostEstimateDetailsModal({
 
         {/* Aktions-Buttons */}
         <div className="flex items-center justify-center gap-4 pt-6 border-t border-white/10">
-          {quote.status === 'submitted' && (
+          {/* Buttons für verschiedene Status */}
+          {(quote.status === 'submitted' || quote.status === 'draft' || quote.status === 'under_review') && (
             <>
               <button
                 onClick={() => handleAcceptQuote(quote)}
@@ -463,6 +466,27 @@ export default function CostEstimateDetailsModal({
               <p className="text-sm text-red-200">{quote.rejection_reason}</p>
             </div>
           )}
+
+          {/* Status-spezifische Informationen */}
+          {quote.status === 'draft' && (
+            <div className="w-full p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+              <div className="flex items-center gap-2 text-blue-300 mb-2">
+                <FileText size={16} />
+                <span className="font-medium">Entwurf</span>
+              </div>
+              <p className="text-sm text-blue-200">Dieser Kostenvoranschlag ist noch ein Entwurf und kann bearbeitet werden.</p>
+            </div>
+          )}
+
+          {quote.status === 'under_review' && (
+            <div className="w-full p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+              <div className="flex items-center gap-2 text-yellow-300 mb-2">
+                <Clock size={16} />
+                <span className="font-medium">In Prüfung</span>
+              </div>
+              <p className="text-sm text-yellow-200">Dieser Kostenvoranschlag wird derzeit geprüft.</p>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -483,12 +507,25 @@ export default function CostEstimateDetailsModal({
                 <p className="text-sm text-gray-400">{trade.title}</p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <X size={24} className="text-gray-400" />
-            </button>
+            <div className="flex items-center gap-3">
+              {/* Gewerk Details Button */}
+              {onShowTradeDetails && (
+                <button
+                  onClick={onShowTradeDetails}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
+                  title="Gewerk Details anzeigen"
+                >
+                  <Wrench size={16} />
+                  Gewerk Details
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X size={24} className="text-gray-400" />
+              </button>
+            </div>
           </div>
 
           {/* Content */}
