@@ -1,4 +1,9 @@
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+// import InspectionStatusTracker from './InspectionStatusTracker'; // DEPRECATED: Ersetzt durch AppointmentStatusCard
+import AppointmentStatusCard from './AppointmentStatusCard';
+import AppointmentResponseTracker from './AppointmentResponseTracker';
+import InspectionSentBadge from './InspectionSentBadge';
 import { 
   X, 
   Calendar, 
@@ -55,7 +60,7 @@ interface CostEstimateDetailsModalProps {
   onAcceptQuote: (quoteId: number) => void;
   onRejectQuote: (quoteId: number, reason: string) => void;
   onResetQuote: (quoteId: number) => void;
-  onShowTradeDetails?: () => void; // Neue Prop für Gewerk Details
+  onCreateInspection?: (tradeId: number, selectedQuoteIds: number[]) => void;
 }
 
 export default function CostEstimateDetailsModal({ 
@@ -67,14 +72,109 @@ export default function CostEstimateDetailsModal({
   onAcceptQuote,
   onRejectQuote,
   onResetQuote,
-  onShowTradeDetails
+  onCreateInspection
 }: CostEstimateDetailsModalProps) {
+  const { user } = useAuth();
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [selectedQuotesForInspection, setSelectedQuotesForInspection] = useState<number[]>([]);
+  const [showInspectionSelection, setShowInspectionSelection] = useState(false);
 
   if (!isOpen || !trade) return null;
+
+  // Prüfe ob Besichtigung erforderlich ist
+  const requiresInspection = trade.requires_inspection === true || trade.requires_inspection === 'true';
+  
+  // Filtere eingereichte Angebote für Besichtigung
+  // Ursprüngliche Logik: nur submitted/under_review
+  const submittedQuotes = quotes.filter(quote => 
+    quote.status === 'submitted' || quote.status === 'under_review'
+  );
+
+  // Erweiterte Logik: Alle verfügbaren Quotes für Besichtigung (außer draft/rejected)
+  const availableQuotesForInspection = quotes.filter(quote => 
+    quote.status !== 'draft' && quote.status !== 'rejected' && quote.status !== 'expired'
+  );
+
+  // Debug: Zeige alle Status-Werte
+  console.log('  - Alle Quote-Status-Details:', quotes.map(q => ({ 
+    id: q.id, 
+    status: q.status, 
+    service_provider: q.service_provider_name || q.service_provider_id 
+  })));
+  
+  // ERWEITERTE DEBUG-AUSGABE: Zeige tatsächliche Array-Inhalte
+  console.log('🔍 DETAILLIERTE QUOTE-ANALYSE:');
+  quotes.forEach((quote, index) => {
+    console.log(`  Quote ${index + 1}:`, {
+      id: quote.id,
+      status: quote.status,
+      statusType: typeof quote.status,
+      statusLength: quote.status?.length,
+      service_provider: quote.service_provider_name || quote.service_provider_id
+    });
+  });
+  
+  // Debug: Zeige Filterlogik im Detail
+  console.log('  - Filter submittedQuotes:', quotes.map(q => ({
+    id: q.id,
+    status: q.status,
+    isSubmitted: q.status === 'submitted',
+    isUnderReview: q.status === 'under_review',
+    passesSubmittedFilter: q.status === 'submitted' || q.status === 'under_review'
+  })));
+  
+  console.log('  - Filter availableQuotes:', quotes.map(q => ({
+    id: q.id,
+    status: q.status,
+    isDraft: q.status === 'draft',
+    isRejected: q.status === 'rejected',
+    isExpired: q.status === 'expired',
+    passesAvailableFilter: q.status !== 'draft' && q.status !== 'rejected' && q.status !== 'expired'
+  })));
+
+  // Verwende verfügbare Quotes wenn submittedQuotes leer ist
+  const quotesForInspection = submittedQuotes.length > 0 ? submittedQuotes : availableQuotesForInspection;
+  
+  // TEMPORÄRER FIX: Wenn alle Filter leer sind, verwende alle Quotes
+  const finalQuotesForInspection = quotesForInspection.length > 0 ? quotesForInspection : quotes;
+  
+  console.log('🔧 TEMPORÄRER FIX - finalQuotesForInspection.length:', finalQuotesForInspection.length);
+
+  // Debug-Ausgaben für Besichtigungs-Button-Sichtbarkeit
+  console.log('🔍 Debug Besichtigungs-Button-Sichtbarkeit:');
+  console.log('  - trade.requires_inspection:', trade.requires_inspection);
+  console.log('  - requiresInspection (berechnet):', requiresInspection);
+  console.log('  - quotes.length:', quotes.length);
+  console.log('  - submittedQuotes.length:', submittedQuotes.length);
+  console.log('  - availableQuotesForInspection.length:', availableQuotesForInspection.length);
+  console.log('  - quotesForInspection.length:', quotesForInspection.length);
+  console.log('  - Button sollte sichtbar sein (alt):', requiresInspection && quotesForInspection.length > 0);
+  console.log('  - Button sollte sichtbar sein (neu):', requiresInspection && finalQuotesForInspection.length > 0);
+
+  const handleInspectionQuoteToggle = (quoteId: number) => {
+    setSelectedQuotesForInspection(prev => 
+      prev.includes(quoteId) 
+        ? prev.filter(id => id !== quoteId)
+        : [...prev, quoteId]
+    );
+  };
+
+  const handleCreateInspection = () => {
+    if (selectedQuotesForInspection.length === 0) {
+      alert('Bitte wählen Sie mindestens ein Angebot für die Besichtigung aus.');
+      return;
+    }
+    
+    if (onCreateInspection) {
+      onCreateInspection(trade.id, selectedQuotesForInspection);
+      setShowInspectionSelection(false);
+      setSelectedQuotesForInspection([]);
+      onClose();
+    }
+  };
 
   const getCategoryIcon = (category: string) => {
     const iconMap: { [key: string]: React.ReactNode } = {
@@ -415,7 +515,7 @@ export default function CostEstimateDetailsModal({
 
         {/* Aktions-Buttons */}
         <div className="flex items-center justify-center gap-4 pt-6 border-t border-white/10">
-          {/* Buttons für verschiedene Status */}
+          {/* Buttons für alle Benutzer mit submitted, draft oder under_review Status */}
           {(quote.status === 'submitted' || quote.status === 'draft' || quote.status === 'under_review') && (
             <>
               <button
@@ -442,6 +542,7 @@ export default function CostEstimateDetailsModal({
             </>
           )}
           
+          {/* Reset-Button für alle Benutzer */}
           {quote.status === 'accepted' && (
             <button
               onClick={() => handleResetQuote(quote)}
@@ -457,6 +558,7 @@ export default function CostEstimateDetailsModal({
             </button>
           )}
           
+          {/* Ablehnungsgrund anzeigen */}
           {quote.status === 'rejected' && quote.rejection_reason && (
             <div className="w-full p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
               <div className="flex items-center gap-2 text-red-300 mb-2">
@@ -464,27 +566,6 @@ export default function CostEstimateDetailsModal({
                 <span className="font-medium">Ablehnungsgrund</span>
               </div>
               <p className="text-sm text-red-200">{quote.rejection_reason}</p>
-            </div>
-          )}
-
-          {/* Status-spezifische Informationen */}
-          {quote.status === 'draft' && (
-            <div className="w-full p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-              <div className="flex items-center gap-2 text-blue-300 mb-2">
-                <FileText size={16} />
-                <span className="font-medium">Entwurf</span>
-              </div>
-              <p className="text-sm text-blue-200">Dieser Kostenvoranschlag ist noch ein Entwurf und kann bearbeitet werden.</p>
-            </div>
-          )}
-
-          {quote.status === 'under_review' && (
-            <div className="w-full p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-              <div className="flex items-center gap-2 text-yellow-300 mb-2">
-                <Clock size={16} />
-                <span className="font-medium">In Prüfung</span>
-              </div>
-              <p className="text-sm text-yellow-200">Dieser Kostenvoranschlag wird derzeit geprüft.</p>
             </div>
           )}
         </div>
@@ -507,25 +588,12 @@ export default function CostEstimateDetailsModal({
                 <p className="text-sm text-gray-400">{trade.title}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              {/* Gewerk Details Button */}
-              {onShowTradeDetails && (
-                <button
-                  onClick={onShowTradeDetails}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
-                  title="Gewerk Details anzeigen"
-                >
-                  <Wrench size={16} />
-                  Gewerk Details
-                </button>
-              )}
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <X size={24} className="text-gray-400" />
-              </button>
-            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <X size={24} className="text-gray-400" />
+            </button>
           </div>
 
           {/* Content */}
@@ -539,9 +607,19 @@ export default function CostEstimateDetailsModal({
                   <div className="bg-white/5 rounded-lg p-4">
                     <div className="flex items-center gap-3 mb-4">
                       {getCategoryIcon(trade.category || '')}
-                      <div>
+                      <div className="flex-1">
                         <h3 className="font-semibold text-white">{trade.title}</h3>
                         <p className="text-sm text-gray-400">{trade.description}</p>
+                        
+                        {/* Inspection Sent Badge */}
+                        <div className="mt-2">
+                          <InspectionSentBadge 
+                            inspectionSent={trade.inspection_sent || false}
+                            inspectionSentAt={trade.inspection_sent_at}
+                            appointmentCount={1} // TODO: Aus Appointments laden
+                            pendingResponses={0} // TODO: Aus Appointment Responses berechnen
+                          />
+                        </div>
                       </div>
                     </div>
                     
@@ -565,6 +643,149 @@ export default function CostEstimateDetailsModal({
                     </div>
                   </div>
 
+                  {/* Debug-Anzeige für Besichtigungs-Button */}
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-4">
+                    <h4 className="text-sm font-semibold text-blue-400 mb-2">🔍 Debug: Besichtigung erstellen Button</h4>
+                    <div className="text-xs text-gray-300 space-y-1">
+                      <div>requires_inspection: <span className="text-yellow-400">{String(trade.requires_inspection)}</span></div>
+                      <div>requiresInspection (berechnet): <span className="text-yellow-400">{String(requiresInspection)}</span></div>
+                      <div>Anzahl Quotes: <span className="text-yellow-400">{quotes.length}</span></div>
+                      <div>Anzahl submittedQuotes: <span className="text-yellow-400">{submittedQuotes.length}</span></div>
+                      <div>Anzahl availableQuotesForInspection: <span className="text-yellow-400">{availableQuotesForInspection.length}</span></div>
+                      <div>Anzahl quotesForInspection: <span className="text-yellow-400">{quotesForInspection.length}</span></div>
+                      <div>Anzahl finalQuotesForInspection: <span className="text-yellow-400">{finalQuotesForInspection.length}</span></div>
+                      <div>Quote-Status: <span className="text-yellow-400">{quotes.map(q => `${q.id}:${q.status}`).join(', ')}</span></div>
+                      <div>Button sichtbar (original): <span className="text-yellow-400">{String(requiresInspection && submittedQuotes.length > 0)}</span></div>
+                      <div>Button sichtbar (berechnet): <span className="text-yellow-400">{String(requiresInspection && quotesForInspection.length > 0)}</span></div>
+                      <div>Button sichtbar (FINAL): <span className="text-yellow-400">{String(requiresInspection && finalQuotesForInspection.length > 0)}</span></div>
+                    </div>
+                  </div>
+
+                  {/* Besichtigungs-Bereich - Zeige wenn requiresInspection true ist und Quotes verfügbar */}
+                  {requiresInspection && finalQuotesForInspection.length > 0 && (
+                    <div className="bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 border border-[#ffbd59]/30 rounded-lg p-4 mb-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg">
+                            <Eye size={20} className="text-white" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold text-white">Besichtigung erforderlich</h3>
+                            <p className="text-sm text-gray-300">
+                              Dieses Gewerk erfordert eine Vor-Ort-Besichtigung. Wählen Sie Angebote für die Einladung aus.
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {!showInspectionSelection && (
+                          <button
+                            onClick={() => setShowInspectionSelection(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white rounded-lg font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg"
+                          >
+                            <Calendar size={16} />
+                            Besichtigung erstellen
+                          </button>
+                        )}
+                      </div>
+                      
+                      {showInspectionSelection && (
+                        <div className="space-y-4">
+                          <div className="bg-white/5 rounded-lg p-4">
+                            <h4 className="font-semibold text-white mb-3 flex items-center gap-2">
+                              <CheckCircle size={16} className="text-[#ffbd59]" />
+                              Angebote für Besichtigung auswählen
+                            </h4>
+                            
+                            <div className="space-y-2">
+                              {quotes.map((quote: any) => (
+                                <div 
+                                  key={quote.id}
+                                  className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${
+                                    selectedQuotesForInspection.includes(quote.id)
+                                      ? 'bg-[#ffbd59]/20 border border-[#ffbd59]/40'
+                                      : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                                  }`}
+                                  onClick={() => handleInspectionQuoteToggle(quote.id)}
+                                >
+                                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                                    selectedQuotesForInspection.includes(quote.id)
+                                      ? 'bg-[#ffbd59] border-[#ffbd59]'
+                                      : 'border-gray-400'
+                                  }`}>
+                                    {selectedQuotesForInspection.includes(quote.id) && (
+                                      <Check size={12} className="text-white" />
+                                    )}
+                                  </div>
+                                  
+                                  <div className="flex-1">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-white font-medium">{quote.title}</span>
+                                      <span className="text-[#ffbd59] font-bold">
+                                        {formatCurrency(quote.total_amount, quote.currency)}
+                                      </span>
+                                    </div>
+                                    <div className="text-sm text-gray-400">
+                                      {quote.company_name} • {quote.estimated_duration} Tage
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            
+                            <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-white/10">
+                              <button
+                                onClick={() => {
+                                  setShowInspectionSelection(false);
+                                  setSelectedQuotesForInspection([]);
+                                }}
+                                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                              >
+                                Abbrechen
+                              </button>
+                              <button
+                                onClick={handleCreateInspection}
+                                disabled={selectedQuotesForInspection.length === 0}
+                                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white rounded-lg font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <Calendar size={16} />
+                                Besichtigung planen ({selectedQuotesForInspection.length} Angebote)
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Appointment Status Cards - nur für Bauträger */}
+                  {project && user?.user_role === 'BAUTRAEGER' && (
+                    <AppointmentStatusCard 
+                      projectId={project.id} 
+                      milestoneId={trade.id}
+                      onDecisionMade={(decision) => {
+                        console.log('Entscheidung getroffen:', decision);
+                        // Hier können Sie weitere Aktionen ausführen
+                      }}
+                    />
+                  )}
+
+                  {/* Appointment Response Tracker - zeigt Antworten aller Dienstleister */}
+                  {project && user?.user_role === 'BAUTRAEGER' && (
+                    <>
+                      {console.log('🔍 [MODAL-DEBUG] Rendering AppointmentResponseTracker:', {
+                        projectId: project.id,
+                        milestoneId: trade.id,
+                        tradeTitle: trade.title,
+                        userRole: user?.user_role
+                      })}
+                      <AppointmentResponseTracker
+                        projectId={project.id}
+                        milestoneId={trade.id}
+                        className="mt-6"
+                      />
+                    </>
+                  )}
+
                   {/* Kostenvoranschläge Liste */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -582,8 +803,7 @@ export default function CostEstimateDetailsModal({
                         {quotes.map((quote: any) => (
                           <div 
                             key={quote.id} 
-                            className="p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors cursor-pointer"
-                            onClick={() => setSelectedQuote(quote)}
+                            className="p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors"
                           >
                             <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center gap-2">
@@ -621,15 +841,76 @@ export default function CostEstimateDetailsModal({
                               </div>
                             </div>
                             
-                            <div className="mt-3 text-center">
-                              <button className="text-sm text-[#ffbd59] hover:text-[#ffa726] transition-colors">
+                            <div className="mt-3 flex items-center justify-between">
+                              <button 
+                                onClick={() => setSelectedQuote(quote)}
+                                className="text-sm text-[#ffbd59] hover:text-[#ffa726] transition-colors"
+                              >
                                 Details anzeigen →
                               </button>
+                              
+                              {/* Aktions-Buttons für jeden Kostenvoranschlag */}
+                              <div className="flex items-center gap-2">
+                                {/* Buttons für alle Benutzer mit submitted, draft oder under_review Status */}
+                                {(quote.status === 'submitted' || quote.status === 'draft' || quote.status === 'under_review') && (
+                                  <>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAcceptQuote(quote);
+                                      }}
+                                      disabled={loading}
+                                      className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg text-xs font-medium hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      {loading ? (
+                                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                                      ) : (
+                                        <CheckCircle size={12} />
+                                      )}
+                                      Annehmen
+                                    </button>
+                                    
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedQuote(quote);
+                                        setShowRejectModal(true);
+                                      }}
+                                      disabled={loading}
+                                      className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg text-xs font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      <XCircle size={12} />
+                                      Ablehnen
+                                    </button>
+                                  </>
+                                )}
+                                
+                                {/* Reset-Button für alle Benutzer */}
+                                {quote.status === 'accepted' && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleResetQuote(quote);
+                                    }}
+                                    disabled={loading}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg text-xs font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {loading ? (
+                                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                                    ) : (
+                                      <AlertTriangle size={12} />
+                                    )}
+                                    Zurücksetzen
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         ))}
                       </div>
                     )}
+
+                    {/* DEPRECATED: InspectionStatusTracker ersetzt durch AppointmentStatusCard */}
                   </div>
                 </div>
               )}

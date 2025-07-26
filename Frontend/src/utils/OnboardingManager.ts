@@ -59,11 +59,35 @@ export class OnboardingManager {
   }
 
   /**
-   * Detaillierte Onboarding-State-Analyse
+   * Analysiert den Onboarding-Status eines Users
    */
   static getOnboardingState(user: User): OnboardingState {
-    // 1. Erste Priorität: Modal bereits angezeigt? Dann nicht mehr anzeigen
-    if (user.role_selection_modal_shown) {
+    console.log('🔍 OnboardingManager - Analysiere User:', {
+      userId: user.id,
+      email: user.email,
+      user_role: user.user_role,
+      role_selected: user.role_selected,
+      subscription_plan: user.subscription_plan,
+      onboarding_completed: user.onboarding_completed,
+      onboarding_step: user.onboarding_step,
+      first_login_completed: user.first_login_completed
+    });
+
+    // WICHTIG: Prüfe zuerst, ob User bereits vollständig konfiguriert ist
+    // (unabhängig vom onboarding_completed Flag)
+    if (user.role_selected && user.user_role && user.subscription_plan) {
+      console.log('✅ User ist vollständig konfiguriert - kein Onboarding erforderlich');
+      return {
+        needsOnboarding: false,
+        currentStep: OnboardingStep.COMPLETED,
+        isFirstTimeUser: false,
+        reason: "User vollständig konfiguriert - kein Onboarding erforderlich"
+      };
+    }
+
+    // 1. Höchste Priorität: Modal bereits angezeigt - kein erneutes Onboarding
+    if (user.role_selection_modal_shown && user.role_selected && user.user_role) {
+      console.log('ℹ️ Rollenauswahl-Modal bereits angezeigt');
       return {
         needsOnboarding: false,
         currentStep: OnboardingStep.COMPLETED,
@@ -76,6 +100,7 @@ export class OnboardingManager {
     const isNewUser = this.isNewUser(user);
     
     if (isNewUser && (!user.role_selected || !user.user_role)) {
+      console.log('🆕 Neuer User ohne Rolle - Onboarding erforderlich');
       return {
         needsOnboarding: true,
         currentStep: OnboardingStep.ROLE_SELECTION,
@@ -86,6 +111,7 @@ export class OnboardingManager {
 
     // 3. Dritte Priorität: Alte User ohne Rolle (Edge-Case - sollte nicht passieren)
     if (!isNewUser && !user.role_selected && !user.user_role && !user.role_selection_modal_shown) {
+      console.log('⚠️ Alter User ohne Rolle - Onboarding erforderlich');
       return {
         needsOnboarding: true,
         currentStep: OnboardingStep.ROLE_SELECTION,
@@ -94,19 +120,20 @@ export class OnboardingManager {
       };
     }
 
-    // 4. Dritte Priorität: Unvollständiges Onboarding
-    if (!user.onboarding_completed) {
-      const step = this.determineCurrentStep(user);
+    // 4. Explizit abgeschlossenes Onboarding
+    if (user.onboarding_completed) {
+      console.log('✅ Onboarding explizit abgeschlossen');
       return {
-        needsOnboarding: true,
-        currentStep: step,
+        needsOnboarding: false,
+        currentStep: OnboardingStep.COMPLETED,
         isFirstTimeUser: false,
-        reason: `Onboarding unvollständig - Schritt ${step} erforderlich`
+        reason: "Onboarding bereits abgeschlossen"
       };
     }
 
     // 5. Admin-User: Kein Onboarding
     if (user.user_role === 'ADMIN') {
+      console.log('👑 Admin-User - kein Onboarding');
       return {
         needsOnboarding: false,
         currentStep: OnboardingStep.COMPLETED,
@@ -115,12 +142,25 @@ export class OnboardingManager {
       };
     }
 
-    // 6. Alles abgeschlossen
+    // 6. Fallback: Wenn alles andere fehlschlägt, prüfe aktuellen Schritt
+    const step = this.determineCurrentStep(user);
+    if (step === OnboardingStep.COMPLETED) {
+      console.log('✅ Fallback: Schritt ist COMPLETED - kein Onboarding');
+      return {
+        needsOnboarding: false,
+        currentStep: OnboardingStep.COMPLETED,
+        isFirstTimeUser: false,
+        reason: "Onboarding-Schritte vollständig"
+      };
+    }
+
+    // 7. Letzter Fallback: Onboarding erforderlich
+    console.log(`⚠️ Onboarding erforderlich - Schritt ${step}`);
     return {
-      needsOnboarding: false,
-      currentStep: OnboardingStep.COMPLETED,
+      needsOnboarding: true,
+      currentStep: step,
       isFirstTimeUser: false,
-      reason: "Onboarding bereits abgeschlossen"
+      reason: `Onboarding unvollständig - Schritt ${step} erforderlich`
     };
   }
 
@@ -128,6 +168,24 @@ export class OnboardingManager {
    * Bestimmt den aktuellen Onboarding-Schritt basierend auf User-Daten
    */
   static determineCurrentStep(user: User): OnboardingStep {
+    // Prüfe zuerst, ob alles bereits abgeschlossen ist
+    if (user.onboarding_completed) {
+      return OnboardingStep.COMPLETED;
+    }
+
+    // Prüfe ob User bereits vollständig konfiguriert ist (auch ohne explizites onboarding_completed)
+    if (user.role_selected && user.user_role) {
+      // Bauträger mit Subscription-Plan = fertig
+      if (user.user_role === 'BAUTRAEGER' && user.subscription_plan) {
+        return OnboardingStep.COMPLETED;
+      }
+      
+      // Dienstleister mit abgeschlossenem Profil-Setup = fertig
+      if (user.user_role === 'DIENSTLEISTER' && user.onboarding_step >= 4) {
+        return OnboardingStep.COMPLETED;
+      }
+    }
+
     // Noch kein erster Login
     if (!user.first_login_completed) {
       return OnboardingStep.WELCOME;
@@ -148,11 +206,7 @@ export class OnboardingManager {
       return OnboardingStep.PROFILE_SETUP;
     }
 
-    // Fallback: Verwende onboarding_step aus DB
-    if (user.onboarding_step > 0 && user.onboarding_step < 999) {
-      return user.onboarding_step as OnboardingStep;
-    }
-
+    // Fallback: Alles scheint fertig zu sein
     return OnboardingStep.COMPLETED;
   }
 

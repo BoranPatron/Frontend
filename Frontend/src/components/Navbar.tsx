@@ -25,11 +25,13 @@ import {
   User,
   Menu,
   Target,
-  Calendar
+  Calendar,
+  Coins
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { createProject } from '../api/projectService';
 import FavoritesManager from './FavoritesManager';
+import CreditIndicator from './CreditIndicator';
 import logo from '../logo_trans_big.png';
 
 // Hilfsfunktion für Bauphasen
@@ -406,6 +408,21 @@ export default function Navbar() {
                     <span>Pro</span>
                   </Link>
 
+                  {/* Credits-Link für Bauträger */}
+                  {!isServiceProvider() && user?.user_role === 'BAUTRAEGER' && (
+                    <Link
+                      to="/credits"
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                        isActive('/credits') 
+                          ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-white font-semibold shadow-lg' 
+                          : 'text-yellow-200 hover:bg-yellow-500/20 hover:text-yellow-100 border border-yellow-400/30'
+                      }`}
+                    >
+                      <Coins size={18} />
+                      <span>Credits</span>
+                    </Link>
+                  )}
+
                   <div className="relative group">
                     <button className="flex items-center gap-2 px-4 py-2 rounded-lg text-white hover:bg-white/10 hover:text-[#ffbd59] transition-all duration-300">
                       <BarChart3 size={18} />
@@ -444,18 +461,7 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* Mittiger "Neues Projekt" Button - nur für Bauträger */}
-          {!isServiceProvider() && (
-            <div className="hidden md:flex items-center justify-center flex-1">
-              <button
-                onClick={handleCreateProjectClick}
-                className="flex items-center gap-2 bg-[#ffbd59] hover:bg-[#ffa726] text-[#2c3539] px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
-              >
-                <Plus size={16} />
-                <span className="text-sm">Neues Projekt</span>
-              </button>
-            </div>
-          )}
+
 
           {/* Rechte Seite */}
           <div className="flex items-center gap-4">
@@ -520,6 +526,13 @@ export default function Navbar() {
                 </div>
               )}
             </div>
+
+            {/* Credit-Indicator für Bauträger */}
+            {!isServiceProvider() && user?.user_role === 'BAUTRAEGER' && (
+              <div className="hidden md:block">
+                <CreditIndicator className="text-white" />
+              </div>
+            )}
 
             {/* Benutzer-Menü */}
             <div className="relative">

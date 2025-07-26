@@ -78,6 +78,8 @@ export interface TradeSearchResult {
   end_date?: string;
   progress_percentage: number;
   contractor?: string;
+  // Besichtigungssystem
+  requires_inspection?: boolean;
   // Projekt-Informationen
   project_id: number;
   project_name: string;
@@ -91,6 +93,16 @@ export interface TradeSearchResult {
   address_longitude: number;
   distance_km: number;
   created_at?: string;
+  // Badge-System Daten
+  quote_stats: {
+    total_quotes: number;
+    accepted_quotes: number;
+    pending_quotes: number;
+    rejected_quotes: number;
+    has_accepted_quote: boolean;
+    has_pending_quotes: boolean;
+    has_rejected_quotes: boolean;
+  };
 }
 
 export interface ServiceProviderSearchRequest {

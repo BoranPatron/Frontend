@@ -9,19 +9,24 @@ export default function OAuthCallback() {
   const { login } = useAuth();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const hasProcessed = useRef(false);
+  const processingRef = useRef(false);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
+    // Setze mountedRef explizit auf true beim Mount
+    mountedRef.current = true;
+    console.log('🔧 Komponente gemounted - mountedRef.current:', mountedRef.current);
+    
     const handleOAuthCallback = async () => {
-      // Verhindere mehrfache Verarbeitung
-      if (isProcessing || hasProcessed.current) {
-        console.log('🔄 OAuth-Callback bereits verarbeitet oder in Verarbeitung...');
+      // Verhindere mehrfache Verarbeitung mit robuster Prüfung
+      if (processingRef.current) {
+        console.log('🔄 OAuth-Callback bereits in Verarbeitung - überspringe');
         return;
       }
       
-      setIsProcessing(true);
-      hasProcessed.current = true;
+      console.log('🔄 Starte OAuth-Callback-Verarbeitung...');
+      console.log('🔍 mountedRef.current beim Start:', mountedRef.current);
+      processingRef.current = true;
       
       try {
         console.log('🔍 OAuth-Callback gestartet');
@@ -32,7 +37,12 @@ export default function OAuthCallback() {
         const error = searchParams.get('error');
         const errorDescription = searchParams.get('error_description');
 
-        console.log('📋 URL-Parameter:', { code: code ? 'present' : 'missing', state, error, errorDescription });
+        console.log('📋 URL-Parameter:', { 
+          code: code ? `${code.substring(0, 10)}...` : 'missing', 
+          state, 
+          error, 
+          errorDescription 
+        });
 
         // Prüfe auf OAuth-Fehler
         if (error) {
@@ -66,67 +76,148 @@ export default function OAuthCallback() {
 
         console.log(`🔗 Verarbeite ${provider.toUpperCase()} OAuth-Callback`);
 
-        // Sende Code an Backend
-        const response = await fetch(`http://localhost:8000/api/v1/auth/oauth/${provider}/callback`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            code,
-            state: state || undefined,
-          }),
-        });
+        // Sende Code an Backend mit Timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 Sekunden Timeout
 
-        const data = await response.json();
-        console.log(`📡 Backend-Response:`, { status: response.status, data });
+        try {
+          const response = await fetch(`http://localhost:8000/api/v1/auth/oauth/${provider}/callback`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              code,
+              state: state || undefined,
+            }),
+            signal: controller.signal
+          });
 
-        // Prüfe auf spezifische Fehler
-        if (!response.ok) {
-          const errorDetail = data.detail || '';
-          
-          // Bei invalid_grant (Code bereits verwendet) - das ist normal, aber wir sollten nicht erneut versuchen
-          if (errorDetail.includes('OAuth-Code ist abgelaufen') || 
-              errorDetail.includes('OAuth-Code bereits verwendet') || 
-              errorDetail.includes('invalid_grant')) {
-            console.log('🔄 OAuth-Code bereits verwendet oder abgelaufen (normal)');
+          clearTimeout(timeoutId);
+
+          console.log(`📡 Backend-Response Status: ${response.status}`);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            let errorData;
             
-            // Anstatt zu retry, zeigen wir eine freundliche Nachricht
+            try {
+              errorData = JSON.parse(errorText);
+            } catch {
+              errorData = { detail: errorText || 'Unbekannter Fehler' };
+            }
+
+            console.error(`❌ ${provider.toUpperCase()} OAuth fehlgeschlagen:`, errorData);
+            
+            const errorDetail = errorData.detail || '';
+            
+            // Bei invalid_grant oder ähnlichen Fehlern
+            if (errorDetail.includes('OAuth-Code ist abgelaufen') || 
+                errorDetail.includes('OAuth-Code bereits verwendet') || 
+                errorDetail.includes('invalid_grant') ||
+                errorDetail.includes('authorization code has expired') ||
+                errorDetail.includes('AADSTS70008')) {
+              
+              console.log('🔄 OAuth-Code bereits verwendet oder abgelaufen');
+              setStatus('error');
+              setMessage('Der OAuth-Code ist bereits verwendet oder abgelaufen. Bitte starten Sie den Login-Prozess erneut.');
+              return;
+            }
+            
+            // Bei Konfigurationsfehlern
+            if (errorDetail.includes('nicht konfiguriert') || 
+                errorDetail.includes('Client-Konfiguration fehlerhaft')) {
+              setStatus('error');
+              setMessage('OAuth ist nicht korrekt konfiguriert. Bitte wenden Sie sich an den Administrator.');
+              return;
+            }
+            
+            // Bei anderen Fehlern
             setStatus('error');
-            setMessage('OAuth-Code wurde bereits verwendet oder ist abgelaufen. Bitte starten Sie den Login-Prozess erneut.');
+            setMessage(errorDetail || `${provider.toUpperCase()} OAuth fehlgeschlagen`);
             return;
           }
+
+          const data = await response.json();
+          console.log(`📡 Backend-Response erfolgreich:`, { 
+            hasToken: !!data.access_token, 
+            hasUser: !!data.user,
+            userId: data.user?.id 
+          });
+
+          // Login erfolgreich - ENTFERNE mountedRef Check komplett
+          if (data.access_token && data.user) {
+            console.log('✅ OAuth-Login erfolgreich, setze User-Daten');
+            console.log('🔍 data.access_token:', !!data.access_token);
+            console.log('🔍 data.user:', !!data.user);
+            
+            console.log('🔄 Führe Login durch (ohne mountedRef Check)');
+            
+            try {
+              // Führe Login durch - IMMER ausführen
+              console.log('🔐 Rufe login() Funktion auf...');
+              login(data.access_token, data.user);
+              console.log('✅ login() Funktion erfolgreich aufgerufen');
+              
+              console.log('🔄 Setze Status auf success...');
+              setStatus('success');
+              console.log('✅ Status auf success gesetzt');
+              
+              setMessage(`${provider.toUpperCase()} Login erfolgreich! Weiterleitung...`);
+              console.log('✅ Message gesetzt');
+              
+              console.log('🔄 Warte auf AuthContext-Aktualisierung...');
+              
+              // Verzögerte Weiterleitung für AuthContext-Aktualisierung
+              setTimeout(() => {
+                console.log('⏰ Timeout für Weiterleitung erreicht');
+                const redirectPath = localStorage.getItem('redirectAfterLogin') || '/';
+                localStorage.removeItem('redirectAfterLogin');
+                console.log(`🔄 Weiterleitung zu: ${redirectPath}`);
+                navigate(redirectPath, { replace: true });
+              }, 1500); // Reduziert auf 1.5 Sekunden für schnellere UX
+              
+            } catch (loginError) {
+              console.error('❌ Fehler beim Login-Prozess:', loginError);
+              setStatus('error');
+              setMessage('Fehler beim Login-Prozess');
+            }
+          } else {
+            console.error('❌ Unvollständige Antwort vom Backend:', data);
+            setStatus('error');
+            setMessage('Unvollständige Antwort vom Server');
+          }
+
+        } catch (fetchError: any) {
+          clearTimeout(timeoutId);
           
-          // Bei anderen Fehlern
-          console.error(`❌ ${provider.toUpperCase()} OAuth fehlgeschlagen:`, data);
-          setStatus('error');
-          setMessage(data.detail || `${provider.toUpperCase()} OAuth fehlgeschlagen`);
-          return;
+          if (fetchError.name === 'AbortError') {
+            console.error('❌ OAuth-Request Timeout');
+            setStatus('error');
+            setMessage('Timeout beim Verbinden mit dem Server. Bitte versuchen Sie es erneut.');
+          } else {
+            console.error('❌ Netzwerkfehler:', fetchError);
+            setStatus('error');
+            setMessage('Netzwerkfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
+          }
         }
-
-        // Login erfolgreich
-        console.log('✅ OAuth-Login erfolgreich, setze User-Daten');
-        login(data.access_token, data.user);
-        setStatus('success');
-        setMessage(`${provider.toUpperCase()} Login erfolgreich! Weiterleitung...`);
-
-        // Direkte Weiterleitung ohne Verzögerung
-        const redirectPath = localStorage.getItem('redirectAfterLogin') || '/';
-        localStorage.removeItem('redirectAfterLogin');
-        console.log(`🔄 Weiterleitung zu: ${redirectPath}`);
-        navigate(redirectPath);
 
       } catch (err: any) {
         console.error('❌ OAuth callback error:', err);
         setStatus('error');
         setMessage(err.message || 'Ein unerwarteter Fehler ist aufgetreten');
-      } finally {
-        setIsProcessing(false);
       }
     };
 
+    // Starte OAuth-Callback-Verarbeitung
     handleOAuthCallback();
-  }, [searchParams, navigate, login, isProcessing]);
+
+    // Cleanup function
+    return () => {
+      console.log('🧹 Komponente wird unmounted');
+      mountedRef.current = false;
+    };
+  }, [searchParams, navigate, login]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center p-4">
@@ -167,27 +258,27 @@ export default function OAuthCallback() {
             <div className="flex justify-center">
               <AlertTriangle className="h-12 w-12 text-red-500" />
             </div>
-            <p className="text-gray-300">{message}</p>
+            <p className="text-gray-300 mb-4">{message}</p>
             
-            {/* Zusätzliche Hilfe bei OAuth-Fehlern */}
-            {message.includes('OAuth-Code') && (
-              <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                <h3 className="text-yellow-500 font-semibold mb-2">💡 Lösung:</h3>
-                <ol className="text-sm text-gray-300 space-y-1">
-                  <li>1. Gehen Sie zurück zur <a href="/" className="text-[#ffbd59] hover:underline">Login-Seite</a></li>
-                  <li>2. Klicken Sie erneut auf "Mit Microsoft anmelden"</li>
-                  <li>3. Führen Sie den Login-Prozess erneut durch</li>
-                </ol>
-                <div className="mt-3">
-                  <button 
-                    onClick={() => window.location.href = '/'}
-                    className="bg-[#ffbd59] text-black px-4 py-2 rounded-lg hover:bg-[#ffbd59]/80 transition-colors"
-                  >
-                    Zurück zur Login-Seite
-                  </button>
-                </div>
+            {/* Hilfe-Sektion */}
+            <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+              <h3 className="text-yellow-500 font-semibold mb-2">💡 Lösung:</h3>
+              <ol className="text-sm text-gray-300 space-y-1 text-left">
+                <li>1. Gehen Sie zurück zur Login-Seite</li>
+                <li>2. Klicken Sie erneut auf "Mit Microsoft anmelden"</li>
+                <li>3. Führen Sie den Login-Prozess erneut durch</li>
+              </ol>
+              <div className="mt-3">
+                <button 
+                  onClick={() => {
+                    window.location.href = '/';
+                  }}
+                  className="bg-[#ffbd59] text-black px-4 py-2 rounded-lg hover:bg-[#ffbd59]/80 transition-colors"
+                >
+                  Zurück zur Login-Seite
+                </button>
               </div>
-            )}
+            </div>
           </div>
         )}
 

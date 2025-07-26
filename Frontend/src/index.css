@@ -2,168 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Line clamp utilities */
-.line-clamp-1 {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
-}
-
-.line-clamp-2 {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.line-clamp-3 {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-}
-
-/* Geo Search responsive improvements */
-@media (max-width: 640px) {
-  .geo-search-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (min-width: 641px) and (max-width: 768px) {
-  .geo-search-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (min-width: 769px) and (max-width: 1024px) {
-  .geo-search-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (min-width: 1025px) {
-  .geo-search-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-/* Smooth transitions for better UX */
-.transition-all {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.hover\:scale-105:hover {
-  transform: scale(1.05);
-}
-
-.hover\:shadow-2xl:hover {
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-}
-
-/* Custom scrollbar for better UX */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 189, 89, 0.5);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 189, 89, 0.7);
-}
-
-/* Focus styles */
-.focus-ring:focus {
-  outline: 2px solid #ffbd59;
-  outline-offset: 2px;
-}
-
-/* Custom animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.fade-in {
-  animation: fadeIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-.slide-in {
-  animation: slideIn 0.3s ease-out;
-}
-
-/* Hover effects */
-.hover-lift:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-}
-
-/* Glass morphism effect */
-.glass {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-/* Gradient backgrounds */
-.gradient-primary {
-  background: linear-gradient(135deg, #ffbd59 0%, #ffa726 100%);
-}
-
-.gradient-secondary {
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-}
-
-.gradient-success {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-}
-
-/* Responsive text */
-.text-responsive {
-  font-size: clamp(0.875rem, 2vw, 1.125rem);
-}
-
-/* Custom button styles */
-.btn-primary {
-  @apply bg-[#ffbd59] text-[#2c3539] px-4 py-2 rounded-lg font-medium hover:bg-[#ffa726] transition-all duration-300;
-}
-
-.btn-secondary {
-  @apply bg-white/10 text-white px-4 py-2 rounded-lg font-medium hover:bg-white/20 transition-all duration-300;
-}
-
-.btn-success {
-  @apply bg-[#10b981] text-white px-4 py-2 rounded-lg font-medium hover:bg-[#059669] transition-all duration-300;
-}
-
-.btn-danger {
-  @apply bg-[#ef4444] text-white px-4 py-2 rounded-lg font-medium hover:bg-[#dc2626] transition-all duration-300;
-}
-
 /* Leaflet Karten-Styling */
 .leaflet-container {
   font-family: inherit;
@@ -328,4 +166,43 @@
     font-size: 11px;
     padding: 6px 10px;
   }
+}
+
+/* Animationen für Gewerke-Badges */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .8;
+  }
+}
+
+@keyframes sparkle {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+    opacity: 0.8;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-sparkle {
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+/* Hover-Effekte für Badges */
+.group:hover .animate-sparkle {
+  animation-duration: 0.5s;
+}
+
+/* Z-Index für Tooltips */
+.group .absolute {
+  z-index: 50;
 }

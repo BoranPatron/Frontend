@@ -14,6 +14,7 @@ import TradeCreationForm from '../components/TradeCreationForm';
 import CostEstimateForm from '../components/CostEstimateForm';
 import TradeDetailsModal from '../components/TradeDetailsModal';
 import CostEstimateDetailsModal from '../components/CostEstimateDetailsModal';
+import CreateInspectionModal from '../components/CreateInspectionModal';
 import OrderConfirmationGenerator from '../components/OrderConfirmationGenerator';
 import TradeMap from '../components/TradeMap';
 import UpgradeModal from '../components/UpgradeModal';
@@ -312,7 +313,7 @@ interface ProjectWithTrades extends ProjectSearchResult {
 export default function Trades() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isServiceProvider } = useAuth();
+  const { user, isServiceProvider, isBautraeger, userRole } = useAuth();
   const { selectedProject: currentProject } = useProject();
   
   // Prüfe ob der Benutzer ein Dienstleister ist
@@ -504,6 +505,11 @@ export default function Trades() {
 
   // State für Upgrade Modal (Gewerke-Limit)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  
+  // State für Besichtigungs-Modal
+  const [showCreateInspectionModal, setShowCreateInspectionModal] = useState(false);
+  const [selectedTradeForInspection, setSelectedTradeForInspection] = useState<any>(null);
+  const [selectedQuotesForInspection, setSelectedQuotesForInspection] = useState<any[]>([]);
 
   // Funktion um Gewerke-Limit zu prüfen
   const checkTradeLimit = () => {
@@ -1135,6 +1141,45 @@ export default function Trades() {
     setShowWithdrawModal(true);
   };
 
+  // Besichtigungs-Handler
+  const handleCreateInspection = (tradeId: number, selectedQuoteIds: number[]) => {
+    const trade = trades.find(t => t.id === tradeId);
+    const tradeQuotes = allTradeQuotes[tradeId] || [];
+    const selectedQuotes = tradeQuotes.filter(q => selectedQuoteIds.includes(q.id));
+    
+    if (trade && selectedQuotes.length > 0) {
+      setSelectedTradeForInspection(trade);
+      setSelectedQuotesForInspection(selectedQuotes);
+      setShowCostEstimateDetailsModal(false);
+      setTimeout(() => {
+        setShowCreateInspectionModal(true);
+      }, 150);
+    }
+  };
+
+  const handleInspectionCreated = async (inspectionResult: any) => {
+    try {
+      // Erfolgsmeldung mit Details anzeigen
+      const invitationsCount = inspectionResult.invitations_count || 0;
+      setSuccess(`Besichtigung erfolgreich erstellt! ${invitationsCount} Dienstleister wurden benachrichtigt.`);
+      setTimeout(() => setSuccess(''), 5000);
+      
+      // Modal schließen
+      setShowCreateInspectionModal(false);
+      setSelectedTradeForInspection(null);
+      setSelectedQuotesForInspection([]);
+      
+      // Optional: Daten neu laden
+      if (selectedTrade) {
+        await loadTradeQuotes(selectedTrade.id);
+      }
+      
+    } catch (err: any) {
+      console.error('❌ Fehler beim Verarbeiten der Besichtigung:', err);
+      setError(`Fehler beim Verarbeiten der Besichtigung: ${err.message}`);
+    }
+  };
+
   const handleNewOfferFromRejected = (quote: Quote) => {
     const trade = trades.find(t => t.id === quote.milestone_id);
     if (trade) {
@@ -1260,7 +1305,8 @@ export default function Trades() {
         category: tradeData.category,
         notes: tradeData.notes,
         is_critical: false,
-        notify_on_completion: true
+        notify_on_completion: true,
+        requires_inspection: tradeData.requires_inspection || false
       };
       
       console.log('📡 Sende Milestone-Daten:', milestoneData);
@@ -1699,6 +1745,140 @@ export default function Trades() {
     const quotes = allTradeQuotes[tradeId] || [];
     const userQuote = quotes.find(quote => quote.service_provider_id === user.id);
     return userQuote ? userQuote.status : null;
+  };
+
+  // Neue Funktion zum Prüfen des Angebots-Status für ein Gewerk
+  const getTradeQuoteStatus = (tradeId: number) => {
+    const quotes = allTradeQuotes[tradeId] || [];
+    const acceptedQuote = quotes.find(quote => quote.status === 'accepted');
+    const pendingQuotes = quotes.filter(quote => 
+      quote.status === 'submitted' || quote.status === 'under_review'
+    );
+    const rejectedQuotes = quotes.filter(quote => quote.status === 'rejected');
+    
+    return {
+      hasAcceptedQuote: !!acceptedQuote,
+      acceptedQuote,
+      pendingQuotes,
+      rejectedQuotes,
+      totalQuotes: quotes.length
+    };
+  };
+
+  // Funktion zum Rendern der Angebots-Status-Badges
+  const renderQuoteStatusBadge = (tradeId: number) => {
+    const quoteStatus = getTradeQuoteStatus(tradeId);
+    
+    if (quoteStatus.hasAcceptedQuote) {
+      return (
+        <div className="relative group">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600/30 via-emerald-500/30 to-green-600/30 border border-green-400/40 rounded-full cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-green-500/20">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle size={12} className="text-green-300" />
+              <span className="text-xs font-semibold text-green-200">
+                ✓ Angenommen
+              </span>
+            </div>
+          </div>
+          
+          {/* Tooltip für angenommene Angebote */}
+          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50">
+            <div className="bg-gradient-to-b from-gray-900 to-gray-800 text-white text-xs rounded-xl py-3 px-4 shadow-2xl border border-gray-600/50 backdrop-blur-sm min-w-[280px]">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle size={14} className="text-green-400" />
+                <div className="font-bold text-green-300">Angenommenes Angebot</div>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Dienstleister:</span>
+                  <span className="text-white font-medium">
+                    {quoteStatus.acceptedQuote?.company_name || quoteStatus.acceptedQuote?.contact_person || 'Unbekannt'}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Betrag:</span>
+                  <span className="text-green-300 font-bold">
+                    {formatCurrency(quoteStatus.acceptedQuote?.total_amount || 0)}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Angenommen:</span>
+                  <span className="text-white">
+                    {formatDate(quoteStatus.acceptedQuote?.accepted_at || quoteStatus.acceptedQuote?.created_at || '')}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Pfeil */}
+              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
+                <div className="w-0 h-0 border-l-6 border-r-6 border-t-6 border-l-transparent border-r-transparent border-t-gray-900"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    if (quoteStatus.pendingQuotes.length > 0) {
+      return (
+        <div className="relative group">
+          <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-500/20 border border-blue-500/30 rounded-full hover:bg-blue-500/30 transition-colors">
+            <Clock size={12} className="text-blue-400" />
+            <span className="text-xs text-blue-300 font-medium">
+              {quoteStatus.pendingQuotes.length} offen
+            </span>
+          </div>
+          
+          {/* Tooltip für offene Angebote */}
+          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50">
+            <div className="bg-gradient-to-b from-gray-900 to-gray-800 text-white text-xs rounded-xl py-3 px-4 shadow-2xl border border-gray-600/50 backdrop-blur-sm min-w-[200px]">
+              <div className="flex items-center gap-2 mb-2">
+                <Clock size={14} className="text-blue-400" />
+                <div className="font-bold text-blue-300">Offene Angebote</div>
+              </div>
+              
+              <div className="space-y-1">
+                {quoteStatus.pendingQuotes.slice(0, 3).map((quote, index) => (
+                  <div key={index} className="flex justify-between items-center">
+                    <span className="text-gray-300 text-xs">
+                      {quote.company_name || quote.contact_person || 'Unbekannt'}
+                    </span>
+                                       <span className="text-blue-300 text-xs font-medium">
+                     {formatCurrency(quote.total_amount)}
+                   </span>
+                  </div>
+                ))}
+                {quoteStatus.pendingQuotes.length > 3 && (
+                  <div className="text-gray-400 text-xs">
+                    +{quoteStatus.pendingQuotes.length - 3} weitere...
+                  </div>
+                )}
+              </div>
+              
+              {/* Pfeil */}
+              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
+                <div className="w-0 h-0 border-l-6 border-r-6 border-t-6 border-l-transparent border-r-transparent border-t-gray-900"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    if (quoteStatus.totalQuotes === 0) {
+      return (
+        <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-500/20 border border-gray-500/30 rounded-full">
+          <span className="text-xs text-gray-300 font-medium">
+            Kein Angebot
+          </span>
+        </div>
+      );
+    }
+    
+    return null;
   };
 
   // Kombinierte Gewerke-Liste (lokale + Geo-Gewerke)
@@ -2201,12 +2381,16 @@ export default function Trades() {
 
         {/* Gewerke Anzeige basierend auf Tab */}
         {activeTab === 'list' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {combinedTrades.map((trade) => (
             <div 
               key={`${trade.isGeoResult ? 'geo' : 'local'}-${trade.id}`} 
-              className={`group bg-white/10 backdrop-blur-lg rounded-2xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:scale-105 hover:shadow-2xl cursor-pointer ${
+              className={`group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl cursor-pointer ${
                 trade.isGeoResult ? 'border-[#ffbd59]/50' : ''
+              } ${
+                getTradeQuoteStatus(trade.id).hasAcceptedQuote 
+                  ? 'border-2 border-green-500/40 bg-gradient-to-r from-green-500/5 to-emerald-500/5 shadow-lg shadow-green-500/10' 
+                  : ''
               }`}
               onClick={() => {
                 // Prüfe ob Kostenvoranschläge vorhanden sind
@@ -2224,43 +2408,43 @@ export default function Trades() {
               {/* Geo-Badge für Geo-Ergebnisse */}
               {trade.isGeoResult && (
                 <div className="flex items-center gap-2 mb-3">
-                  <MapPin size={14} className="text-[#ffbd59]" />
-                  <span className="text-[#ffbd59] text-xs font-medium">
+                  <MapPin size={16} className="text-[#ffbd59]" />
+                  <span className="text-[#ffbd59] text-sm font-medium">
                     {trade.distance_km?.toFixed(1)}km entfernt
                   </span>
                   {trade.project_name && (
-                    <span className="text-gray-400 text-xs">
+                    <span className="text-gray-400 text-sm">
                       • {trade.project_name}
                     </span>
                   )}
                 </div>
               )}
 
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl">
                     {getCategoryIcon(trade.category || '')}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-semibold text-white group-hover:text-[#ffbd59] transition-colors line-clamp-2">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white group-hover:text-[#ffbd59] transition-colors">
                       {trade.title}
                     </h3>
-                    <p className="text-gray-300 text-xs line-clamp-2 mt-1">{trade.description}</p>
+                    <p className="text-gray-300 text-sm">{trade.description}</p>
                     {/* Projekt-Info für Geo-Gewerke */}
                     {trade.isGeoResult && trade.project_name && (
-                      <p className="text-gray-400 text-xs mt-1 line-clamp-1">
+                      <p className="text-gray-400 text-xs mt-1">
                         📁 {trade.project_name} ({trade.project_type})
                       </p>
                     )}
                     {/* Adresse für Geo-Gewerke */}
                     {trade.isGeoResult && trade.address_street && (
-                      <p className="text-gray-400 text-xs line-clamp-1">
+                      <p className="text-gray-400 text-xs">
                         📍 {trade.address_street}, {trade.address_zip} {trade.address_city}
                       </p>
                     )}
                   </div>
                 </div>
-                <div className="flex flex-col gap-1 flex-shrink-0">
+                <div className="flex items-center gap-2">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(trade.status)}`}>
                     {getStatusLabel(trade.status)}
                   </span>
@@ -2272,92 +2456,68 @@ export default function Trades() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                  <p className="text-gray-400 text-xs">Fortschritt</p>
-                  <div className="flex items-center gap-1">
-                    <div className="flex-1 bg-gray-700 rounded-full h-1.5">
+                  <p className="text-gray-400 text-sm">Fortschritt</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-gray-700 rounded-full h-2">
                       <div 
-                        className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-1.5 rounded-full transition-all duration-300"
+                        className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-2 rounded-full transition-all duration-300"
                         style={{ width: `${trade.progress_percentage}%` }}
                       ></div>
                     </div>
-                    <span className="text-white text-xs font-medium">{trade.progress_percentage}%</span>
+                    <span className="text-white text-sm font-medium">{trade.progress_percentage}%</span>
                   </div>
                 </div>
                 <div>
-                  <p className="text-gray-400 text-xs">Priorität</p>
+                  <p className="text-gray-400 text-sm">Priorität</p>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(trade.priority)}`}>
                     {getPriorityLabel(trade.priority)}
                   </span>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-xs text-gray-300 mb-3">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between text-sm text-gray-300">
+                <div className="flex items-center gap-4">
                   <span>📅 {formatDate(trade.planned_date)}</span>
                   {trade.budget && (
                     <span>💰 {formatCurrency(trade.budget)}</span>
                   )}
                 </div>
-                <div className="flex items-center gap-1">
-                  {/* Angebot-Status Badge für Bauträger */}
-                  {!isServiceProviderUser && (
-                    <div className="flex items-center gap-1">
-                      {(() => {
-                        const quotes = allTradeQuotes[trade.id] || [];
-                        const acceptedQuotes = quotes.filter(q => q.status === 'accepted');
-                        const pendingQuotes = quotes.filter(q => q.status === 'submitted' || q.status === 'under_review');
-                        
-                        if (acceptedQuotes.length > 0) {
-                          return (
-                            <span className="px-2 py-1 bg-green-500/20 text-green-300 border border-green-500/30 rounded-full text-xs font-medium">
-                              ✅ Angebot angenommen
-                            </span>
-                          );
-                        } else if (pendingQuotes.length > 0) {
-                          return (
-                            <span className="px-2 py-1 bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 rounded-full text-xs font-medium">
-                              ⏳ {pendingQuotes.length} Angebot{pendingQuotes.length > 1 ? 'e' : ''} ausstehend
-                            </span>
-                          );
-                        } else if (quotes.length === 0) {
-                          return (
-                            <span className="px-2 py-1 bg-gray-500/20 text-gray-300 border border-gray-500/30 rounded-full text-xs font-medium">
-                              ❌ Keine Angebote
-                            </span>
-                          );
-                        } else {
-                          return (
-                            <span className="px-2 py-1 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-full text-xs font-medium">
-                              📋 {quotes.length} Angebot{quotes.length > 1 ? 'e' : ''}
-                            </span>
-                          );
-                        }
-                      })()}
-                    </div>
-                  )}
+                <div className="flex items-center gap-2">
+                  {/* Angebots-Status-Badge */}
+                  {renderQuoteStatusBadge(trade.id)}
+                  
+                  {/* Anzahl der Angebote */}
                   <span className="text-[#ffbd59]">
                     {allTradeQuotes[trade.id]?.length || 0} Angebote
                   </span>
+                  
+                  {/* Erweiterte Anzeige für angenommene Angebote */}
+                  {getTradeQuoteStatus(trade.id).hasAcceptedQuote && (
+                    <div className="flex items-center gap-1 text-xs text-green-300">
+                      <span>•</span>
+                      <span>{formatCurrency(getTradeQuoteStatus(trade.id).acceptedQuote?.total_amount || 0)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {isServiceProviderUser && (
-                <div className="pt-3 border-t border-white/10">
+                <div className="mt-4 pt-4 border-t border-white/10">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400">Status:</span>
-                      <span className={`text-xs font-medium ${getStatusColor(trade.status)}`}>
+                      <span className="text-sm text-gray-400">Status:</span>
+                      <span className={`text-sm font-medium ${getStatusColor(trade.status)}`}>
                         {getStatusLabel(trade.status)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       {/* Angebot-Status für Dienstleister */}
                       {hasServiceProviderQuote(trade.id) ? (
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-gray-400">Ihr Angebot:</span>
-                          <span className={`text-xs font-medium ${getQuoteStatusColor(getServiceProviderQuoteStatus(trade.id) || '')}`}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-400">Ihr Angebot:</span>
+                          <span className={`text-sm font-medium ${getQuoteStatusColor(getServiceProviderQuoteStatus(trade.id) || '')}`}>
                             {getQuoteStatusLabel(getServiceProviderQuoteStatus(trade.id) || '')}
                           </span>
                         </div>
@@ -2368,9 +2528,9 @@ export default function Trades() {
                             e.stopPropagation(); // Verhindert das Öffnen des Modals
                             openCostEstimateModal(trade);
                           }}
-                          className="px-3 py-1.5 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-colors text-xs font-medium flex items-center gap-1"
+                          className="px-4 py-2 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-colors text-sm font-medium flex items-center gap-2"
                         >
-                          <Plus size={12} />
+                          <Plus size={16} />
                           Angebot abgeben
                         </button>
                       )}
@@ -2378,13 +2538,6 @@ export default function Trades() {
                   </div>
                 </div>
               )}
-
-              {/* Klick-Hinweis */}
-              <div className="mt-3 pt-2 border-t border-white/10">
-                <div className="text-center text-[#ffbd59] text-xs font-medium">
-                  Klicken für Details →
-                </div>
-              </div>
             </div>
           ))}
         </div>
@@ -2392,13 +2545,12 @@ export default function Trades() {
           /* Karten-Ansicht */
           <div className="h-[700px] bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4">
             {currentLocation ? (
-              <TradeMap
-                trades={combinedTrades}
-                currentLocation={currentLocation}
-                radiusKm={radiusKm}
-                onTradeClick={handleTradeClick}
-                showAcceptedTrades={showAcceptedTrades}
-              />
+                          <TradeMap
+              trades={combinedTrades as any}
+              currentLocation={currentLocation}
+              radiusKm={radiusKm}
+              onTradeClick={handleTradeClick}
+            />
             ) : (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center">
@@ -2457,7 +2609,7 @@ export default function Trades() {
           <TradeDetailsModal
             isOpen={showTradeDetailsModal}
             onClose={() => setShowTradeDetailsModal(false)}
-            trade={selectedTradeForDetails}
+            trade={selectedTradeForDetails as any}
             quotes={allTradeQuotes[selectedTradeForDetails.id] || []}
             project={selectedProject}
           />
@@ -2473,7 +2625,7 @@ export default function Trades() {
             onAcceptQuote={handleAcceptQuote}
             onRejectQuote={handleRejectQuote}
             onResetQuote={handleResetQuote}
-            onShowTradeDetails={() => openTradeDetailsModal(selectedTradeForCostEstimateDetails)}
+            onCreateInspection={handleCreateInspection}
           />
         )}
 
@@ -2496,6 +2648,22 @@ export default function Trades() {
           onClose={() => setShowUpgradeModal(false)}
           onUpgrade={handleUpgrade}
         />
+
+        {/* Besichtigungs-Erstellungs-Modal */}
+        {showCreateInspectionModal && selectedTradeForInspection && (
+          <CreateInspectionModal
+            isOpen={showCreateInspectionModal}
+            onClose={() => {
+              setShowCreateInspectionModal(false);
+              setSelectedTradeForInspection(null);
+              setSelectedQuotesForInspection([]);
+            }}
+            trade={selectedTradeForInspection}
+            selectedQuotes={selectedQuotesForInspection}
+            project={selectedProject}
+            onCreateInspection={handleInspectionCreated}
+          />
+        )}
       </div>
     </div>
   );

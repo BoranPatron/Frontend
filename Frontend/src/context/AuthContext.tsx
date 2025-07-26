@@ -7,6 +7,7 @@ interface AuthContextType {
   login: (token: string, user: any) => void;
   logout: () => void;
   isServiceProvider: () => boolean;
+  isBautraeger: () => boolean;
   isAuthenticated: () => boolean;
   userRole: string | null;
   roleSelected: boolean;
@@ -227,17 +228,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = (newToken: string, newUser: any) => {
     console.log('🔐 Login durchgeführt:', { hasToken: !!newToken, hasUser: !!newUser });
     console.log('🔍 Vollständige User-Daten beim Login:', newUser);
-    setToken(newToken);
-    setUser(newUser);
     
-    // Setze Rollen-Informationen sofort
-    if (newUser?.user_role) {
-      setUserRole(newUser.user_role);
-      console.log('✅ User-Rolle beim Login gesetzt:', newUser.user_role);
-    }
-    if (newUser?.role_selected !== undefined) {
-      setRoleSelected(newUser.role_selected);
-      console.log('✅ Role-Selected beim Login gesetzt:', newUser.role_selected);
+    try {
+      console.log('🔄 Stoppe Initialisierung...');
+      // Stoppe die Initialisierung, um Race Conditions zu vermeiden
+      setIsInitializing(false);
+      setIsInitialized(true);
+      console.log('✅ Initialisierung gestoppt');
+      
+      console.log('🔄 Setze Token und User...');
+      // Setze Token und User sofort
+      setToken(newToken);
+      setUser(newUser);
+      console.log('✅ Token und User gesetzt');
+      
+      console.log('🔄 Persistiere in localStorage...');
+      // Persistiere sofort in localStorage (überschreibt alte Daten)
+      localStorage.setItem('token', newToken);
+      localStorage.setItem('user', JSON.stringify(newUser));
+      console.log('✅ Daten in localStorage persistiert');
+      
+      console.log('🔄 Setze Rollen-Informationen...');
+      // Setze Rollen-Informationen sofort
+      if (newUser?.user_role) {
+        setUserRole(newUser.user_role);
+        console.log('✅ User-Rolle beim Login gesetzt:', newUser.user_role);
+      }
+      if (newUser?.role_selected !== undefined) {
+        setRoleSelected(newUser.role_selected);
+        console.log('✅ Role-Selected beim Login gesetzt:', newUser.role_selected);
+      }
+      
+      console.log('✅ Login erfolgreich abgeschlossen - AuthContext aktualisiert');
+      
+    } catch (error) {
+      console.error('❌ Fehler in login() Funktion:', error);
+      throw error; // Re-throw für besseres Debugging
     }
   };
 
@@ -260,6 +286,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                    user?.email?.includes('dienstleister');
     
     console.log('🔍 isServiceProvider Check:', {
+      user_type: user?.user_type,
+      user_role: user?.user_role,
+      email: user?.email,
+      result: result
+    });
+    
+    return result;
+  };
+
+  // Hilfsfunktion um zu prüfen, ob der Benutzer ein Bauträger ist
+  const isBautraeger = () => {
+    const result = user?.user_role === 'bautraeger' || 
+                   user?.user_role === 'BAUTRAEGER' ||
+                   user?.user_role === 'developer' ||
+                   user?.user_role === 'DEVELOPER' ||
+                   user?.user_type === 'developer' ||
+                   user?.user_type === 'bautraeger';
+    
+    console.log('🔍 isBautraeger Check:', {
       user_type: user?.user_type,
       user_role: user?.user_role,
       email: user?.email,
@@ -343,6 +388,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login, 
       logout, 
       isServiceProvider,
+      isBautraeger,
       isAuthenticated,
       userRole,
       roleSelected,

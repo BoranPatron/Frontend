@@ -9,6 +9,7 @@ export interface Expense {
   project_id: number;
   date: string;
   receipt_url?: string;
+  construction_phase?: string;  // Bauphase zum Zeitpunkt der Ausgabe
   created_at: string;
   updated_at?: string;
 }
@@ -21,6 +22,7 @@ export interface ExpenseCreate {
   project_id: number;
   date: string;
   receipt_url?: string;
+  construction_phase?: string;  // Wird automatisch vom Backend gesetzt
 }
 
 export interface ExpenseUpdate {
@@ -30,12 +32,14 @@ export interface ExpenseUpdate {
   category?: 'material' | 'labor' | 'equipment' | 'services' | 'permits' | 'other';
   date?: string;
   receipt_url?: string;
+  construction_phase?: string;
 }
 
 export interface ExpenseSummary {
   total_amount: number;
   expense_count: number;
   category_totals: Record<string, number>;
+  phase_totals: Record<string, number>;  // Neue Bauphasen-Gruppierung
   latest_expense?: string;
 }
 

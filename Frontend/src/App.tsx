@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider } from './context/ProjectContext';
 import Navbar from './components/Navbar';
+import CreditNotification from './components/CreditNotification';
 import Dashboard from './pages/Dashboard';
 import ServiceProviderDashboard from './pages/ServiceProviderDashboard';
 import Login from './pages/Login';
@@ -23,8 +24,11 @@ import ServiceProviderBuildWiseFees from './pages/ServiceProviderBuildWiseFees';
 import Canvas from './pages/Canvas';
 import GeoSearch from './pages/GeoSearch';
 import Invoices from './pages/Invoices';
+import Credits from './pages/Credits';
 import OAuthCallback from './pages/OAuthCallback';
 import RoleSelectionModal from './components/RoleSelectionModal';
+import NotificationTab from './components/NotificationTab';
+import BautraegerNotificationTab from './components/BautraegerNotificationTab';
 
 // Error Boundary
 class ErrorBoundary extends React.Component<
@@ -231,6 +235,31 @@ function AppContent() {
       {/* Navbar wird durch NavbarWrapper gesteuert */}
       <NavbarWrapper />
       
+      {/* Credit-Notifications für Bauträger */}
+      <CreditNotification />
+      
+      {/* Notification Tab für Terminanfragen/antworten - NUR für Dienstleister */}
+      {user && user.user_role === 'DIENSTLEISTER' && (
+        <NotificationTab
+          userRole={user.user_role as 'BAUTRAEGER' | 'DIENSTLEISTER'}
+          userId={user.id}
+          onResponseSent={() => {
+            console.log('Notification response sent');
+            // Hier könnten weitere Aktionen ausgeführt werden
+          }}
+        />
+      )}
+
+      {/* Separate Bauträger Notification Tab für Terminantworten (rechts) */}
+      {user && user.user_role === 'BAUTRAEGER' && (
+        <BautraegerNotificationTab
+          userId={user.id}
+          onResponseHandled={() => {
+            console.log('Bauträger response handled');
+          }}
+        />
+      )}
+      
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/auth/google/callback" element={<OAuthCallback />} />
@@ -333,6 +362,11 @@ function AppContent() {
         <Route path="/invoices" element={
           <ProtectedRoute>
             <Invoices />
+          </ProtectedRoute>
+        } />
+        <Route path="/credits" element={
+          <ProtectedRoute>
+            <Credits />
           </ProtectedRoute>
         } />
         {/* Fallback für unbekannte Routen */}

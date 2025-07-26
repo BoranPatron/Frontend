@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Search, Filter, Map, List, Eye, EyeOff, Target, Navigation, Globe, User } from 'lucide-react';
+import { MapPin, Search, Filter, Map, List, Eye, EyeOff, Target, Navigation, Globe, User, Users, Trophy, Clock, AlertTriangle, CheckCircle, XCircle, Sparkles, MessageCircle, Award, TrendingUp, Star, Wrench, Tag, Euro } from 'lucide-react';
 import { 
   searchTradesInRadius, 
   getCurrentLocation, 
@@ -248,17 +248,18 @@ export default function GeoSearch() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'planning': return '#6366f1';
-      case 'cost_estimate': return '#f59e0b';
-      case 'tender': return '#3b82f6';
-      case 'bidding': return '#8b5cf6';
-      case 'evaluation': return '#ec4899';
-      case 'awarded': return '#10b981';
-      case 'in_progress': return '#22d3ee';
-      case 'completed': return '#059669';
-      case 'delayed': return '#f97316';
-      case 'cancelled': return '#ef4444';
-      default: return '#6b7280';
+      case 'planning': return 'bg-blue-100 text-blue-800';
+      case 'cost_estimate': return 'bg-yellow-100 text-yellow-800';
+      case 'tender': return 'bg-purple-100 text-purple-800';
+      case 'bidding': return 'bg-orange-100 text-orange-800';
+      case 'evaluation': return 'bg-pink-100 text-pink-800';
+      case 'awarded': return 'bg-green-100 text-green-800';
+      case 'in_progress': return 'bg-cyan-100 text-cyan-800';
+      case 'completed': return 'bg-emerald-100 text-emerald-800';
+      case 'delayed': return 'bg-red-100 text-red-800';
+      case 'cancelled': return 'bg-gray-100 text-gray-800';
+      case 'planned': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -296,10 +297,23 @@ export default function GeoSearch() {
     }
   };
 
+  // Badge-System Funktionen nach Best Practice
+  // Badge-Funktionen wurden direkt ins JSX implementiert
+
+  // Badge-Funktionen wurden direkt ins JSX implementiert
+
   const filteredTrades = getFilteredTrades();
 
   return (
     <div className="min-h-screen bg-[#2c3539] text-white">
+      <style>{`
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      `}</style>
       <div className="container mx-auto px-4 py-6">
         {/* Header */}
         <div className="mb-6">
@@ -543,103 +557,98 @@ export default function GeoSearch() {
                   currentLocation={currentLocation}
                   radiusKm={radiusKm}
                   onTradeClick={handleTradeClick}
+                  showAcceptedTrades={showAcceptedTrades}
                 />
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 geo-search-grid">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                 {filteredTrades.map((trade) => (
                   <div
-                    key={`trade-${trade.id}`}
-                    className="group bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-2xl border border-white/10 hover:border-[#ffbd59]/30"
+                    key={trade.id}
+                    className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-all duration-300 cursor-pointer border border-white/10 flex flex-col h-full"
                     onClick={() => handleTradeClick(trade)}
                   >
-                    {/* Status Badge */}
-                    <div className="flex items-start justify-between mb-3">
-                      <h3 className="font-semibold text-white text-base line-clamp-2 group-hover:text-[#ffbd59] transition-colors">
-                        {trade.title}
-                      </h3>
-                      <span 
-                        className="text-xs px-2 py-1 rounded-full text-white flex-shrink-0 ml-2"
-                        style={{ backgroundColor: getStatusColor(trade.status) }}
-                      >
-                        {getStatusLabel(trade.status)}
-                      </span>
+                    {/* Header mit Titel und Icon */}
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className="p-2 bg-[#ffbd59]/20 rounded-lg flex-shrink-0">
+                        <Wrench size={20} className="text-[#ffbd59]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-white text-base leading-tight line-clamp-2">{trade.title}</h3>
+                        <p className="text-gray-400 text-sm mt-1">{trade.project_name}</p>
+                      </div>
                     </div>
 
-                    {/* Beschreibung */}
-                    {trade.description && (
-                      <p className="text-gray-300 text-sm mb-3 line-clamp-2">{trade.description}</p>
-                    )}
-
-                    {/* Projekt-Info */}
-                    {trade.project_name && (
-                      <div className="mb-3 p-2 bg-white/5 rounded-lg">
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="text-gray-400">📁 Projekt:</span>
-                          <span className="text-white font-medium line-clamp-1">{trade.project_name}</span>
-                        </div>
-                        {trade.project_type && (
-                          <div className="text-xs text-gray-400 mt-1">
-                            Typ: {trade.project_type}
-                          </div>
+                    {/* Prominente Badge-Sektion */}
+                    <div className="space-y-3 mb-4">
+                      {/* Erste Reihe: Kategorie und Besichtigung */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-blue-600 text-white">
+                          <Tag size={12} className="mr-1.5" />
+                          {getCategoryLabel(trade.category)}
+                        </span>
+                        
+                        {trade.requires_inspection && (
+                          <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-orange-600 text-white">
+                            <Eye size={12} className="mr-1.5" />
+                            Besichtigung
+                          </span>
                         )}
                       </div>
-                    )}
 
-                    {/* Details Grid */}
-                    <div className="space-y-2 text-xs">
-                      {trade.category && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-400">🏷️ Kategorie:</span>
-                          <span className="text-white">{getCategoryLabel(trade.category)}</span>
-                        </div>
-                      )}
-
-                      {trade.budget && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-400">💰 Budget:</span>
-                          <span className="text-white font-medium">{formatCurrency(trade.budget)}</span>
-                        </div>
-                      )}
-
-                      {trade.distance_km && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-400">📍 Entfernung:</span>
-                          <span className="text-white">{trade.distance_km.toFixed(1)} km</span>
-                        </div>
-                      )}
-
-                      {trade.address_street && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-400">🏠 Adresse:</span>
-                          <span className="text-white text-xs line-clamp-1">
-                            {trade.address_street}, {trade.address_zip} {trade.address_city}
+                      {/* Zweite Reihe: Bewerber und Status */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {trade.quote_stats && (
+                          <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-purple-600 text-white">
+                            <Users size={12} className="mr-1.5" />
+                            {trade.quote_stats.total_quotes || 0} Bewerber
                           </span>
-                        </div>
-                      )}
+                        )}
+                        
+                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${getStatusColor(trade.status)}`}>
+                          {getStatusLabel(trade.status)}
+                        </span>
+                      </div>
 
-                      {trade.priority && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-400">⚡ Priorität:</span>
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            trade.priority === 'high' ? 'bg-red-500/20 text-red-300' :
-                            trade.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
-                            trade.priority === 'low' ? 'bg-green-500/20 text-green-300' :
-                            'bg-gray-500/20 text-gray-300'
-                          }`}>
-                            {trade.priority === 'high' ? 'Hoch' :
-                             trade.priority === 'medium' ? 'Mittel' :
-                             trade.priority === 'low' ? 'Niedrig' : trade.priority}
+                      {/* Dritte Reihe: Start und Budget */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-green-600 text-white">
+                          <Clock size={12} className="mr-1.5" />
+                          {trade.start_date ? new Date(trade.start_date).toLocaleDateString('de-DE', { 
+                            day: '2-digit', 
+                            month: '2-digit' 
+                          }) : 'Flexibel'}
+                        </span>
+                        
+                        {trade.budget && (
+                          <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-600 text-white">
+                            <Euro size={12} className="mr-1.5" />
+                            {(trade.budget / 1000).toFixed(0)}k€
                           </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Kompakte Details */}
+                    <div className="space-y-2 text-sm flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">Entfernung:</span>
+                        <span className="text-white font-medium">{trade.distance_km ? trade.distance_km.toFixed(1) : 'N/A'} km</span>
+                      </div>
+                      
+                      {trade.description && (
+                        <div className="text-gray-300 text-xs line-clamp-2 mt-2">
+                          {trade.description}
                         </div>
                       )}
                     </div>
 
-                    {/* Klick-Hinweis */}
+                    {/* Action Button */}
                     <div className="mt-4 pt-3 border-t border-white/10">
-                      <div className="text-center text-[#ffbd59] text-xs font-medium group-hover:text-[#ffa726] transition-colors">
-                        Klicken für Details →
-                      </div>
+                      <button className="w-full bg-[#ffbd59] text-[#2c3539] px-3 py-2 rounded-lg text-sm font-medium hover:bg-[#ffa726] transition-colors flex items-center justify-center gap-2">
+                        <Eye size={14} />
+                        Details anzeigen
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -673,6 +682,12 @@ export default function GeoSearch() {
           isOpen={!!selectedTrade}
           onClose={closeTradeDetails}
           trade={selectedTrade}
+          quotes={[]}
+          project={{
+            id: selectedTrade.project_id,
+            name: selectedTrade.project_name || 'Unbekanntes Projekt',
+            description: ''
+          }}
         />
       )}
     </div>

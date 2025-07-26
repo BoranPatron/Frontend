@@ -72,7 +72,7 @@ import {
 import { getProjectDashboard, updateProject } from '../api/projectService';
 import { getTasks } from '../api/taskService';
 import { getDocuments } from '../api/documentService';
-import { getQuotes } from '../api/quoteService';
+import { getQuotes, acceptQuote, rejectQuote, resetQuote } from '../api/quoteService';
 import { getMilestones } from '../api/milestoneService';
 import ProjectBreadcrumb from '../components/ProjectBreadcrumb';
 import TradesCard from '../components/TradesCard';
@@ -722,6 +722,89 @@ export default function ProjectDetail() {
     }
   };
 
+  // Quote-Handler für TradesCard
+  const handleAcceptQuote = async (quoteId: number) => {
+    try {
+      console.log('🔧 Accepting quote with ID:', quoteId);
+      
+      // Bestätigungsdialog
+      const confirmed = window.confirm(
+        '⚠️ WICHTIG: Kostenvoranschlag verbindlich annehmen?\n\n' +
+        'Durch das Annehmen wird der Kostenvoranschlag verbindlich und kann nicht mehr geändert werden.\n\n' +
+        'Möchten Sie den Kostenvoranschlag wirklich annehmen?'
+      );
+      
+      if (!confirmed) {
+        console.log('❌ Quote acceptance cancelled by user');
+        return;
+      }
+
+      await acceptQuote(quoteId);
+      console.log('✅ Quote successfully accepted');
+      
+      // Lade Projektdaten neu um den Status zu aktualisieren
+      await loadProjectData();
+    } catch (error) {
+      console.error('❌ Error accepting quote:', error);
+      setError('Fehler beim Annehmen des Angebots');
+    }
+  };
+
+  const handleRejectQuote = async (quoteId: number, reason: string) => {
+    try {
+      console.log('🔧 Rejecting quote with ID:', quoteId, 'Reason:', reason);
+      
+      // Bestätigungsdialog
+      const confirmed = window.confirm(
+        '⚠️ WICHTIG: Angebot ablehnen?\n\n' +
+        'Durch das Ablehnen wird das Angebot zurückgewiesen und kann nicht mehr angenommen werden.\n\n' +
+        'Möchten Sie das Angebot wirklich ablehnen?'
+      );
+      
+      if (!confirmed) {
+        console.log('❌ Quote rejection cancelled by user');
+        return;
+      }
+
+      await rejectQuote(quoteId, reason);
+      console.log('✅ Quote successfully rejected');
+      
+      // Lade Projektdaten neu um den Status zu aktualisieren
+      await loadProjectData();
+    } catch (error) {
+      console.error('❌ Error rejecting quote:', error);
+      setError('Fehler beim Ablehnen des Angebots');
+    }
+  };
+
+  const handleResetQuote = async (quoteId: number) => {
+    try {
+      console.log('🔧 Resetting quote with ID:', quoteId);
+      
+      // Bestätigungsdialog
+      const confirmed = window.confirm(
+        '⚠️ WICHTIG: Kostenvoranschlag zurücksetzen?\n\n' +
+        'Durch das Zurücksetzen wird das Angebot wieder auf "Angebot annehmen" gesetzt. ' +
+        'Sie können es dann erneut annehmen oder ablehnen.\n\n' +
+        'Möchten Sie den Kostenvoranschlag wirklich zurücksetzen?'
+      );
+      
+      if (!confirmed) {
+        console.log('❌ Quote reset cancelled by user');
+        return;
+      }
+
+      await resetQuote(quoteId);
+      console.log('✅ Quote successfully reset');
+      
+      // Lade Projektdaten neu um den Status zu aktualisieren
+      await loadProjectData();
+    } catch (error) {
+      console.error('❌ Error resetting quote:', error);
+      setError('Fehler beim Zurücksetzen des Angebots');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539] flex items-center justify-center">
@@ -1211,6 +1294,9 @@ export default function ProjectDetail() {
                   projectId={project?.id}
                   isExpanded={expandedSections.trades}
                   onToggle={() => toggleSection('trades')}
+                  onAcceptQuote={handleAcceptQuote}
+                  onRejectQuote={handleRejectQuote}
+                  onResetQuote={handleResetQuote}
                 />
 
                 {/* Angebote */}

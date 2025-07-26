@@ -40,11 +40,21 @@ export const waitForAuth = async (maxWaitTime = 5000): Promise<boolean> => {
 // Sichere API-Aufrufe mit AuthContext-Wartezeit
 export const safeApiCall = async <T>(
   apiCall: () => Promise<T>,
-  maxWaitTime = 5000
+  maxWaitTime = 10000 // Erhöht auf 10 Sekunden für OAuth-Login-Situationen
 ): Promise<T> => {
   const authReady = await waitForAuth(maxWaitTime);
   
   if (!authReady) {
+    console.log('⚠️ AuthContext nicht bereit - versuche API-Call trotzdem (für OAuth-Login)');
+    
+    // Bei OAuth-Login kann es sein, dass der AuthContext noch nicht bereit ist
+    // Versuche den API-Call trotzdem, falls Token im localStorage vorhanden ist
+    const token = localStorage.getItem('token');
+    if (token) {
+      console.log('🔄 Verwende Token aus localStorage für API-Call');
+      return apiCall();
+    }
+    
     throw new Error('AuthContext nicht bereit - Token oder User fehlt');
   }
   
@@ -54,7 +64,7 @@ export const safeApiCall = async <T>(
 const api = axios.create({
   baseURL: getApiBaseUrl(),
   withCredentials: false,
-  timeout: 15000, // Erhöht auf 15 Sekunden für bessere Stabilität
+  timeout: 30000, // Erhöht auf 30 Sekunden für komplexe Operationen wie Terminerstellung
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',

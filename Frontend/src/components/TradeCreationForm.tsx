@@ -116,7 +116,8 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
     category: '',
     priority: 'medium',
     planned_date: '',
-    notes: ''
+    notes: '',
+    requires_inspection: false
   });
   const [categoryFields, setCategoryFields] = useState<Record<string, any>>({});
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -158,10 +159,10 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
   }, [isOpen, projectId]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     }));
     
     // Fehler zurücksetzen
@@ -278,7 +279,8 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
       category: '',
       priority: 'medium',
       planned_date: '',
-      notes: ''
+      notes: '',
+      requires_inspection: false
     });
     setCategoryFields({});
     setUploadedFiles([]);
@@ -539,6 +541,47 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                 }`}
               />
               {errors.planned_date && <p className="text-red-400 text-sm mt-1">{errors.planned_date}</p>}
+            </div>
+          </div>
+
+          {/* Besichtigungsoption */}
+          <div className="border-t border-[#ffbd59]/20 pt-6">
+            <div className="flex items-start gap-4 p-4 bg-gradient-to-r from-[#ffbd59]/5 to-[#ffa726]/5 border border-[#ffbd59]/20 rounded-lg">
+              <div className="flex items-center mt-1">
+                <input
+                  type="checkbox"
+                  name="requires_inspection"
+                  id="requires_inspection"
+                  checked={formData.requires_inspection}
+                  onChange={handleInputChange}
+                  className="w-5 h-5 text-[#ffbd59] bg-[#2c3539] border-[#ffbd59]/30 rounded focus:ring-[#ffbd59] focus:ring-2"
+                />
+              </div>
+              <div className="flex-1">
+                <label htmlFor="requires_inspection" className="text-white font-medium cursor-pointer flex items-center gap-2">
+                  <Building className="h-5 w-5 text-[#ffbd59]" />
+                  Vor-Ort-Besichtigung erforderlich
+                </label>
+                <p className="text-sm text-gray-300 mt-2">
+                  Aktivieren Sie diese Option, wenn eine Besichtigung vor Ort notwendig ist. 
+                  Sie können dann aus den eingegangenen Angeboten Dienstleister zur Besichtigung einladen 
+                  und erhalten nach der Besichtigung überarbeitete Angebote.
+                </p>
+                {formData.requires_inspection && (
+                  <div className="mt-3 p-3 bg-[#ffbd59]/10 border border-[#ffbd59]/20 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <CheckCircle className="h-5 w-5 text-green-400 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="text-green-300 font-medium">Besichtigungsprozess aktiviert</p>
+                        <p className="text-gray-300 mt-1">
+                          Nach Eingang der ersten Angebote können Sie Dienstleister zur Besichtigung einladen. 
+                          Bei Annahme eines überarbeiteten Angebots erhalten Sie zusätzliche Credits als Belohnung.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

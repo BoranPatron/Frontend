@@ -6,6 +6,7 @@ import { useProject } from '../context/ProjectContext';
 import { getProjects, createProject } from '../api/projectService';
 import DashboardCard from '../components/DashboardCard';
 import ConstructionPhaseTimeline from '../components/ConstructionPhaseTimeline';
+import FloatingActionButton from '../components/FloatingActionButton';
 import { 
   Home, 
   FileText, 
@@ -21,8 +22,7 @@ import {
   Eye, 
   X, 
   AlertTriangle,
-  Star,
-  MapPin
+  Star
 } from 'lucide-react';
 
 interface Project {
@@ -37,6 +37,10 @@ interface Project {
   start_date?: string;
   end_date?: string;
   address?: string;
+  address_street?: string;
+  address_zip?: string;
+  address_city?: string;
+  address_country?: string;
   property_size?: number;
   construction_area?: number;
   estimated_duration?: number;
@@ -46,12 +50,11 @@ interface Project {
   updated_at: string;
   // Neue Felder für Bauphasen
   construction_phase?: string;
-  address_country?: string;
 }
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { isInitialized, isAuthenticated, userRole, user } = useAuth();
+  const { isInitialized, isAuthenticated, userRole, user, isServiceProvider } = useAuth();
   const { 
     projects, 
     selectedProject, 
@@ -366,6 +369,25 @@ export default function Dashboard() {
     } finally {
       setIsCreatingProject(false);
     }
+  };
+
+  // Handler für FloatingActionButton
+  const handleCreateTrade = () => {
+    // TODO: Implementiere Gewerk-Erstellung
+    console.log('Gewerk erstellen');
+    alert('Gewerk-Erstellung wird implementiert...');
+  };
+
+  const handleCreateTodo = () => {
+    // TODO: Implementiere Todo-Erstellung
+    console.log('Todo erstellen');
+    alert('Todo-Erstellung wird implementiert...');
+  };
+
+  const handleCreateExpense = () => {
+    // TODO: Implementiere Ausgaben-Erstellung
+    console.log('Ausgabe erstellen');
+    alert('Ausgaben-Erstellung wird implementiert...');
   };
 
   // Hilfsfunktionen für Projekt-Daten
@@ -720,13 +742,73 @@ export default function Dashboard() {
               </div>
               <p className="text-gray-300 mb-3">{currentProject.description}</p>
               
-              {/* Anschrift hinzufügen */}
-              {currentProject.address && (
-                <div className="mb-3 p-3 bg-white/5 rounded-lg border border-white/10">
-                  <div className="flex items-center gap-2 text-sm">
-                    <MapPin size={14} className="text-[#ffbd59]" />
-                    <span className="text-gray-400">Anschrift:</span>
-                    <span className="text-white font-medium">{currentProject.address}</span>
+              {/* Projektanschrift mit Hover-Effekt */}
+              {(currentProject.address || (currentProject.address_street && currentProject.address_city)) && (
+                <div className="group relative mb-4">
+                  <div 
+                    className="flex items-center gap-2 p-3 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 group-hover:bg-white/10 group-hover:border-[#ffbd59]/30 transition-all duration-300 cursor-pointer"
+                    onClick={handleProjectDetailsClick}
+                    title="Klicken Sie für Projekt-Details"
+                  >
+                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-300 group-hover:text-white transition-colors duration-300 font-medium truncate">
+                        {currentProject.address || `${currentProject.address_street}, ${currentProject.address_city}`}
+                      </p>
+                      <p className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors duration-300">
+                        Projektstandort
+                      </p>
+                    </div>
+                    <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <svg className="w-4 h-4 text-[#ffbd59]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#ffbd59]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
+                  </div>
+                  
+                  {/* Hover-Tooltip mit vollständiger Adresse */}
+                  <div className="absolute bottom-full left-0 right-0 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 pointer-events-none z-10">
+                    <div className="bg-gray-800/95 backdrop-blur-md border border-gray-600/50 rounded-lg p-3 shadow-xl">
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 w-5 h-5 bg-[#ffbd59] rounded-full flex items-center justify-center mt-0.5">
+                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </div>
+                                                 <div className="flex-1">
+                           <p className="text-sm font-medium text-white mb-1">Projektanschrift</p>
+                           <p className="text-xs text-gray-300 leading-relaxed">
+                             {currentProject.address || `${currentProject.address_street}, ${currentProject.address_city}`}
+                           </p>
+                                                      {(currentProject.address_street || currentProject.address_zip || currentProject.address_city) && (
+                             <div className="mt-2 pt-2 border-t border-gray-600/50">
+                               {currentProject.address_street && (
+                                 <p className="text-xs text-gray-400">
+                                   <span className="font-medium">Straße:</span> {currentProject.address_street}
+                                 </p>
+                               )}
+                               {(currentProject.address_zip || currentProject.address_city) && (
+                                 <p className="text-xs text-gray-400">
+                                   <span className="font-medium">PLZ/Ort:</span> {currentProject.address_zip || ''} {currentProject.address_city || ''}
+                                 </p>
+                               )}
+                               {currentProject.address_country && (
+                                 <p className="text-xs text-gray-400">
+                                   <span className="font-medium">Land:</span> {currentProject.address_country}
+                                 </p>
+                               )}
+                             </div>
+                           )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1326,7 +1408,7 @@ export default function Dashboard() {
       
       {/* Debug-Button für Rollenauswahl-Tests (nur im Entwicklungsmodus) */}
       {import.meta.env.DEV && (
-        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+        <div className="fixed bottom-4 left-4 z-50 flex flex-col gap-2">
           <button
             onClick={() => {
               console.log('🔍 Debug User Status:', {
@@ -1352,6 +1434,16 @@ export default function Dashboard() {
             🔧 Reset Rolle (Debug)
           </button>
         </div>
+      )}
+
+      {/* Floating Action Button - nur für Bauträger */}
+      {!isServiceProvider() && (
+        <FloatingActionButton
+          onCreateProject={handleCreateProjectClick}
+          onCreateTrade={handleCreateTrade}
+          onCreateTodo={handleCreateTodo}
+          onCreateExpense={handleCreateExpense}
+        />
       )}
     </div>
   );
