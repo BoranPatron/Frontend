@@ -7,6 +7,7 @@ import { getProjects } from '../api/projectService';
 
 import { getQuotesForMilestone, createMockQuotesForMilestone, acceptQuote, resetQuote, createQuote, updateQuote, deleteQuote, submitQuote, rejectQuote, withdrawQuote } from '../api/quoteService';
 import { createFeeFromQuote } from '../api/buildwiseFeeService';
+import { appointmentService } from '../api/appointmentService';
 import { uploadDocument } from '../api/documentService';
 import { searchProjectsInRadius, searchTradesInRadius, searchServiceProvidersInRadius, getBrowserLocation } from '../api/geoService';
 import api from '../api/api';
@@ -346,6 +347,16 @@ export default function Trades() {
   // State für Angebote aller Gewerke
   const [allTradeQuotes, setAllTradeQuotes] = useState<{ [tradeId: number]: Quote[] }>({});
   
+  // State für Besichtigungsstatus aller Gewerke
+  const [tradeInspectionStatus, setTradeInspectionStatus] = useState<{ 
+    [tradeId: number]: {
+      hasActiveInspection: boolean;
+      appointmentDate?: string;
+      isInspectionDay: boolean;
+      selectedServiceProviderId?: number;
+    }
+  }>({});
+  
   // State für Angebot-Details-Modal
   const [showQuoteDetailsModal, setShowQuoteDetailsModal] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
@@ -663,9 +674,43 @@ export default function Trades() {
       await Promise.all(quotePromises);
       console.log('✅ All trade quotes loaded:', quotesMap);
       setAllTradeQuotes(quotesMap);
+      
+      // Lade auch die Besichtigungsstatus für alle Gewerke
+      await loadAllTradeInspectionStatus(tradesData);
     } catch (e: any) {
       console.error('❌ Error loading all trade quotes:', e);
       setAllTradeQuotes({});
+    }
+  };
+
+  // Lade Besichtigungsstatus für alle Gewerke
+  const loadAllTradeInspectionStatus = async (tradesData: Trade[]) => {
+    try {
+      console.log('🔍 Loading inspection status for all trades...');
+      const statusMap: { [tradeId: number]: {
+        hasActiveInspection: boolean;
+        appointmentDate?: string;
+        isInspectionDay: boolean;
+        selectedServiceProviderId?: number;
+      }} = {};
+      
+      const statusPromises = tradesData.map(async (trade) => {
+        try {
+          const status = await appointmentService.checkActiveInspectionForTrade(trade.id);
+          console.log(`📊 Inspection status for trade ${trade.id}:`, status);
+          statusMap[trade.id] = status;
+        } catch (e: any) {
+          console.error('❌ Error loading inspection status for trade:', trade.id, e);
+          statusMap[trade.id] = { hasActiveInspection: false, isInspectionDay: false };
+        }
+      });
+      
+      await Promise.all(statusPromises);
+      console.log('✅ All trade inspection status loaded:', statusMap);
+      setTradeInspectionStatus(statusMap);
+    } catch (e: any) {
+      console.error('❌ Error loading all trade inspection status:', e);
+      setTradeInspectionStatus({});
     }
   };
 
@@ -684,6 +729,30 @@ export default function Trades() {
 
   // Akzeptiere ein Angebot
   const handleAcceptQuote = async (quoteId: number) => {
+    // Finde das zugehörige Gewerk für die Besichtigungsstatus-Prüfung
+    let tradeId: number | null = null;
+    for (const [tId, quotes] of Object.entries(allTradeQuotes)) {
+      if (quotes.some(q => q.id === quoteId)) {
+        tradeId = parseInt(tId);
+        break;
+      }
+    }
+    
+    // Prüfe Besichtigungsstatus
+    if (tradeId && tradeInspectionStatus[tradeId]) {
+      const inspectionStatus = tradeInspectionStatus[tradeId];
+      if (inspectionStatus.hasActiveInspection && 
+          !inspectionStatus.isInspectionDay && 
+          !inspectionStatus.selectedServiceProviderId) {
+        setError(`Die Annahme von Kostenvoranschlägen ist bis zum Besichtigungstermin am ${
+          inspectionStatus.appointmentDate ? 
+          new Date(inspectionStatus.appointmentDate).toLocaleDateString('de-DE') : 
+          'unbekanntem Datum'
+        } gesperrt.`);
+        return;
+      }
+    }
+    
     // Bestätigungsdialog für verbindliche Annahme
     const confirmed = window.confirm(
       '⚠️ WICHTIG: Kostenvoranschlag verbindlich annehmen?\n\n' +
@@ -2626,6 +2695,7 @@ export default function Trades() {
             onRejectQuote={handleRejectQuote}
             onResetQuote={handleResetQuote}
             onCreateInspection={handleCreateInspection}
+            inspectionStatus={tradeInspectionStatus[selectedTradeForCostEstimateDetails.id]}
           />
         )}
 

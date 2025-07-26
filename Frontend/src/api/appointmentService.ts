@@ -239,6 +239,96 @@ export const appointmentService = {
     console.log('🔄 Creating separate appointment:', appointmentData);
     const response = await api.post('/appointments/', appointmentData);
     return response.data;
+  },
+
+  // Prüfe ob für ein Gewerk ein aktiver Besichtigungstermin existiert
+  async checkActiveInspectionForTrade(milestoneId: number): Promise<{
+    hasActiveInspection: boolean;
+    appointmentDate?: string;
+    isInspectionDay: boolean;
+    selectedServiceProviderId?: number;
+  }> {
+    try {
+      const appointments = await this.getMyAppointments();
+      console.log('🔍 DEBUG: Alle Termine für checkActiveInspectionForTrade:', appointments);
+      
+      // Finde Termine für das spezifische Gewerk (Milestone)
+      const tradeAppointments = appointments.filter(apt => 
+        apt.milestone_id === milestoneId && 
+        apt.appointment_type === 'INSPECTION'
+      );
+      console.log('🔍 DEBUG: Gefilterte Termine für Gewerk', milestoneId, ':', tradeAppointments);
+
+      if (tradeAppointments.length === 0) {
+        return { hasActiveInspection: false, isInspectionDay: false };
+      }
+
+      // Finde den neuesten aktiven Termin
+      const activeAppointment = tradeAppointments
+        .filter(apt => apt.status !== 'CANCELLED' && apt.status !== 'COMPLETED')
+        .sort((a, b) => new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime())[0];
+
+      console.log('🔍 DEBUG: Aktiver Termin für Gewerk', milestoneId, ':', activeAppointment);
+
+      if (!activeAppointment) {
+        console.log('🔍 DEBUG: Kein aktiver Termin gefunden');
+        return { hasActiveInspection: false, isInspectionDay: false };
+      }
+
+      // Prüfe ob heute der Besichtigungstag ist
+      const appointmentDate = new Date(activeAppointment.scheduled_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      appointmentDate.setHours(0, 0, 0, 0);
+      const isInspectionDay = appointmentDate.getTime() === today.getTime();
+
+      // Prüfe ob Dienstleister eingeladen wurden (über responses)
+      let hasInvitedProviders = false;
+      
+      // Prüfe verschiedene mögliche Datenfelder
+      if (activeAppointment.responses && Array.isArray(activeAppointment.responses)) {
+        hasInvitedProviders = activeAppointment.responses.length > 0;
+        console.log('🔍 DEBUG: Gefunden über responses:', activeAppointment.responses);
+      } else if (activeAppointment.responses_array && Array.isArray(activeAppointment.responses_array)) {
+        hasInvitedProviders = activeAppointment.responses_array.length > 0;
+        console.log('🔍 DEBUG: Gefunden über responses_array:', activeAppointment.responses_array);
+      } else if (activeAppointment.invited_service_providers && Array.isArray(activeAppointment.invited_service_providers)) {
+        hasInvitedProviders = activeAppointment.invited_service_providers.length > 0;
+        console.log('🔍 DEBUG: Gefunden über invited_service_providers:', activeAppointment.invited_service_providers);
+      } else if (activeAppointment.appointment_responses && Array.isArray(activeAppointment.appointment_responses)) {
+        hasInvitedProviders = activeAppointment.appointment_responses.length > 0;
+        console.log('🔍 DEBUG: Gefunden über appointment_responses:', activeAppointment.appointment_responses);
+      }
+      
+      console.log('🔍 DEBUG: Alle verfügbaren Felder im activeAppointment:', Object.keys(activeAppointment));
+
+      if (!hasInvitedProviders) {
+        console.log('⚠️ DEBUG: Keine eingeladenen Dienstleister gefunden! Das könnte das Problem sein.');
+        console.log('⚠️ DEBUG: Vollständiges activeAppointment Objekt:', activeAppointment);
+      }
+
+      console.log('🔍 DEBUG: Dienstleister eingeladen?', {
+        responses: activeAppointment.responses,
+        responses_array: activeAppointment.responses_array,
+        hasInvitedProviders,
+        isInspectionDay,
+        selectedServiceProviderId: activeAppointment.selected_service_provider_id
+      });
+
+      const result = {
+        hasActiveInspection: hasInvitedProviders,
+        appointmentDate: activeAppointment.scheduled_date,
+        isInspectionDay,
+        selectedServiceProviderId: activeAppointment.selected_service_provider_id
+      };
+
+      console.log('🔍 DEBUG: Finales Ergebnis für Gewerk', milestoneId, ':', result);
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Fehler beim Prüfen der Besichtigungstermine:', error);
+      return { hasActiveInspection: false, isInspectionDay: false };
+    }
   }
 };
 

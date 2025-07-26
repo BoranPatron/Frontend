@@ -7,6 +7,7 @@ import {
   Check, 
   X, 
   MessageSquare,
+  ChevronLeft,
   Bell,
   AlertCircle
 } from 'lucide-react';
@@ -20,7 +21,7 @@ interface NotificationTabProps {
 
 interface NotificationData {
   id: number;
-  type: 'appointment_invitation' | 'appointment_responses';
+  type: 'appointment_invitation' | 'appointment_responses' | 'service_provider_selection_reminder';
   title: string;
   message: string;
   timestamp: string;
@@ -30,6 +31,8 @@ interface NotificationData {
   location?: string;
   myResponse?: any;
   responses?: any[];
+  selectedServiceProviderId?: number;
+  tradeId?: number;
 }
 
 export default function NotificationTab({ userRole, userId, onResponseSent }: NotificationTabProps) {
@@ -97,35 +100,31 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
               try {
                 responses = typeof apt.responses === 'string' ? JSON.parse(apt.responses) : apt.responses;
               } catch (e) {
-                console.error('Error parsing responses:', e);
                 responses = [];
               }
             }
             
-            // Check if user already responded
-            const myResponse = responses.find((r: any) => 
-              parseInt(String(r.service_provider_id || 0)) === parseInt(String(userId || 0))
-            );
-            
-            const isAnswered = !!myResponse;
-            const isNew = !seenNotifications.has(apt.id) && !isAnswered;
+            // Find my response
+            const myResponse = responses.find((r: any) => r.service_provider_id === userId);
+            const isNew = !seenNotifications.has(apt.id);
             
             return {
               id: apt.id,
               type: 'appointment_invitation' as const,
               title: apt.title || `Besichtigung #${apt.id}`,
-              message: `Termineinladung für ${apt.scheduled_date ? new Date(apt.scheduled_date).toLocaleDateString('de-DE') : 'unbekanntes Datum'}`,
-              timestamp: apt.created_at || apt.scheduled_date,
+              message: apt.description || 'Neue Termineinladung',
+              timestamp: apt.scheduled_date,
               isNew,
               appointmentId: apt.id,
               scheduledDate: apt.scheduled_date,
               location: apt.location || '',
-              myResponse
+              myResponse,
+              responses
             };
           });
         } else if (userRole === 'BAUTRAEGER') {
-          notifications = myAppointments.map((apt: any) => {
-            // Parse responses for Bauträger
+          myAppointments.forEach((apt: any) => {
+            // Parse responses
             let responses = [];
             if (apt.responses_array && Array.isArray(apt.responses_array)) {
               responses = apt.responses_array;
@@ -133,33 +132,60 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
               try {
                 responses = typeof apt.responses === 'string' ? JSON.parse(apt.responses) : apt.responses;
               } catch (e) {
-                console.error('Error parsing responses:', e);
                 responses = [];
               }
             }
             
-            // For Bauträger: Count new responses in last 24h
-            const newResponses = responses.filter((r: any) => {
-              const responseTime = new Date(r.responded_at || r.created_at);
-              const dayAgo = new Date();
-              dayAgo.setDate(dayAgo.getDate() - 1);
-              return responseTime > dayAgo;
-            });
-            
-            const isNew = !seenNotifications.has(apt.id) && newResponses.length > 0;
-            
-            return {
-              id: apt.id,
-              type: 'appointment_responses' as const,
-              title: apt.title || `Besichtigung #${apt.id}`,
-              message: `${responses.length} Antworten erhalten${newResponses.length > 0 ? ` (${newResponses.length} neue)` : ''}`,
-              timestamp: apt.created_at || apt.scheduled_date,
-              isNew,
-              appointmentId: apt.id,
-              scheduledDate: apt.scheduled_date,
-              location: apt.location || '',
-              responses: responses
-            };
+            // Appointment responses notification
+            if (responses.length > 0) {
+              const newResponses = responses.filter((r: any) => !seenNotifications.has(apt.id));
+              const hasNewResponses = newResponses.length > 0;
+              
+              notifications.push({
+                id: apt.id,
+                type: 'appointment_responses' as const,
+                title: apt.title || `Besichtigung #${apt.id}`,
+                message: `${responses.length} Antworten erhalten${newResponses.length > 0 ? ` (${newResponses.length} neue)` : ''}`,
+                timestamp: apt.created_at || apt.scheduled_date,
+                isNew: hasNewResponses,
+                appointmentId: apt.id,
+                scheduledDate: apt.scheduled_date,
+                location: apt.location || '',
+                responses: responses,
+                selectedServiceProviderId: apt.selected_service_provider_id
+              });
+
+              // Service provider selection reminder notification
+              // Zeige nur wenn: Termin akzeptiert wurde, Termin-Datum erreicht/überschritten, kein Dienstleister ausgewählt
+              if (apt.scheduled_date && !apt.selected_service_provider_id) {
+                const appointmentDate = new Date(apt.scheduled_date);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                appointmentDate.setHours(0, 0, 0, 0);
+                
+                // Prüfe ob mindestens ein Dienstleister zugesagt hat
+                const acceptedResponses = responses.filter((r: any) => r.status === 'accepted');
+                
+                if (appointmentDate <= today && acceptedResponses.length > 0) {
+                  const reminderNotificationId = apt.id + 10000; // Unique ID für Reminder
+                  const isReminderNew = !seenNotifications.has(reminderNotificationId);
+                  
+                  notifications.push({
+                    id: reminderNotificationId,
+                    type: 'service_provider_selection_reminder' as const,
+                    title: 'Dienstleister auswählen',
+                    message: `Wählen Sie einen Dienstleister für die Besichtigung vom ${appointmentDate.toLocaleDateString('de-DE')} aus`,
+                    timestamp: apt.scheduled_date,
+                    isNew: isReminderNew,
+                    appointmentId: apt.id,
+                    scheduledDate: apt.scheduled_date,
+                    location: apt.location || '',
+                    responses: responses,
+                    selectedServiceProviderId: apt.selected_service_provider_id
+                  });
+                }
+              }
+            }
           });
         }
       } else {
@@ -224,16 +250,41 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
     }
   };
 
-     const newCount = notifications.filter(n => n.isNew).length;
-   const hasNewNotifications = newCount > 0;
-   
-   console.log(`🔔 [NOTIFICATION-TAB] Rendering for ${userRole} with ${notifications.length} notifications, ${newCount} new`);
- 
-   return (
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('de-DE', {
+      weekday: 'short',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  const formatTime = (dateString: string) => {
+    return new Date(dateString).toLocaleTimeString('de-DE', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const newCount = notifications.filter(n => n.isNew).length;
+  const hasNewNotifications = newCount > 0;
+  
+  console.log(`🔔 [NOTIFICATION-TAB] Rendering for ${userRole} with ${notifications.length} notifications, ${newCount} new`);
+
+  return (
     <>
-             {/* Notification Tab - Fixed Position */}
-       <div className="fixed right-0 top-1/2 transform -translate-y-1/2 z-[9999]">
-        <button
+      {/* Notification Tab - Fixed Position */}
+      <div className={`fixed right-0 top-1/2 transform -translate-y-1/2 z-[9999] transition-all duration-300 ${
+        isExpanded ? 'translate-x-0' : 'translate-x-full'
+      }`}>
+        
+        {/* Tab Handle - Der "Griff" der Lasche (links) */}
+        <div 
+          className={`absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-full cursor-pointer transition-all duration-300 ${
+            hasNewNotifications 
+              ? 'bg-gradient-to-r from-orange-500 to-yellow-500 animate-pulse shadow-lg shadow-orange-500/50' 
+              : 'bg-gradient-to-r from-gray-500 to-slate-500'
+          } rounded-l-lg px-3 py-4 text-white hover:shadow-xl`}
           onClick={() => {
             setIsExpanded(!isExpanded);
             if (!isExpanded && hasNewNotifications) {
@@ -241,98 +292,134 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
               markAsSeen(notifications.filter(n => n.isNew).map(n => n.id));
             }
           }}
-          className={`flex items-center gap-2 px-3 py-2 rounded-l-lg shadow-lg transition-all duration-300 ${
-            hasNewNotifications
-              ? 'bg-orange-500 text-white animate-pulse'
-              : 'bg-gray-600 text-gray-300'
-          }`}
-          style={{
-            writingMode: 'vertical-rl',
-            textOrientation: 'mixed'
-          }}
         >
-          <Bell size={16} />
-          <span className="text-sm font-medium">
-            {hasNewNotifications ? newCount : '0'}
-          </span>
-        </button>
-      </div>
+          <div className="flex flex-col items-center gap-2">
+            {/* Dienstleister Icon */}
+            <div className={`${hasNewNotifications ? 'animate-bounce' : ''}`}>
+              <Bell size={20} />
+            </div>
+            
+            {/* Anzahl neue Benachrichtigungen */}
+            {hasNewNotifications && (
+              <div className="bg-white text-orange-600 rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold animate-pulse shadow-lg">
+                {newCount}
+              </div>
+            )}
+            
+            {/* Zeige Anzahl auch wenn keine neuen */}
+            {!hasNewNotifications && notifications.length > 0 && (
+              <div className="bg-white bg-opacity-90 text-gray-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-medium">
+                {notifications.length}
+              </div>
+            )}
+            
+            {/* Pfeil */}
+            <div className={`transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+              <ChevronLeft size={16} />
+            </div>
+          </div>
+        </div>
 
-             {/* Expanded Notification Panel */}
-       {isExpanded && (
-         <div className="fixed right-0 top-0 h-full w-80 bg-[#2c3539] shadow-2xl z-[9998] transform transition-transform duration-300">
-          <div className="p-4 border-b border-gray-600 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-              <Bell size={20} className="text-[#ffbd59]" />
-              Benachrichtigungen
-            </h3>
-            <button
-              onClick={() => setIsExpanded(false)}
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              <X size={20} />
-            </button>
+        {/* Notification Panel */}
+        <div className="bg-white shadow-2xl rounded-l-xl w-96 max-h-[80vh] overflow-hidden border-l-4 border-orange-500">
+          
+          {/* Header */}
+          <div className="bg-gradient-to-r from-orange-600 to-yellow-600 text-white p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell size={20} />
+                <h3 className="font-semibold">
+                  {userRole === 'DIENSTLEISTER' ? 'Termineinladungen' : 'Benachrichtigungen'}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setIsExpanded(false)}
+                className="hover:bg-white/20 rounded-full p-1 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </div>
 
-          <div className="p-4 max-h-full overflow-y-auto">
+          {/* Notifications List */}
+          <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="text-center py-8 text-gray-400">
                 <Bell size={32} className="mx-auto mb-2 opacity-50" />
                 <p>Keine Benachrichtigungen</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-0">
                 {notifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                      notification.isNew
-                        ? 'bg-orange-500/20 border-orange-500/50 text-white'
-                        : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                    className={`p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors ${
+                      notification.isNew ? 'bg-orange-50 border-l-4 border-l-orange-400' : ''
                     }`}
                     onClick={() => {
                       if (userRole === 'DIENSTLEISTER' && notification.type === 'appointment_invitation') {
                         setSelectedNotification(notification);
+                      } else if (userRole === 'BAUTRAEGER' && notification.type === 'service_provider_selection_reminder') {
+                        // Navigiere zur Gewerke-Seite
+                        window.location.href = '/quotes';
+                        markAsSeen([notification.id]);
                       }
                       if (!notification.isNew) {
                         markAsSeen([notification.id]);
                       }
                     }}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 mt-1">
-                        {notification.type === 'appointment_invitation' ? (
-                          <Calendar size={16} className="text-[#ffbd59]" />
-                        ) : (
-                          <MessageSquare size={16} className="text-[#ffbd59]" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-sm truncate">
-                          {notification.title}
-                        </h4>
-                        <p className="text-xs opacity-80 mt-1">
-                          {notification.message}
-                        </p>
-                        {notification.scheduledDate && (
-                          <div className="flex items-center gap-1 mt-2 text-xs opacity-60">
-                            <Clock size={12} />
-                            {new Date(notification.scheduledDate).toLocaleDateString('de-DE', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 mt-1">
+                            {notification.type === 'appointment_invitation' ? (
+                              <Calendar size={16} className="text-orange-500" />
+                            ) : notification.type === 'service_provider_selection_reminder' ? (
+                              <AlertCircle size={16} className="text-orange-400 animate-pulse" />
+                            ) : (
+                              <MessageSquare size={16} className="text-orange-500" />
+                            )}
                           </div>
-                        )}
-                        {notification.location && (
-                          <div className="flex items-center gap-1 mt-1 text-xs opacity-60">
-                            <MapPin size={12} />
-                            {notification.location}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-gray-900 mb-1">
+                              {notification.title}
+                            </h4>
+                            <p className="text-sm text-gray-600 mb-2">
+                              {notification.message}
+                            </p>
+                            
+                            <div className="flex items-center gap-4 text-sm text-gray-500">
+                              {notification.scheduledDate && (
+                                <>
+                                  <div className="flex items-center gap-1">
+                                    <Calendar size={12} />
+                                    {formatDate(notification.scheduledDate)}
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Clock size={12} />
+                                    {formatTime(notification.scheduledDate)}
+                                  </div>
+                                </>
+                              )}
+                              {notification.location && (
+                                <div className="flex items-center gap-1">
+                                  <MapPin size={12} />
+                                  {notification.location}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        )}
+                        </div>
                       </div>
+                      
+                      {notification.isNew && (
+                        <div className="flex-shrink-0 ml-2">
+                          <div className="animate-pulse">
+                            <AlertCircle size={16} className="text-orange-500" />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -340,84 +427,93 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
             )}
           </div>
         </div>
-      )}
+      </div>
 
-             {/* Response Modal for Dienstleister */}
-       {selectedNotification && userRole === 'DIENSTLEISTER' && (
-         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9997] p-4">
-          <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-md w-full">
+      {/* Response Modal for Dienstleister */}
+      {selectedNotification && userRole === 'DIENSTLEISTER' && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-orange-600 to-yellow-600 text-white p-6 rounded-t-xl">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Auf Termineinladung antworten</h3>
+                <button 
+                  onClick={() => setSelectedNotification(null)}
+                  className="hover:bg-white/20 rounded-full p-1 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
             <div className="p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">
-                Auf Termineinladung antworten
-              </h3>
               
-              <div className="space-y-4">
-                <div className="p-3 bg-white/5 rounded-lg">
-                  <h4 className="font-medium text-white">{selectedNotification.title}</h4>
+              {/* Appointment Details */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h4 className="font-medium text-gray-900 mb-3">{selectedNotification.title}</h4>
+                
+                <div className="space-y-2 text-sm text-gray-600">
                   {selectedNotification.scheduledDate && (
-                    <div className="flex items-center gap-2 mt-2 text-sm text-gray-300">
-                      <Calendar size={14} />
-                      {new Date(selectedNotification.scheduledDate).toLocaleDateString('de-DE', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
+                    <div className="flex items-center gap-2">
+                      <Calendar size={16} />
+                      {formatDate(selectedNotification.scheduledDate)} um {formatTime(selectedNotification.scheduledDate)}
                     </div>
                   )}
                   {selectedNotification.location && (
-                    <div className="flex items-center gap-2 mt-1 text-sm text-gray-300">
-                      <MapPin size={14} />
+                    <div className="flex items-center gap-2">
+                      <MapPin size={16} />
                       {selectedNotification.location}
                     </div>
                   )}
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Nachricht (optional)
-                  </label>
-                  <textarea
-                    value={responseMessage}
-                    onChange={(e) => setResponseMessage(e.target.value)}
-                    placeholder="Ihre Nachricht..."
-                    className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    rows={3}
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nachricht (optional)
+                </label>
+                <textarea
+                  value={responseMessage}
+                  onChange={(e) => setResponseMessage(e.target.value)}
+                  placeholder="Ihre Nachricht..."
+                  className="w-full p-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  rows={3}
+                />
+              </div>
 
-                <div className="flex items-center justify-end gap-3">
-                  <button
-                    onClick={() => setSelectedNotification(null)}
-                    disabled={loading}
-                    className="px-4 py-2 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
-                  >
-                    Abbrechen
-                  </button>
-                  
-                  <button
-                    onClick={() => handleResponse('accepted')}
-                    disabled={loading}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
-                  >
-                    {loading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    ) : (
-                      <Check size={16} />
-                    )}
-                    Zusagen
-                  </button>
-                  
-                  <button
-                    onClick={() => handleResponse('rejected')}
-                    disabled={loading}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
-                  >
-                    <X size={16} />
-                    Absagen
-                  </button>
-                </div>
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setSelectedNotification(null)}
+                  disabled={loading}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
+                >
+                  Abbrechen
+                </button>
+                
+                <button
+                  onClick={() => handleResponse('accepted')}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <Check size={16} />
+                  )}
+                  Zusagen
+                </button>
+                
+                <button
+                  onClick={() => handleResponse('rejected')}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  <X size={16} />
+                  Absagen
+                </button>
               </div>
             </div>
           </div>

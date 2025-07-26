@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { appointmentService } from '../api/appointmentService';
 // import InspectionStatusTracker from './InspectionStatusTracker'; // DEPRECATED: Ersetzt durch AppointmentStatusCard
 import AppointmentStatusCard from './AppointmentStatusCard';
 import AppointmentResponseTracker from './AppointmentResponseTracker';
@@ -61,6 +62,12 @@ interface CostEstimateDetailsModalProps {
   onRejectQuote: (quoteId: number, reason: string) => void;
   onResetQuote: (quoteId: number) => void;
   onCreateInspection?: (tradeId: number, selectedQuoteIds: number[]) => void;
+  inspectionStatus?: {
+    hasActiveInspection: boolean;
+    appointmentDate?: string;
+    isInspectionDay: boolean;
+    selectedServiceProviderId?: number;
+  };
 }
 
 export default function CostEstimateDetailsModal({ 
@@ -72,14 +79,45 @@ export default function CostEstimateDetailsModal({
   onAcceptQuote,
   onRejectQuote,
   onResetQuote,
-  onCreateInspection
+  onCreateInspection,
+  inspectionStatus: externalInspectionStatus
 }: CostEstimateDetailsModalProps) {
   const { user } = useAuth();
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [inspectionStatus, setInspectionStatus] = useState<{
+    hasActiveInspection: boolean;
+    appointmentDate?: string;
+    isInspectionDay: boolean;
+    selectedServiceProviderId?: number;
+  }>({ hasActiveInspection: false, isInspectionDay: false });
   const [loading, setLoading] = useState(false);
   const [selectedQuotesForInspection, setSelectedQuotesForInspection] = useState<number[]>([]);
+
+  // Lade Besichtigungstermin-Status wenn Modal geöffnet wird
+  useEffect(() => {
+    if (isOpen && trade?.id) {
+      if (externalInspectionStatus) {
+        // Verwende die von außen übergebenen Daten
+        setInspectionStatus(externalInspectionStatus);
+        console.log('🔍 Verwende externe Besichtigungsstatus für Gewerk', trade.id, ':', externalInspectionStatus);
+      } else {
+        // Lade die Daten selbst
+        loadInspectionStatus();
+      }
+    }
+  }, [isOpen, trade?.id, externalInspectionStatus]);
+
+  const loadInspectionStatus = async () => {
+    try {
+      const status = await appointmentService.checkActiveInspectionForTrade(trade.id);
+      setInspectionStatus(status);
+      console.log('🔍 Besichtigungsstatus für Gewerk', trade.id, ':', status);
+    } catch (error) {
+      console.error('❌ Fehler beim Laden des Besichtigungsstatus:', error);
+    }
+  };
   const [showInspectionSelection, setShowInspectionSelection] = useState(false);
 
   if (!isOpen || !trade) return null;
@@ -518,18 +556,41 @@ export default function CostEstimateDetailsModal({
           {/* Buttons für alle Benutzer mit submitted, draft oder under_review Status */}
           {(quote.status === 'submitted' || quote.status === 'draft' || quote.status === 'under_review') && (
             <>
-              <button
-                onClick={() => handleAcceptQuote(quote)}
-                disabled={loading}
-                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                ) : (
-                  <CheckCircle size={16} />
-                )}
-                Kostenvoranschlag annehmen
-              </button>
+              {/* Prüfe ob Button ausgegraut werden soll */}
+              {(() => {
+                const shouldDisableAccept = inspectionStatus.hasActiveInspection && 
+                                          !inspectionStatus.isInspectionDay && 
+                                          !inspectionStatus.selectedServiceProviderId;
+                
+                // DEBUG: Detaillierte Ausgabe der Bedingungen
+                console.log('🔍 DEBUG: Button-Deaktivierung für Gewerk', trade.id, ':', {
+                  inspectionStatus,
+                  hasActiveInspection: inspectionStatus.hasActiveInspection,
+                  isInspectionDay: inspectionStatus.isInspectionDay,
+                  selectedServiceProviderId: inspectionStatus.selectedServiceProviderId,
+                  shouldDisableAccept
+                });
+                
+                return (
+                  <button
+                    onClick={() => handleAcceptQuote(quote)}
+                    disabled={loading || shouldDisableAccept}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform shadow-lg ${
+                      shouldDisableAccept 
+                        ? 'bg-gray-400 text-gray-600 cursor-not-allowed opacity-50' 
+                        : 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed'
+                    }`}
+                    title={shouldDisableAccept ? 'Annahme erst nach dem Besichtigungstermin möglich' : ''}
+                  >
+                    {loading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <CheckCircle size={16} />
+                    )}
+                    Kostenvoranschlag annehmen
+                  </button>
+                );
+              })()}
               
               <button
                 onClick={() => setShowRejectModal(true)}
@@ -540,6 +601,26 @@ export default function CostEstimateDetailsModal({
                 Kostenvoranschlag ablehnen
               </button>
             </>
+          )}
+
+          {/* Informationsmeldung wenn Annahme wegen Besichtigungstermin blockiert ist */}
+          {inspectionStatus.hasActiveInspection && !inspectionStatus.isInspectionDay && !inspectionStatus.selectedServiceProviderId && (
+            <div className="w-full p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+              <div className="flex items-center gap-2 text-orange-300 mb-2">
+                <Calendar size={16} />
+                <span className="font-medium">Besichtigungstermin geplant</span>
+              </div>
+              <p className="text-sm text-orange-200">
+                Die Annahme von Kostenvoranschlägen ist bis zum Besichtigungstermin am{' '}
+                {inspectionStatus.appointmentDate && 
+                  new Date(inspectionStatus.appointmentDate).toLocaleDateString('de-DE', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                  })
+                } gesperrt.
+              </p>
+            </div>
           )}
           
           {/* Reset-Button für alle Benutzer */}
