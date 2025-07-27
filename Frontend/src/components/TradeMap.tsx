@@ -473,7 +473,14 @@ export default function TradeMap({
       <div 
         ref={mapRef}
         className="w-full h-full rounded-lg"
-        style={{ minHeight: '300px' }}
+        style={{ 
+          height: '200vh !important', 
+          minHeight: '1500px !important',
+          maxHeight: 'none !important',
+          position: 'relative',
+          zIndex: 1,
+          overflow: 'visible'
+        }}
       />
       
       {/* Karten-Controls */}

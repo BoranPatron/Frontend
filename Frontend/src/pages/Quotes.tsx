@@ -1363,7 +1363,7 @@ export default function Trades() {
       
       console.log('🔧 Verwende Projekt-ID:', projectId);
       
-      // API-Call für die Gewerk-Erstellung
+      // API-Call für die Gewerk-Erstellung mit allen kategorie-spezifischen Feldern
       const milestoneData = {
         title: tradeData.title,
         description: tradeData.description,
@@ -1375,14 +1375,20 @@ export default function Trades() {
         notes: tradeData.notes,
         is_critical: false,
         notify_on_completion: true,
-        requires_inspection: tradeData.requires_inspection || false
+        requires_inspection: tradeData.requires_inspection || false,
+        // Kategorie-spezifische Felder für Backend-Aggregation
+        category_specific_fields: tradeData.category_specific_fields || {},
+        technical_specifications: tradeData.technical_specifications || "",
+        quality_requirements: tradeData.quality_requirements || "",
+        safety_requirements: tradeData.safety_requirements || "",
+        environmental_requirements: tradeData.environmental_requirements || ""
       };
       
-      console.log('📡 Sende Milestone-Daten:', milestoneData);
+      console.log('📡 Sende Milestone-Daten mit aggregierten Feldern:', milestoneData);
       await createMilestone(milestoneData);
       
       // Erfolgreich erstellt
-      console.log('✅ Gewerk erfolgreich erstellt');
+      console.log('✅ Gewerk erfolgreich erstellt mit aggregierten Beschreibungen');
       
       // Modal schließen und Daten neu laden
       setShowTradeCreationForm(false);

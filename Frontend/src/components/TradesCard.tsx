@@ -336,6 +336,14 @@ export default function TradesCard({
       setTradeStats(prev => ({ ...prev, [tradeId]: stats }));
     } catch (error) {
       console.error(`❌ Fehler beim Laden der Trade-Statistiken für Gewerk ${tradeId}:`, error);
+      // Setze Default-Statistiken bei Fehlern
+      const defaultStats: TradeStats = {
+        totalQuotes: 0,
+        acceptedQuote: null,
+        pendingQuotes: 0,
+        rejectedQuotes: 0
+      };
+      setTradeStats(prev => ({ ...prev, [tradeId]: defaultStats }));
     }
   };
 
@@ -552,7 +560,7 @@ export default function TradesCard({
                   <div
                     key={trade.id}
                     className={`bg-white/10 rounded-lg p-4 cursor-pointer hover:bg-white/20 transition-all duration-300 ${
-                      (tradeStatsForTrade.acceptedQuote || currentQuoteStatus === 'accepted') 
+                      (tradeStatsForTrade?.acceptedQuote || currentQuoteStatus === 'accepted') 
                         ? 'border-2 border-green-500/40 bg-gradient-to-r from-green-500/5 to-emerald-500/5 shadow-lg shadow-green-500/10' 
                         : 'border border-white/10'
                     }`}
@@ -572,8 +580,8 @@ export default function TradesCard({
                           {(() => {
                             console.log(`🔍 Rendering Trade ${trade.id}:`, {
                               tradeStats: tradeStatsForTrade,
-                              hasAcceptedQuote: !!tradeStatsForTrade.acceptedQuote,
-                              acceptedQuote: tradeStatsForTrade.acceptedQuote
+                              hasAcceptedQuote: !!tradeStatsForTrade?.acceptedQuote,
+                              acceptedQuote: tradeStatsForTrade?.acceptedQuote
                             });
                             return null;
                           })()}
@@ -589,12 +597,12 @@ export default function TradesCard({
                               >
                                 <Users size={14} className="text-[#ffbd59] group-hover:text-[#ffa726]" />
                                 <span className="text-xs text-gray-300 group-hover:text-[#ffbd59]">
-                                  {tradeStatsForTrade.totalQuotes} {tradeStatsForTrade.totalQuotes === 1 ? 'Angebot' : 'Angebote'}
+                                  {tradeStatsForTrade?.totalQuotes || 0} {(tradeStatsForTrade?.totalQuotes === 1) ? 'Angebot' : 'Angebote'}
                                 </span>
                               </div>
                               
                               {/* Angenommenes Angebot Badge - Best Practice Design */}
-                              {(tradeStatsForTrade.acceptedQuote || currentQuoteStatus === 'accepted') && (
+                              {(tradeStatsForTrade?.acceptedQuote || currentQuoteStatus === 'accepted') && (
                                 <div className="relative group">
                                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600/30 via-emerald-500/30 to-green-600/30 border border-green-400/40 rounded-full cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-green-500/20 animate-pulse-slow hover:animate-none">
                                     <div className="flex items-center gap-1.5">
@@ -623,29 +631,29 @@ export default function TradesCard({
                                         <div className="flex justify-between items-center">
                                           <span className="text-gray-300">Dienstleister:</span>
                                           <span className="text-white font-medium">
-                                            {tradeStatsForTrade.acceptedQuote?.company_name || currentQuoteData?.company_name || 'Unbekannt'}
+                                            {tradeStatsForTrade?.acceptedQuote?.company_name || currentQuoteData?.company_name || 'Unbekannt'}
                                           </span>
                                         </div>
                                         
                                         <div className="flex justify-between items-center">
                                           <span className="text-gray-300">Betrag:</span>
                                           <span className="text-green-300 font-bold">
-                                            {formatCurrency((tradeStatsForTrade.acceptedQuote || currentQuoteData)?.total_amount || 0, (tradeStatsForTrade.acceptedQuote || currentQuoteData)?.currency || 'EUR')}
+                                            {formatCurrency((tradeStatsForTrade?.acceptedQuote || currentQuoteData)?.total_amount || 0, (tradeStatsForTrade?.acceptedQuote || currentQuoteData)?.currency || 'EUR')}
                                           </span>
                                         </div>
                                         
                                         <div className="flex justify-between items-center">
                                           <span className="text-gray-300">Angenommen:</span>
                                           <span className="text-white">
-                                            {formatDate((tradeStatsForTrade.acceptedQuote || currentQuoteData)?.created_at || '')}
+                                            {formatDate((tradeStatsForTrade?.acceptedQuote || currentQuoteData)?.created_at || '')}
                                           </span>
                                         </div>
                                         
-                                        {(tradeStatsForTrade.acceptedQuote || currentQuoteData)?.warranty_period && (
+                                        {(tradeStatsForTrade?.acceptedQuote || currentQuoteData)?.warranty_period && (
                                           <div className="flex justify-between items-center">
                                             <span className="text-gray-300">Garantie:</span>
                                             <span className="text-white">
-                                              {(tradeStatsForTrade.acceptedQuote || currentQuoteData)?.warranty_period} Monate
+                                              {(tradeStatsForTrade?.acceptedQuote || currentQuoteData)?.warranty_period} Monate
                                             </span>
                                           </div>
                                         )}
@@ -671,21 +679,21 @@ export default function TradesCard({
                               )}
                               
                               {/* Offene Angebote mit verbessertem Design */}
-                              {!tradeStatsForTrade.acceptedQuote && tradeStatsForTrade.pendingQuotes > 0 && (
+                              {!tradeStatsForTrade?.acceptedQuote && (tradeStatsForTrade?.pendingQuotes || 0) > 0 && (
                                 <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-500/20 border border-blue-500/30 rounded-full hover:bg-blue-500/30 transition-colors">
                                   <Clock size={12} className="text-blue-400" />
                                   <span className="text-xs text-blue-300 font-medium">
-                                    {tradeStatsForTrade.pendingQuotes} offen
+                                    {tradeStatsForTrade?.pendingQuotes || 0} offen
                                   </span>
                                 </div>
                               )}
                               
                               {/* Abgelehnte Angebote */}
-                              {tradeStatsForTrade.rejectedQuotes > 0 && (
+                              {(tradeStatsForTrade?.rejectedQuotes || 0) > 0 && (
                                 <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-500/20 border border-red-500/30 rounded-full">
                                   <XCircle size={12} className="text-red-400" />
                                   <span className="text-xs text-red-300 font-medium">
-                                    {tradeStatsForTrade.rejectedQuotes} abgelehnt
+                                    {tradeStatsForTrade?.rejectedQuotes || 0} abgelehnt
                                   </span>
                                 </div>
                               )}

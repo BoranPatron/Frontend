@@ -305,7 +305,7 @@ export default function GeoSearch() {
   const filteredTrades = getFilteredTrades();
 
   return (
-    <div className="min-h-screen bg-[#2c3539] text-white">
+    <div className="min-h-[120vh] bg-[#2c3539] text-white">
       <style>{`
         .line-clamp-2 {
           display: -webkit-box;
@@ -551,7 +551,7 @@ export default function GeoSearch() {
             </div>
 
             {viewMode === 'map' ? (
-              <div className="h-[600px] rounded-lg overflow-hidden">
+              <div className="h-[2000px] rounded-lg overflow-hidden" style={{ minHeight: '2000px', height: '2000px' }}>
                 <TradeMap
                   trades={filteredTrades}
                   currentLocation={currentLocation}

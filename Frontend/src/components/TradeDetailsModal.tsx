@@ -142,6 +142,598 @@ export default function TradeDetailsModal({
     }
   };
 
+  // Mapping-Tabelle für englische zu deutschen Begriffen
+  const fieldTranslations: { [key: string]: string } = {
+    // Elektro
+    'electrical_outlets': 'Elektrische Steckdosen',
+    'electrical_switches': 'Elektrische Schalter',
+    'electrical_lighting': 'Elektrische Beleuchtung',
+    'electrical_wiring': 'Elektrische Verkabelung',
+    'electrical_panel': 'Elektrischer Verteiler',
+    'electrical_safety': 'Elektrische Sicherheit',
+    'electrical_grounding': 'Elektrische Erdung',
+    'electrical_circuits': 'Elektrische Schaltkreise',
+    
+    // Sanitär
+    'plumbing_fixtures': 'Sanitäranlagen',
+    'plumbing_pipes': 'Sanitärrohre',
+    'plumbing_sewage_system': 'Abwassersystem',
+    'plumbing_water_heater': 'Warmwasserbereiter',
+    'plumbing_water_supply': 'Wasserversorgung',
+    'plumbing_drainage': 'Entwässerung',
+    'plumbing_ventilation': 'Lüftung',
+    'plumbing_water_pressure': 'Wasserdruck',
+    
+    // Heizung
+    'heating_boiler': 'Heizkessel',
+    'heating_radiators': 'Heizkörper',
+    'heating_thermostats': 'Thermostate',
+    'heating_pipes': 'Heizungsrohre',
+    'heating_controls': 'Heizungssteuerung',
+    'heating_insulation': 'Heizungsdämmung',
+    'heating_efficiency': 'Heizungseffizienz',
+    'heating_fuel_type': 'Brennstoffart',
+    
+    // Dach
+    'roofing_material': 'Dachmaterial',
+    'roofing_insulation': 'Dachdämmung',
+    'roofing_gutters': 'Dachrinnen',
+    'roofing_flashing': 'Dachabdichtung',
+    'roofing_ventilation': 'Dachlüftung',
+    'roofing_slope': 'Dachneigung',
+    'roofing_waterproofing': 'Dachwasserabdichtung',
+    'roofing_snow_guards': 'Schneefang',
+    
+    // Fenster & Türen
+    'windows_type': 'Fenstertyp',
+    'windows_material': 'Fenstermaterial',
+    'windows_glazing': 'Fensterglas',
+    'windows_insulation': 'Fensterdämmung',
+    'doors_type': 'Türentyp',
+    'doors_material': 'Türmaterial',
+    'doors_insulation': 'Türdämmung',
+    'doors_hardware': 'Türbeschläge',
+    
+    // Boden
+    'flooring_material': 'Bodenbelag',
+    'flooring_subfloor': 'Unterboden',
+    'flooring_insulation': 'Bodendämmung',
+    'flooring_finish': 'Bodenveredelung',
+    'flooring_pattern': 'Bodenmuster',
+    'flooring_durability': 'Bodenbeständigkeit',
+    'flooring_maintenance': 'Bodenwartung',
+    'flooring_installation': 'Bodenverlegung',
+    
+    // Wände
+    'walls_material': 'Wandmaterial',
+    'walls_insulation': 'Wanddämmung',
+    'walls_finish': 'Wandveredelung',
+    'walls_structure': 'Wandkonstruktion',
+    'walls_moisture': 'Wandfeuchtigkeit',
+    'walls_acoustics': 'Wandakustik',
+    'walls_fire_resistance': 'Wandbrandschutz',
+    'walls_load_bearing': 'Wandtragfähigkeit',
+    
+    // Fundament
+    'foundation_type': 'Fundamenttyp',
+    'foundation_material': 'Fundamentmaterial',
+    'foundation_depth': 'Fundamenttiefe',
+    'foundation_waterproofing': 'Fundamentabdichtung',
+    'foundation_insulation': 'Fundamentdämmung',
+    'foundation_drainage': 'Fundamententwässerung',
+    'foundation_soil': 'Fundamentboden',
+    'foundation_stability': 'Fundamentstabilität',
+    
+    // Garten
+    'landscaping_plants': 'Gartenpflanzen',
+    'landscaping_irrigation': 'Gartenbewässerung',
+    'landscaping_lighting': 'Gartenbeleuchtung',
+    'landscaping_paths': 'Gartenwege',
+    'landscaping_soil': 'Gartenboden',
+    'landscaping_drainage': 'Gartenentwässerung',
+    'landscaping_maintenance': 'Gartenwartung',
+    'landscaping_seasonal': 'Gartensaisonal',
+    
+    // Allgemeine Begriffe
+    'quantity': 'Menge',
+    'size': 'Größe',
+    'dimensions': 'Abmessungen',
+    'weight': 'Gewicht',
+    'color': 'Farbe',
+    'brand': 'Marke',
+    'model': 'Modell',
+    'warranty': 'Garantie',
+    'installation': 'Installation',
+    'maintenance': 'Wartung',
+    'safety': 'Sicherheit',
+    'quality': 'Qualität',
+    'durability': 'Haltbarkeit',
+    'efficiency': 'Effizienz',
+    'cost': 'Kosten',
+    'budget': 'Budget',
+    'timeline': 'Zeitplan',
+    'requirements': 'Anforderungen',
+    'specifications': 'Spezifikationen',
+    'standards': 'Standards',
+    'regulations': 'Vorschriften',
+    'certifications': 'Zertifizierungen',
+    'inspections': 'Prüfungen',
+    'testing': 'Tests',
+    'approval': 'Genehmigung',
+    'documentation': 'Dokumentation',
+    'training': 'Schulung',
+    'support': 'Support',
+    'service': 'Service',
+    'repair': 'Reparatur',
+    'replacement': 'Ersatz',
+    'upgrade': 'Upgrade',
+    'modification': 'Modifikation',
+    'customization': 'Anpassung',
+    'integration': 'Integration',
+    'compatibility': 'Kompatibilität',
+    'performance': 'Leistung',
+    'reliability': 'Zuverlässigkeit',
+    'availability': 'Verfügbarkeit',
+    'accessibility': 'Zugänglichkeit',
+    'usability': 'Benutzerfreundlichkeit',
+    'functionality': 'Funktionalität',
+    'versatility': 'Vielseitigkeit',
+    'flexibility': 'Flexibilität',
+    'scalability': 'Skalierbarkeit',
+    'expandability': 'Erweiterbarkeit',
+    'modularity': 'Modularität',
+    'standardization': 'Standardisierung',
+    'optimization': 'Optimierung',
+    'automation': 'Automatisierung',
+    'digitalization': 'Digitalisierung',
+    'connectivity': 'Konnektivität',
+    'wireless': 'Drahtlos',
+    'smart': 'Intelligent',
+    'automated': 'Automatisiert',
+    'manual': 'Manuell',
+    'automatic': 'Automatisch',
+    'semi_automatic': 'Halbautomatisch',
+    'remote_controlled': 'Fernsteuerung',
+    'programmable': 'Programmierbar',
+    'configurable': 'Konfigurierbar',
+    'adjustable': 'Einstellbar',
+    'fixed': 'Fest',
+    'portable': 'Tragbar',
+    'stationary': 'Stationär',
+    'mobile': 'Mobil',
+    'permanent': 'Dauerhaft',
+    'temporary': 'Temporär',
+    'emergency': 'Notfall',
+    'backup': 'Backup',
+    'redundant': 'Redundant',
+    'fail_safe': 'Ausfallsicher',
+    'high_availability': 'Hohe Verfügbarkeit',
+    'continuous_operation': 'Dauerbetrieb',
+    'intermittent_use': 'Unterbrochener Betrieb',
+    'peak_load': 'Spitzenlast',
+    'normal_load': 'Normallast',
+    'minimum_load': 'Mindestlast',
+    'maximum_load': 'Maximallast',
+    'rated_capacity': 'Nennkapazität',
+    'actual_capacity': 'Tatsächliche Kapazität',
+    'efficiency_rating': 'Effizienzbewertung',
+    'energy_consumption': 'Energieverbrauch',
+    'power_consumption': 'Leistungsaufnahme',
+    'fuel_consumption': 'Brennstoffverbrauch',
+    'water_consumption': 'Wasserverbrauch',
+    'air_consumption': 'Luftverbrauch',
+    'heat_output': 'Wärmeleistung',
+    'cooling_capacity': 'Kühlleistung',
+    'heating_capacity': 'Heizleistung',
+    'ventilation_rate': 'Lüftungsrate',
+    'air_flow': 'Luftstrom',
+    'water_flow': 'Wasserstrom',
+    'pressure_drop': 'Druckverlust',
+    'temperature_range': 'Temperaturbereich',
+    'humidity_range': 'Feuchtigkeitsbereich',
+    'noise_level': 'Geräuschpegel',
+    'vibration_level': 'Vibrationspegel',
+    'emission_level': 'Emissionspegel',
+    'pollution_level': 'Verschmutzungsgrad',
+    'contamination_level': 'Kontaminationsgrad',
+    'cleanliness_requirement': 'Sauberkeitsanforderung',
+    'sterility_requirement': 'Sterilitätsanforderung',
+    'hygiene_requirement': 'Hygieneanforderung',
+    'sanitation_requirement': 'Sanitäranforderung',
+    'disinfection_requirement': 'Desinfektionsanforderung',
+    'decontamination_requirement': 'Dekontaminationsanforderung',
+    'purification_requirement': 'Reinigungsanforderung',
+    'filtration_requirement': 'Filteranforderung',
+    'separation_requirement': 'Trennungsanforderung',
+    'isolation_requirement': 'Isolationsanforderung',
+    'containment_requirement': 'Eindämmungsanforderung',
+    'confinement_requirement': 'Einschlussanforderung',
+    'enclosure_requirement': 'Gehäuseanforderung',
+    'protection_requirement': 'Schutzanforderung',
+    'safety_requirement': 'Sicherheitsanforderung',
+    'security_requirement': 'Sicherheitsanforderung',
+    'access_control': 'Zugangskontrolle',
+    'surveillance': 'Überwachung',
+    'monitoring': 'Überwachung',
+    'supervision': 'Aufsicht',
+    'inspection': 'Prüfung',
+    'examination': 'Untersuchung',
+    'assessment': 'Bewertung',
+    'evaluation': 'Evaluierung',
+    'analysis': 'Analyse',
+    'testing': 'Tests',
+    'verification': 'Verifizierung',
+    'validation': 'Validierung',
+    'certification': 'Zertifizierung',
+    'accreditation': 'Akkreditierung',
+    'approval': 'Genehmigung',
+    'authorization': 'Autorisierung',
+    'permission': 'Erlaubnis',
+    'license': 'Lizenz',
+    'permit': 'Genehmigung',
+    'registration': 'Registrierung',
+    'notification': 'Benachrichtigung',
+    'declaration': 'Erklärung',
+    'statement': 'Aussage',
+    'report': 'Bericht',
+    'documentation': 'Dokumentation',
+    'record': 'Aufzeichnung',
+    'log': 'Protokoll',
+    'history': 'Historie',
+    'tracking': 'Verfolgung',
+    'tracing': 'Rückverfolgung',
+    'audit': 'Audit',
+    'review': 'Überprüfung',
+    'check': 'Prüfung',
+    'control': 'Kontrolle',
+    'measurement': 'Messung',
+    'calibration': 'Kalibrierung',
+    'adjustment': 'Einstellung',
+    'alignment': 'Ausrichtung',
+    'leveling': 'Nivellierung',
+    'balancing': 'Auswuchtung',
+    'tuning': 'Abstimmung',
+    'optimization': 'Optimierung',
+    'fine_tuning': 'Feinabstimmung',
+    'coarse_adjustment': 'Grobeinstellung',
+    'precise_adjustment': 'Präziseinstellung',
+    'rough_adjustment': 'Rauheinstellung',
+    'smooth_adjustment': 'Sanfteinstellung',
+    'gradual_adjustment': 'Schrittweise Einstellung',
+    'step_by_step_adjustment': 'Schritt-für-Schritt Einstellung',
+    'incremental_adjustment': 'Inkrementelle Einstellung',
+    'progressive_adjustment': 'Progressive Einstellung',
+    'regressive_adjustment': 'Regressive Einstellung',
+    'linear_adjustment': 'Lineare Einstellung',
+    'non_linear_adjustment': 'Nicht-lineare Einstellung',
+    'exponential_adjustment': 'Exponentielle Einstellung',
+    'logarithmic_adjustment': 'Logarithmische Einstellung',
+    'sine_adjustment': 'Sinus-Einstellung',
+    'cosine_adjustment': 'Cosinus-Einstellung',
+    'tangent_adjustment': 'Tangens-Einstellung',
+    'arc_sine_adjustment': 'Arcsinus-Einstellung',
+    'arc_cosine_adjustment': 'Arccosinus-Einstellung',
+    'arc_tangent_adjustment': 'Arctangens-Einstellung',
+    'hyperbolic_adjustment': 'Hyperbolische Einstellung',
+    'inverse_hyperbolic_adjustment': 'Inverse hyperbolische Einstellung',
+    'bessel_adjustment': 'Bessel-Einstellung',
+    'legendre_adjustment': 'Legendre-Einstellung',
+    'hermite_adjustment': 'Hermite-Einstellung',
+    'laguerre_adjustment': 'Laguerre-Einstellung',
+    'chebyshev_adjustment': 'Tschebyscheff-Einstellung',
+    'jacobi_adjustment': 'Jacobi-Einstellung',
+    'ultraspherical_adjustment': 'Ultrasphärische Einstellung',
+    'gegenbauer_adjustment': 'Gegenbauer-Einstellung',
+    'meixner_adjustment': 'Meixner-Einstellung',
+    'krawtchouk_adjustment': 'Krawtchouk-Einstellung',
+    'hahn_adjustment': 'Hahn-Einstellung',
+    'dual_hahn_adjustment': 'Dual-Hahn-Einstellung',
+    'racah_adjustment': 'Racah-Einstellung',
+    'dual_racah_adjustment': 'Dual-Racah-Einstellung',
+    'continuous_dual_hahn_adjustment': 'Kontinuierliche Dual-Hahn-Einstellung',
+    'continuous_hahn_adjustment': 'Kontinuierliche Hahn-Einstellung',
+    'continuous_racah_adjustment': 'Kontinuierliche Racah-Einstellung',
+    'continuous_dual_racah_adjustment': 'Kontinuierliche Dual-Racah-Einstellung',
+    'wilson_adjustment': 'Wilson-Einstellung',
+    'dual_wilson_adjustment': 'Dual-Wilson-Einstellung',
+    'askey_wilson_adjustment': 'Askey-Wilson-Einstellung',
+    'dual_askey_wilson_adjustment': 'Dual-Askey-Wilson-Einstellung',
+    'q_racah_adjustment': 'q-Racah-Einstellung',
+    'dual_q_racah_adjustment': 'Dual-q-Racah-Einstellung',
+    'q_hahn_adjustment': 'q-Hahn-Einstellung',
+    'dual_q_hahn_adjustment': 'Dual-q-Hahn-Einstellung',
+    'q_krawtchouk_adjustment': 'q-Krawtchouk-Einstellung',
+    'dual_q_krawtchouk_adjustment': 'Dual-q-Krawtchouk-Einstellung',
+    'q_meixner_adjustment': 'q-Meixner-Einstellung',
+    'dual_q_meixner_adjustment': 'Dual-q-Meixner-Einstellung',
+    'q_gegenbauer_adjustment': 'q-Gegenbauer-Einstellung',
+    'dual_q_gegenbauer_adjustment': 'Dual-q-Gegenbauer-Einstellung',
+    'q_ultraspherical_adjustment': 'q-Ultrasphärische Einstellung',
+    'dual_q_ultraspherical_adjustment': 'Dual-q-Ultrasphärische Einstellung',
+    'q_jacobi_adjustment': 'q-Jacobi-Einstellung',
+    'dual_q_jacobi_adjustment': 'Dual-q-Jacobi-Einstellung',
+    'q_legendre_adjustment': 'q-Legendre-Einstellung',
+    'dual_q_legendre_adjustment': 'Dual-q-Legendre-Einstellung',
+    'q_hermite_adjustment': 'q-Hermite-Einstellung',
+    'dual_q_hermite_adjustment': 'Dual-q-Hermite-Einstellung',
+    'q_laguerre_adjustment': 'q-Laguerre-Einstellung',
+    'dual_q_laguerre_adjustment': 'Dual-q-Laguerre-Einstellung',
+    'q_chebyshev_adjustment': 'q-Tschebyscheff-Einstellung',
+    'dual_q_chebyshev_adjustment': 'Dual-q-Tschebyscheff-Einstellung',
+    'q_bessel_adjustment': 'q-Bessel-Einstellung',
+    'dual_q_bessel_adjustment': 'Dual-q-Bessel-Einstellung',
+    'q_neumann_adjustment': 'q-Neumann-Einstellung',
+    'dual_q_neumann_adjustment': 'Dual-q-Neumann-Einstellung',
+    'q_hankel_adjustment': 'q-Hankel-Einstellung',
+    'dual_q_hankel_adjustment': 'Dual-q-Hankel-Einstellung',
+    'q_struve_adjustment': 'q-Struve-Einstellung',
+    'dual_q_struve_adjustment': 'Dual-q-Struve-Einstellung',
+    'q_whittaker_adjustment': 'q-Whittaker-Einstellung',
+    'dual_q_whittaker_adjustment': 'Dual-q-Whittaker-Einstellung',
+    'q_confluent_hypergeometric_adjustment': 'q-Konfluente hypergeometrische Einstellung',
+    'dual_q_confluent_hypergeometric_adjustment': 'Dual-q-Konfluente hypergeometrische Einstellung',
+    'q_hypergeometric_adjustment': 'q-Hypergeometrische Einstellung',
+    'dual_q_hypergeometric_adjustment': 'Dual-q-Hypergeometrische Einstellung',
+    'q_generalized_hypergeometric_adjustment': 'q-Verallgemeinerte hypergeometrische Einstellung',
+    'dual_q_generalized_hypergeometric_adjustment': 'Dual-q-Verallgemeinerte hypergeometrische Einstellung',
+    'q_basic_hypergeometric_adjustment': 'q-Basische hypergeometrische Einstellung',
+    'dual_q_basic_hypergeometric_adjustment': 'Dual-q-Basische hypergeometrische Einstellung',
+    'q_elliptic_hypergeometric_adjustment': 'q-Elliptische hypergeometrische Einstellung',
+    'dual_q_elliptic_hypergeometric_adjustment': 'Dual-q-Elliptische hypergeometrische Einstellung',
+    'q_modular_hypergeometric_adjustment': 'q-Modulare hypergeometrische Einstellung',
+    'dual_q_modular_hypergeometric_adjustment': 'Dual-q-Modulare hypergeometrische Einstellung',
+    'q_theta_adjustment': 'q-Theta-Einstellung',
+    'dual_q_theta_adjustment': 'Dual-q-Theta-Einstellung',
+    'q_eta_adjustment': 'q-Eta-Einstellung',
+    'dual_q_eta_adjustment': 'Dual-q-Eta-Einstellung',
+    'q_sigma_adjustment': 'q-Sigma-Einstellung',
+    'dual_q_sigma_adjustment': 'Dual-q-Sigma-Einstellung',
+    'q_zeta_adjustment': 'q-Zeta-Einstellung',
+    'dual_q_zeta_adjustment': 'Dual-q-Zeta-Einstellung',
+    'q_lambda_adjustment': 'q-Lambda-Einstellung',
+    'dual_q_lambda_adjustment': 'Dual-q-Lambda-Einstellung',
+    'q_mu_adjustment': 'q-Mu-Einstellung',
+    'dual_q_mu_adjustment': 'Dual-q-Mu-Einstellung',
+    'q_nu_adjustment': 'q-Nu-Einstellung',
+    'dual_q_nu_adjustment': 'Dual-q-Nu-Einstellung',
+    'q_xi_adjustment': 'q-Xi-Einstellung',
+    'dual_q_xi_adjustment': 'Dual-q-Xi-Einstellung',
+    'q_omicron_adjustment': 'q-Omicron-Einstellung',
+    'dual_q_omicron_adjustment': 'Dual-q-Omicron-Einstellung',
+    'q_pi_adjustment': 'q-Pi-Einstellung',
+    'dual_q_pi_adjustment': 'Dual-q-Pi-Einstellung',
+    'q_rho_adjustment': 'q-Rho-Einstellung',
+    'dual_q_rho_adjustment': 'Dual-q-Rho-Einstellung',
+    'q_sigma_adjustment': 'q-Sigma-Einstellung',
+    'dual_q_sigma_adjustment': 'Dual-q-Sigma-Einstellung',
+    'q_tau_adjustment': 'q-Tau-Einstellung',
+    'dual_q_tau_adjustment': 'Dual-q-Tau-Einstellung',
+    'q_upsilon_adjustment': 'q-Upsilon-Einstellung',
+    'dual_q_upsilon_adjustment': 'Dual-q-Upsilon-Einstellung',
+    'q_phi_adjustment': 'q-Phi-Einstellung',
+    'dual_q_phi_adjustment': 'Dual-q-Phi-Einstellung',
+    'q_chi_adjustment': 'q-Chi-Einstellung',
+    'dual_q_chi_adjustment': 'Dual-q-Chi-Einstellung',
+    'q_psi_adjustment': 'q-Psi-Einstellung',
+    'dual_q_psi_adjustment': 'Dual-q-Psi-Einstellung',
+    'q_omega_adjustment': 'q-Omega-Einstellung',
+    'dual_q_omega_adjustment': 'Dual-q-Omega-Einstellung',
+    'q_alpha_adjustment': 'q-Alpha-Einstellung',
+    'dual_q_alpha_adjustment': 'Dual-q-Alpha-Einstellung',
+    'q_beta_adjustment': 'q-Beta-Einstellung',
+    'dual_q_beta_adjustment': 'Dual-q-Beta-Einstellung',
+    'q_gamma_adjustment': 'q-Gamma-Einstellung',
+    'dual_q_gamma_adjustment': 'Dual-q-Gamma-Einstellung',
+    'q_delta_adjustment': 'q-Delta-Einstellung',
+    'dual_q_delta_adjustment': 'Dual-q-Delta-Einstellung',
+    'q_epsilon_adjustment': 'q-Epsilon-Einstellung',
+    'dual_q_epsilon_adjustment': 'Dual-q-Epsilon-Einstellung',
+    'q_zeta_adjustment': 'q-Zeta-Einstellung',
+    'dual_q_zeta_adjustment': 'Dual-q-Zeta-Einstellung',
+    'q_eta_adjustment': 'q-Eta-Einstellung',
+    'dual_q_eta_adjustment': 'Dual-q-Eta-Einstellung',
+    'q_theta_adjustment': 'q-Theta-Einstellung',
+    'dual_q_theta_adjustment': 'Dual-q-Theta-Einstellung',
+    'q_iota_adjustment': 'q-Iota-Einstellung',
+    'dual_q_iota_adjustment': 'Dual-q-Iota-Einstellung',
+    'q_kappa_adjustment': 'q-Kappa-Einstellung',
+    'dual_q_kappa_adjustment': 'Dual-q-Kappa-Einstellung',
+    'q_lambda_adjustment': 'q-Lambda-Einstellung',
+    'dual_q_lambda_adjustment': 'Dual-q-Lambda-Einstellung',
+    'q_mu_adjustment': 'q-Mu-Einstellung',
+    'dual_q_mu_adjustment': 'Dual-q-Mu-Einstellung',
+    'q_nu_adjustment': 'q-Nu-Einstellung',
+    'dual_q_nu_adjustment': 'Dual-q-Nu-Einstellung',
+    'q_xi_adjustment': 'q-Xi-Einstellung',
+    'dual_q_xi_adjustment': 'Dual-q-Xi-Einstellung',
+    'q_omicron_adjustment': 'q-Omicron-Einstellung',
+    'dual_q_omicron_adjustment': 'Dual-q-Omicron-Einstellung',
+    'q_pi_adjustment': 'q-Pi-Einstellung',
+    'dual_q_pi_adjustment': 'Dual-q-Pi-Einstellung',
+    'q_rho_adjustment': 'q-Rho-Einstellung',
+    'dual_q_rho_adjustment': 'Dual-q-Rho-Einstellung',
+    'q_sigma_adjustment': 'q-Sigma-Einstellung',
+    'dual_q_sigma_adjustment': 'Dual-q-Sigma-Einstellung',
+    'q_tau_adjustment': 'q-Tau-Einstellung',
+    'dual_q_tau_adjustment': 'Dual-q-Tau-Einstellung',
+    'q_upsilon_adjustment': 'q-Upsilon-Einstellung',
+    'dual_q_upsilon_adjustment': 'Dual-q-Upsilon-Einstellung',
+    'q_phi_adjustment': 'q-Phi-Einstellung',
+    'dual_q_phi_adjustment': 'Dual-q-Phi-Einstellung',
+    'q_chi_adjustment': 'q-Chi-Einstellung',
+    'dual_q_chi_adjustment': 'Dual-q-Chi-Einstellung',
+    'q_psi_adjustment': 'q-Psi-Einstellung',
+    'dual_q_psi_adjustment': 'Dual-q-Psi-Einstellung',
+    'q_omega_adjustment': 'q-Omega-Einstellung',
+    'dual_q_omega_adjustment': 'Dual-q-Omega-Einstellung'
+  };
+
+  // Funktion zur Übersetzung von Feldnamen
+  const translateFieldName = (fieldName: string): string => {
+    // Entferne Unterstriche und ersetze sie durch Leerzeichen
+    const cleanFieldName = fieldName.replace(/_/g, ' ');
+    
+    // Suche nach der Übersetzung in der Mapping-Tabelle
+    const translation = fieldTranslations[fieldName.toLowerCase()];
+    if (translation) {
+      return translation;
+    }
+    
+    // Fallback: Erste Buchstaben großschreiben
+    return cleanFieldName
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  // Funktion zur Formatierung der aggregierten Beschreibung
+  const formatDescription = (description: string | null) => {
+    if (!description) {
+      return <p className="text-gray-500 italic">Keine Beschreibung verfügbar.</p>;
+    }
+
+    // Teile die Beschreibung in Abschnitte auf
+    const sections = description.split('\n').filter(line => line.trim());
+    
+    return (
+      <div className="space-y-4">
+        {sections.map((section, index) => {
+          // Erkenne verschiedene Abschnittstypen
+          if (section.includes('📋 **Beschreibung:**')) {
+            const content = section.replace('📋 **Beschreibung:**', '').trim();
+            return (
+              <div key={index} className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded-r">
+                <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                  <span>📋</span>
+                  Beschreibung
+                </h4>
+                <p className="text-blue-700">{content}</p>
+              </div>
+            );
+          }
+          
+          if (section.includes('🔧 **Kategorie-spezifische Details')) {
+            const categoryMatch = section.match(/\(([^)]+)\)/);
+            const category = categoryMatch ? categoryMatch[1] : '';
+            const details = section.replace(/🔧 \*\*Kategorie-spezifische Details \([^)]+\):\*\*/, '').trim();
+            
+            if (details) {
+              const detailItems = details.split('\n').filter(item => item.trim().startsWith('•'));
+              
+              return (
+                <div key={index} className="bg-orange-50 border-l-4 border-orange-400 p-3 rounded-r">
+                  <h4 className="font-semibold text-orange-800 mb-2 flex items-center gap-2">
+                    <span>🔧</span>
+                    Kategorie-spezifische Details ({category})
+                  </h4>
+                  <ul className="space-y-1">
+                    {detailItems.map((item, itemIndex) => {
+                      const itemText = item.replace('•', '').trim();
+                      
+                      // Übersetze den Feldnamen
+                      const colonIndex = itemText.indexOf(':');
+                      if (colonIndex !== -1) {
+                        const fieldName = itemText.substring(0, colonIndex).trim();
+                        const fieldValue = itemText.substring(colonIndex + 1).trim();
+                        const translatedFieldName = translateFieldName(fieldName);
+                        
+                        return (
+                          <li key={itemIndex} className="text-orange-700 flex items-start gap-2">
+                            <span className="text-orange-500 mt-1">•</span>
+                            <span><strong>{translatedFieldName}:</strong> {fieldValue}</span>
+                          </li>
+                        );
+                      }
+                      
+                      return (
+                        <li key={itemIndex} className="text-orange-700 flex items-start gap-2">
+                          <span className="text-orange-500 mt-1">•</span>
+                          <span>{itemText}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            }
+          }
+          
+          if (section.includes('⚙️ **Technische Spezifikationen:**')) {
+            const content = section.replace('⚙️ **Technische Spezifikationen:**', '').trim();
+            return (
+              <div key={index} className="bg-purple-50 border-l-4 border-purple-400 p-3 rounded-r">
+                <h4 className="font-semibold text-purple-800 mb-2 flex items-center gap-2">
+                  <span>⚙️</span>
+                  Technische Spezifikationen
+                </h4>
+                <p className="text-purple-700">{content}</p>
+              </div>
+            );
+          }
+          
+          if (section.includes('🎯 **Qualitätsanforderungen:**')) {
+            const content = section.replace('🎯 **Qualitätsanforderungen:**', '').trim();
+            return (
+              <div key={index} className="bg-green-50 border-l-4 border-green-400 p-3 rounded-r">
+                <h4 className="font-semibold text-green-800 mb-2 flex items-center gap-2">
+                  <span>🎯</span>
+                  Qualitätsanforderungen
+                </h4>
+                <p className="text-green-700">{content}</p>
+              </div>
+            );
+          }
+          
+          if (section.includes('🛡️ **Sicherheitsanforderungen:**')) {
+            const content = section.replace('🛡️ **Sicherheitsanforderungen:**', '').trim();
+            return (
+              <div key={index} className="bg-red-50 border-l-4 border-red-400 p-3 rounded-r">
+                <h4 className="font-semibold text-red-800 mb-2 flex items-center gap-2">
+                  <span>🛡️</span>
+                  Sicherheitsanforderungen
+                </h4>
+                <p className="text-red-700">{content}</p>
+              </div>
+            );
+          }
+          
+          if (section.includes('🌱 **Umweltanforderungen:**')) {
+            const content = section.replace('🌱 **Umweltanforderungen:**', '').trim();
+            return (
+              <div key={index} className="bg-emerald-50 border-l-4 border-emerald-400 p-3 rounded-r">
+                <h4 className="font-semibold text-emerald-800 mb-2 flex items-center gap-2">
+                  <span>🌱</span>
+                  Umweltanforderungen
+                </h4>
+                <p className="text-emerald-700">{content}</p>
+              </div>
+            );
+          }
+          
+          if (section.includes('📝 **Notizen:**')) {
+            const content = section.replace('📝 **Notizen:**', '').trim();
+            return (
+              <div key={index} className="bg-gray-50 border-l-4 border-gray-400 p-3 rounded-r">
+                <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                  <span>📝</span>
+                  Notizen
+                </h4>
+                <p className="text-gray-700">{content}</p>
+              </div>
+            );
+          }
+          
+          // Fallback für unbekannte Abschnitte
+          return (
+            <div key={index} className="bg-gray-50 border-l-4 border-gray-300 p-3 rounded-r">
+              <p className="text-gray-700">{section}</p>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const handleCreateQuote = () => {
     if (trade) {
       setShowCostEstimateForm(true);
@@ -203,9 +795,9 @@ export default function TradeDetailsModal({
                 {/* Beschreibung */}
                 <div className="bg-gray-50 rounded-xl p-4">
                   <h3 className="font-semibold text-gray-800 mb-2">Beschreibung</h3>
-                  <p className="text-gray-600">
-                    {trade.description || 'Keine Beschreibung verfügbar.'}
-                  </p>
+                  <div className="text-gray-600">
+                    {formatDescription(trade.description)}
+                  </div>
                 </div>
 
                 {/* Projekt-Details */}
