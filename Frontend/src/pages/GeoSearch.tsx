@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Search, Filter, Map, List, Eye, EyeOff, Target, Navigation, Globe, User, Users, Trophy, Clock, AlertTriangle, CheckCircle, XCircle, Sparkles, MessageCircle, Award, TrendingUp, Star, Wrench, Tag, Euro } from 'lucide-react';
+import { MapPin, Search, Filter, Map, List, Eye, EyeOff, Target, Navigation, Globe, User, Users, Trophy, Clock, AlertTriangle, CheckCircle, XCircle, Sparkles, MessageCircle, Award, TrendingUp, Star, Wrench, Tag, Euro, Package } from 'lucide-react';
 import { 
   searchTradesInRadius, 
   getCurrentLocation, 
@@ -12,6 +12,7 @@ import type {
 } from '../api/geoService';
 import TradeMap from '../components/TradeMap';
 import TradeDetailsModal from '../components/TradeDetailsModal';
+import MilestoneCompletionModal from '../components/MilestoneCompletionModal';
 
 interface ProjectWithTrades extends ProjectSearchResult {
   trades: TradeSearchResult[];
@@ -28,6 +29,8 @@ export default function GeoSearch() {
   const [showAcceptedTrades, setShowAcceptedTrades] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [selectedTrade, setSelectedTrade] = useState<TradeSearchResult | null>(null);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [completionTrade, setCompletionTrade] = useState<TradeSearchResult | null>(null);
   const [filters, setFilters] = useState({
     category: '',
     status: '',
@@ -179,6 +182,35 @@ export default function GeoSearch() {
 
   const handleTradeClick = (trade: TradeSearchResult) => {
     setSelectedTrade(trade);
+  };
+
+  const handleCompleteTrade = (trade: TradeSearchResult) => {
+    setCompletionTrade(trade);
+    setShowCompletionModal(true);
+  };
+
+  const handleCompletionSubmit = async (completionData: any) => {
+    try {
+      const response = await fetch('/api/milestones/completion/request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(completionData)
+      });
+
+      if (response.ok) {
+        console.log('✅ Abschluss-Antrag erfolgreich eingereicht');
+        // Refresh trades to show updated status
+        if (currentLocation) {
+          await performSearch();
+        }
+      } else {
+        console.error('❌ Fehler beim Einreichen des Abschluss-Antrags');
+      }
+    } catch (error) {
+      console.error('❌ Netzwerk-Fehler:', error);
+    }
   };
 
   const closeTradeDetails = () => {
@@ -643,12 +675,32 @@ export default function GeoSearch() {
                       )}
                     </div>
 
-                    {/* Action Button */}
-                    <div className="mt-4 pt-3 border-t border-white/10">
-                      <button className="w-full bg-[#ffbd59] text-[#2c3539] px-3 py-2 rounded-lg text-sm font-medium hover:bg-[#ffa726] transition-colors flex items-center justify-center gap-2">
+                    {/* Action Buttons */}
+                    <div className="mt-4 pt-3 border-t border-white/10 space-y-2">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTradeClick(trade);
+                        }}
+                        className="w-full bg-[#ffbd59] text-[#2c3539] px-3 py-2 rounded-lg text-sm font-medium hover:bg-[#ffa726] transition-colors flex items-center justify-center gap-2"
+                      >
                         <Eye size={14} />
                         Details anzeigen
                       </button>
+                      
+                      {/* Gewerk abschließen Button - nur für angenommene Gewerke */}
+                      {trade.status === 'in_progress' && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCompleteTrade(trade);
+                          }}
+                          className="w-full bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Package size={14} />
+                          Gewerk abschließen
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -688,6 +740,19 @@ export default function GeoSearch() {
             name: selectedTrade.project_name || 'Unbekanntes Projekt',
             description: ''
           }}
+        />
+      )}
+
+      {/* Milestone Completion Modal */}
+      {completionTrade && (
+        <MilestoneCompletionModal
+          isOpen={showCompletionModal}
+          onClose={() => {
+            setShowCompletionModal(false);
+            setCompletionTrade(null);
+          }}
+          milestone={completionTrade}
+          onSubmit={handleCompletionSubmit}
         />
       )}
     </div>
