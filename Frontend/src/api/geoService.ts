@@ -93,6 +93,14 @@ export interface TradeSearchResult {
   address_longitude: number;
   distance_km: number;
   created_at?: string;
+  // Dokumente
+  documents?: Array<{
+    id: string;
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+  }>;
   // Badge-System Daten
   quote_stats: {
     total_quotes: number;

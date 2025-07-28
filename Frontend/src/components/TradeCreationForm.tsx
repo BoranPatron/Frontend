@@ -3,8 +3,6 @@ import {
   Upload, 
   FileText, 
   X, 
-  Plus, 
-  Trash2, 
   Save,
   AlertTriangle,
   CheckCircle,
@@ -28,87 +26,6 @@ interface TradeCreationFormProps {
   projectId: number;
 }
 
-interface CategoryField {
-  id: string;
-  label: string;
-  type: 'text' | 'number' | 'select' | 'boolean' | 'textarea';
-  required?: boolean;
-  options?: string[];
-  placeholder?: string;
-  unit?: string;
-}
-
-const CATEGORY_FIELDS: Record<string, CategoryField[]> = {
-  'elektro': [
-    { id: 'electrical_voltage', label: 'Spannung', type: 'select', options: ['230V', '400V', '230V/400V'], required: true },
-    { id: 'electrical_power', label: 'Leistung (kW)', type: 'number', required: true, unit: 'kW' },
-    { id: 'electrical_circuits', label: 'Anzahl Stromkreise', type: 'number', required: true },
-    { id: 'electrical_switches', label: 'Anzahl Schalter', type: 'number', required: true },
-    { id: 'electrical_outlets', label: 'Anzahl Steckdosen', type: 'number', required: true },
-    { id: 'electrical_lighting_points', label: 'Anzahl Leuchten', type: 'number', required: true }
-  ],
-  'sanitaer': [
-    { id: 'plumbing_fixtures', label: 'Anzahl Sanitärobjekte', type: 'number', required: true },
-    { id: 'plumbing_pipes_length', label: 'Rohrleitungslänge (m)', type: 'number', required: true, unit: 'm' },
-    { id: 'plumbing_water_heater', label: 'Warmwasserbereiter', type: 'boolean', required: false },
-    { id: 'plumbing_sewage_system', label: 'Abwassersystem', type: 'boolean', required: false },
-    { id: 'plumbing_water_supply', label: 'Wasserversorgung', type: 'boolean', required: false }
-  ],
-  'heizung': [
-    { id: 'heating_system_type', label: 'Heizungssystem', type: 'select', options: ['Gas', 'Öl', 'Wärmepumpe', 'Pellet', 'Fernwärme'], required: true },
-    { id: 'heating_power', label: 'Heizleistung (kW)', type: 'number', required: true, unit: 'kW' },
-    { id: 'heating_radiators', label: 'Anzahl Heizkörper', type: 'number', required: true },
-    { id: 'heating_thermostats', label: 'Anzahl Thermostate', type: 'number', required: true },
-    { id: 'heating_boiler', label: 'Kessel vorhanden', type: 'boolean', required: false }
-  ],
-  'dach': [
-    { id: 'roof_material', label: 'Dachmaterial', type: 'select', options: ['Ziegel', 'Beton', 'Metall', 'Schiefer', 'Holz'], required: true },
-    { id: 'roof_area', label: 'Dachfläche (m²)', type: 'number', required: true, unit: 'm²' },
-    { id: 'roof_pitch', label: 'Dachneigung (°)', type: 'number', required: true, unit: '°' },
-    { id: 'roof_insulation', label: 'Dämmung', type: 'boolean', required: false },
-    { id: 'roof_gutters', label: 'Regenrinne', type: 'boolean', required: false },
-    { id: 'roof_skylights', label: 'Anzahl Dachfenster', type: 'number', required: false }
-  ],
-  'fenster_tueren': [
-    { id: 'windows_count', label: 'Anzahl Fenster', type: 'number', required: true },
-    { id: 'windows_type', label: 'Fenstertyp', type: 'select', options: ['Holz', 'Kunststoff', 'Aluminium', 'Holz-Alu'], required: true },
-    { id: 'windows_glazing', label: 'Verglasung', type: 'select', options: ['Einfach', 'Doppel', 'Dreifach', 'Wärmeschutz'], required: true },
-    { id: 'doors_count', label: 'Anzahl Türen', type: 'number', required: true },
-    { id: 'doors_type', label: 'Türtyp', type: 'select', options: ['Holz', 'Kunststoff', 'Metall', 'Glas'], required: true },
-    { id: 'doors_material', label: 'Türmaterial', type: 'select', options: ['Massivholz', 'Furnier', 'Lackiert', 'Glas'], required: true }
-  ],
-  'boden': [
-    { id: 'floor_material', label: 'Bodenbelag', type: 'select', options: ['Parkett', 'Laminat', 'Fliesen', 'Teppich', 'Beton'], required: true },
-    { id: 'floor_area', label: 'Bodenfläche (m²)', type: 'number', required: true, unit: 'm²' },
-    { id: 'floor_subfloor', label: 'Untergrund', type: 'select', options: ['Estrich', 'Holz', 'Beton', 'Zement'], required: true },
-    { id: 'floor_insulation', label: 'Dämmung', type: 'boolean', required: false }
-  ],
-  'wand': [
-    { id: 'wall_material', label: 'Wandmaterial', type: 'select', options: ['Ziegel', 'Beton', 'Holz', 'Gipskarton', 'Leichtbau'], required: true },
-    { id: 'wall_area', label: 'Wandfläche (m²)', type: 'number', required: true, unit: 'm²' },
-    { id: 'wall_insulation', label: 'Dämmung', type: 'boolean', required: false },
-    { id: 'wall_paint', label: 'Anstrich', type: 'boolean', required: false }
-  ],
-  'fundament': [
-    { id: 'foundation_type', label: 'Fundamenttyp', type: 'select', options: ['Streifenfundament', 'Plattenfundament', 'Punktfundament', 'Keller'], required: true },
-    { id: 'foundation_depth', label: 'Fundamenttiefe (m)', type: 'number', required: true, unit: 'm' },
-    { id: 'foundation_soil_type', label: 'Bodentyp', type: 'select', options: ['Lehm', 'Sand', 'Ton', 'Fels', 'Gemisch'], required: true },
-    { id: 'foundation_waterproofing', label: 'Abdichtung', type: 'boolean', required: false }
-  ],
-  'garten': [
-    { id: 'garden_area', label: 'Gartenfläche (m²)', type: 'number', required: true, unit: 'm²' },
-    { id: 'garden_irrigation', label: 'Bewässerung', type: 'boolean', required: false },
-    { id: 'garden_lighting', label: 'Beleuchtung', type: 'boolean', required: false },
-    { id: 'garden_paths', label: 'Wege', type: 'boolean', required: false },
-    { id: 'garden_plants', label: 'Bepflanzung', type: 'boolean', required: false }
-  ],
-  'eigene': [
-    { id: 'custom_field_1', label: 'Eigenes Feld 1', type: 'text', required: false },
-    { id: 'custom_field_2', label: 'Eigenes Feld 2', type: 'text', required: false },
-    { id: 'custom_field_3', label: 'Eigenes Feld 3', type: 'text', required: false }
-  ]
-};
-
 export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId }: TradeCreationFormProps) {
   const [formData, setFormData] = useState({
     title: '',
@@ -119,12 +36,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
     notes: '',
     requires_inspection: false
   });
-  const [categoryFields, setCategoryFields] = useState<Record<string, any>>({});
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [technicalSpecs, setTechnicalSpecs] = useState('');
-  const [qualityRequirements, setQualityRequirements] = useState('');
-  const [safetyRequirements, setSafetyRequirements] = useState('');
-  const [environmentalRequirements, setEnvironmentalRequirements] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDetailsDropdown, setShowDetailsDropdown] = useState(false);
@@ -174,29 +86,16 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
     }
   };
 
-  const handleCategoryFieldChange = (fieldId: string, value: any) => {
-    setCategoryFields(prev => ({
-      ...prev,
-      [fieldId]: value
-    }));
-  };
-
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const validFiles = files.filter(file => {
       const maxSize = 10 * 1024 * 1024; // 10MB
       const allowedTypes = [
         'application/pdf',
-        'image/jpeg',
-        'image/jpg',
-        'image/png',
-        'image/gif',
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/zip',
-        'application/x-rar-compressed'
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
       ];
       
       if (file.size > maxSize) {
@@ -205,7 +104,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
       }
       
       if (!allowedTypes.includes(file.type)) {
-        alert(`Dateityp ${file.type} wird nicht unterstützt.`);
+        alert(`Dateityp ${file.type} wird nicht unterstützt. Nur PDF, Word und PowerPoint-Dateien sind erlaubt.`);
         return false;
       }
       
@@ -227,15 +126,6 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
     if (!formData.category) newErrors.category = 'Kategorie ist erforderlich';
     if (!formData.planned_date) newErrors.planned_date = 'Geplantes Datum ist erforderlich';
     
-    // Kategorie-spezifische Validierung
-    if (formData.category && CATEGORY_FIELDS[formData.category]) {
-      CATEGORY_FIELDS[formData.category].forEach(field => {
-        if (field.required && !categoryFields[field.id]) {
-          newErrors[field.id] = `${field.label} ist erforderlich`;
-        }
-      });
-    }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -250,19 +140,32 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
     setIsSubmitting(true);
     
     try {
-      const tradeData = {
-        ...formData,
+      // Verwende den Milestone-Service mit Dokumenten
+      const { createMilestoneWithDocuments } = await import('../api/milestoneService');
+      
+      const milestoneData = {
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        priority: formData.priority,
+        planned_date: formData.planned_date,
+        notes: formData.notes,
         project_id: projectId,
-        category_specific_fields: categoryFields,
-        documents: uploadedFiles,
-        technical_specifications: technicalSpecs,
-        quality_requirements: qualityRequirements,
-        safety_requirements: safetyRequirements,
-        environmental_requirements: environmentalRequirements
+        status: 'cost_estimate', // Standard-Status für neue Gewerke
+        is_critical: false, // Standard-Wert
+        notify_on_completion: false,
+        requires_inspection: formData.requires_inspection,
+        documents: uploadedFiles
       };
       
-      await onSubmit(tradeData);
+      const result = await createMilestoneWithDocuments(milestoneData);
+      console.log('✅ Gewerk mit Dokumenten erstellt:', result);
+      
+      // Schließe das Modal und rufe onSubmit auf
+      await onSubmit(result);
+      handleClose();
     } catch (error) {
+      console.error('❌ Fehler beim Erstellen des Gewerks:', error);
       setErrors(prev => ({
         ...prev,
         submit: 'Fehler beim Erstellen des Gewerks'
@@ -282,87 +185,17 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
       notes: '',
       requires_inspection: false
     });
-    setCategoryFields({});
     setUploadedFiles([]);
-    setTechnicalSpecs('');
-    setQualityRequirements('');
-    setSafetyRequirements('');
-    setEnvironmentalRequirements('');
     setErrors({});
     setShowDetailsDropdown(false);
     onClose();
-  };
-
-  const renderCategoryField = (field: CategoryField) => {
-    const value = categoryFields[field.id] || '';
-    
-    switch (field.type) {
-      case 'text':
-      case 'number':
-        return (
-          <input
-            type={field.type}
-            value={value}
-            onChange={(e) => handleCategoryFieldChange(field.id, e.target.value)}
-            placeholder={field.placeholder}
-            className={`w-full px-3 py-2 bg-[#2c3539] border rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent text-white placeholder-gray-400 ${
-              errors[field.id] ? 'border-red-500' : 'border-[#ffbd59]/30'
-            }`}
-          />
-        );
-      
-      case 'select':
-        return (
-          <select
-            value={value}
-            onChange={(e) => handleCategoryFieldChange(field.id, e.target.value)}
-            className={`w-full px-3 py-2 bg-[#2c3539] border rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent text-white ${
-              errors[field.id] ? 'border-red-500' : 'border-[#ffbd59]/30'
-            }`}
-          >
-            <option value="">Bitte wählen...</option>
-            {field.options?.map(option => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-        );
-      
-      case 'boolean':
-        return (
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              checked={value}
-              onChange={(e) => handleCategoryFieldChange(field.id, e.target.checked)}
-              className="w-4 h-4 text-[#ffbd59] border-gray-300 rounded focus:ring-[#ffbd59]"
-            />
-            <span className="ml-2 text-sm text-gray-300">Ja</span>
-          </div>
-        );
-      
-      case 'textarea':
-        return (
-          <textarea
-            value={value}
-            onChange={(e) => handleCategoryFieldChange(field.id, e.target.value)}
-            placeholder={field.placeholder}
-            rows={3}
-            className={`w-full px-3 py-2 bg-[#2c3539] border rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent text-white placeholder-gray-400 ${
-              errors[field.id] ? 'border-red-500' : 'border-[#ffbd59]/30'
-            }`}
-          />
-        );
-      
-      default:
-        return null;
-    }
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto border border-[#ffbd59]/20">
+      <div className="bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-[#ffbd59]/20">
         <div className="p-6 border-b border-[#ffbd59]/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -512,6 +345,22 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
 
             <div>
               <label className="block text-sm font-medium text-white mb-2">
+                Geplantes Datum *
+              </label>
+              <input
+                type="date"
+                name="planned_date"
+                value={formData.planned_date}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 bg-[#2c3539] border rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent text-white ${
+                  errors.planned_date ? 'border-red-500' : 'border-[#ffbd59]/30'
+                }`}
+              />
+              {errors.planned_date && <p className="text-red-400 text-sm mt-1">{errors.planned_date}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">
                 Priorität
               </label>
               <select
@@ -525,22 +374,6 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                 <option value="high">Hoch</option>
                 <option value="critical">Kritisch</option>
               </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">
-                Geplantes Datum *
-              </label>
-              <input
-                type="date"
-                name="planned_date"
-                value={formData.planned_date}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 bg-[#2c3539] border rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent text-white ${
-                  errors.planned_date ? 'border-red-500' : 'border-[#ffbd59]/30'
-                }`}
-              />
-              {errors.planned_date && <p className="text-red-400 text-sm mt-1">{errors.planned_date}</p>}
             </div>
           </div>
 
@@ -593,7 +426,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
               name="description"
               value={formData.description}
               onChange={handleInputChange}
-              rows={3}
+              rows={4}
               className={`w-full px-3 py-2 bg-[#2c3539] border rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent text-white placeholder-gray-400 ${
                 errors.description ? 'border-red-500' : 'border-[#ffbd59]/30'
               }`}
@@ -602,44 +435,28 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
             {errors.description && <p className="text-red-400 text-sm mt-1">{errors.description}</p>}
           </div>
 
-          {/* Kategorie-spezifische Felder */}
-          {formData.category && CATEGORY_FIELDS[formData.category] && (
-            <div className="border-t border-[#ffbd59]/20 pt-6">
-              <h3 className="text-lg font-semibold text-white mb-4">
-                Spezifische Felder für {formData.category}
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {CATEGORY_FIELDS[formData.category].map(field => (
-                  <div key={field.id}>
-                    <label className="block text-sm font-medium text-white mb-2">
-                      {field.label} {field.required && '*'}
-                    </label>
-                    {renderCategoryField(field)}
-                    {errors[field.id] && <p className="text-red-400 text-sm mt-1">{errors[field.id]}</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Datei-Upload */}
+          {/* Dokumente und Dateien */}
           <div className="border-t border-[#ffbd59]/20 pt-6">
             <h3 className="text-lg font-semibold text-white mb-4">
               Dokumente und Dateien
             </h3>
+            <p className="text-sm text-gray-300 mb-4">
+              Laden Sie Leistungsverzeichnisse und Bauinformationen in PDF, Word oder PowerPoint-Format hoch. 
+              Diese werden Dienstleistern in einer Inline-Ansicht zur Verfügung gestellt.
+            </p>
             <div className="border-2 border-dashed border-[#ffbd59]/30 rounded-lg p-6 text-center bg-[#2c3539]/50">
               <Upload className="mx-auto h-12 w-12 text-[#ffbd59] mb-4" />
               <div className="text-sm text-gray-300 mb-4">
                 <p>Ziehen Sie Dateien hierher oder klicken Sie zum Auswählen</p>
                 <p className="text-xs text-gray-400 mt-1">
-                  Unterstützte Formate: PDF, Bilder, Office-Dokumente, ZIP (max. 10MB)
+                  Unterstützte Formate: PDF, Word, PowerPoint (max. 10MB pro Datei)
                 </p>
               </div>
               <input
                 type="file"
                 multiple
                 onChange={handleFileUpload}
-                accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx,.zip,.rar"
+                accept=".pdf,.doc,.docx,.ppt,.pptx"
                 className="hidden"
                 id="file-upload"
               />
@@ -669,77 +486,13 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                         onClick={() => removeFile(index)}
                         className="p-1 hover:bg-red-500/20 rounded"
                       >
-                        <Trash2 className="h-4 w-4 text-red-400" />
+                        <X className="h-4 w-4 text-red-400" />
                       </button>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            
-            {errors.files && <p className="text-red-400 text-sm mt-1">{errors.files}</p>}
-          </div>
-
-          {/* Technische Spezifikationen */}
-          <div className="border-t border-[#ffbd59]/20 pt-6">
-            <h3 className="text-lg font-semibold text-white mb-4">
-              Technische Spezifikationen
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Technische Anforderungen
-                </label>
-                <textarea
-                  value={technicalSpecs}
-                  onChange={(e) => setTechnicalSpecs(e.target.value)}
-                  rows={4}
-                  className="w-full px-3 py-2 bg-[#2c3539] border border-[#ffbd59]/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent text-white placeholder-gray-400"
-                  placeholder="Detaillierte technische Anforderungen..."
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Qualitätsanforderungen
-                  </label>
-                  <textarea
-                    value={qualityRequirements}
-                    onChange={(e) => setQualityRequirements(e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 bg-[#2c3539] border border-[#ffbd59]/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent text-white placeholder-gray-400"
-                    placeholder="Qualitätsstandards..."
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Sicherheitsanforderungen
-                  </label>
-                  <textarea
-                    value={safetyRequirements}
-                    onChange={(e) => setSafetyRequirements(e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 bg-[#2c3539] border border-[#ffbd59]/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent text-white placeholder-gray-400"
-                    placeholder="Sicherheitsstandards..."
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Umweltanforderungen
-                  </label>
-                  <textarea
-                    value={environmentalRequirements}
-                    onChange={(e) => setEnvironmentalRequirements(e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 bg-[#2c3539] border border-[#ffbd59]/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent text-white placeholder-gray-400"
-                    placeholder="Umweltstandards..."
-                  />
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Notizen */}

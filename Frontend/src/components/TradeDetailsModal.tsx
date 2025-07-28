@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, MapPin, Calendar, Euro, Building, User, Clock, CheckCircle, AlertTriangle, Plus, Eye } from 'lucide-react';
+import { X, MapPin, Calendar, Euro, Building, User, Clock, CheckCircle, AlertTriangle, Plus, Eye, FileText, Download, ExternalLink } from 'lucide-react';
 import type { TradeSearchResult } from '../api/geoService';
 // import { getQuotesByTrade } from '../api/quoteService';
 import { useAuth } from '../context/AuthContext';
@@ -19,6 +19,187 @@ interface Quote {
   total_price: number;
   created_at: string;
   service_provider_name?: string;
+}
+
+interface DocumentViewerProps {
+  documents: Array<{
+    id: string;
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+  }>;
+}
+
+function DocumentViewer({ documents }: DocumentViewerProps) {
+  const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
+  const [viewerError, setViewerError] = useState<string | null>(null);
+
+  if (!documents || documents.length === 0) {
+    return (
+      <div className="bg-gray-50 rounded-xl p-4">
+        <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+          <FileText size={18} />
+          Dokumente
+        </h3>
+        <p className="text-gray-500 text-sm">Keine Dokumente verfügbar</p>
+      </div>
+    );
+  }
+
+  const getFileIcon = (type: string) => {
+    if (type.includes('pdf')) return '📄';
+    if (type.includes('word') || type.includes('document')) return '📝';
+    if (type.includes('presentation') || type.includes('powerpoint')) return '📊';
+    return '📁';
+  };
+
+  const canPreview = (type: string) => {
+    return type.includes('pdf') || 
+           type.includes('word') || 
+           type.includes('document') ||
+           type.includes('presentation') || 
+           type.includes('powerpoint');
+  };
+
+  const getViewerUrl = (url: string, type: string) => {
+    // Für PDF-Dateien direkte Einbettung
+    if (type.includes('pdf')) {
+      return url;
+    }
+    
+    // Für Office-Dokumente verwenden wir Office Online Viewer
+    if (type.includes('word') || type.includes('document') || 
+        type.includes('presentation') || type.includes('powerpoint')) {
+      // Stelle sicher, dass die URL vollständig ist
+      const fullUrl = url.startsWith('http') ? url : `${window.location.origin}${url}`;
+      return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fullUrl)}`;
+    }
+    
+    return url;
+  };
+
+  return (
+    <div className="bg-gray-50 rounded-xl p-4">
+      <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+        <FileText size={18} />
+        Dokumente ({documents.length})
+      </h3>
+      
+      <div className="space-y-3">
+        {documents.map((doc) => (
+          <div key={doc.id} className="bg-white rounded-lg border border-gray-200 p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{getFileIcon(doc.type)}</span>
+                <div>
+                  <p className="font-medium text-gray-800">{doc.name}</p>
+                  <p className="text-sm text-gray-500">
+                    {(doc.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {canPreview(doc.type) && (
+                  <button
+                    onClick={() => {
+                      setSelectedDoc(selectedDoc === doc.id ? null : doc.id);
+                      setViewerError(null);
+                    }}
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="Dokument anzeigen"
+                  >
+                    <Eye size={16} />
+                  </button>
+                )}
+                <a
+                  href={doc.url}
+                  download={doc.name}
+                  className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                  title="Dokument herunterladen"
+                >
+                  <Download size={16} />
+                </a>
+                <a
+                  href={doc.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                  title="In neuem Tab öffnen"
+                >
+                  <ExternalLink size={16} />
+                </a>
+              </div>
+            </div>
+            
+            {/* Inline Viewer */}
+            {selectedDoc === doc.id && (
+              <div className="mt-4 border-t border-gray-200 pt-4">
+                <div className="bg-gray-100 rounded-lg overflow-hidden">
+                  {viewerError ? (
+                    <div className="p-8 text-center">
+                      <AlertTriangle className="mx-auto h-12 w-12 text-red-500 mb-4" />
+                      <p className="text-red-600 font-medium">Dokument kann nicht angezeigt werden</p>
+                      <p className="text-sm text-gray-500 mt-2">{viewerError}</p>
+                      <div className="mt-4 space-x-2">
+                        <a
+                          href={doc.url}
+                          download={doc.name}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          <Download size={16} />
+                          Herunterladen
+                        </a>
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          <ExternalLink size={16} />
+                          Extern öffnen
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <div className="flex items-center justify-between bg-gray-200 px-4 py-2 text-sm">
+                        <span className="font-medium text-gray-700">{doc.name}</span>
+                        <button
+                          onClick={() => setSelectedDoc(null)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                                             <div style={{ height: '500px' }} className="relative">
+                         <iframe
+                           src={getViewerUrl(doc.url, doc.type)}
+                           width="100%"
+                           height="100%"
+                           frameBorder="0"
+                           onError={() => setViewerError('Das Dokument konnte nicht geladen werden.')}
+                           onLoad={() => console.log(`Dokument ${doc.name} erfolgreich geladen`)}
+                           className="border-0"
+                           title={`Viewer für ${doc.name}`}
+                           sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                         />
+                         {/* Loading Indicator */}
+                         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 opacity-50 pointer-events-none">
+                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                         </div>
+                       </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function TradeDetailsModal({ 
@@ -586,31 +767,155 @@ export default function TradeDetailsModal({
       .join(' ');
   };
 
-  // Funktion zur Formatierung der aggregierten Beschreibung
-  const formatDescription = (description: string | null) => {
-    if (!description) {
-      return <p className="text-gray-500 italic">Keine Beschreibung verfügbar.</p>;
-    }
+     // Funktion zur Formatierung der Beschreibung - vereinfacht da keine Merge-Funktion mehr verwendet wird
+   const formatDescription = (description: string | null) => {
+     if (!description) {
+       return <p className="text-gray-500 italic">Keine Beschreibung verfügbar.</p>;
+     }
 
-    // Teile die Beschreibung in Abschnitte auf
-    const sections = description.split('\n').filter(line => line.trim());
-    
-    return (
-      <div className="space-y-4">
-        {sections.map((section, index) => {
-          // Erkenne verschiedene Abschnittstypen
-          if (section.includes('📋 **Beschreibung:**')) {
-            const content = section.replace('📋 **Beschreibung:**', '').trim();
-            return (
-              <div key={index} className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded-r">
-                <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
-                  <span>📋</span>
-                  Beschreibung
-                </h4>
-                <p className="text-blue-700">{content}</p>
-              </div>
-            );
-          }
+     // Einfache Darstellung der Beschreibung ohne komplexe Abschnitte
+     return (
+       <div className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded-r">
+         <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+           <span>📋</span>
+           Beschreibung
+         </h4>
+         <div className="text-blue-700 whitespace-pre-wrap">{description}</div>
+       </div>
+     );
+   };
+
+   // Funktion zur Anzeige zusätzlicher Bauträger-Informationen
+   const renderTradeDetails = (trade: TradeSearchResult) => {
+     return (
+       <div className="space-y-4">
+         {/* Grundinformationen */}
+         <div className="bg-gray-50 rounded-xl p-4">
+           <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+             <Building size={18} />
+             Gewerk-Details
+           </h3>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <div>
+               <span className="text-sm font-medium text-gray-500">Kategorie</span>
+               <p className="text-gray-800">{trade.category || 'Nicht angegeben'}</p>
+             </div>
+             <div>
+               <span className="text-sm font-medium text-gray-500">Priorität</span>
+               <p className="text-gray-800">{trade.priority || 'Nicht angegeben'}</p>
+             </div>
+             <div>
+               <span className="text-sm font-medium text-gray-500">Status</span>
+               <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(trade.status)}`}>
+                 {getStatusLabel(trade.status)}
+               </span>
+             </div>
+             <div>
+               <span className="text-sm font-medium text-gray-500">Fortschritt</span>
+               <p className="text-gray-800">{trade.progress_percentage || 0}%</p>
+             </div>
+             {trade.contractor && (
+               <div>
+                 <span className="text-sm font-medium text-gray-500">Auftragnehmer</span>
+                 <p className="text-gray-800">{trade.contractor}</p>
+               </div>
+             )}
+             {trade.requires_inspection && (
+               <div className="md:col-span-2">
+                 <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                   <CheckCircle className="h-5 w-5 text-yellow-600" />
+                   <span className="text-yellow-800 font-medium">Vor-Ort-Besichtigung erforderlich</span>
+                 </div>
+               </div>
+             )}
+           </div>
+         </div>
+
+         {/* Beschreibung */}
+         <div className="bg-gray-50 rounded-xl p-4">
+           <h3 className="font-semibold text-gray-800 mb-2">Beschreibung</h3>
+           <div className="text-gray-600">
+             {formatDescription(trade.description)}
+           </div>
+         </div>
+
+         {/* Dokumente */}
+         <DocumentViewer documents={trade.documents || []} />
+
+         {/* Notizen vom Bauträger */}
+         {/* Notizen werden normalerweise nicht direkt im TradeSearchResult übertragen, 
+             aber falls sie in der description enthalten sind, werden sie dort angezeigt */}
+
+         {/* Zeitplan-Details */}
+         <div className="bg-gray-50 rounded-xl p-4">
+           <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+             <Calendar size={18} />
+             Zeitplan-Details
+           </h3>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             {trade.planned_date && (
+               <div>
+                 <span className="text-sm font-medium text-gray-500">Geplantes Datum</span>
+                 <p className="text-gray-800">
+                   {new Date(trade.planned_date).toLocaleDateString('de-DE')}
+                 </p>
+               </div>
+             )}
+             {trade.start_date && (
+               <div>
+                 <span className="text-sm font-medium text-gray-500">Startdatum</span>
+                 <p className="text-gray-800">
+                   {new Date(trade.start_date).toLocaleDateString('de-DE')}
+                 </p>
+               </div>
+             )}
+             {trade.end_date && (
+               <div>
+                 <span className="text-sm font-medium text-gray-500">Enddatum</span>
+                 <p className="text-gray-800">
+                   {new Date(trade.end_date).toLocaleDateString('de-DE')}
+                 </p>
+               </div>
+             )}
+             {trade.created_at && (
+               <div>
+                 <span className="text-sm font-medium text-gray-500">Erstellt am</span>
+                 <p className="text-gray-800">
+                   {new Date(trade.created_at).toLocaleDateString('de-DE')}
+                 </p>
+               </div>
+             )}
+           </div>
+         </div>
+       </div>
+     );
+   };
+
+   // Alte formatDescription Logik für Fallback (wird nicht mehr benötigt, aber zur Sicherheit behalten)
+   const formatDescriptionOld = (description: string | null) => {
+     if (!description) {
+       return <p className="text-gray-500 italic">Keine Beschreibung verfügbar.</p>;
+     }
+
+     // Teile die Beschreibung in Abschnitte auf
+     const sections = description.split('\n').filter(line => line.trim());
+     
+     return (
+       <div className="space-y-4">
+         {sections.map((section, index) => {
+           // Erkenne verschiedene Abschnittstypen
+           if (section.includes('📋 **Beschreibung:**')) {
+             const content = section.replace('📋 **Beschreibung:**', '').trim();
+             return (
+               <div key={index} className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded-r">
+                 <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                   <span>📋</span>
+                   Beschreibung
+                 </h4>
+                 <p className="text-blue-700">{content}</p>
+               </div>
+             );
+           }
           
           if (section.includes('🔧 **Kategorie-spezifische Details')) {
             const categoryMatch = section.match(/\(([^)]+)\)/);
@@ -790,58 +1095,53 @@ export default function TradeDetailsModal({
           {/* Content */}
           <div className="p-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Hauptinformationen */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Beschreibung */}
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <h3 className="font-semibold text-gray-800 mb-2">Beschreibung</h3>
-                  <div className="text-gray-600">
-                    {formatDescription(trade.description)}
-                  </div>
-                </div>
+                             {/* Hauptinformationen */}
+               <div className="lg:col-span-2 space-y-6">
+                 {/* Alle Gewerk-Details vom Bauträger */}
+                 {renderTradeDetails(trade)}
 
-                {/* Projekt-Details */}
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                    <Building size={18} />
-                    Projekt-Informationen
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">Projektname</span>
-                      <p className="text-gray-800">{trade.project_name}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">Projekttyp</span>
-                      <p className="text-gray-800">{trade.project_type}</p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">Projekt-Status</span>
-                      <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(trade.project_status)}`}>
-                        {getStatusLabel(trade.project_status)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                 {/* Projekt-Details */}
+                 <div className="bg-gray-50 rounded-xl p-4">
+                   <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                     <Building size={18} />
+                     Projekt-Informationen
+                   </h3>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div>
+                       <span className="text-sm font-medium text-gray-500">Projektname</span>
+                       <p className="text-gray-800">{trade.project_name}</p>
+                     </div>
+                     <div>
+                       <span className="text-sm font-medium text-gray-500">Projekttyp</span>
+                       <p className="text-gray-800">{trade.project_type}</p>
+                     </div>
+                     <div>
+                       <span className="text-sm font-medium text-gray-500">Projekt-Status</span>
+                       <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(trade.project_status)}`}>
+                         {getStatusLabel(trade.project_status)}
+                       </span>
+                     </div>
+                   </div>
+                 </div>
 
-                {/* Standort */}
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                    <MapPin size={18} />
-                    Standort
-                  </h3>
-                  <div className="space-y-2">
-                    <p className="text-gray-800">
-                      {trade.address_street}
-                    </p>
-                    <p className="text-gray-600">
-                      {trade.address_zip} {trade.address_city}
-                    </p>
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <span>📍 Entfernung: {trade.distance_km ? trade.distance_km.toFixed(1) : 'N/A'} km</span>
-                    </div>
-                  </div>
-                </div>
+                 {/* Standort */}
+                 <div className="bg-gray-50 rounded-xl p-4">
+                   <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                     <MapPin size={18} />
+                     Standort
+                   </h3>
+                   <div className="space-y-2">
+                     <p className="text-gray-800">
+                       {trade.address_street}
+                     </p>
+                     <p className="text-gray-600">
+                       {trade.address_zip} {trade.address_city}
+                     </p>
+                     <div className="flex items-center gap-2 text-sm text-gray-500">
+                       <span>📍 Entfernung: {trade.distance_km ? trade.distance_km.toFixed(1) : 'N/A'} km</span>
+                     </div>
+                   </div>
+                 </div>
 
                 {/* Existierende Angebote */}
                 {existingQuotes.length > 0 && (

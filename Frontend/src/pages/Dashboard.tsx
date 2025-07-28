@@ -996,38 +996,29 @@ export default function Dashboard() {
       {/* Projekt-Erstellungs-Modal */}
       {showCreateProjectModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Neues Projekt erstellen</h2>
+          <div className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] text-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header mit Gradient */}
+            <div className="bg-gradient-to-r from-[#3d4952]/95 to-[#51646f]/95 backdrop-blur-lg text-white px-6 py-4 rounded-t-2xl border-b border-[#ffbd59]/20">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-[#ffbd59] bg-clip-text text-transparent">
+                  Neues Projekt erstellen
+                </h2>
                 <button
                   onClick={handleCloseCreateProjectModal}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10"
                 >
                   <X size={24} />
                 </button>
               </div>
+            </div>
+            
+            <div className="p-6">
 
               <form onSubmit={handleCreateProject} className="space-y-6">
-                {/* Debug-Info */}
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs">
-                  <p><strong>Debug:</strong> Projekttyp = "{projectForm.project_type}"</p>
-                  <p><strong>Debug:</strong> Land = "{projectForm.address_country}"</p>
-                  <p><strong>Debug:</strong> Bedingung erfüllt = {projectForm.project_type === 'new_build' ? 'JA' : 'NEIN'}</p>
-                  <p><strong>Debug:</strong> Verfügbare Phasen = {getConstructionPhases(projectForm.address_country).length}</p>
-                  <p><strong>Debug:</strong> Bauphasen-Auswahl sichtbar = {projectForm.project_type === 'new_build' ? 'JA' : 'NEIN'}</p>
-                  <p><strong>Debug:</strong> Phasen-Array = {JSON.stringify(getConstructionPhases(projectForm.address_country).map(p => p.label))}</p>
-                  <p><strong>Debug:</strong> Projekttyp-Typ = {typeof projectForm.project_type}</p>
-                  <p><strong>Debug:</strong> Vergleich: "{projectForm.project_type}" === "new_build" = {projectForm.project_type === 'new_build'}</p>
-                  <p><strong>Debug:</strong> String-Vergleich: "{projectForm.project_type}" === "new_build" = {String(projectForm.project_type) === "new_build"}</p>
-                  <p><strong>Debug:</strong> Trim-Vergleich: "{projectForm.project_type.trim()}" === "new_build" = {projectForm.project_type.trim() === "new_build"}</p>
-                  <p><strong>Debug:</strong> Projekttyp-Länge = {projectForm.project_type.length}</p>
-                  <p><strong>Debug:</strong> Projekttyp-Char-Codes = {Array.from(projectForm.project_type).map(c => c.charCodeAt(0))}</p>
-                </div>
                 {/* Grundinformationen */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
                       Projektname *
                     </label>
                     <input
@@ -1036,13 +1027,13 @@ export default function Dashboard() {
                       value={projectForm.name}
                       onChange={handleProjectFormChange}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
                       placeholder="z.B. Einfamilienhaus München"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
                       Projekttyp *
                     </label>
                     <select
@@ -1050,7 +1041,7 @@ export default function Dashboard() {
                       value={projectForm.project_type}
                       onChange={handleProjectFormChange}
                       required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
                     >
                       <option value="new_build">Neubau</option>
                       <option value="renovation">Renovierung</option>
@@ -1060,72 +1051,17 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Bauphasen-Auswahl (immer sichtbar für Debug) */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    🏗️ Aktuelle Bauphase (optional)
-                  </label>
-                  <select
-                    name="construction_phase"
-                    value={projectForm.construction_phase}
-                    onChange={handleProjectFormChange}
-                    className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                  >
-                    <option value="">Keine Phase ausgewählt</option>
-                    {getConstructionPhases(projectForm.address_country).map((phase) => (
-                      <option key={phase.value} value={phase.value}>
-                        {phase.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-blue-600 mt-2">
-                    💡 Wählen Sie die aktuelle Bauphase für {projectForm.address_country}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Debug: Projekttyp = "{projectForm.project_type}", Land = "{projectForm.address_country}"
-                  </p>
-                </div>
-
-                {/* Alternative Bauphasen-Auswahl (immer sichtbar) */}
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    🔧 Alternative Bauphasen-Auswahl (immer sichtbar)
-                  </label>
-                  <p className="text-xs text-green-600 mb-2">
-                    Projekttyp: "{projectForm.project_type}" | Land: "{projectForm.address_country}"
-                  </p>
-                  <select
-                    name="construction_phase"
-                    value={projectForm.construction_phase}
-                    onChange={handleProjectFormChange}
-                    className="w-full px-3 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                  >
-                    <option value="">Keine Phase ausgewählt</option>
-                    {getConstructionPhases(projectForm.address_country).map((phase) => (
-                      <option key={phase.value} value={phase.value}>
-                        {phase.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-green-600 mt-2">
-                    ✅ Diese Auswahl sollte IMMER funktionieren
-                  </p>
-                </div>
-
-                {/* Dritte Bauphasen-Auswahl (nur für Neubau) */}
+                {/* Bauphasen-Auswahl (nur für Neubau) */}
                 {projectForm.project_type === 'new_build' && (
-                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      🏠 Bauphasen-Auswahl (nur für Neubau)
+                  <div className="bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 border border-[#ffbd59]/30 rounded-xl p-4">
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
+                      🏗️ Aktuelle Bauphase (optional)
                     </label>
-                    <p className="text-xs text-purple-600 mb-2">
-                      Diese Auswahl erscheint nur bei "Neubau"
-                    </p>
                     <select
                       name="construction_phase"
                       value={projectForm.construction_phase}
                       onChange={handleProjectFormChange}
-                      className="w-full px-3 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
                     >
                       <option value="">Keine Phase ausgewählt</option>
                       {getConstructionPhases(projectForm.address_country).map((phase) => (
@@ -1134,43 +1070,17 @@ export default function Dashboard() {
                         </option>
                       ))}
                     </select>
-                    <p className="text-xs text-purple-600 mt-2">
-                      🎯 Bedingung: projectForm.project_type === 'new_build'
+                    <p className="text-xs text-gray-300 mt-3">
+                      💡 Wählen Sie die aktuelle Bauphase für {projectForm.address_country}
                     </p>
                   </div>
                 )}
-
-                {/* Einfache Bauphasen-Auswahl (immer sichtbar) */}
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    🔥 EINFACHE Bauphasen-Auswahl (immer sichtbar)
-                  </label>
-                  <p className="text-xs text-red-600 mb-2">
-                    Diese Auswahl ist IMMER sichtbar - keine Bedingung!
-                  </p>
-                  <select
-                    name="construction_phase"
-                    value={projectForm.construction_phase}
-                    onChange={handleProjectFormChange}
-                    className="w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                  >
-                    <option value="">Keine Phase ausgewählt</option>
-                    {getConstructionPhases(projectForm.address_country).map((phase) => (
-                      <option key={phase.value} value={phase.value}>
-                        {phase.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-red-600 mt-2">
-                    ✅ Diese Auswahl sollte IMMER funktionieren - keine Bedingung!
-                  </p>
-                </div>
 
 
 
                 {/* Beschreibung */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-gray-200 mb-3">
                     Beschreibung
                   </label>
                   <textarea
@@ -1178,15 +1088,15 @@ export default function Dashboard() {
                     value={projectForm.description}
                     onChange={handleProjectFormChange}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
                     placeholder="Beschreiben Sie Ihr Projekt..."
                   />
                 </div>
 
                 {/* Adresse */}
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
                       Vollständige Adresse
                     </label>
                     <input
@@ -1194,14 +1104,14 @@ export default function Dashboard() {
                       name="address"
                       value={projectForm.address}
                       onChange={handleProjectFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
                       placeholder="z.B. Musterstraße 123, 80331 München"
                     />
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-semibold text-gray-200 mb-3">
                         Straße & Hausnummer
                       </label>
                       <input
@@ -1209,13 +1119,13 @@ export default function Dashboard() {
                         name="address_street"
                         value={projectForm.address_street}
                         onChange={handleProjectFormChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                        className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
                         placeholder="z.B. Musterstraße 123"
                       />
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-semibold text-gray-200 mb-3">
                         PLZ
                       </label>
                       <input
@@ -1223,13 +1133,13 @@ export default function Dashboard() {
                         name="address_zip"
                         value={projectForm.address_zip}
                         onChange={handleProjectFormChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                        className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
                         placeholder="z.B. 80331"
                       />
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-semibold text-gray-200 mb-3">
                         Ort
                       </label>
                       <input
@@ -1237,21 +1147,21 @@ export default function Dashboard() {
                         name="address_city"
                         value={projectForm.address_city}
                         onChange={handleProjectFormChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                        className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
                         placeholder="z.B. München"
                       />
                     </div>
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
                       Land
                     </label>
                     <select
                       name="address_country"
                       value={projectForm.address_country}
                       onChange={handleProjectFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
                     >
                       <option value="Deutschland">Deutschland</option>
                       <option value="Schweiz">Schweiz</option>
@@ -1261,9 +1171,9 @@ export default function Dashboard() {
                 </div>
 
                 {/* Projektdetails */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
                       Grundstücksgröße (m²)
                     </label>
                     <input
@@ -1271,13 +1181,13 @@ export default function Dashboard() {
                       name="property_size"
                       value={projectForm.property_size}
                       onChange={handleProjectFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
                       placeholder="z.B. 500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
                       Wohnfläche (m²)
                     </label>
                     <input
@@ -1285,13 +1195,13 @@ export default function Dashboard() {
                       name="construction_area"
                       value={projectForm.construction_area}
                       onChange={handleProjectFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
                       placeholder="z.B. 150"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
                       Budget (€)
                     </label>
                     <input
@@ -1299,16 +1209,16 @@ export default function Dashboard() {
                       name="budget"
                       value={projectForm.budget}
                       onChange={handleProjectFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
                       placeholder="z.B. 500000"
                     />
                   </div>
                 </div>
 
                 {/* Zeitplan */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
                       Startdatum
                     </label>
                     <input
@@ -1316,12 +1226,12 @@ export default function Dashboard() {
                       name="start_date"
                       value={projectForm.start_date}
                       onChange={handleProjectFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
                       Enddatum
                     </label>
                     <input
@@ -1329,22 +1239,22 @@ export default function Dashboard() {
                       name="end_date"
                       value={projectForm.end_date}
                       onChange={handleProjectFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
                     />
                   </div>
                 </div>
 
                 {/* Einstellungen */}
-                <div className="space-y-4">
+                <div className="space-y-4 bg-gradient-to-r from-gray-800/50 to-gray-700/50 rounded-xl p-6 border border-gray-600">
                   <div className="flex items-center space-x-3">
                     <input
                       type="checkbox"
                       name="is_public"
                       checked={projectForm.is_public}
                       onChange={handleProjectFormChange}
-                      className="w-4 h-4 text-[#ffbd59] border-gray-300 rounded focus:ring-[#ffbd59]"
+                      className="w-5 h-5 text-[#ffbd59] border-gray-500 rounded focus:ring-[#ffbd59] transition-all duration-200"
                     />
-                    <label className="text-sm text-gray-700">
+                    <label className="text-sm font-medium text-gray-200">
                       Projekt für Dienstleister sichtbar machen
                     </label>
                   </div>
@@ -1355,9 +1265,9 @@ export default function Dashboard() {
                       name="allow_quotes"
                       checked={projectForm.allow_quotes}
                       onChange={handleProjectFormChange}
-                      className="w-4 h-4 text-[#ffbd59] border-gray-300 rounded focus:ring-[#ffbd59]"
+                      className="w-5 h-5 text-[#ffbd59] border-gray-500 rounded focus:ring-[#ffbd59] transition-all duration-200"
                     />
-                    <label className="text-sm text-gray-700">
+                    <label className="text-sm font-medium text-gray-200">
                       Angebote für dieses Projekt erlauben
                     </label>
                   </div>
@@ -1374,18 +1284,18 @@ export default function Dashboard() {
                 )}
 
                 {/* Buttons */}
-                <div className="flex items-center justify-end space-x-4 pt-4">
+                <div className="flex items-center justify-end space-x-4 pt-6">
                   <button
                     type="button"
                     onClick={handleCloseCreateProjectModal}
-                    className="px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                    className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors font-medium"
                   >
                     Abbrechen
                   </button>
                   <button
                     type="submit"
                     disabled={isCreatingProject}
-                    className="flex items-center space-x-2 bg-[#ffbd59] hover:bg-[#ffa726] disabled:bg-gray-300 text-[#2c3539] px-6 py-2 rounded-lg font-semibold transition-colors duration-200"
+                    className="flex items-center space-x-2 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] hover:from-[#ffa726] hover:to-[#ff9800] disabled:from-gray-300 disabled:to-gray-400 text-[#2c3539] px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
                   >
                     {isCreatingProject ? (
                       <>
@@ -1436,15 +1346,13 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Floating Action Button - nur für Bauträger */}
-      {!isServiceProvider() && (
-        <FloatingActionButton
-          onCreateProject={handleCreateProjectClick}
-          onCreateTrade={handleCreateTrade}
-          onCreateTodo={handleCreateTodo}
-          onCreateExpense={handleCreateExpense}
-        />
-      )}
+      {/* Floating Action Button - für Bauträger und Dienstleister */}
+      <FloatingActionButton
+        onCreateProject={handleCreateProjectClick}
+        onCreateTrade={handleCreateTrade}
+        onCreateTodo={handleCreateTodo}
+        onCreateExpense={handleCreateExpense}
+      />
     </div>
   );
 } 
