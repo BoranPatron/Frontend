@@ -35,6 +35,9 @@ import { useAuth } from '../context/AuthContext';
 import { getProjects } from '../api/projectService';
 import DocumentViewer from '../components/DocumentViewer';
 import ProjectBreadcrumb from '../components/ProjectBreadcrumb';
+import SmartDocumentClassifier from '../components/SmartDocumentClassifier';
+import DocumentWorkflowManager from '../components/DocumentWorkflowManager';
+import DocumentVisualizationHub from '../components/DocumentVisualizationHub';
 
 interface Document {
   id: number;
@@ -80,6 +83,11 @@ export default function Documents() {
   const [editingDocument, setEditingDocument] = useState<Document | null>(null);
   const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [showSmartClassifier, setShowSmartClassifier] = useState(false);
+  const [showWorkflowManager, setShowWorkflowManager] = useState(false);
+  const [showVisualizationHub, setShowVisualizationHub] = useState(false);
+  const [documentAnalysis, setDocumentAnalysis] = useState<any>(null);
+  const [activeWorkflow, setActiveWorkflow] = useState<any>(null);
 
   // Filtered documents
   const filteredDocuments = documents.filter(document => {
@@ -160,6 +168,9 @@ export default function Documents() {
     setError('');
 
     try {
+      // Zeige Smart Classifier für neue Dokumente
+      setShowSmartClassifier(true);
+      
       const formDataToSend = new FormData();
       formDataToSend.append('project_id', selectedProject);
       formDataToSend.append('title', formData.title);
@@ -175,6 +186,11 @@ export default function Documents() {
       setShowUploadModal(false);
       resetForm();
       loadDocuments();
+      
+      // Erstelle automatisch Workflow für wichtige Dokumenttypen
+      if (['permit', 'contract', 'quote'].includes(formData.document_type)) {
+        setShowWorkflowManager(true);
+      }
     } catch (err: any) {
       console.error('Error uploading document:', err);
       setError('Fehler beim Hochladen des Dokuments');
@@ -252,6 +268,26 @@ export default function Documents() {
 
   const closeDocumentViewer = () => {
     setViewingDocument(null);
+  };
+
+  const handleAnalysisComplete = (analysis: any) => {
+    setDocumentAnalysis(analysis);
+    // Automatisch Form-Daten basierend auf KI-Analyse aktualisieren
+    setFormData(prev => ({
+      ...prev,
+      document_type: analysis.suggestedType,
+      tags: analysis.suggestedTags.join(', ')
+    }));
+  };
+
+  const handleWorkflowCreated = (workflow: any) => {
+    setActiveWorkflow(workflow);
+    console.log('Workflow erstellt:', workflow);
+  };
+
+  const handleWorkflowUpdated = (workflow: any) => {
+    setActiveWorkflow(workflow);
+    console.log('Workflow aktualisiert:', workflow);
   };
 
   const getDocumentTypeIcon = (type: string) => {
@@ -353,17 +389,26 @@ export default function Documents() {
                 <ArrowLeft size={20} className="text-[#ffbd59]" />
               </button>
               <div>
-                <h1 className="text-3xl font-bold text-[#ffbd59]">Dokumente</h1>
-                <p className="text-gray-300">Verwalten Sie alle Projekt-Dokumente an einem Ort</p>
+                <h1 className="text-3xl font-bold text-[#ffbd59]">BuildWise DMS Pro</h1>
+                <p className="text-gray-300">Intelligentes Dokumentenmanagement mit KI-Unterstützung</p>
               </div>
             </div>
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-[#ffbd59] text-[#3d4952] font-medium rounded-xl hover:bg-[#ffa726] transition-colors shadow-lg hover:shadow-xl"
-            >
-              <Plus size={20} />
-              Dokument hochladen
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowVisualizationHub(!showVisualizationHub)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-medium rounded-xl hover:bg-purple-700 transition-colors"
+              >
+                <Eye size={16} />
+                Visualisierung
+              </button>
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[#ffbd59] text-[#3d4952] font-medium rounded-xl hover:bg-[#ffa726] transition-colors shadow-lg hover:shadow-xl"
+              >
+                <Plus size={20} />
+                Dokument hochladen
+              </button>
+            </div>
           </div>
         </header>
 
@@ -719,6 +764,55 @@ export default function Documents() {
                 </div>
               </form>
             </div>
+          </div>
+        )}
+
+        {showSmartClassifier && formData.file && (
+          <div className="mb-8">
+            <SmartDocumentClassifier
+              file={formData.file}
+              onAnalysisComplete={handleAnalysisComplete}
+              onManualOverride={() => setShowSmartClassifier(false)}
+            />
+          </div>
+        )}
+
+        {showWorkflowManager && documentAnalysis && (
+          <div className="mb-8">
+            <DocumentWorkflowManager
+              documentType={documentAnalysis.suggestedType}
+              projectPhase="planning"
+              documentId={Date.now()}
+              onWorkflowCreated={handleWorkflowCreated}
+              onWorkflowUpdated={handleWorkflowUpdated}
+            />
+          </div>
+        )}
+
+        {showVisualizationHub && (
+          <div className="mb-8">
+            <DocumentVisualizationHub
+              documents={documents.map(doc => ({
+                id: doc.id.toString(),
+                type: doc.document_type as any,
+                title: doc.title,
+                description: doc.description,
+                thumbnail: '',
+                data: {},
+                metadata: {
+                  projectPhase: 'planning',
+                  uploadDate: doc.created_at,
+                  fileSize: doc.file_size,
+                  tags: doc.tags ? doc.tags.split(',').map(t => t.trim()) : [],
+                  status: doc.is_public ? 'approved' : 'pending',
+                  version: doc.version,
+                  uploadedBy: 'User'
+                }
+              }))}
+              selectedProject={selectedProject}
+              onDocumentSelect={(doc) => console.log('Document selected:', doc)}
+              onViewModeChange={(mode) => console.log('View mode changed:', mode)}
+            />
           </div>
         )}
 
