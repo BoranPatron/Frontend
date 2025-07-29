@@ -37,7 +37,12 @@ export async function createMilestone(data: MilestoneData) {
   return res.data;
 }
 
-export async function createMilestoneWithDocuments(data: MilestoneData & { documents?: File[]; requires_inspection?: boolean }) {
+export async function createMilestoneWithDocuments(data: MilestoneData & { 
+  documents?: File[]; 
+  requires_inspection?: boolean;
+  document_ids?: number[];
+  shared_document_ids?: number[];
+}) {
   const formData = new FormData();
   
   // Füge alle Felder als FormData hinzu
@@ -49,6 +54,16 @@ export async function createMilestoneWithDocuments(data: MilestoneData & { docum
   formData.append('notes', data.notes || '');
   formData.append('requires_inspection', String(data.requires_inspection || false));
   formData.append('project_id', String(data.project_id));
+  
+  // Füge Dokument-IDs hinzu
+  if (data.document_ids && data.document_ids.length > 0) {
+    formData.append('document_ids', JSON.stringify(data.document_ids));
+  }
+  
+  // Füge geteilte Dokument-IDs hinzu
+  if (data.shared_document_ids && data.shared_document_ids.length > 0) {
+    formData.append('shared_document_ids', JSON.stringify(data.shared_document_ids));
+  }
   
   // Füge Dokumente hinzu
   if (data.documents && data.documents.length > 0) {

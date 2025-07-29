@@ -1,9 +1,46 @@
 import api from './api';
 
-export async function getDocuments(project_id: number) {
+// DMS Interfaces
+export interface DocumentSearchParams {
+  project_id: number;
+  category?: string;
+  subcategory?: string;
+  document_type?: string;
+  status_filter?: string;
+  is_favorite?: boolean;
+  search?: string;
+  sort_by?: 'title' | 'created_at' | 'file_size' | 'accessed_at';
+  sort_order?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
+}
+
+export interface CategoryStats {
+  [category: string]: {
+    total_documents: number;
+    total_size: number;
+    favorite_count: number;
+    subcategories: {
+      [subcategory: string]: {
+        document_count: number;
+        total_size: number;
+        avg_size: number;
+        favorite_count: number;
+      };
+    };
+  };
+}
+
+export async function getDocuments(project_id: number, params?: Partial<DocumentSearchParams>) {
   try {
-    console.log('📋 Fetching documents for project:', project_id);
-    const res = await api.get('/documents', { params: { project_id } });
+    console.log('📋 Fetching documents for project:', project_id, 'with params:', params);
+    
+    const searchParams = {
+      project_id,
+      ...params
+    };
+    
+    const res = await api.get('/documents', { params: searchParams });
     console.log('✅ Documents loaded successfully:', res.data);
     return res.data;
   } catch (error: any) {
@@ -17,10 +54,100 @@ export async function getDocuments(project_id: number) {
   }
 }
 
+export async function searchDocumentsFulltext(query: string, project_id?: number, category?: string, limit: number = 50) {
+  try {
+    console.log('🔍 Full-text search for:', query, 'in project:', project_id);
+    
+    const params: any = { q: query, limit };
+    if (project_id) params.project_id = project_id;
+    if (category) params.category = category;
+    
+    const res = await api.get('/documents/search/fulltext', { params });
+    console.log('✅ Full-text search completed:', res.data);
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Error in full-text search:', error);
+    throw new Error(error.response?.data?.detail || error.message || 'Fehler bei der Volltextsuche');
+  }
+}
+
+export async function toggleDocumentFavorite(documentId: number) {
+  try {
+    console.log('⭐ Toggling favorite for document:', documentId);
+    const res = await api.post(`/documents/${documentId}/favorite`);
+    console.log('✅ Favorite toggled successfully:', res.data);
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Error toggling favorite:', error);
+    throw new Error(error.response?.data?.detail || error.message || 'Fehler beim Favoriten-Update');
+  }
+}
+
+export async function updateDocumentStatus(documentId: number, newStatus: string) {
+  try {
+    console.log('📝 Updating document status:', documentId, 'to:', newStatus);
+    const res = await api.put(`/documents/${documentId}/status`, null, {
+      params: { new_status: newStatus }
+    });
+    console.log('✅ Status updated successfully:', res.data);
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Error updating status:', error);
+    throw new Error(error.response?.data?.detail || error.message || 'Fehler beim Status-Update');
+  }
+}
+
+export async function getCategoryStatistics(project_id?: number): Promise<CategoryStats> {
+  try {
+    console.log('📊 Fetching category statistics for project:', project_id);
+    
+    const params = project_id ? { project_id } : {};
+    const res = await api.get('/documents/categories/stats', { params });
+    console.log('✅ Category statistics loaded:', res.data);
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Error fetching category statistics:', error);
+    throw new Error(error.response?.data?.detail || error.message || 'Fehler beim Laden der Statistiken');
+  }
+}
+
+export async function trackDocumentAccess(documentId: number) {
+  try {
+    console.log('📈 Tracking access for document:', documentId);
+    const res = await api.get(`/documents/${documentId}/access`);
+    console.log('✅ Access tracked successfully:', res.data);
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Error tracking access:', error);
+    // Don't throw error for tracking - it's not critical
+    return null;
+  }
+}
+
+export async function getRecentDocuments(project_id?: number, limit: number = 10) {
+  try {
+    console.log('🕒 Fetching recent documents for project:', project_id);
+    
+    const params: any = { limit };
+    if (project_id) params.project_id = project_id;
+    
+    const res = await api.get('/documents/recent', { params });
+    console.log('✅ Recent documents loaded:', res.data);
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Error fetching recent documents:', error);
+    throw new Error(error.response?.data?.detail || error.message || 'Fehler beim Laden der letzten Dokumente');
+  }
+}
+
 export async function getDocument(id: number) {
   try {
     console.log('📋 Fetching document:', id);
     const res = await api.get(`/documents/${id}`);
+    
+    // Track access when viewing document
+    trackDocumentAccess(id);
+    
     console.log('✅ Document loaded successfully:', res.data);
     return res.data;
   } catch (error: any) {
@@ -78,14 +205,19 @@ export async function uploadDocument(formData: FormData) {
       uploadFormData.append('document_type', document_type.toString());
     }
     
-    const tags = formData.get('tags');
-    if (tags) {
-      uploadFormData.append('tags', tags.toString());
-    }
-    
     const category = formData.get('category');
     if (category) {
       uploadFormData.append('category', category.toString());
+    }
+    
+    const subcategory = formData.get('subcategory');
+    if (subcategory) {
+      uploadFormData.append('subcategory', subcategory.toString());
+    }
+    
+    const tags = formData.get('tags');
+    if (tags) {
+      uploadFormData.append('tags', tags.toString());
     }
     
     const is_public = formData.get('is_public');
@@ -98,8 +230,9 @@ export async function uploadDocument(formData: FormData) {
       title: title.toString(),
       description: description?.toString(),
       document_type: document_type?.toString(),
-      tags: tags?.toString(),
       category: category?.toString(),
+      subcategory: subcategory?.toString(),
+      tags: tags?.toString(),
       is_public: is_public?.toString(),
       file: file instanceof File ? `${file.name} (${file.size} bytes)` : 'No file'
     });
@@ -137,7 +270,7 @@ export async function uploadDocument(formData: FormData) {
     } else if (error.response?.status === 401) {
       throw new Error('Nicht autorisiert. Bitte melden Sie sich erneut an.');
     } else if (error.response?.status === 413) {
-      throw new Error('Datei ist zu groß. Maximale Größe: 10MB');
+      throw new Error('Datei ist zu groß. Maximale Größe: 50MB');
     } else if (error.response?.data?.detail) {
       throw new Error(error.response.data.detail);
     } else {
@@ -176,5 +309,24 @@ export async function deleteDocument(id: number) {
       message: error.message
     });
     throw new Error(error.response?.data?.detail || error.message || 'Fehler beim Löschen des Dokuments');
+  }
+}
+
+export async function downloadDocument(id: number) {
+  try {
+    console.log('⬇️ Downloading document:', id);
+    
+    // Track access when downloading
+    trackDocumentAccess(id);
+    
+    const res = await api.get(`/documents/${id}/download`, {
+      responseType: 'blob'
+    });
+    
+    console.log('✅ Document downloaded successfully');
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Error downloading document:', error);
+    throw new Error(error.response?.data?.detail || error.message || 'Fehler beim Herunterladen des Dokuments');
   }
 } 

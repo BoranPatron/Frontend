@@ -17,6 +17,7 @@
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.13",
     "gantt-task-react": "^0.3.9",
+    "jspdf": "^3.0.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.525.0",
     "react": "^19.1.0",

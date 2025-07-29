@@ -564,16 +564,14 @@ export default function Trades() {
       // Erstelle FormData für Dokument-Upload
       const formData = new FormData();
       
-      // Erstelle Blob aus dem Dokument-Inhalt
-      const contentBlob = new Blob([documentData.content], { type: 'text/plain' });
-      const contentFile = new File([contentBlob], 'auftragsbestätigung.txt', { type: 'text/plain' });
-      
-      formData.append('file', contentFile);
+      // Verwende die PDF-Datei direkt aus documentData
+      formData.append('file', documentData.file);
       formData.append('project_id', documentData.project_id.toString());
       formData.append('title', documentData.title);
       formData.append('description', documentData.description);
       formData.append('document_type', documentData.document_type);
       formData.append('category', documentData.category);
+      formData.append('subcategory', documentData.subcategory);
       formData.append('tags', documentData.tags);
       formData.append('is_public', documentData.is_public.toString());
       

@@ -1,37 +1,6 @@
 import React from 'react';
-import { 
-  FileText, 
-  Download, 
-  CheckCircle, 
-  Calendar, 
-  Euro, 
-  User, 
-  Building, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Globe,
-  Wrench,
-  Shield,
-  Clock,
-  Award,
-  File,
-  FolderOpen,
-  AlertCircle,
-  Zap,
-  Thermometer,
-  Droplets,
-  Sun,
-  Home,
-  TreePine,
-  Hammer,
-  Ruler,
-  Palette,
-  Layers,
-  Anchor,
-  Sprout,
-  X
-} from 'lucide-react';
+import { X, FileText, CheckCircle, Building, User, Calendar, DollarSign, Shield, Clock, MapPin, Phone, Mail, Globe, Star } from 'lucide-react';
+import jsPDF from 'jspdf';
 
 interface OrderConfirmationData {
   project: any;
@@ -51,51 +20,41 @@ export default function OrderConfirmationGenerator({ data, onGenerate, onClose }
 
   const getCategoryIcon = (category: string) => {
     switch (category?.toLowerCase()) {
-      case 'elektro':
-        return <Zap size={16} className="text-blue-400" />;
-      case 'sanitär':
-        return <Droplets size={16} className="text-cyan-400" />;
-      case 'heizung':
-        return <Thermometer size={16} className="text-red-400" />;
-      case 'dach':
-        return <Sun size={16} className="text-orange-400" />;
-      case 'fenster/türen':
-        return <Home size={16} className="text-green-400" />;
-      case 'boden':
-        return <Layers size={16} className="text-brown-400" />;
-      case 'wand':
-        return <Building size={16} className="text-gray-400" />;
-      case 'fundament':
-        return <Anchor size={16} className="text-gray-600" />;
-      case 'garten/landschaft':
-        return <TreePine size={16} className="text-green-500" />;
+      case 'electrical':
+        return <div className="w-6 h-6 bg-yellow-500 rounded flex items-center justify-center text-white text-xs font-bold">⚡</div>;
+      case 'plumbing':
+        return <div className="w-6 h-6 bg-blue-500 rounded flex items-center justify-center text-white text-xs font-bold">💧</div>;
+      case 'heating':
+        return <div className="w-6 h-6 bg-red-500 rounded flex items-center justify-center text-white text-xs font-bold">🔥</div>;
+      case 'roofing':
+        return <div className="w-6 h-6 bg-gray-500 rounded flex items-center justify-center text-white text-xs font-bold">🏠</div>;
+      case 'windows':
+        return <div className="w-6 h-6 bg-green-500 rounded flex items-center justify-center text-white text-xs font-bold">🪟</div>;
+      case 'flooring':
+        return <div className="w-6 h-6 bg-brown-500 rounded flex items-center justify-center text-white text-xs font-bold">🪵</div>;
+      case 'walls':
+        return <div className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center text-white text-xs font-bold">🧱</div>;
+      case 'foundation':
+        return <div className="w-6 h-6 bg-gray-700 rounded flex items-center justify-center text-white text-xs font-bold">🏗️</div>;
+      case 'landscaping':
+        return <div className="w-6 h-6 bg-green-600 rounded flex items-center justify-center text-white text-xs font-bold">🌳</div>;
       default:
-        return <Wrench size={16} className="text-gray-400" />;
+        return <div className="w-6 h-6 bg-gray-400 rounded flex items-center justify-center text-white text-xs font-bold">🔧</div>;
     }
   };
 
   const getCategoryLabel = (category: string) => {
     switch (category?.toLowerCase()) {
-      case 'elektro':
-        return 'Elektroinstallation';
-      case 'sanitär':
-        return 'Sanitäranlagen';
-      case 'heizung':
-        return 'Heizung & Klima';
-      case 'dach':
-        return 'Dach & Dachdecker';
-      case 'fenster/türen':
-        return 'Fenster & Türen';
-      case 'boden':
-        return 'Bodenbeläge';
-      case 'wand':
-        return 'Wand & Putz';
-      case 'fundament':
-        return 'Fundament & Keller';
-      case 'garten/landschaft':
-        return 'Garten & Landschaft';
-      default:
-        return category || 'Sonstiges';
+      case 'electrical': return 'Elektro';
+      case 'plumbing': return 'Sanitär';
+      case 'heating': return 'Heizung';
+      case 'roofing': return 'Dach';
+      case 'windows': return 'Fenster & Türen';
+      case 'flooring': return 'Boden';
+      case 'walls': return 'Wände';
+      case 'foundation': return 'Fundament';
+      case 'landscaping': return 'Garten & Landschaft';
+      default: return category || 'Sonstiges';
     }
   };
 
@@ -107,164 +66,124 @@ export default function OrderConfirmationGenerator({ data, onGenerate, onClose }
   };
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('de-DE');
   };
 
-  const generateOrderConfirmationContent = () => {
-    const today = new Date().toLocaleDateString('de-DE');
-    const orderNumber = `AB-${project.id}-${trade.id}-${quote.id}-${Date.now()}`;
-
-    return `
-# AUFTRAGSBESTÄTIGUNG
-
-**Auftragsnummer:** ${orderNumber}  
-**Datum:** ${today}  
-**Status:** Verbindlich angenommen
-
----
-
-## 1. PROJEKTINFORMATIONEN
-
-**Projekt:** ${project.name}  
-**Projekt-ID:** ${project.id}  
-**Projektbeschreibung:** ${project.description || 'Keine Beschreibung verfügbar'}  
-**Projektadresse:** ${project.address || 'Nicht angegeben'}
-
----
-
-## 2. GEWERKSAUSSCHREIBUNG
-
-**Gewerk:** ${trade.title}  
-**Kategorie:** ${getCategoryLabel(trade.category)}  
-**Beschreibung:** ${trade.description}  
-**Geplantes Datum:** ${formatDate(trade.planned_date)}  
-**Priorität:** ${trade.priority || 'Standard'}  
-**Status:** ${trade.status}
-
-### Technische Spezifikationen:
-${trade.technical_specifications || 'Keine technischen Spezifikationen verfügbar'}
-
-### Qualitätsanforderungen:
-${trade.quality_requirements || 'Standard-Qualitätsanforderungen'}
-
-### Sicherheitsanforderungen:
-${trade.safety_requirements || 'Standard-Sicherheitsanforderungen'}
-
-### Umweltanforderungen:
-${trade.environmental_requirements || 'Standard-Umweltanforderungen'}
-
-${trade.category_specific_fields ? `
-### Kategorie-spezifische Details:
-${Object.entries(trade.category_specific_fields)
-  .map(([key, value]) => `- ${key.replace(/_/g, ' ')}: ${value}`)
-  .join('\n')}
-` : ''}
-
----
-
-## 3. KOSTENVORANSCHLAG
-
-**Angebotsnummer:** ${quote.id}  
-**Angebotsdatum:** ${formatDate(quote.created_at)}  
-**Gültig bis:** ${formatDate(quote.valid_until)}  
-**Status:** ${quote.status}
-
-### Kostenaufschlüsselung:
-- **Gesamtbetrag:** ${formatCurrency(quote.total_amount, quote.currency)}
-- **Arbeitskosten:** ${quote.labor_cost ? formatCurrency(quote.labor_cost, quote.currency) : 'Nicht angegeben'}
-- **Materialkosten:** ${quote.material_cost ? formatCurrency(quote.material_cost, quote.currency) : 'Nicht angegeben'}
-- **Gemeinkosten:** ${quote.overhead_cost ? formatCurrency(quote.overhead_cost, quote.currency) : 'Nicht angegeben'}
-
-### Zeitplan:
-- **Geschätzte Dauer:** ${quote.estimated_duration} Tage
-- **Startdatum:** ${formatDate(quote.start_date)}
-- **Fertigstellungsdatum:** ${formatDate(quote.completion_date)}
-
-### Bedingungen:
-- **Zahlungsbedingungen:** ${quote.payment_terms || 'Standard'}
-- **Garantie:** ${quote.warranty_period} Monate
-- **Gültig bis:** ${formatDate(quote.valid_until)}
-
----
-
-## 4. DIENSTLEISTER
-
-**Firma:** ${quote.company_name || 'Nicht angegeben'}  
-**Ansprechpartner:** ${quote.contact_person || 'Nicht angegeben'}  
-**Telefon:** ${quote.phone || 'Nicht angegeben'}  
-**E-Mail:** ${quote.email || 'Nicht angegeben'}  
-**Website:** ${quote.website || 'Nicht angegeben'}
-
----
-
-## 5. VERBINDLICHE VEREINBARUNG
-
-**Annahmedatum:** ${today}  
-**Angenommen von:** ${user?.first_name} ${user?.last_name}  
-**Benutzer-ID:** ${user?.id}
-
-### Wichtige Hinweise:
-- Diese Auftragsbestätigung ist verbindlich
-- Alle anderen Angebote für dieses Gewerk werden automatisch abgelehnt
-- Das angenommene Angebot wird als Kostenposition in der Finanzübersicht angezeigt
-- Änderungen bedürfen der schriftlichen Vereinbarung beider Parteien
-
----
-
-## 6. DOKUMENTE UND ANHÄNGE
-
-### Gewerk-Dokumente:
-${trade.documents && trade.documents.length > 0 ? 
-  trade.documents.map((doc: any) => `- ${doc.title} (${doc.file_name})`).join('\n') : 
-  'Keine Dokumente verfügbar'}
-
-### Kostenvoranschlag-Dokumente:
-${quote.pdf_upload_path ? `- Kostenvoranschlag PDF: ${quote.pdf_upload_path}` : 'Keine PDF verfügbar'}
-
----
-
-## 7. QUALITÄTSSICHERUNG
-
-### Bewertungskriterien:
-- Technische Eignung: ${quote.rating ? `${quote.rating}/5` : 'Nicht bewertet'}
-- Risiko-Bewertung: ${quote.risk_score ? `${quote.risk_score}/10` : 'Nicht bewertet'}
-- Preisabweichung: ${quote.price_deviation ? `${quote.price_deviation}%` : 'Nicht berechnet'}
-
-### KI-Empfehlung:
-${quote.ai_recommendation || 'Keine KI-Empfehlung verfügbar'}
-
----
-
-## 8. RECHTLICHE HINWEISE
-
-Diese Auftragsbestätigung stellt eine verbindliche Vereinbarung zwischen dem Bauträger und dem Dienstleister dar. Alle rechtlichen Bestimmungen des deutschen Bauvertragsrechts (VOB/B) gelten entsprechend.
-
-**Erstellt am:** ${today}  
-**Erstellt von:** BuildWise System  
-**Dokument-ID:** ${orderNumber}
-
----
-
-*Ende der Auftragsbestätigung*
-    `;
+  const generatePDFContent = () => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('AUFTRAGSBESTÄTIGUNG', 105, 20, { align: 'center' });
+    
+    // Linie unter Header
+    doc.setDrawColor(0, 0, 0);
+    doc.line(20, 25, 190, 25);
+    
+    // Projektinformationen
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Projekt:', 20, 40);
+    doc.setFont('helvetica', 'normal');
+    doc.text(project.name, 60, 40);
+    
+    if (project.address) {
+      doc.text('Adresse:', 20, 50);
+      doc.text(project.address, 60, 50);
+    }
+    
+    // Gewerk
+    doc.setFont('helvetica', 'bold');
+    doc.text('Gewerk:', 20, 65);
+    doc.setFont('helvetica', 'normal');
+    doc.text(trade.title, 60, 65);
+    doc.text(`Kategorie: ${getCategoryLabel(trade.category)}`, 60, 75);
+    
+    // Dienstleister
+    doc.setFont('helvetica', 'bold');
+    doc.text('Dienstleister:', 20, 90);
+    doc.setFont('helvetica', 'normal');
+    doc.text(quote.company_name || 'Nicht angegeben', 60, 90);
+    
+    if (quote.contact_person) {
+      doc.text('Kontaktperson:', 20, 100);
+      doc.text(quote.contact_person, 60, 100);
+    }
+    
+    if (quote.phone) {
+      doc.text('Telefon:', 20, 110);
+      doc.text(quote.phone, 60, 110);
+    }
+    
+    if (quote.email) {
+      doc.text('E-Mail:', 20, 120);
+      doc.text(quote.email, 60, 120);
+    }
+    
+    // Angebotsdetails
+    doc.setFont('helvetica', 'bold');
+    doc.text('Angebotsdetails:', 20, 140);
+    doc.setFont('helvetica', 'normal');
+    
+    doc.text('Gesamtbetrag:', 20, 155);
+    doc.text(formatCurrency(quote.total_amount, quote.currency), 60, 155);
+    
+    if (quote.labor_cost) {
+      doc.text('Arbeitskosten:', 20, 165);
+      doc.text(formatCurrency(quote.labor_cost, quote.currency), 60, 165);
+    }
+    
+    if (quote.material_cost) {
+      doc.text('Materialkosten:', 20, 175);
+      doc.text(formatCurrency(quote.material_cost, quote.currency), 60, 175);
+    }
+    
+    if (quote.estimated_duration) {
+      doc.text('Geschätzte Dauer:', 20, 185);
+      doc.text(`${quote.estimated_duration} Tage`, 60, 185);
+    }
+    
+    if (quote.warranty_period) {
+      doc.text('Gewährleistung:', 20, 195);
+      doc.text(`${quote.warranty_period} Monate`, 60, 195);
+    }
+    
+    // Datum und Unterschrift
+    doc.setFont('helvetica', 'bold');
+    doc.text('Datum der Annahme:', 20, 220);
+    doc.setFont('helvetica', 'normal');
+    doc.text(new Date().toLocaleDateString('de-DE'), 60, 220);
+    
+    // Rechtlicher Hinweis
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Diese Auftragsbestätigung ist verbindlich und stellt eine rechtsgültige Vereinbarung dar.', 20, 240);
+    doc.text('Alle rechtlichen Bestimmungen des deutschen Bauvertragsrechts (VOB/B) gelten entsprechend.', 20, 245);
+    
+    return doc;
   };
 
   const handleGenerateDocument = async () => {
     try {
-      const content = generateOrderConfirmationContent();
+      const pdfDoc = generatePDFContent();
       const orderNumber = `AB-${project.id}-${trade.id}-${quote.id}-${Date.now()}`;
+      
+      // Konvertiere PDF zu Blob
+      const pdfBlob = pdfDoc.output('blob');
+      const pdfFile = new File([pdfBlob], 'auftragsbestätigung.pdf', { type: 'application/pdf' });
       
       // Erstelle Dokument-Daten
       const documentData = {
         title: `Auftragsbestätigung - ${trade.title}`,
         description: `Verbindliche Auftragsbestätigung für ${trade.title} - Projekt: ${project.name}`,
         project_id: project.id,
-        document_type: 'contract',
-        category: 'contracts',
+        document_type: 'contract', // Korrekter document_type für Backend
+        category: 'order_confirmations', // Neue spezifische Kategorie
+        subcategory: 'Auftragsbestätigungen',
         tags: 'auftragsbestätigung,verbindlich,kostenvoranschlag,gewerk',
         is_public: true,
-        content: content,
+        file: pdfFile,
         metadata: {
           order_number: orderNumber,
           trade_id: trade.id,
@@ -358,32 +277,12 @@ Diese Auftragsbestätigung stellt eine verbindliche Vereinbarung zwischen dem Ba
                     <span className="text-gray-400">Kategorie:</span>
                     <span className="text-white">{getCategoryLabel(trade.category)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Status:</span>
-                    <span className="text-white">{trade.status}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Kostenvoranschlag */}
-              <div className="space-y-3">
-                <h4 className="font-medium text-[#ffbd59] flex items-center gap-2">
-                  <Euro size={16} />
-                  Kostenvoranschlag
-                </h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Betrag:</span>
-                    <span className="text-white font-bold">{formatCurrency(quote.total_amount, quote.currency)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Dauer:</span>
-                    <span className="text-white">{quote.estimated_duration} Tage</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Garantie:</span>
-                    <span className="text-white">{quote.warranty_period} Monate</span>
-                  </div>
+                  {trade.description && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Beschreibung:</span>
+                      <span className="text-white">{trade.description}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -398,66 +297,97 @@ Diese Auftragsbestätigung stellt eine verbindliche Vereinbarung zwischen dem Ba
                     <span className="text-gray-400">Firma:</span>
                     <span className="text-white">{quote.company_name || 'Nicht angegeben'}</span>
                   </div>
+                  {quote.contact_person && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Kontakt:</span>
+                      <span className="text-white">{quote.contact_person}</span>
+                    </div>
+                  )}
+                  {quote.phone && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Telefon:</span>
+                      <span className="text-white">{quote.phone}</span>
+                    </div>
+                  )}
+                  {quote.email && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">E-Mail:</span>
+                      <span className="text-white">{quote.email}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Angebot */}
+              <div className="space-y-3">
+                <h4 className="font-medium text-[#ffbd59] flex items-center gap-2">
+                  <DollarSign size={16} />
+                  Angebot
+                </h4>
+                <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Kontakt:</span>
-                    <span className="text-white">{quote.contact_person || 'Nicht angegeben'}</span>
+                    <span className="text-gray-400">Gesamtbetrag:</span>
+                    <span className="text-white font-semibold">
+                      {formatCurrency(quote.total_amount, quote.currency)}
+                    </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">E-Mail:</span>
-                    <span className="text-white">{quote.email || 'Nicht angegeben'}</span>
-                  </div>
+                  {quote.labor_cost && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Arbeitskosten:</span>
+                      <span className="text-white">{formatCurrency(quote.labor_cost, quote.currency)}</span>
+                    </div>
+                  )}
+                  {quote.material_cost && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Materialkosten:</span>
+                      <span className="text-white">{formatCurrency(quote.material_cost, quote.currency)}</span>
+                    </div>
+                  )}
+                  {quote.estimated_duration && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Dauer:</span>
+                      <span className="text-white">{quote.estimated_duration} Tage</span>
+                    </div>
+                  )}
+                  {quote.warranty_period && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Gewährleistung:</span>
+                      <span className="text-white">{quote.warranty_period} Monate</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Dokument-Inhalt Vorschau */}
-          <div className="bg-white/5 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <FileText size={20} className="text-blue-400" />
-              Dokument-Inhalt (Vorschau)
-            </h3>
-            
-            <div className="bg-gray-900 rounded-lg p-4 max-h-60 overflow-y-auto">
-              <pre className="text-xs text-gray-300 whitespace-pre-wrap">
-                {generateOrderConfirmationContent().substring(0, 1000)}...
-              </pre>
-            </div>
-            
-            <p className="text-sm text-gray-400 mt-2">
-              Das vollständige Dokument wird mit allen Details erstellt und im Dokumentenbereich abgelegt.
-            </p>
-          </div>
-
-          {/* Warnhinweis */}
+          {/* Rechtlicher Hinweis */}
           <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
-              <AlertCircle size={16} className="text-yellow-400" />
-              <span className="font-medium text-yellow-300">Wichtiger Hinweis</span>
+              <Shield size={16} className="text-yellow-500" />
+              <span className="font-medium text-yellow-500">Wichtiger Hinweis</span>
             </div>
-            <p className="text-sm text-yellow-200">
-              Diese Auftragsbestätigung ist verbindlich und stellt eine rechtsgültige Vereinbarung dar. 
-              Alle anderen Kostenvoranschläge für dieses Gewerk werden automatisch abgelehnt.
+            <p className="text-sm text-yellow-300">
+              Diese Auftragsbestätigung ist verbindlich und stellt eine rechtsgültige Vereinbarung dar.
+              Alle rechtlichen Bestimmungen des deutschen Bauvertragsrechts (VOB/B) gelten entsprechend.
             </p>
           </div>
-        </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-[#ffbd59]/20">
-          <button
-            onClick={onClose}
-            className="px-6 py-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors"
-          >
-            Abbrechen
-          </button>
-          
-          <button
-            onClick={handleGenerateDocument}
-            className="px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center gap-2"
-          >
-            <FileText size={16} />
-            Auftragsbestätigung erstellen
-          </button>
+          {/* Aktionen */}
+          <div className="flex gap-4 pt-4">
+            <button
+              onClick={handleGenerateDocument}
+              className="flex-1 bg-[#ffbd59] hover:bg-[#ffbd59]/90 text-black font-semibold py-3 px-6 rounded-xl transition-colors flex items-center justify-center gap-2"
+            >
+              <FileText size={20} />
+              Auftragsbestätigung erstellen
+            </button>
+            <button
+              onClick={onClose}
+              className="px-6 py-3 border border-gray-600 text-gray-300 hover:bg-white/10 rounded-xl transition-colors"
+            >
+              Abbrechen
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -37,12 +37,18 @@ function DocumentViewer({ documents }: DocumentViewerProps) {
 
   if (!documents || documents.length === 0) {
     return (
-      <div className="bg-gray-50 rounded-xl p-4">
-        <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-          <FileText size={18} />
+      <div className="bg-gradient-to-br from-[#2c3539]/30 to-[#1a1a2e]/30 rounded-xl p-6 border border-gray-600/30 backdrop-blur-sm">
+        <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
+          <FileText size={18} className="text-[#ffbd59]" />
           Dokumente
         </h3>
-        <p className="text-gray-500 text-sm">Keine Dokumente verfügbar</p>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-center">
+            <FileText size={48} className="text-gray-500 mx-auto mb-3 opacity-50" />
+            <p className="text-gray-400 text-sm">Keine Dokumente für dieses Gewerk freigegeben</p>
+            <p className="text-gray-500 text-xs mt-1">Dokumente werden nach Angebotsannahme verfügbar</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -80,21 +86,23 @@ function DocumentViewer({ documents }: DocumentViewerProps) {
   };
 
   return (
-    <div className="bg-gray-50 rounded-xl p-4">
-      <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-        <FileText size={18} />
+    <div className="bg-gradient-to-br from-[#2c3539]/30 to-[#1a1a2e]/30 rounded-xl p-6 border border-gray-600/30 backdrop-blur-sm">
+      <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+        <FileText size={18} className="text-[#ffbd59]" />
         Dokumente ({documents.length})
       </h3>
       
       <div className="space-y-3">
         {documents.map((doc) => (
-          <div key={doc.id} className="bg-white rounded-lg border border-gray-200 p-3">
+          <div key={doc.id} className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-lg border border-gray-600/30 p-4 hover:border-[#ffbd59]/50 transition-all duration-200 group">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-2xl">{getFileIcon(doc.type)}</span>
+                <div className="w-10 h-10 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg flex items-center justify-center text-white font-bold shadow-lg">
+                  {getFileIcon(doc.type)}
+                </div>
                 <div>
-                  <p className="font-medium text-gray-800">{doc.name}</p>
-                  <p className="text-sm text-gray-500">
+                  <p className="font-medium text-white group-hover:text-[#ffbd59] transition-colors">{doc.name}</p>
+                  <p className="text-sm text-gray-400">
                     {(doc.size / 1024 / 1024).toFixed(2)} MB
                   </p>
                 </div>
@@ -107,80 +115,91 @@ function DocumentViewer({ documents }: DocumentViewerProps) {
                       setSelectedDoc(selectedDoc === doc.id ? null : doc.id);
                       setViewerError(null);
                     }}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
+                      selectedDoc === doc.id
+                        ? 'bg-[#ffbd59] text-[#1a1a2e] shadow-lg'
+                        : 'bg-[#ffbd59]/20 text-[#ffbd59] hover:bg-[#ffbd59]/30'
+                    }`}
                     title="Dokument anzeigen"
                   >
-                    <Eye size={16} />
+                    <Eye size={14} />
+                    {selectedDoc === doc.id ? 'Schließen' : 'Ansehen'}
                   </button>
                 )}
                 <a
                   href={doc.url}
                   download={doc.name}
-                  className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                  className="flex items-center gap-1 px-3 py-2 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-all duration-200 text-sm font-medium"
                   title="Dokument herunterladen"
                 >
-                  <Download size={16} />
+                  <Download size={14} />
+                  Download
                 </a>
                 <a
                   href={doc.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                  className="flex items-center gap-1 px-3 py-2 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-all duration-200 text-sm font-medium"
                   title="In neuem Tab öffnen"
                 >
-                  <ExternalLink size={16} />
+                  <ExternalLink size={14} />
+                  Öffnen
                 </a>
               </div>
             </div>
             
-            {/* Inline Viewer */}
-            {selectedDoc === doc.id && (
-              <div className="mt-4 border-t border-gray-200 pt-4">
-                <div className="bg-gray-100 rounded-lg overflow-hidden">
+            {/* Inline-Dokumentenansicht */}
+            {selectedDoc === doc.id && canPreview(doc.type) && (
+              <div className="mt-4 border-t border-gray-600/30 pt-4">
+                <div className="bg-[#1a1a2e]/80 rounded-lg p-2 min-h-[400px] border border-gray-600/30">
                   {viewerError ? (
-                    <div className="p-8 text-center">
-                      <AlertTriangle className="mx-auto h-12 w-12 text-red-500 mb-4" />
-                      <p className="text-red-600 font-medium">Dokument kann nicht angezeigt werden</p>
-                      <p className="text-sm text-gray-500 mt-2">{viewerError}</p>
-                      <div className="mt-4 space-x-2">
-                        <a
-                          href={doc.url}
-                          download={doc.name}
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                          <Download size={16} />
-                          Herunterladen
-                        </a>
-                        <a
-                          href={doc.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                          <ExternalLink size={16} />
-                          Extern öffnen
-                        </a>
+                    <div className="flex items-center justify-center h-96 text-center">
+                      <div>
+                        <AlertTriangle size={48} className="text-red-400 mx-auto mb-3" />
+                        <p className="text-red-400 font-medium">Dokument kann nicht angezeigt werden</p>
+                        <p className="text-gray-400 text-sm mt-1">{viewerError}</p>
+                        <div className="mt-4 flex gap-2 justify-center">
+                          <a
+                            href={doc.url}
+                            download={doc.name}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-colors"
+                          >
+                            <Download size={16} />
+                            Herunterladen
+                          </a>
+                          <a
+                            href={doc.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-colors"
+                          >
+                            <ExternalLink size={16} />
+                            Extern öffnen
+                          </a>
+                        </div>
                       </div>
                     </div>
                   ) : (
                     <div className="relative">
-                      <div className="flex items-center justify-between bg-gray-200 px-4 py-2 text-sm">
-                        <span className="font-medium text-gray-700">{doc.name}</span>
+                      <div className="flex items-center justify-between bg-[#2c3539]/50 px-4 py-2 text-sm border-b border-gray-600/30">
+                        <span className="font-medium text-white">{doc.name}</span>
                         <button
                           onClick={() => setSelectedDoc(null)}
-                          className="text-gray-500 hover:text-gray-700"
+                          className="text-gray-400 hover:text-white transition-colors"
                         >
                           <X size={16} />
                         </button>
                       </div>
-                                             <div style={{ height: '500px' }} className="relative">
-                         <iframe
-                           src={getViewerUrl(doc.url, doc.type)}
-                           width="100%"
-                           height="100%"
-                           frameBorder="0"
-                           onError={() => setViewerError('Das Dokument konnte nicht geladen werden.')}
-                           onLoad={() => console.log(`Dokument ${doc.name} erfolgreich geladen`)}
+                      <div style={{ height: '400px' }} className="relative">
+                        <iframe
+                          src={getViewerUrl(doc.url, doc.type)}
+                          width="100%"
+                          height="100%"
+                          frameBorder="0"
+                          className="rounded-b"
+                          onError={() => setViewerError('Das Dokument konnte nicht geladen werden.')}
+                          onLoad={() => console.log(`Dokument ${doc.name} erfolgreich geladen`)}
+                          sandbox="allow-same-origin allow-scripts"
                            className="border-0"
                            title={`Viewer für ${doc.name}`}
                            sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
@@ -192,6 +211,11 @@ function DocumentViewer({ documents }: DocumentViewerProps) {
                        </div>
                     </div>
                   )}
+                </div>
+                <div className="mt-2 text-center">
+                  <p className="text-gray-400 text-xs">
+                    💡 Tipp: Verwenden Sie die Download-Funktion für die beste Qualität
+                  </p>
                 </div>
               </div>
             )}
@@ -542,12 +566,10 @@ export default function TradeDetailsModal({
     'assessment': 'Bewertung',
     'evaluation': 'Evaluierung',
     'analysis': 'Analyse',
-    'testing': 'Tests',
     'verification': 'Verifizierung',
     'validation': 'Validierung',
     'certification': 'Zertifizierung',
     'accreditation': 'Akkreditierung',
-    'approval': 'Genehmigung',
     'authorization': 'Autorisierung',
     'permission': 'Erlaubnis',
     'license': 'Lizenz',
@@ -557,7 +579,6 @@ export default function TradeDetailsModal({
     'declaration': 'Erklärung',
     'statement': 'Aussage',
     'report': 'Bericht',
-    'documentation': 'Dokumentation',
     'record': 'Aufzeichnung',
     'log': 'Protokoll',
     'history': 'Historie',
@@ -574,7 +595,6 @@ export default function TradeDetailsModal({
     'leveling': 'Nivellierung',
     'balancing': 'Auswuchtung',
     'tuning': 'Abstimmung',
-    'optimization': 'Optimierung',
     'fine_tuning': 'Feinabstimmung',
     'coarse_adjustment': 'Grobeinstellung',
     'precise_adjustment': 'Präziseinstellung',
@@ -685,8 +705,6 @@ export default function TradeDetailsModal({
     'dual_q_pi_adjustment': 'Dual-q-Pi-Einstellung',
     'q_rho_adjustment': 'q-Rho-Einstellung',
     'dual_q_rho_adjustment': 'Dual-q-Rho-Einstellung',
-    'q_sigma_adjustment': 'q-Sigma-Einstellung',
-    'dual_q_sigma_adjustment': 'Dual-q-Sigma-Einstellung',
     'q_tau_adjustment': 'q-Tau-Einstellung',
     'dual_q_tau_adjustment': 'Dual-q-Tau-Einstellung',
     'q_upsilon_adjustment': 'q-Upsilon-Einstellung',
@@ -709,44 +727,9 @@ export default function TradeDetailsModal({
     'dual_q_delta_adjustment': 'Dual-q-Delta-Einstellung',
     'q_epsilon_adjustment': 'q-Epsilon-Einstellung',
     'dual_q_epsilon_adjustment': 'Dual-q-Epsilon-Einstellung',
-    'q_zeta_adjustment': 'q-Zeta-Einstellung',
-    'dual_q_zeta_adjustment': 'Dual-q-Zeta-Einstellung',
-    'q_eta_adjustment': 'q-Eta-Einstellung',
-    'dual_q_eta_adjustment': 'Dual-q-Eta-Einstellung',
-    'q_theta_adjustment': 'q-Theta-Einstellung',
-    'dual_q_theta_adjustment': 'Dual-q-Theta-Einstellung',
     'q_iota_adjustment': 'q-Iota-Einstellung',
     'dual_q_iota_adjustment': 'Dual-q-Iota-Einstellung',
-    'q_kappa_adjustment': 'q-Kappa-Einstellung',
-    'dual_q_kappa_adjustment': 'Dual-q-Kappa-Einstellung',
-    'q_lambda_adjustment': 'q-Lambda-Einstellung',
-    'dual_q_lambda_adjustment': 'Dual-q-Lambda-Einstellung',
-    'q_mu_adjustment': 'q-Mu-Einstellung',
-    'dual_q_mu_adjustment': 'Dual-q-Mu-Einstellung',
-    'q_nu_adjustment': 'q-Nu-Einstellung',
-    'dual_q_nu_adjustment': 'Dual-q-Nu-Einstellung',
-    'q_xi_adjustment': 'q-Xi-Einstellung',
-    'dual_q_xi_adjustment': 'Dual-q-Xi-Einstellung',
-    'q_omicron_adjustment': 'q-Omicron-Einstellung',
-    'dual_q_omicron_adjustment': 'Dual-q-Omicron-Einstellung',
-    'q_pi_adjustment': 'q-Pi-Einstellung',
-    'dual_q_pi_adjustment': 'Dual-q-Pi-Einstellung',
-    'q_rho_adjustment': 'q-Rho-Einstellung',
-    'dual_q_rho_adjustment': 'Dual-q-Rho-Einstellung',
-    'q_sigma_adjustment': 'q-Sigma-Einstellung',
-    'dual_q_sigma_adjustment': 'Dual-q-Sigma-Einstellung',
-    'q_tau_adjustment': 'q-Tau-Einstellung',
-    'dual_q_tau_adjustment': 'Dual-q-Tau-Einstellung',
-    'q_upsilon_adjustment': 'q-Upsilon-Einstellung',
-    'dual_q_upsilon_adjustment': 'Dual-q-Upsilon-Einstellung',
-    'q_phi_adjustment': 'q-Phi-Einstellung',
-    'dual_q_phi_adjustment': 'Dual-q-Phi-Einstellung',
-    'q_chi_adjustment': 'q-Chi-Einstellung',
-    'dual_q_chi_adjustment': 'Dual-q-Chi-Einstellung',
-    'q_psi_adjustment': 'q-Psi-Einstellung',
-    'dual_q_psi_adjustment': 'Dual-q-Psi-Einstellung',
-    'q_omega_adjustment': 'q-Omega-Einstellung',
-    'dual_q_omega_adjustment': 'Dual-q-Omega-Einstellung'
+    'q_kappa_adjustment': 'q-Kappa-Einstellung'
   };
 
   // Funktion zur Übersetzung von Feldnamen
@@ -1060,10 +1043,10 @@ export default function TradeDetailsModal({
 
   return (
     <>
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] rounded-2xl shadow-2xl border border-[#ffbd59]/20 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
           {/* Header */}
-          <div className="sticky top-0 bg-[#2c3539] border-b border-white/20 p-6 rounded-t-2xl">
+          <div className="sticky top-0 bg-gradient-to-r from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-lg border-b border-[#ffbd59]/20 p-6 rounded-t-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div 
@@ -1085,9 +1068,9 @@ export default function TradeDetailsModal({
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-[#ffbd59]/20"
               >
-                <X size={24} className="text-gray-400" />
+                <X size={24} />
               </button>
             </div>
           </div>
