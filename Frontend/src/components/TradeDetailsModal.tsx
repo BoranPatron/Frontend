@@ -4,6 +4,7 @@ import type { TradeSearchResult } from '../api/geoService';
 // import { getQuotesByTrade } from '../api/quoteService';
 import { useAuth } from '../context/AuthContext';
 import CostEstimateForm from './CostEstimateForm';
+// import FullDocumentViewer from './DocumentViewer';
 
 interface TradeDetailsModalProps {
   trade: TradeSearchResult | null;
@@ -31,9 +32,11 @@ interface DocumentViewerProps {
   }>;
 }
 
-function DocumentViewer({ documents }: DocumentViewerProps) {
+function TradeDocumentViewer({ documents }: DocumentViewerProps) {
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
   const [viewerError, setViewerError] = useState<string | null>(null);
+  const [documentViewerOpen, setDocumentViewerOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
 
   if (!documents || documents.length === 0) {
     return (
@@ -69,8 +72,11 @@ function DocumentViewer({ documents }: DocumentViewerProps) {
   };
 
   const getViewerUrl = (url: string, type: string) => {
+    console.log('🔧 getViewerUrl called with:', { url, type });
+    
     // Für PDF-Dateien direkte Einbettung
     if (type.includes('pdf')) {
+      console.log('📄 PDF detected, using direct URL:', url);
       return url;
     }
     
@@ -79,9 +85,12 @@ function DocumentViewer({ documents }: DocumentViewerProps) {
         type.includes('presentation') || type.includes('powerpoint')) {
       // Stelle sicher, dass die URL vollständig ist
       const fullUrl = url.startsWith('http') ? url : `${window.location.origin}${url}`;
-      return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fullUrl)}`;
+      const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fullUrl)}`;
+      console.log('📄 Office document detected, using viewer:', viewerUrl);
+      return viewerUrl;
     }
     
+    console.log('📄 Default URL used:', url);
     return url;
   };
 
@@ -112,18 +121,15 @@ function DocumentViewer({ documents }: DocumentViewerProps) {
                 {canPreview(doc.type) && (
                   <button
                     onClick={() => {
-                      setSelectedDoc(selectedDoc === doc.id ? null : doc.id);
-                      setViewerError(null);
+                      console.log('🔧 Ansehen Button clicked for document:', doc);
+                      // Temporär deaktiviert - öffne in neuem Tab
+                      window.open(doc.url, '_blank');
                     }}
-                    className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
-                      selectedDoc === doc.id
-                        ? 'bg-[#ffbd59] text-[#1a1a2e] shadow-lg'
-                        : 'bg-[#ffbd59]/20 text-[#ffbd59] hover:bg-[#ffbd59]/30'
-                    }`}
-                    title="Dokument anzeigen"
+                    className="flex items-center gap-1 px-3 py-2 bg-[#ffbd59]/20 text-[#ffbd59] hover:bg-[#ffbd59]/30 rounded-lg transition-all duration-200 text-sm font-medium"
+                    title="Dokument im Vollbild anzeigen"
                   >
                     <Eye size={14} />
-                    {selectedDoc === doc.id ? 'Schließen' : 'Ansehen'}
+                    Ansehen
                   </button>
                 )}
                 <a
@@ -147,79 +153,23 @@ function DocumentViewer({ documents }: DocumentViewerProps) {
                 </a>
               </div>
             </div>
-            
-            {/* Inline-Dokumentenansicht */}
-            {selectedDoc === doc.id && canPreview(doc.type) && (
-              <div className="mt-4 border-t border-gray-600/30 pt-4">
-                <div className="bg-[#1a1a2e]/80 rounded-lg p-2 min-h-[400px] border border-gray-600/30">
-                  {viewerError ? (
-                    <div className="flex items-center justify-center h-96 text-center">
-                      <div>
-                        <AlertTriangle size={48} className="text-red-400 mx-auto mb-3" />
-                        <p className="text-red-400 font-medium">Dokument kann nicht angezeigt werden</p>
-                        <p className="text-gray-400 text-sm mt-1">{viewerError}</p>
-                        <div className="mt-4 flex gap-2 justify-center">
-                          <a
-                            href={doc.url}
-                            download={doc.name}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-colors"
-                          >
-                            <Download size={16} />
-                            Herunterladen
-                          </a>
-                          <a
-                            href={doc.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-colors"
-                          >
-                            <ExternalLink size={16} />
-                            Extern öffnen
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <div className="flex items-center justify-between bg-[#2c3539]/50 px-4 py-2 text-sm border-b border-gray-600/30">
-                        <span className="font-medium text-white">{doc.name}</span>
-                        <button
-                          onClick={() => setSelectedDoc(null)}
-                          className="text-gray-400 hover:text-white transition-colors"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                      <div style={{ height: '400px' }} className="relative">
-                        <iframe
-                          src={getViewerUrl(doc.url, doc.type)}
-                          width="100%"
-                          height="100%"
-                          frameBorder="0"
-                          className="rounded-b border-0"
-                          onError={() => setViewerError('Das Dokument konnte nicht geladen werden.')}
-                          onLoad={() => console.log(`Dokument ${doc.name} erfolgreich geladen`)}
-                          title={`Viewer für ${doc.name}`}
-                          sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-                         />
-                         {/* Loading Indicator */}
-                         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 opacity-50 pointer-events-none">
-                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                         </div>
-                       </div>
-                    </div>
-                  )}
-                </div>
-                <div className="mt-2 text-center">
-                  <p className="text-gray-400 text-xs">
-                    💡 Tipp: Verwenden Sie die Download-Funktion für die beste Qualität
-                  </p>
-                </div>
-              </div>
-            )}
+
           </div>
         ))}
       </div>
+      
+      {/* DocumentViewer Modal - Temporär deaktiviert */}
+      {/* {documentViewerOpen && selectedDocument && (
+        <div className="fixed inset-0 z-[60]">
+          <FullDocumentViewer 
+            document={selectedDocument} 
+            onClose={() => {
+              setDocumentViewerOpen(false);
+              setSelectedDocument(null);
+            }} 
+          />
+        </div>
+      )} */}
     </div>
   );
 }
@@ -821,7 +771,7 @@ export default function TradeDetailsModal({
          </div>
 
          {/* Dokumente */}
-         <DocumentViewer documents={trade.documents || []} />
+         <TradeDocumentViewer documents={trade.documents || []} />
 
          {/* Notizen vom Bauträger */}
          {/* Notizen werden normalerweise nicht direkt im TradeSearchResult übertragen, 
@@ -1198,6 +1148,13 @@ export default function TradeDetailsModal({
                     <p className="text-2xl font-bold text-green-600">
                       {trade.budget.toLocaleString('de-DE')} €
                     </p>
+                  </div>
+                )}
+
+                {/* Dokumente */}
+                {trade.documents && Array.isArray(trade.documents) && trade.documents.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-xl p-4">
+                    <TradeDocumentViewer documents={trade.documents} />
                   </div>
                 )}
 

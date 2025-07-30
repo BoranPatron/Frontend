@@ -1347,53 +1347,18 @@ export default function Trades() {
     return quotes.length > 0 && quotes.every(quote => quote.status !== 'accepted');
   }).length;
 
-  // Neue Funktion für TradeCreationForm
+  // Neue Funktion für TradeCreationForm - DEAKTIVIERT um Duplizierung zu vermeiden
   const handleCreateTradeWithForm = async (tradeData: any) => {
     try {
-      console.log('🔧 Erstelle Gewerk mit erweiterten Daten:', tradeData);
-      
-      // Verwende die project_id aus tradeData oder fallback auf selectedProject/currentProject
-      const projectId = tradeData.project_id || selectedProject?.id || currentProject?.id;
-      
-      if (!projectId) {
-        throw new Error('Keine Projekt-ID verfügbar');
-      }
-      
-      console.log('🔧 Verwende Projekt-ID:', projectId);
-      
-      // API-Call für die Gewerk-Erstellung mit allen kategorie-spezifischen Feldern
-      const milestoneData = {
-        title: tradeData.title,
-        description: tradeData.description,
-        project_id: projectId,
-        status: 'planned', // Backend erwartet 'planned' statt 'planning'
-        priority: tradeData.priority,
-        planned_date: tradeData.planned_date, // Backend erwartet YYYY-MM-DD Format
-        category: tradeData.category,
-        notes: tradeData.notes,
-        is_critical: false,
-        notify_on_completion: true,
-        requires_inspection: tradeData.requires_inspection || false,
-        // Kategorie-spezifische Felder für Backend-Aggregation
-        category_specific_fields: tradeData.category_specific_fields || {},
-        technical_specifications: tradeData.technical_specifications || "",
-        quality_requirements: tradeData.quality_requirements || "",
-        safety_requirements: tradeData.safety_requirements || "",
-        environmental_requirements: tradeData.environmental_requirements || ""
-      };
-      
-      console.log('📡 Sende Milestone-Daten mit aggregierten Feldern:', milestoneData);
-      await createMilestone(milestoneData);
-      
-      // Erfolgreich erstellt
-      console.log('✅ Gewerk erfolgreich erstellt mit aggregierten Beschreibungen');
+      console.log('🔧 TradeCreationForm wird verwendet - handleCreateTradeWithForm wird übersprungen');
+      console.log('🔧 Gewerk wird bereits durch TradeCreationForm erstellt:', tradeData);
       
       // Modal schließen und Daten neu laden
       setShowTradeCreationForm(false);
       await loadTrades();
       
     } catch (error) {
-      console.error('❌ Fehler beim Erstellen des Gewerks:', error);
+      console.error('❌ Fehler beim Verarbeiten des Gewerks:', error);
       throw error;
     }
   };
