@@ -196,13 +196,11 @@ function DocumentViewer({ documents }: DocumentViewerProps) {
                           width="100%"
                           height="100%"
                           frameBorder="0"
-                          className="rounded-b"
+                          className="rounded-b border-0"
                           onError={() => setViewerError('Das Dokument konnte nicht geladen werden.')}
                           onLoad={() => console.log(`Dokument ${doc.name} erfolgreich geladen`)}
-                          sandbox="allow-same-origin allow-scripts"
-                           className="border-0"
-                           title={`Viewer für ${doc.name}`}
-                           sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                          title={`Viewer für ${doc.name}`}
+                          sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
                          />
                          {/* Loading Indicator */}
                          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 opacity-50 pointer-events-none">
