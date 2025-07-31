@@ -4,7 +4,125 @@ import type { TradeSearchResult } from '../api/geoService';
 // import { getQuotesByTrade } from '../api/quoteService';
 import { useAuth } from '../context/AuthContext';
 import CostEstimateForm from './CostEstimateForm';
+import { getAuthenticatedFileUrl, getApiBaseUrl } from '../api/api';
 // import FullDocumentViewer from './DocumentViewer';
+
+// PDFViewer Komponente für authentifizierte PDF-Anzeige
+const PDFViewer: React.FC<{ url: string; filename: string; onError: (error: string) => void }> = ({ url, filename, onError }) => {
+  const [pdfUrl, setPdfUrl] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadPDF = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Kein Authentifizierungstoken verfügbar');
+        }
+
+        // Versuche zuerst den documents/content Endpoint
+        const documentId = extractDocumentIdFromUrl(url);
+        if (documentId) {
+          const baseUrl = getApiBaseUrl();
+          const response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          if (response.ok) {
+            const blob = await response.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            setPdfUrl(objectUrl);
+            return;
+          }
+        }
+
+        // Fallback: Verwende die authentifizierte URL
+        const authenticatedUrl = getAuthenticatedFileUrl(url);
+        setPdfUrl(authenticatedUrl);
+        
+      } catch (err: any) {
+        console.error('❌ PDF Viewer Fehler:', err);
+        setError(err.message || 'PDF konnte nicht geladen werden');
+        onError(err.message || 'PDF konnte nicht geladen werden');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPDF();
+
+    // Cleanup
+    return () => {
+      if (pdfUrl && pdfUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(pdfUrl);
+      }
+    };
+  }, [url, onError]);
+
+  // Hilfsfunktion um Document-ID aus URL zu extrahieren
+  const extractDocumentIdFromUrl = (url: string): string | null => {
+    const patterns = [
+      /\/documents\/(\d+)\//,
+      /document_(\d+)/,
+      /(\d+)\.(pdf|doc|docx|txt)$/,
+      /\/storage\/uploads\/project_\d+\/(\d+)\./
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) {
+        return match[1];
+      }
+    }
+    
+    return null;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#ffbd59] mx-auto mb-2"></div>
+          <p className="text-gray-400 text-sm">PDF wird geladen...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <AlertTriangle size={48} className="text-red-400 mx-auto mb-3" />
+          <p className="text-red-400 font-medium">PDF konnte nicht geladen werden</p>
+          <p className="text-gray-400 text-sm mt-1">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <iframe
+      src={pdfUrl}
+      width="100%"
+      height="100%"
+      frameBorder="0"
+      className="rounded-b border-0"
+      title={`PDF Viewer für ${filename}`}
+      onError={() => {
+        console.error(`❌ PDF Viewer iframe Fehler für: ${filename}`);
+        setError('PDF konnte nicht angezeigt werden');
+        onError('PDF konnte nicht angezeigt werden');
+      }}
+    />
+  );
+};
 
 interface TradeDetailsModalProps {
   trade: TradeSearchResult | null;
@@ -74,24 +192,104 @@ function TradeDocumentViewer({ documents }: DocumentViewerProps) {
   const getViewerUrl = (url: string, type: string) => {
     console.log('🔧 getViewerUrl called with:', { url, type });
     
-    // Für PDF-Dateien direkte Einbettung
+    // Für PDF-Dateien verwenden wir eine spezielle Behandlung
     if (type.includes('pdf')) {
-      console.log('📄 PDF detected, using direct URL:', url);
-      return url;
+      // Versuche Document-ID aus URL zu extrahieren
+      const documentId = extractDocumentIdFromUrl(url);
+      if (documentId) {
+        const baseUrl = getApiBaseUrl();
+        const contentUrl = `${baseUrl}/documents/${documentId}/content`;
+        console.log('📄 PDF detected, using documents/content endpoint:', contentUrl);
+        return contentUrl;
+      }
+      
+      // Fallback: Verwende die authentifizierte URL
+      const authenticatedUrl = getAuthenticatedFileUrl(url);
+      console.log('📄 PDF detected, using authenticated URL:', authenticatedUrl);
+      return authenticatedUrl;
     }
     
     // Für Office-Dokumente verwenden wir Office Online Viewer
     if (type.includes('word') || type.includes('document') || 
         type.includes('presentation') || type.includes('powerpoint')) {
-      // Stelle sicher, dass die URL vollständig ist
-      const fullUrl = url.startsWith('http') ? url : `${window.location.origin}${url}`;
-      const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fullUrl)}`;
+      const authenticatedUrl = getAuthenticatedFileUrl(url);
+      const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(authenticatedUrl)}`;
       console.log('📄 Office document detected, using viewer:', viewerUrl);
       return viewerUrl;
     }
     
-    console.log('📄 Default URL used:', url);
-    return url;
+    // Für andere Dateien
+    const authenticatedUrl = getAuthenticatedFileUrl(url);
+    console.log('📄 Default authenticated URL used:', authenticatedUrl);
+    return authenticatedUrl;
+  };
+
+  // Hilfsfunktion um Document-ID aus URL zu extrahieren
+  const extractDocumentIdFromUrl = (url: string): string | null => {
+    // Versuche verschiedene URL-Patterns
+    const patterns = [
+      /\/documents\/(\d+)\//,  // /documents/123/
+      /document_(\d+)/,        // document_123
+      /(\d+)\.(pdf|doc|docx|txt)$/,  // 123.pdf
+      /\/storage\/uploads\/project_\d+\/(\d+)\./  // /storage/uploads/project_7/123.pdf
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) {
+        console.log('🔧 Document ID extracted:', match[1]);
+        return match[1];
+      }
+    }
+    
+    console.log('🔧 No document ID found in URL:', url);
+    return null;
+  };
+
+  // Neue Funktion für bessere PDF-Anzeige mit Fallback
+  const handleViewDocument = async (doc: any) => {
+    console.log('🔧 handleViewDocument called for:', doc);
+    
+    try {
+      // Versuche zuerst den documents/content Endpoint
+      const documentId = extractDocumentIdFromUrl(doc.url);
+      if (documentId) {
+        const baseUrl = getApiBaseUrl();
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          setViewerError('Kein Authentifizierungstoken verfügbar. Bitte laden Sie das Dokument herunter.');
+          return;
+        }
+        
+        // Teste den Endpoint mit einem Fetch-Request
+        const response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          console.log('✅ documents/content endpoint funktioniert');
+          setSelectedDoc(selectedDoc === doc.id ? null : doc.id);
+          setViewerError(null);
+          return;
+        } else {
+          console.log('❌ documents/content endpoint fehlgeschlagen:', response.status);
+          const errorData = await response.text();
+          console.log('❌ Error response:', errorData);
+        }
+      }
+      
+      // Fallback: Verwende die ursprüngliche Methode
+      console.log('🔄 Verwende Fallback-Methode');
+      setSelectedDoc(selectedDoc === doc.id ? null : doc.id);
+      setViewerError(null);
+      
+    } catch (error) {
+      console.error('❌ Fehler beim Testen des Document-Endpoints:', error);
+      setViewerError('Dokument kann nicht angezeigt werden. Bitte laden Sie es herunter.');
+    }
   };
 
   return (
@@ -120,16 +318,42 @@ function TradeDocumentViewer({ documents }: DocumentViewerProps) {
               <div className="flex items-center gap-2">
                 {canPreview(doc.type) && (
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       console.log('🔧 Ansehen Button clicked for document:', doc);
-                      // Temporär deaktiviert - öffne in neuem Tab
-                      window.open(doc.url, '_blank');
+                      
+                      // Für PDF-Dateien verwenden wir eine spezielle Behandlung
+                      if (doc.type.includes('pdf')) {
+                        const token = localStorage.getItem('token');
+                        if (!token) {
+                          setViewerError('Kein Authentifizierungstoken verfügbar. Bitte laden Sie das Dokument herunter.');
+                          return;
+                        }
+                        
+                        // Versuche Document-ID aus URL zu extrahieren
+                        const documentId = extractDocumentIdFromUrl(doc.url);
+                        if (documentId) {
+                          console.log('🔧 PDF Document ID gefunden:', documentId);
+                          setSelectedDoc(selectedDoc === doc.id ? null : doc.id);
+                          setViewerError(null);
+                          return;
+                        }
+                      }
+                      
+                      // Fallback für andere Dateien oder wenn keine Document-ID gefunden wurde
+                      setSelectedDoc(selectedDoc === doc.id ? null : doc.id);
+                      setViewerError(null);
                     }}
-                    className="flex items-center gap-1 px-3 py-2 bg-[#ffbd59]/20 text-[#ffbd59] hover:bg-[#ffbd59]/30 rounded-lg transition-all duration-200 text-sm font-medium"
-                    title="Dokument im Vollbild anzeigen"
+                    className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
+                      selectedDoc === doc.id
+                        ? 'bg-[#ffbd59] text-[#1a1a2e] shadow-lg'
+                        : 'bg-[#ffbd59]/20 text-[#ffbd59] hover:bg-[#ffbd59]/30'
+                    }`}
+                    title="Dokument anzeigen"
                   >
                     <Eye size={14} />
-                    Ansehen
+                    {selectedDoc === doc.id ? 'Schließen' : 'Ansehen'}
                   </button>
                 )}
                 <a
@@ -153,23 +377,84 @@ function TradeDocumentViewer({ documents }: DocumentViewerProps) {
                 </a>
               </div>
             </div>
+            
+            {/* Inline Document Viewer */}
+            {selectedDoc === doc.id && canPreview(doc.type) && (
+              <div className="mt-4 border-t border-gray-600/30 pt-4">
+                <div className="bg-[#1a1a2e]/80 rounded-lg p-2 min-h-[400px] border border-gray-600/30">
+                  {viewerError ? (
+                    <div className="flex items-center justify-center h-96 text-center">
+                      <div>
+                        <AlertTriangle size={48} className="text-red-400 mx-auto mb-3" />
+                        <p className="text-red-400 font-medium">Dokument kann nicht angezeigt werden</p>
+                        <p className="text-gray-400 text-sm mt-1">{viewerError}</p>
+                        <div className="mt-4 flex gap-2 justify-center">
+                          <a
+                            href={doc.url}
+                            download={doc.name}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-colors"
+                          >
+                            <Download size={16} />
+                            Herunterladen
+                          </a>
+                          <a
+                            href={doc.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-colors"
+                          >
+                            <ExternalLink size={16} />
+                            Extern öffnen
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <div className="flex items-center justify-between bg-[#2c3539]/50 px-4 py-2 text-sm border-b border-gray-600/30">
+                        <span className="font-medium text-white">{doc.name}</span>
+                        <button
+                          onClick={() => setSelectedDoc(null)}
+                          className="text-gray-400 hover:text-white transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                      <div style={{ height: '400px' }} className="relative">
+                        {doc.type.includes('pdf') ? (
+                          // Für PDF-Dateien verwenden wir einen speziellen Viewer mit Authentifizierung
+                          <PDFViewer 
+                            url={doc.url} 
+                            filename={doc.name}
+                            onError={(error: string) => {
+                              console.error(`❌ PDF Viewer Fehler:`, error);
+                              setViewerError('PDF konnte nicht geladen werden. Bitte laden Sie es herunter.');
+                            }}
+                          />
+                        ) : (
+                          // Für andere Dateien verwenden wir iframe
+                          <iframe
+                            src={getViewerUrl(doc.url, doc.type)}
+                            width="100%"
+                            height="100%"
+                            frameBorder="0"
+                            className="rounded-b border-0"
+                            onError={() => {
+                              console.error(`❌ Fehler beim Laden von ${doc.name}:`, doc.url);
+                              setViewerError('Das Dokument konnte nicht geladen werden.');
+                            }}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
           </div>
         ))}
       </div>
-      
-      {/* DocumentViewer Modal - Temporär deaktiviert */}
-      {/* {documentViewerOpen && selectedDocument && (
-        <div className="fixed inset-0 z-[60]">
-          <FullDocumentViewer 
-            document={selectedDocument} 
-            onClose={() => {
-              setDocumentViewerOpen(false);
-              setSelectedDocument(null);
-            }} 
-          />
-        </div>
-      )} */}
     </div>
   );
 }

@@ -71,6 +71,53 @@ const api = axios.create({
   },
 });
 
+// Spezielle Funktion für authentifizierte Datei-URLs
+export const getAuthenticatedFileUrl = (filePath: string): string => {
+  const baseUrl = getApiBaseUrl();
+  const token = localStorage.getItem('token');
+  
+  console.log('🔧 getAuthenticatedFileUrl called with:', { filePath, baseUrl, hasToken: !!token });
+  
+  // Entferne führende Slashes und "storage/" aus dem Pfad
+  const cleanPath = filePath.replace(/^\/+/, '').replace(/^storage\//, '');
+  
+  if (!token) {
+    console.error('❌ Kein Token verfügbar für Datei-Zugriff');
+    return '#';
+  }
+  
+  // Verwende den documents/content Endpoint statt files/serve für bessere Authentifizierung
+  const documentId = extractDocumentIdFromPath(cleanPath);
+  if (documentId) {
+    const contentUrl = `${baseUrl}/documents/${documentId}/content`;
+    console.log('🔧 Using documents/content endpoint:', contentUrl);
+    return contentUrl;
+  }
+  
+  // Fallback: Verwende files/serve mit Token als Query-Parameter
+  const serveUrl = `${baseUrl}/files/serve/${cleanPath}?token=${encodeURIComponent(token)}`;
+  console.log('🔧 Using files/serve endpoint:', serveUrl);
+  return serveUrl;
+};
+
+// Hilfsfunktion um Document-ID aus Pfad zu extrahieren
+const extractDocumentIdFromPath = (filePath: string): string | null => {
+  // Versuche Document-ID aus Pfad zu extrahieren
+  // Beispiel: "uploads/project_7/document_123.pdf" -> "123"
+  const match = filePath.match(/document_(\d+)/);
+  if (match) {
+    return match[1];
+  }
+  
+  // Alternative: Versuche ID aus Dateinamen zu extrahieren
+  const filenameMatch = filePath.match(/(\d+)\.(pdf|doc|docx|txt)$/);
+  if (filenameMatch) {
+    return filenameMatch[1];
+  }
+  
+  return null;
+};
+
 // Token-Refresh-Mechanismus
 let isRefreshing = false;
 let failedQueue: Array<{
