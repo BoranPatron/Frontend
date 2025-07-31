@@ -148,9 +148,10 @@ interface DocumentViewerProps {
     type: string;
     size: number;
   }>;
+  existingQuotes: Quote[];
 }
 
-function TradeDocumentViewer({ documents }: DocumentViewerProps) {
+function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps) {
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
   const [viewerError, setViewerError] = useState<string | null>(null);
   const [documentViewerOpen, setDocumentViewerOpen] = useState(false);
@@ -356,17 +357,23 @@ function TradeDocumentViewer({ documents }: DocumentViewerProps) {
                     {selectedDoc === doc.id ? 'Schließen' : 'Ansehen'}
                   </button>
                 )}
+                
+                {/* Download-Button nur anzeigen, wenn Angebot angenommen wurde */}
+                {existingQuotes.some((quote: Quote) => quote.status === 'accepted') && (
+                  <a
+                    href={getAuthenticatedFileUrl(doc.url)}
+                    download={doc.name}
+                    className="flex items-center gap-1 px-3 py-2 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-all duration-200 text-sm font-medium"
+                    title="Dokument herunterladen (nur nach Angebotsannahme)"
+                  >
+                    <Download size={14} />
+                    Download
+                  </a>
+                )}
+                
+                {/* Öffnen-Button mit authentifizierter URL */}
                 <a
-                  href={doc.url}
-                  download={doc.name}
-                  className="flex items-center gap-1 px-3 py-2 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-all duration-200 text-sm font-medium"
-                  title="Dokument herunterladen"
-                >
-                  <Download size={14} />
-                  Download
-                </a>
-                <a
-                  href={doc.url}
+                  href={getAuthenticatedFileUrl(doc.url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 px-3 py-2 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-all duration-200 text-sm font-medium"
@@ -390,7 +397,7 @@ function TradeDocumentViewer({ documents }: DocumentViewerProps) {
                         <p className="text-gray-400 text-sm mt-1">{viewerError}</p>
                         <div className="mt-4 flex gap-2 justify-center">
                           <a
-                            href={doc.url}
+                            href={getAuthenticatedFileUrl(doc.url)}
                             download={doc.name}
                             className="inline-flex items-center gap-2 px-4 py-2 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-colors"
                           >
@@ -398,7 +405,7 @@ function TradeDocumentViewer({ documents }: DocumentViewerProps) {
                             Herunterladen
                           </a>
                           <a
-                            href={doc.url}
+                            href={getAuthenticatedFileUrl(doc.url)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-colors"
@@ -1056,7 +1063,7 @@ export default function TradeDetailsModal({
          </div>
 
          {/* Dokumente */}
-         <TradeDocumentViewer documents={trade.documents || []} />
+         <TradeDocumentViewer documents={trade.documents || []} existingQuotes={existingQuotes} />
 
          {/* Notizen vom Bauträger */}
          {/* Notizen werden normalerweise nicht direkt im TradeSearchResult übertragen, 
@@ -1439,7 +1446,7 @@ export default function TradeDetailsModal({
                 {/* Dokumente */}
                 {trade.documents && Array.isArray(trade.documents) && trade.documents.length > 0 && (
                   <div className="bg-white border border-gray-200 rounded-xl p-4">
-                    <TradeDocumentViewer documents={trade.documents} />
+                    <TradeDocumentViewer documents={trade.documents} existingQuotes={existingQuotes} />
                   </div>
                 )}
 
