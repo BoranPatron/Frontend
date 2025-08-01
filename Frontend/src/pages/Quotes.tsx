@@ -1385,8 +1385,14 @@ export default function Trades() {
   };
 
   const openTradeDetailsModal = (trade: Trade) => {
+    console.log('🔍 openTradeDetailsModal aufgerufen:', {
+      trade: trade,
+      tradeId: trade.id,
+      tradeTitle: trade.title
+    });
     setSelectedTradeForDetails(trade);
     setShowTradeDetailsModal(true);
+    console.log('✅ TradeDetailsModal State gesetzt');
   };
 
   const handleCostEstimateSubmit = async (costEstimateData: any) => {
@@ -1754,12 +1760,30 @@ export default function Trades() {
   };
 
   const handleTradeClick = (trade: any) => {
-    // Öffne Trade-Details oder CostEstimateDetailsModal
+    // Debug-Logging hinzufügen
+    console.log('🔍 handleTradeClick aufgerufen:', {
+      trade: trade,
+      tradeId: trade.id,
+      quotes: allTradeQuotes[trade.id] || [],
+      quotesLength: (allTradeQuotes[trade.id] || []).length,
+      userType: user?.user_type
+    });
+
+    // Für Bauträger immer TradeDetailsModal öffnen
+    if (user?.user_type === 'bautraeger') {
+      console.log('📋 Öffne TradeDetailsModal für Bauträger - Trade', trade.id);
+      openTradeDetailsModal(trade);
+      return;
+    }
+
+    // Für Dienstleister: Öffne Trade-Details oder CostEstimateDetailsModal
     const quotes = allTradeQuotes[trade.id] || [];
     if (quotes.length > 0) {
+      console.log('📋 Öffne CostEstimateDetailsModal für Dienstleister - Trade', trade.id);
       setSelectedTradeForCostEstimateDetails(trade);
       setShowCostEstimateDetailsModal(true);
     } else {
+      console.log('📋 Öffne TradeDetailsModal für Dienstleister - Trade', trade.id);
       openTradeDetailsModal(trade);
     }
   };
@@ -2644,13 +2668,21 @@ export default function Trades() {
         )}
 
         {showTradeDetailsModal && selectedTradeForDetails && (
-          <TradeDetailsModal
-            isOpen={showTradeDetailsModal}
-            onClose={() => setShowTradeDetailsModal(false)}
-            trade={selectedTradeForDetails as any}
-            quotes={allTradeQuotes[selectedTradeForDetails.id] || []}
-            project={selectedProject}
-          />
+          <>
+            {console.log('🔍 TradeDetailsModal wird gerendert:', {
+              showTradeDetailsModal,
+              selectedTradeForDetails,
+              tradeId: selectedTradeForDetails?.id,
+              existingQuotes: allTradeQuotes[selectedTradeForDetails?.id] || []
+            })}
+            <TradeDetailsModal
+              isOpen={showTradeDetailsModal}
+              onClose={() => setShowTradeDetailsModal(false)}
+              trade={selectedTradeForDetails as any}
+              existingQuotes={allTradeQuotes[selectedTradeForDetails.id] || []}
+              onCreateQuote={() => {}}
+            />
+          </>
         )}
 
         {showCostEstimateDetailsModal && selectedTradeForCostEstimateDetails && (
