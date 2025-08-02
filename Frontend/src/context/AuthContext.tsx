@@ -302,7 +302,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                    user?.user_role === 'developer' ||
                    user?.user_role === 'DEVELOPER' ||
                    user?.user_type === 'developer' ||
-                   user?.user_type === 'bautraeger';
+                   user?.user_type === 'bautraeger' ||
+                   user?.user_type === 'PRIVATE' ||
+                   user?.user_type === 'PROFESSIONAL' ||
+                   user?.user_type === 'private' ||
+                   user?.user_type === 'professional';
     
     console.log('🔍 isBautraeger Check:', {
       user_type: user?.user_type,

@@ -5,6 +5,7 @@ import { appointmentService } from '../api/appointmentService';
 import AppointmentStatusCard from './AppointmentStatusCard';
 import AppointmentResponseTracker from './AppointmentResponseTracker';
 import InspectionSentBadge from './InspectionSentBadge';
+import TradeProgress from './TradeProgress';
 import { 
   X, 
   Calendar, 
@@ -994,6 +995,20 @@ export default function CostEstimateDetailsModal({
                     {/* DEPRECATED: InspectionStatusTracker ersetzt durch AppointmentStatusCard */}
                   </div>
                 </div>
+              )}
+
+              {/* Baufortschritt & Kommunikation */}
+              {trade && (
+                <TradeProgress
+                  milestoneId={trade.id}
+                  currentProgress={0}
+                  onProgressChange={() => {}}
+                  isBautraeger={user?.user_type === 'bautraeger' || user?.user_type === 'developer' || user?.user_type === 'PRIVATE' || user?.user_type === 'PROFESSIONAL' || user?.user_type === 'private' || user?.user_type === 'professional'}
+                  isServiceProvider={user?.user_type === 'service_provider' || user?.user_type === 'SERVICE_PROVIDER'}
+                  completionStatus={'in_progress'}
+                  onCompletionRequest={() => {}}
+                  onCompletionResponse={() => {}}
+                />
               )}
             </div>
           </div>

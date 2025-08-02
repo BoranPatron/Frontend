@@ -1241,8 +1241,13 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               </div>
             )}
 
-            {/* Baufortschritt & Kommunikation - TEMPORÄR: Immer anzeigen für Testing */}
-            {(acceptedQuote || existingQuotes?.length > 0) && (
+            {/* Baufortschritt & Kommunikation */}
+            {(
+              // Für Bauträger: Immer anzeigen (können jederzeit kommentieren)
+              isBautraeger() ||
+              // Für Dienstleister: Nur wenn sie ein Angebot haben
+              (acceptedQuote || existingQuotes?.length > 0)
+            ) && (
               <TradeProgress
                 milestoneId={trade.id}
                 currentProgress={currentProgress}

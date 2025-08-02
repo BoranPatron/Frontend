@@ -1770,7 +1770,7 @@ export default function Trades() {
     });
 
     // Für Bauträger immer TradeDetailsModal öffnen
-    if (user?.user_type === 'bautraeger') {
+    if (user?.user_type === 'bautraeger' || user?.user_type === 'developer') {
       console.log('📋 Öffne TradeDetailsModal für Bauträger - Trade', trade.id);
       openTradeDetailsModal(trade);
       return;
@@ -2457,12 +2457,15 @@ export default function Trades() {
               onClick={() => {
                 // Prüfe ob Kostenvoranschläge vorhanden sind
                 const quotes = allTradeQuotes[trade.id] || [];
-                if (quotes.length > 0) {
-                  // Öffne CostEstimateDetailsModal für alle Benutzer
+                // Bauträger bekommen immer TradeDetailsModal (mit Kommentar-Funktionalität)
+                if (user?.user_type === 'bautraeger' || user?.user_type === 'developer') {
+                  openTradeDetailsModal(trade);
+                } else if (quotes.length > 0) {
+                  // Dienstleister: Öffne CostEstimateDetailsModal wenn Angebote vorhanden
                   setSelectedTradeForCostEstimateDetails(trade);
                   setShowCostEstimateDetailsModal(true);
                 } else {
-                  // Öffne normale TradeDetailsModal wenn keine Kostenvoranschläge vorhanden
+                  // Dienstleister: Öffne TradeDetailsModal wenn keine Angebote vorhanden
                   openTradeDetailsModal(trade);
                 }
               }}

@@ -105,8 +105,8 @@ export default function TradeProgress({
         is_internal: false
       };
 
-      // Nur definierte Werte hinzufügen
-      if (type === 'comment' && progress !== undefined) {
+      // Nur definierte Werte hinzufügen - Bauträger senden niemals Fortschritt
+      if (type === 'comment' && isServiceProvider && !isBautraeger) {
         updateData.progress_percentage = progress;
       }
       if (replyTo) {
@@ -183,8 +183,22 @@ export default function TradeProgress({
   };
 
   const renderUpdate = (update: ProgressUpdate, isReply: boolean = false) => {
-    const isBautraegerUpdate = update.user.user_type === 'bautraeger';
+    const isBautraegerUpdate = update.user.user_type === 'bautraeger' || 
+                               update.user.user_type === 'developer' || 
+                               update.user.user_type === 'PRIVATE' ||
+                               update.user.user_type === 'PROFESSIONAL' ||
+                               update.user.user_type === 'private' ||
+                               update.user.user_type === 'professional';
     const isOwnUpdate = (isBautraeger && isBautraegerUpdate) || (isServiceProvider && !isBautraegerUpdate);
+    
+    console.log('🔍 RenderUpdate Debug:', {
+      updateId: update.id,
+      user_type: update.user.user_type,
+      isBautraegerUpdate,
+      propsIsBautraeger: isBautraeger,
+      propsIsServiceProvider: isServiceProvider,
+      isOwnUpdate
+    });
 
     return (
       <div
@@ -194,23 +208,32 @@ export default function TradeProgress({
         <div className={`flex gap-3 ${isOwnUpdate ? 'flex-row-reverse' : ''}`}>
           <div className="flex-shrink-0">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              isBautraegerUpdate ? 'bg-blue-500' : 'bg-[#ffbd59]'
+              isBautraegerUpdate 
+                ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
+                : 'bg-gradient-to-br from-[#ffbd59] to-[#ffa726]'
             }`}>
               <User size={20} className="text-white" />
             </div>
           </div>
           
           <div className={`flex-1 ${isOwnUpdate ? 'text-right' : ''}`}>
-            <div className={`inline-block p-4 rounded-xl ${
-              isOwnUpdate 
-                ? 'bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#1a1a2e]' 
-                : 'bg-[#2c3539] text-white'
+            <div className={`inline-block p-4 rounded-xl max-w-[80%] ${
+              isBautraegerUpdate
+                ? (isOwnUpdate 
+                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' 
+                    : 'bg-[#2c3539] text-white border border-blue-500/30')
+                : (isOwnUpdate 
+                    ? 'bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#1a1a2e]' 
+                    : 'bg-[#2c3539] text-white border border-[#ffbd59]/30')
             } ${update.update_type === 'defect' ? 'border-2 border-red-500' : ''}`}>
               
               {/* Header */}
               <div className="flex items-center gap-2 mb-2 text-sm opacity-75">
                 <span className="font-medium">
-                  {update.user.company_name || update.user.full_name || 'Unbekannt'}
+                  {update.user.company_name || 
+                   update.user.full_name || 
+                   `${update.user.first_name || ''} ${update.user.last_name || ''}`.trim() ||
+                   (isBautraegerUpdate ? 'Bauträger' : 'Dienstleister')}
                 </span>
                 <span>•</span>
                 <span>{format(new Date(update.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}</span>
