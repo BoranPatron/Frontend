@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BuildWise - Die intelligente Plattform für die Bauindustrie</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1a1a2e',
+                        secondary: '#16213e',
+                        accent: '#ffbd59',
+                        dark: '#0f3460'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gradient-to-br from-primary via-secondary to-dark text-white">
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full bg-black/20 backdrop-blur-md z-50 border-b border-white/10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <img src="logo_trans_big.png" alt="BuildWise Logo" class="h-8 w-auto">
+                    <span class="ml-2 text-xl font-bold text-accent">BuildWise</span>
+                </div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#features" class="hover:text-accent transition-colors">Funktionen</a>
+                    <a href="#pricing" class="hover:text-accent transition-colors">Preise</a>
+                    <a href="#about" class="hover:text-accent transition-colors">Über uns</a>
+                    <a href="#contact" class="hover:text-accent transition-colors">Kontakt</a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/login" class="px-4 py-2 text-accent hover:text-white transition-colors">Anmelden</a>
+                    <a href="/register" class="px-6 py-2 bg-accent text-primary font-semibold rounded-lg hover:bg-yellow-400 transition-colors">
+                        Kostenlos starten
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="pt-24 pb-16 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto text-center">
+            <h1 class="text-4xl md:text-6xl font-bold mb-6">
+                Die intelligente Plattform für die
+                <span class="text-accent">Bauindustrie</span>
+            </h1>
+            <p class="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto">
+                Verbinden Sie Bauträger und Dienstleister. Optimieren Sie Ihre Projekte mit modernster Technologie und intuitiver Benutzerführung.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="/register" class="px-8 py-4 bg-accent text-primary font-bold rounded-lg text-lg hover:bg-yellow-400 transition-colors">
+                    Jetzt kostenlos testen
+                </a>
+                <a href="#demo" class="px-8 py-4 border-2 border-accent text-accent font-bold rounded-lg text-lg hover:bg-accent hover:text-primary transition-colors">
+                    Demo ansehen
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-16 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <h2 class="text-3xl md:text-4xl font-bold text-center mb-12">
+                Alles was Sie für erfolgreiche Bauprojekte brauchen
+            </h2>
+            
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Dashboard -->
+                <div class="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-accent/50 transition-all">
+                    <div class="w-12 h-12 bg-accent/20 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fas fa-chart-line text-accent text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Intelligentes Dashboard</h3>
+                    <p class="text-gray-300">Übersichtliche Darstellung aller wichtigen Projektkennzahlen und Schnellzugriff auf wichtige Funktionen.</p>
+                </div>
+
+                <!-- Projektmanagement -->
+                <div class="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-accent/50 transition-all">
+                    <div class="w-12 h-12 bg-accent/20 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fas fa-building text-accent text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Projektmanagement</h3>
+                    <p class="text-gray-300">Vollständige Verwaltung Ihrer Bauprojekte mit Zeitstrahl, Bauphasen und Dokumentenverwaltung.</p>
+                </div>
+
+                <!-- Geo-Suche -->
+                <div class="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-accent/50 transition-all">
+                    <div class="w-12 h-12 bg-accent/20 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fas fa-map-marker-alt text-accent text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Geo-basierte Suche</h3>
+                    <p class="text-gray-300">Finden Sie Dienstleister in Ihrer Nähe mit interaktiver Kartenansicht und Umkreissuche.</p>
+                </div>
+
+                <!-- Finanzverwaltung -->
+                <div class="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-accent/50 transition-all">
+                    <div class="w-12 h-12 bg-accent/20 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fas fa-euro-sign text-accent text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Finanzverwaltung</h3>
+                    <p class="text-gray-300">Kostenkontrolle, Rechnungsverwaltung und transparente BuildWise-Gebühren auf einen Blick.</p>
+                </div>
+
+                <!-- Kommunikation -->
+                <div class="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-accent/50 transition-all">
+                    <div class="w-12 h-12 bg-accent/20 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fas fa-comments text-accent text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Intelligente Kommunikation</h3>
+                    <p class="text-gray-300">Direkte Projektnachrichten, Terminverwaltung und automatische Benachrichtigungen.</p>
+                </div>
+
+                <!-- Analytics -->
+                <div class="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-accent/50 transition-all">
+                    <div class="w-12 h-12 bg-accent/20 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fas fa-chart-bar text-accent text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">Analytics & Berichte</h3>
+                    <p class="text-gray-300">Detaillierte Projektanalysen, Finanzberichte und Performance-Tracking mit Visualisierungen.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- User Roles Section -->
+    <section class="py-16 px-4 sm:px-6 lg:px-8 bg-white/5">
+        <div class="max-w-7xl mx-auto">
+            <h2 class="text-3xl md:text-4xl font-bold text-center mb-12">
+                Für alle Akteure der Bauindustrie
+            </h2>
+            
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Bauträger -->
+                <div class="bg-gradient-to-br from-primary to-secondary rounded-xl p-8 border border-accent/20">
+                    <div class="flex items-center mb-6">
+                        <div class="w-16 h-16 bg-accent/20 rounded-full flex items-center justify-center mr-4">
+                            <i class="fas fa-building text-accent text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-2xl font-bold">Bauträger</h3>
+                            <p class="text-gray-300">Bauherren & Projektentwickler</p>
+                        </div>
+                    </div>
+                    <ul class="space-y-3 text-gray-300">
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-accent mr-3"></i>
+                            Projektverwaltung und -übersicht
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-accent mr-3"></i>
+                            Dienstleister-Suche und -vergleich
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-accent mr-3"></i>
+                            Angebotsvergleich und -auswahl
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-accent mr-3"></i>
+                            Finanzkontrolle und Budgetverwaltung
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Dienstleister -->
+                <div class="bg-gradient-to-br from-primary to-secondary rounded-xl p-8 border border-accent/20">
+                    <div class="flex items-center mb-6">
+                        <div class="w-16 h-16 bg-accent/20 rounded-full flex items-center justify-center mr-4">
+                            <i class="fas fa-tools text-accent text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-2xl font-bold">Dienstleister</h3>
+                            <p class="text-gray-300">Handwerker, Architekten & Ingenieure</p>
+                        </div>
+                    </div>
+                    <ul class="space-y-3 text-gray-300">
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-accent mr-3"></i>
+                            Angebotserstellung und -verwaltung
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-accent mr-3"></i>
+                            Projektbeteiligung und -kommunikation
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-accent mr-3"></i>
+                            Terminverwaltung und Kalenderintegration
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-accent mr-3"></i>
+                            Rechnungserstellung und -verwaltung
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Key Features Section -->
+    <section class="py-16 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <h2 class="text-3xl md:text-4xl font-bold text-center mb-12">
+                Moderne Technologie für Ihre Projekte
+            </h2>
+            
+            <div class="grid lg:grid-cols-2 gap-12 items-center">
+                <div>
+                    <div class="space-y-6">
+                        <div class="flex items-start">
+                            <div class="w-8 h-8 bg-accent rounded-full flex items-center justify-center mr-4 mt-1">
+                                <i class="fas fa-mobile-alt text-primary text-sm"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold mb-2">Responsive Design</h3>
+                                <p class="text-gray-300">Optimiert für Desktop, Tablet und Smartphone. Arbeiten Sie von überall aus.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <div class="w-8 h-8 bg-accent rounded-full flex items-center justify-center mr-4 mt-1">
+                                <i class="fas fa-shield-alt text-primary text-sm"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold mb-2">Sichere Authentifizierung</h3>
+                                <p class="text-gray-300">OAuth-Integration mit Google und Microsoft. Rollenbasierte Zugriffe für maximale Sicherheit.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <div class="w-8 h-8 bg-accent rounded-full flex items-center justify-center mr-4 mt-1">
+                                <i class="fas fa-bolt text-primary text-sm"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold mb-2">Hohe Performance</h3>
+                                <p class="text-gray-300">Optimierte Ladezeiten, intelligentes Caching und Lazy Loading für beste Benutzererfahrung.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <div class="w-8 h-8 bg-accent rounded-full flex items-center justify-center mr-4 mt-1">
+                                <i class="fas fa-palette text-primary text-sm"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold mb-2">Moderne UI/UX</h3>
+                                <p class="text-gray-300">Tailwind CSS, Dark/Light Mode und intuitive Navigation für beste Benutzerfreundlichkeit.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="relative">
+                    <div class="bg-gradient-to-br from-accent/20 to-accent/5 rounded-2xl p-8 border border-accent/20">
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-lg font-semibold">Dashboard</span>
+                                <div class="flex space-x-2">
+                                    <div class="w-3 h-3 bg-red-500 rounded-full"></div>
+                                    <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                                    <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                                </div>
+                            </div>
+                            <div class="bg-white/10 rounded-lg p-4 h-32 flex items-center justify-center">
+                                <span class="text-accent">Interaktive Demo</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="bg-white/5 rounded-lg p-3 text-center">
+                                    <div class="text-2xl font-bold text-accent">12</div>
+                                    <div class="text-xs text-gray-300">Aktive Projekte</div>
+                                </div>
+                                <div class="bg-white/5 rounded-lg p-3 text-center">
+                                    <div class="text-2xl font-bold text-accent">€45K</div>
+                                    <div class="text-xs text-gray-300">Budget</div>
+                                </div>
+                                <div class="bg-white/5 rounded-lg p-3 text-center">
+                                    <div class="text-2xl font-bold text-accent">8</div>
+                                    <div class="text-xs text-gray-300">Termine</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-accent/20 to-accent/10">
+        <div class="max-w-4xl mx-auto text-center">
+            <h2 class="text-3xl md:text-4xl font-bold mb-6">
+                Bereit für die Zukunft der Bauindustrie?
+            </h2>
+            <p class="text-xl text-gray-300 mb-8">
+                Starten Sie noch heute und erleben Sie, wie einfach Projektmanagement sein kann.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="/register" class="px-8 py-4 bg-accent text-primary font-bold rounded-lg text-lg hover:bg-yellow-400 transition-colors">
+                    Kostenlos registrieren
+                </a>
+                <a href="/contact" class="px-8 py-4 border-2 border-accent text-accent font-bold rounded-lg text-lg hover:bg-accent hover:text-primary transition-colors">
+                    Beratung anfordern
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-black/20 border-t border-white/10 py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center mb-4">
+                        <img src="logo_trans_big.png" alt="BuildWise Logo" class="h-8 w-auto">
+                        <span class="ml-2 text-xl font-bold text-accent">BuildWise</span>
+                    </div>
+                    <p class="text-gray-300">
+                        Die intelligente Plattform für die Bauindustrie. Verbinden Sie Bauträger und Dienstleister.
+                    </p>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Produkt</h3>
+                    <ul class="space-y-2 text-gray-300">
+                        <li><a href="#features" class="hover:text-accent transition-colors">Funktionen</a></li>
+                        <li><a href="#pricing" class="hover:text-accent transition-colors">Preise</a></li>
+                        <li><a href="#demo" class="hover:text-accent transition-colors">Demo</a></li>
+                        <li><a href="#api" class="hover:text-accent transition-colors">API</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Unternehmen</h3>
+                    <ul class="space-y-2 text-gray-300">
+                        <li><a href="#about" class="hover:text-accent transition-colors">Über uns</a></li>
+                        <li><a href="#careers" class="hover:text-accent transition-colors">Karriere</a></li>
+                        <li><a href="#press" class="hover:text-accent transition-colors">Presse</a></li>
+                        <li><a href="#blog" class="hover:text-accent transition-colors">Blog</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Support</h3>
+                    <ul class="space-y-2 text-gray-300">
+                        <li><a href="#help" class="hover:text-accent transition-colors">Hilfe-Center</a></li>
+                        <li><a href="#contact" class="hover:text-accent transition-colors">Kontakt</a></li>
+                        <li><a href="#privacy" class="hover:text-accent transition-colors">Datenschutz</a></li>
+                        <li><a href="#terms" class="hover:text-accent transition-colors">AGB</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="border-t border-white/10 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
+                <p class="text-gray-300 text-sm">
+                    © 2024 BuildWise. Alle Rechte vorbehalten.
+                </p>
+                <div class="flex space-x-4 mt-4 md:mt-0">
+                    <a href="#" class="text-gray-300 hover:text-accent transition-colors">
+                        <i class="fab fa-twitter text-xl"></i>
+                    </a>
+                    <a href="#" class="text-gray-300 hover:text-accent transition-colors">
+                        <i class="fab fa-linkedin text-xl"></i>
+                    </a>
+                    <a href="#" class="text-gray-300 hover:text-accent transition-colors">
+                        <i class="fab fa-facebook text-xl"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Smooth Scrolling Script -->
+    <script>
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Navbar background on scroll
+        window.addEventListener('scroll', function() {
+            const nav = document.querySelector('nav');
+            if (window.scrollY > 50) {
+                nav.classList.add('bg-black/40');
+            } else {
+                nav.classList.remove('bg-black/40');
+            }
+        });
+    </script>
+</body>
+</html>
