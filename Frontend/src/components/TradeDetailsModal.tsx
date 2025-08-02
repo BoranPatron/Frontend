@@ -178,11 +178,39 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   console.log('🔍 TradeDocumentViewer - Debug:', {
     documents,
     documentsLength: documents?.length,
+    documentsType: typeof documents,
+    documentsIsArray: Array.isArray(documents),
+    documentsFirstItem: documents?.[0],
     isBautraeger: isBautraeger(),
-    existingQuotes
+    existingQuotes,
+    documentsFull: documents,
+    // Zusätzliche Debug-Informationen
+    documentsStringified: JSON.stringify(documents, null, 2)
   });
 
-  if (!documents || documents.length === 0) {
+  // Robuste Dokumentenverarbeitung
+  const safeDocuments = React.useMemo(() => {
+    if (!documents) return [];
+    if (Array.isArray(documents)) return documents;
+    if (typeof documents === 'string') {
+      try {
+        const parsed = JSON.parse(documents);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }, [documents]);
+
+  console.log('🔍 TradeDocumentViewer - Nach safeDocuments:', {
+    safeDocuments,
+    safeDocumentsLength: safeDocuments.length,
+    safeDocumentsType: typeof safeDocuments,
+    safeDocumentsIsArray: Array.isArray(safeDocuments)
+  });
+
+  if (!safeDocuments || safeDocuments.length === 0) {
     return (
       <div className="bg-gradient-to-br from-[#2c3539]/30 to-[#1a1a2e]/30 rounded-xl p-6 border border-gray-600/30 backdrop-blur-sm">
         <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
@@ -270,7 +298,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     <div className="bg-gradient-to-br from-[#2c3539]/30 to-[#1a1a2e]/30 rounded-xl p-6 border border-gray-600/30 backdrop-blur-sm">
       <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
         <FileText size={18} className="text-[#ffbd59]" />
-        Dokumente ({documents.length})
+        Dokumente ({safeDocuments.length})
       </h3>
       
       {viewerError && (
@@ -280,34 +308,34 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       )}
       
       <div className="space-y-3">
-        {documents.map((doc) => {
+        {safeDocuments.map((doc) => {
           if (!doc) {
             return null;
           }
           
           return (
-            <div key={doc.id} className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-lg border border-gray-600/30 p-4 hover:border-[#ffbd59]/50 transition-all duration-200 group">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg flex items-center justify-center text-white font-bold shadow-lg">
+          <div key={doc.id} className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-lg border border-gray-600/30 p-4 hover:border-[#ffbd59]/50 transition-all duration-200 group">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg flex items-center justify-center text-white font-bold shadow-lg">
                     {getFileIcon(doc)}
-                  </div>
-                  <div>
+                </div>
+                <div>
                     <p className="font-medium text-white group-hover:text-[#ffbd59] transition-colors">
                       {doc.name || doc.title || doc.file_name || 'Unbekanntes Dokument'}
                     </p>
-                    <p className="text-sm text-gray-400">
+                  <p className="text-sm text-gray-400">
                       {((doc.size || doc.file_size || 0) / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                  </div>
+                  </p>
                 </div>
-                
-                <div className="flex items-center gap-2">
+              </div>
+              
+              <div className="flex items-center gap-2">
                   {canPreview(doc) && (
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                         
                         if (doc.type && doc.type.includes('pdf')) {
                           const token = localStorage.getItem('token');
@@ -325,30 +353,30 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                         }
                         
                         setSelectedDoc(selectedDoc === String(doc.id) ? null : String(doc.id));
-                        setViewerError(null);
-                      }}
-                      className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
+                      setViewerError(null);
+                    }}
+                    className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
                         selectedDoc === String(doc.id)
-                          ? 'bg-[#ffbd59] text-[#1a1a2e] shadow-lg'
-                          : 'bg-[#ffbd59]/20 text-[#ffbd59] hover:bg-[#ffbd59]/30'
-                      }`}
-                      title="Dokument anzeigen"
-                    >
-                      <Eye size={14} />
+                        ? 'bg-[#ffbd59] text-[#1a1a2e] shadow-lg'
+                        : 'bg-[#ffbd59]/20 text-[#ffbd59] hover:bg-[#ffbd59]/30'
+                    }`}
+                    title="Dokument anzeigen"
+                  >
+                    <Eye size={14} />
                       {selectedDoc === String(doc.id) ? 'Schließen' : 'Ansehen'}
-                    </button>
-                  )}
+                  </button>
+                )}
                   
                   {(isBautraeger() || existingQuotes.some((quote: Quote) => quote.status === 'accepted')) && (
-                    <a
+                <a
                       href={getAuthenticatedFileUrl(doc.url || doc.file_path || '')}
                       download={doc.name || doc.title || doc.file_name || 'document'}
-                      className="flex items-center gap-1 px-3 py-2 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-all duration-200 text-sm font-medium"
+                  className="flex items-center gap-1 px-3 py-2 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-all duration-200 text-sm font-medium"
                       title={isBautraeger() ? "Dokument herunterladen" : "Dokument herunterladen (nur nach Angebotsannahme)"}
-                    >
-                      <Download size={14} />
-                      Download
-                    </a>
+                >
+                  <Download size={14} />
+                  Download
+                </a>
                   )}
                   
                   <button
@@ -389,15 +417,15 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                         alert('Dokument konnte nicht geöffnet werden');
                       }
                     }}
-                    className="flex items-center gap-1 px-3 py-2 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-all duration-200 text-sm font-medium"
-                    title="In neuem Tab öffnen"
-                  >
-                    <ExternalLink size={14} />
-                    Öffnen
+                  className="flex items-center gap-1 px-3 py-2 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-all duration-200 text-sm font-medium"
+                  title="In neuem Tab öffnen"
+                >
+                  <ExternalLink size={14} />
+                  Öffnen
                   </button>
-                </div>
               </div>
-              
+            </div>
+            
               {selectedDoc === String(doc.id) && (
                 <div className="mt-4 bg-gradient-to-br from-[#1a1a2e]/80 to-[#2c3539]/80 rounded-lg border border-gray-600/50 overflow-hidden">
                   <div className="flex items-center justify-between p-3 border-b border-gray-600/30">
@@ -406,15 +434,15 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       <span className="text-white font-medium">
                         {doc.name || doc.title || doc.file_name || 'Dokument'}
                       </span>
-                    </div>
-                    <button
-                      onClick={() => setSelectedDoc(null)}
-                      className="text-gray-400 hover:text-white transition-colors"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                  <div style={{ height: '400px' }} className="relative">
+                        </div>
+                        <button
+                          onClick={() => setSelectedDoc(null)}
+                          className="text-gray-400 hover:text-white transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                      <div style={{ height: '400px' }} className="relative">
                     {doc.type && doc.type.includes('pdf') ? (
                       <PDFViewer 
                         url={doc.url || doc.file_path || ''} 
@@ -425,21 +453,21 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                         }}
                       />
                     ) : (
-                      <iframe
+                        <iframe
                         src={getViewerUrl(doc)}
-                        width="100%"
-                        height="100%"
-                        frameBorder="0"
-                        className="rounded-b border-0"
-                        onError={() => {
+                          width="100%"
+                          height="100%"
+                          frameBorder="0"
+                          className="rounded-b border-0"
+                          onError={() => {
                           setViewerError('Das Dokument konnte nicht geladen werden');
-                        }}
-                      />
-                    )}
-                  </div>
+                          }}
+                        />
+                  )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+          </div>
           );
         })}
       </div>
@@ -447,40 +475,306 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   );
 }
 
-export default function TradeDetailsModal({ 
+   export default function TradeDetailsModal({ 
   trade, 
   isOpen, 
   onClose, 
   onCreateQuote, 
   existingQuotes = [] 
 }: TradeDetailsModalProps) {
+  
+
   const { user, isBautraeger } = useAuth();
   const [loading, setLoading] = useState(false);
   const [userHasQuote, setUserHasQuote] = useState(false);
   const [userQuote, setUserQuote] = useState<Quote | null>(null);
   const [showCostEstimateForm, setShowCostEstimateForm] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  
+  // Neue States für dynamisches Laden der Dokumente
+  const [loadedDocuments, setLoadedDocuments] = useState<any[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [documentsError, setDocumentsError] = useState<string | null>(null);
 
   console.log('🔍 TradeDetailsModal - Hauptkomponente gerendert:', {
     isOpen,
     tradeId: trade?.id,
     documents: trade?.documents,
     documentsLength: trade?.documents?.length,
+    documentsType: typeof trade?.documents,
+    documentsIsArray: Array.isArray(trade?.documents),
     isBautraeger: isBautraeger(),
-    existingQuotes: existingQuotes
+    existingQuotes: existingQuotes,
+    tradeKeys: trade ? Object.keys(trade) : [],
+    tradeFull: trade,
+    // Erweiterte Debug-Informationen
+    loadedDocuments: loadedDocuments,
+    loadedDocumentsLength: loadedDocuments.length,
+    documentsLoading: documentsLoading,
+    documentsError: documentsError
   });
+
+  // Funktion zum dynamischen Laden der Dokumente
+  const loadTradeDocuments = async (tradeId: number) => {
+    if (!tradeId) return;
+    
+    setDocumentsLoading(true);
+    setDocumentsError(null);
+    
+    try {
+      console.log('🔍 TradeDetailsModal - Lade Dokumente für Trade:', tradeId);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Kein Authentifizierungstoken verfügbar');
+      }
+      
+      const baseUrl = getApiBaseUrl();
+      
+      // Für Bauträger: Lade direkt vom Milestone-Endpoint
+      // Für Dienstleister: Verwende die Geo-Suche (wie bisher)
+      if (isBautraeger()) {
+        console.log('🏗️ Bauträger-Modus: Lade Dokumente direkt vom Milestone-Endpoint');
+        
+        const response = await fetch(`${baseUrl}/milestones/${tradeId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Fehler beim Laden der Gewerk-Details: ${response.status}`);
+        }
+        
+        const milestoneData = await response.json();
+        console.log('✅ TradeDetailsModal - Milestone-Daten geladen:', milestoneData);
+        
+        // Extrahiere und verarbeite die Dokumente
+        let documents = [];
+        if (milestoneData.documents) {
+          if (Array.isArray(milestoneData.documents)) {
+            documents = milestoneData.documents;
+          } else if (typeof milestoneData.documents === 'string') {
+            try {
+              documents = JSON.parse(milestoneData.documents);
+            } catch (e) {
+              console.error('❌ Fehler beim Parsen der Dokumente:', e);
+              documents = [];
+            }
+          }
+        }
+        
+        // Zusätzlich: Lade geteilte Dokumente falls vorhanden
+        if (milestoneData.shared_document_ids) {
+          try {
+            let sharedDocIds = milestoneData.shared_document_ids;
+            if (typeof sharedDocIds === 'string') {
+              sharedDocIds = JSON.parse(sharedDocIds);
+            }
+            
+            if (Array.isArray(sharedDocIds) && sharedDocIds.length > 0) {
+              // Lade die geteilten Dokumente
+              const sharedDocsPromises = sharedDocIds.map(async (docId: number) => {
+                try {
+                  const docResponse = await fetch(`${baseUrl}/documents/${docId}`, {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  });
+                  
+                  if (docResponse.ok) {
+                    const docData = await docResponse.json();
+                    return {
+                      id: docData.id,
+                      name: docData.title || docData.file_name,
+                      title: docData.title,
+                      file_name: docData.file_name,
+                      url: `/api/v1/documents/${docData.id}/download`,
+                      file_path: `/api/v1/documents/${docData.id}/download`,
+                      type: docData.mime_type || 'application/octet-stream',
+                      mime_type: docData.mime_type,
+                      size: docData.file_size || 0,
+                      file_size: docData.file_size,
+                      category: docData.category,
+                      subcategory: docData.subcategory,
+                      created_at: docData.created_at
+                    };
+                  }
+                  return null;
+                } catch (e) {
+                  console.error(`❌ Fehler beim Laden des geteilten Dokuments ${docId}:`, e);
+                  return null;
+                }
+              });
+              
+              const sharedDocs = await Promise.all(sharedDocsPromises);
+              const validSharedDocs = sharedDocs.filter(doc => doc !== null);
+              
+              console.log('📄 TradeDetailsModal - Geteilte Dokumente geladen:', validSharedDocs);
+              documents = [...documents, ...validSharedDocs];
+            }
+          } catch (e) {
+            console.error('❌ Fehler beim Verarbeiten der geteilten Dokumente:', e);
+          }
+        }
+        
+        console.log('📄 TradeDetailsModal - Finale Dokumentenliste (Bauträger):', documents);
+        setLoadedDocuments(documents);
+        
+      } else {
+        // Dienstleister-Modus: Verwende die Geo-Suche (wie bisher)
+        console.log('🔧 Dienstleister-Modus: Verwende Geo-Suche für Dokumente');
+        
+        // Lade das vollständige Milestone mit Dokumenten vom Backend
+        const response = await fetch(`${baseUrl}/milestones/${tradeId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Fehler beim Laden der Gewerk-Details: ${response.status}`);
+        }
+        
+        const milestoneData = await response.json();
+        console.log('✅ TradeDetailsModal - Milestone-Daten geladen:', milestoneData);
+        
+        // Extrahiere und verarbeite die Dokumente
+        let documents = [];
+        if (milestoneData.documents) {
+          if (Array.isArray(milestoneData.documents)) {
+            documents = milestoneData.documents;
+          } else if (typeof milestoneData.documents === 'string') {
+            try {
+              documents = JSON.parse(milestoneData.documents);
+            } catch (e) {
+              console.error('❌ Fehler beim Parsen der Dokumente:', e);
+              documents = [];
+            }
+          }
+        }
+        
+        // Zusätzlich: Lade geteilte Dokumente falls vorhanden
+        if (milestoneData.shared_document_ids) {
+          try {
+            let sharedDocIds = milestoneData.shared_document_ids;
+            if (typeof sharedDocIds === 'string') {
+              sharedDocIds = JSON.parse(sharedDocIds);
+            }
+            
+            if (Array.isArray(sharedDocIds) && sharedDocIds.length > 0) {
+              // Lade die geteilten Dokumente
+              const sharedDocsPromises = sharedDocIds.map(async (docId: number) => {
+                try {
+                  const docResponse = await fetch(`${baseUrl}/documents/${docId}`, {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  });
+                  
+                  if (docResponse.ok) {
+                    const docData = await docResponse.json();
+                    return {
+                      id: docData.id,
+                      name: docData.title || docData.file_name,
+                      title: docData.title,
+                      file_name: docData.file_name,
+                      url: `/api/v1/documents/${docData.id}/download`,
+                      file_path: `/api/v1/documents/${docId}/download`,
+                      type: docData.mime_type || 'application/octet-stream',
+                      mime_type: docData.mime_type,
+                      size: docData.file_size || 0,
+                      file_size: docData.file_size,
+                      category: docData.category,
+                      subcategory: docData.subcategory,
+                      created_at: docData.created_at
+                    };
+                  }
+                  return null;
+                } catch (e) {
+                  console.error(`❌ Fehler beim Laden des geteilten Dokuments ${docId}:`, e);
+                  return null;
+                }
+              });
+              
+              const sharedDocs = await Promise.all(sharedDocsPromises);
+              const validSharedDocs = sharedDocs.filter(doc => doc !== null);
+              
+              console.log('📄 TradeDetailsModal - Geteilte Dokumente geladen:', validSharedDocs);
+              documents = [...documents, ...validSharedDocs];
+            }
+          } catch (e) {
+            console.error('❌ Fehler beim Verarbeiten der geteilten Dokumente:', e);
+          }
+        }
+        
+        console.log('📄 TradeDetailsModal - Finale Dokumentenliste (Dienstleister):', documents);
+        setLoadedDocuments(documents);
+      }
+      
+    } catch (error) {
+      console.error('❌ TradeDetailsModal - Fehler beim Laden der Dokumente:', error);
+      setDocumentsError(error instanceof Error ? error.message : 'Unbekannter Fehler');
+      
+      // Fallback: Verwende die ursprünglichen trade.documents falls vorhanden
+      if (trade?.documents && Array.isArray(trade.documents)) {
+        console.log('🔄 TradeDetailsModal - Verwende Fallback auf trade.documents:', trade.documents);
+        setLoadedDocuments(trade.documents);
+      } else {
+        setLoadedDocuments([]);
+      }
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
+
+  // Zusätzliche Debug-Logs für Dokumente
+  useEffect(() => {
+    if (trade?.documents) {
+      console.log('📄 TradeDetailsModal - Dokumente gefunden:', {
+        documents: trade.documents,
+        documentsLength: trade.documents.length,
+        documentsType: typeof trade.documents,
+        documentsIsArray: Array.isArray(trade.documents),
+        firstDocument: trade.documents[0],
+        allDocuments: trade.documents
+      });
+    } else {
+      console.log('⚠️ TradeDetailsModal - Keine Dokumente gefunden');
+    }
+  }, [trade?.documents]);
+
+  // Lade Dokumente wenn Modal geöffnet wird
+  useEffect(() => {
+    if (isOpen && trade?.id) {
+      console.log('🔍 TradeDetailsModal - Modal geöffnet, lade Dokumente für Trade:', trade.id);
+      loadTradeDocuments(trade.id);
+    }
+  }, [isOpen, trade?.id]);
+
+  // Fallback: Setze ursprüngliche Dokumente falls vorhanden und noch keine geladen wurden
+  useEffect(() => {
+    if (isOpen && trade?.documents && Array.isArray(trade.documents) && loadedDocuments.length === 0 && !documentsLoading) {
+      console.log('🔄 TradeDetailsModal - Setze ursprüngliche trade.documents als Fallback:', trade.documents);
+      setLoadedDocuments(trade.documents);
+    }
+  }, [isOpen, trade?.documents, loadedDocuments.length, documentsLoading]);
 
   useEffect(() => {
     if (isOpen && trade) {
-      setLoading(true);
+    setLoading(true);
       
       const userQuote = existingQuotes.find(quote => quote.service_provider_id === user?.id);
       if (userQuote) {
         setUserHasQuote(true);
         setUserQuote(userQuote);
       } else {
-        setUserHasQuote(false);
-        setUserQuote(null);
+      setUserHasQuote(false);
+      setUserQuote(null);
       }
       
       setLoading(false);
@@ -585,10 +879,10 @@ export default function TradeDetailsModal({
               <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30">
                 <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
                   <FileText size={18} className="text-[#ffbd59]" />
-                  Beschreibung
+           Beschreibung
                 </h3>
                 <p className="text-gray-300 leading-relaxed">{trade.description}</p>
-              </div>
+       </div>
             )}
 
             {/* Projekt-Informationen */}
@@ -596,29 +890,29 @@ export default function TradeDetailsModal({
               <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <Building size={18} className="text-[#ffbd59]" />
                 Projekt-Informationen
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+           </h3>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <div>
                   <span className="text-sm font-medium text-gray-400">Projektname</span>
                   <p className="text-white">{trade.project_name || 'Nicht angegeben'}</p>
-                </div>
-                <div>
+             </div>
+             <div>
                   <span className="text-sm font-medium text-gray-400">Projekttyp</span>
                   <p className="text-white">{trade.project_type || 'Nicht angegeben'}</p>
-                </div>
-                <div>
+             </div>
+             <div>
                   <span className="text-sm font-medium text-gray-400">Projekt-Status</span>
                   <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(trade.project_status)}`}>
                     {getStatusLabel(trade.project_status)}
-                  </span>
-                </div>
+               </span>
+             </div>
                 {trade.budget && (
-                  <div>
+             <div>
                     <span className="text-sm font-medium text-gray-400">Budget</span>
                     <p className="text-white font-bold">{trade.budget.toLocaleString('de-DE')} €</p>
-                  </div>
-                )}
-              </div>
+               </div>
+             )}
+                 </div>
             </div>
 
             {/* Standort */}
@@ -637,52 +931,52 @@ export default function TradeDetailsModal({
                 {trade.distance_km && (
                   <div className="flex items-center gap-2 text-sm text-gray-400">
                     <span>📍 Entfernung: {trade.distance_km.toFixed(1)} km</span>
-                  </div>
-                )}
-              </div>
-            </div>
+               </div>
+             )}
+           </div>
+         </div>
 
             {/* Zeitplan */}
             <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30">
               <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <Calendar size={18} className="text-[#ffbd59]" />
                 Zeitplan
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {trade.planned_date && (
-                  <div>
+           </h3>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             {trade.planned_date && (
+               <div>
                     <span className="text-sm font-medium text-gray-400">Geplantes Datum</span>
                     <p className="text-white">
-                      {new Date(trade.planned_date).toLocaleDateString('de-DE')}
-                    </p>
-                  </div>
-                )}
-                {trade.start_date && (
-                  <div>
+                   {new Date(trade.planned_date).toLocaleDateString('de-DE')}
+                 </p>
+               </div>
+             )}
+             {trade.start_date && (
+               <div>
                     <span className="text-sm font-medium text-gray-400">Startdatum</span>
                     <p className="text-white">
-                      {new Date(trade.start_date).toLocaleDateString('de-DE')}
-                    </p>
-                  </div>
-                )}
-                {trade.end_date && (
-                  <div>
+                   {new Date(trade.start_date).toLocaleDateString('de-DE')}
+                 </p>
+               </div>
+             )}
+             {trade.end_date && (
+               <div>
                     <span className="text-sm font-medium text-gray-400">Enddatum</span>
                     <p className="text-white">
-                      {new Date(trade.end_date).toLocaleDateString('de-DE')}
-                    </p>
-                  </div>
-                )}
-                {trade.created_at && (
-                  <div>
+                   {new Date(trade.end_date).toLocaleDateString('de-DE')}
+                 </p>
+               </div>
+             )}
+             {trade.created_at && (
+               <div>
                     <span className="text-sm font-medium text-gray-400">Erstellt am</span>
                     <p className="text-white">
-                      {new Date(trade.created_at).toLocaleDateString('de-DE')}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
+                   {new Date(trade.created_at).toLocaleDateString('de-DE')}
+                 </p>
+               </div>
+             )}
+           </div>
+         </div>
 
             {/* Technische Details */}
             {trade.requires_inspection && (
@@ -690,12 +984,12 @@ export default function TradeDetailsModal({
                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                   <CheckCircle size={18} className="text-yellow-400" />
                   Besichtigung
-                </h3>
+                   </h3>
                 <div className="flex items-center gap-2">
                   <CheckCircle size={20} className="text-yellow-400" />
                   <span className="text-yellow-300 font-medium">Vor-Ort-Besichtigung erforderlich</span>
-                </div>
-              </div>
+                     </div>
+                     </div>
             )}
 
             {/* Fortschritt */}
@@ -704,18 +998,18 @@ export default function TradeDetailsModal({
                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                   <Clock size={18} className="text-[#ffbd59]" />
                   Fortschritt
-                </h3>
+                   </h3>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-medium text-gray-400">Fortschritt</span>
                   <span className="text-white font-bold">{trade.progress_percentage}%</span>
-                </div>
+                     </div>
                 <div className="w-full bg-gray-600/30 rounded-full h-3">
                   <div 
                     className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-3 rounded-full transition-all duration-300 shadow-lg"
                     style={{ width: `${trade.progress_percentage}%` }}
                   ></div>
-                </div>
-              </div>
+                   </div>
+                 </div>
             )}
 
             {/* Angebote */}
@@ -724,57 +1018,96 @@ export default function TradeDetailsModal({
                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                   <Eye size={18} className="text-[#ffbd59]" />
                   Angebote ({existingQuotes.length})
-                </h3>
+                    </h3>
                 <div className="space-y-3">
                   {existingQuotes.map((quote) => (
                     <div key={quote.id} className="bg-gradient-to-br from-[#1a1a2e]/30 to-[#2c3539]/30 rounded-lg p-4 border border-gray-600/20">
                       <div className="flex items-center justify-between">
-                        <div>
+                            <div>
                           <p className="text-white font-medium">
                             {quote.service_provider_name || `Angebot #${quote.id}`}
-                          </p>
+                              </p>
                           <p className="text-gray-400 text-sm">
-                            {new Date(quote.created_at).toLocaleDateString('de-DE')}
-                          </p>
-                        </div>
-                        <div className="text-right">
+                                {new Date(quote.created_at).toLocaleDateString('de-DE')}
+                              </p>
+                          </div>
+                          <div className="text-right">
                           <p className="text-white font-bold">
-                            {quote.total_price.toLocaleString('de-DE')} €
-                          </p>
+                              {quote.total_price.toLocaleString('de-DE')} €
+                            </p>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getQuoteStatusColor(quote.status)}`}>
-                            {getQuoteStatusLabel(quote.status)}
-                          </span>
+                              {getQuoteStatusLabel(quote.status)}
+                            </span>
                         </div>
-                      </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                  </div>
+                )}
 
             {/* Dokumente - Einklappbar */}
             <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl border border-gray-600/30 overflow-hidden">
               <div className="flex items-center justify-between p-6 cursor-pointer hover:bg-[#1a1a2e]/30 transition-all duration-200" onClick={() => setIsExpanded(!isExpanded)}>
                 <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                   <FileText size={18} className="text-[#ffbd59]" />
-                  Dokumente ({trade.documents?.length || 0})
-                </h3>
+                  Dokumente ({documentsLoading ? '...' : (loadedDocuments.length > 0 ? loadedDocuments.length : (trade.documents?.length || 0))})
+                  {documentsLoading && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#ffbd59] ml-2"></div>
+                  )}
+                  </h3>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-400">
                     {isExpanded ? 'Einklappen' : 'Ausklappen'}
                   </span>
                   <div className={`transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
                     <ChevronDown size={20} className="text-[#ffbd59]" />
+                     </div>
                   </div>
                 </div>
-              </div>
-              
+
               {isExpanded && (
                 <div className="border-t border-gray-600/30">
-                  <TradeDocumentViewer documents={trade.documents || []} existingQuotes={existingQuotes} />
-                </div>
-              )}
-            </div>
+                  {documentsLoading ? (
+                    <div className="p-6 text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#ffbd59] mx-auto mb-3"></div>
+                      <p className="text-gray-400">Lade Dokumente...</p>
+                    </div>
+                  ) : documentsError ? (
+                    <div className="p-6 text-center">
+                      <div className="text-red-400 mb-3">❌ Fehler beim Laden der Dokumente</div>
+                      <p className="text-gray-400 text-sm">{documentsError}</p>
+                      <button
+                        onClick={() => trade?.id && loadTradeDocuments(trade.id)}
+                        className="mt-3 px-4 py-2 bg-[#ffbd59] text-[#1a1a2e] rounded-lg hover:bg-[#ffa726] transition-colors text-sm font-medium"
+                      >
+                        Erneut versuchen
+                      </button>
+                    </div>
+                  ) : (
+                    <TradeDocumentViewer 
+                      documents={loadedDocuments.length > 0 ? loadedDocuments : (trade?.documents || [])} 
+                      existingQuotes={existingQuotes} 
+                    />
+                  )}
+                  
+                  {/* Debug-Informationen für Entwicklung */}
+                  {typeof window !== 'undefined' && window.location.hostname === 'localhost' && (
+                    <div className="p-4 bg-gray-800 text-xs text-gray-300 border-t border-gray-600">
+                      <div className="mb-2">🔍 Debug-Informationen:</div>
+                      <div>• Dynamisch geladene Dokumente: {loadedDocuments.length}</div>
+                      <div>• Original trade.documents: {trade?.documents?.length || 0}</div>
+                      <div>• Dokumente werden geladen: {documentsLoading ? 'Ja' : 'Nein'}</div>
+                      <div>• Fehler: {documentsError || 'Keiner'}</div>
+                      <div>• Trade ID: {trade?.id}</div>
+                      <div>• Modal geöffnet: {isOpen ? 'Ja' : 'Nein'}</div>
+                    </div>
+                  )}
+                  </div>
+                )}
+                  </div>
+            
+
 
             {/* Dienstleister-spezifische Aktionen */}
             {!isBautraeger() && (
@@ -783,18 +1116,18 @@ export default function TradeDetailsModal({
                   <Calculator size={18} className="text-[#ffbd59]" />
                   Aktionen
                 </h3>
-                <button
+                      <button
                   onClick={() => onCreateQuote(trade)}
                   className="w-full bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#1a1a2e] font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
-                >
+                      >
                   <Calculator size={20} />
-                  Angebot abgeben
-                </button>
+                        Angebot abgeben
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
           </div>
-        </div>
-      </div>
-    </div>
   );
 } 
