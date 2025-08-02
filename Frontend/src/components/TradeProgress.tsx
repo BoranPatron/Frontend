@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { apiCall } from '../api/api';
+import { apiCall, api } from '../api/api';
 
 interface ProgressUpdate {
   id: number;
@@ -116,27 +116,43 @@ export default function TradeProgress({
         updateData.defect_severity = defectSeverity;
       }
 
-      console.log('🔍 Sende Progress Update:', JSON.stringify(updateData, null, 2));
+             console.log('🔍 Sende Progress Update:', JSON.stringify(updateData, null, 2));
+       console.log('🔍 Selected files:', selectedFiles.length, 'files');
 
-                      const response = await apiCall(`/milestones/${milestoneId}/progress/`, {
-                    method: 'POST',
-                    body: JSON.stringify(updateData)
-                });
+       const response = await apiCall(`/milestones/${milestoneId}/progress/`, {
+         method: 'POST',
+         body: JSON.stringify(updateData)
+       });
 
-      // Upload Anhänge falls vorhanden (nur wenn normale Response)
-      const responseId = response.id || response.data?.id;
-      if (selectedFiles.length > 0 && responseId) {
-        for (const file of selectedFiles) {
-          const formData = new FormData();
-          formData.append('file', file);
-          
-          await apiCall(`/milestones/${milestoneId}/progress/${responseId}/attachments/`, {
-            method: 'POST',
-            body: formData,
-            headers: {} // Lasse Content-Type automatisch setzen
-          });
-        }
-      }
+             // Upload Anhänge falls vorhanden (nur wenn normale Response)
+       const responseId = response.id || response.data?.id;
+       if (selectedFiles.length > 0 && responseId) {
+         console.log('🔍 Uploading attachments:', selectedFiles.length, 'files');
+         for (const file of selectedFiles) {
+           console.log('🔍 Uploading file:', file.name, 'size:', file.size, 'type:', file.type);
+           const formData = new FormData();
+           formData.append('file', file);
+           
+           // Debug: Zeige FormData-Inhalt
+           console.log('🔍 FormData entries:');
+           for (let [key, value] of formData.entries()) {
+             console.log('  ', key, ':', value);
+           }
+           
+           try {
+             // Jetzt den echten Attachment-Endpoint verwenden
+             const uploadResponse = await apiCall(`/milestones/${milestoneId}/progress/${responseId}/attachments/`, {
+               method: 'POST',
+               body: formData,
+               headers: {} // Lasse Content-Type automatisch setzen
+             });
+             console.log('✅ Attachment upload successful:', uploadResponse);
+           } catch (uploadError) {
+             console.error('❌ Attachment upload failed:', uploadError);
+             console.error('❌ Error details:', uploadError.response?.data);
+           }
+         }
+       }
 
       // Update lokalen State
       console.log('🔄 Lade Updates neu nach dem Senden...');
@@ -248,22 +264,67 @@ export default function TradeProgress({
               {/* Attachments */}
               {update.attachments && update.attachments.length > 0 && (
                 <div className="mt-3 space-y-2">
-                  {update.attachments.map((attachment, idx) => (
-                    <a
-                      key={idx}
-                      href={attachment.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 p-2 bg-black/20 rounded hover:bg-black/30 transition-colors"
-                    >
-                      {attachment.filename.match(/\.(jpg|jpeg|png|gif)$/i) ? (
-                        <ImageIcon size={16} />
-                      ) : (
-                        <FileText size={16} />
-                      )}
-                      <span className="text-sm truncate">{attachment.filename}</span>
-                    </a>
-                  ))}
+                  {update.attachments.map((attachment, idx) => {
+                    const isImage = attachment.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                    
+                    // URL mit Token für authentifizierte Dateien
+                    const token = localStorage.getItem('token');
+                    const fullUrl = attachment.url.startsWith('http') 
+                      ? attachment.url 
+                      : `http://localhost:8000${attachment.url}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+                    
+                    console.log('🔍 Attachment URL:', fullUrl);
+                    
+                    if (isImage) {
+                      return (
+                        <div key={idx} className="space-y-2">
+                          {/* Image Preview */}
+                          <div className="relative group">
+                            <img
+                              src={fullUrl}
+                              alt={attachment.filename}
+                              className="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => window.open(fullUrl, '_blank')}
+                              onError={(e) => {
+                                console.error('❌ Fehler beim Laden des Bildes:', fullUrl);
+                                // Fallback: Zeige Dateilink
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling.style.display = 'flex';
+                              }}
+                            />
+                            {/* Fallback Link (versteckt, wird bei Fehler angezeigt) */}
+                            <a
+                              href={fullUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hidden items-center gap-2 p-2 bg-black/20 rounded hover:bg-black/30 transition-colors"
+                            >
+                              <ImageIcon size={16} />
+                              <span className="text-sm truncate">{attachment.filename}</span>
+                            </a>
+                          </div>
+                          {/* Image Caption */}
+                          <div className="text-xs text-gray-400 truncate">
+                            📷 {attachment.filename}
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      // Non-image files
+                      return (
+                        <a
+                          key={idx}
+                          href={fullUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 p-2 bg-black/20 rounded hover:bg-black/30 transition-colors"
+                        >
+                          <FileText size={16} />
+                          <span className="text-sm truncate">{attachment.filename}</span>
+                        </a>
+                      );
+                    }
+                  })}
                 </div>
               )}
             </div>

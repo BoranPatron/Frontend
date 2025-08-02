@@ -148,6 +148,13 @@ api.interceptors.request.use(
       console.log(`⚠️ Kein Token verfügbar für: ${config.method?.toUpperCase()} ${config.url}`);
     }
     
+    // Spezielle Behandlung für FormData
+    if (config.data instanceof FormData) {
+      console.log('🔍 [INTERCEPTOR] FormData detected, removing Content-Type header');
+      delete config.headers['Content-Type'];
+      delete config.headers['content-type'];
+    }
+    
     console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data);
     return config;
   },
@@ -283,10 +290,31 @@ api.interceptors.response.use(
 
 // Helper function for API calls with proper typing
 export const apiCall = async (url: string, options?: any) => {
-  // Convert body to data for Axios
-  if (options?.body) {
+  // Convert body to data for Axios, but not for FormData
+  if (options?.body && !(options.body instanceof FormData)) {
     options.data = options.body;
     delete options.body;
+  } else if (options?.body instanceof FormData) {
+    // For FormData, keep as is but rename body to data
+    options.data = options.body;
+    delete options.body;
+    
+    // Wichtig: Bei FormData KEINE Content-Type Header setzen!
+    // Axios soll das automatisch mit Boundary machen
+    if (options.headers) {
+      delete options.headers['Content-Type'];
+    }
+    
+    // Debug: Zeige FormData-Inhalt
+    console.log('🔍 [API] FormData detected, entries:');
+    for (let [key, value] of options.data.entries()) {
+      console.log('  ', key, ':', value);
+    }
+    
+    // Wichtig: Bei FormData auch Accept-Header entfernen
+    if (options.headers) {
+      delete options.headers['Accept'];
+    }
   }
   
   const response = await api({
