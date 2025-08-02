@@ -5,7 +5,6 @@ import {
   Download, 
   ExternalLink, 
   FileText, 
-  ChevronUp, 
   ChevronDown,
   User,
   Mail,
@@ -13,28 +12,19 @@ import {
   Globe,
   Calendar,
   MapPin,
-  Euro,
   CheckCircle,
   Clock,
-  AlertTriangle,
   Star,
   Building,
-  Wrench,
-  Hammer,
-  TreePine,
-  Droplets,
-  Thermometer,
-  Zap,
-  MessageCircle,
   Calculator,
-  Map,
-  List
+  Receipt
 } from 'lucide-react';
 import type { TradeSearchResult } from '../api/geoService';
-// import { getQuotesByTrade } from '../api/quoteService';
 import { useAuth } from '../context/AuthContext';
-import CostEstimateForm from './CostEstimateForm';
-import { getAuthenticatedFileUrl, getApiBaseUrl } from '../api/api';
+import { getAuthenticatedFileUrl, getApiBaseUrl, apiCall } from '../api/api';
+import TradeProgress from './TradeProgress';
+import ServiceProviderRating from './ServiceProviderRating';
+import InvoiceUpload from './InvoiceUpload';
 // import FullDocumentViewer from './DocumentViewer';
 
 // PDF Viewer Komponente
@@ -152,6 +142,12 @@ interface Quote {
   total_price: number;
   created_at: string;
   service_provider_name?: string;
+  contact_released?: boolean;
+  company_name?: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
 }
 
 interface DocumentViewerProps {
@@ -485,16 +481,23 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   
 
   const { user, isBautraeger } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [userHasQuote, setUserHasQuote] = useState(false);
-  const [userQuote, setUserQuote] = useState<Quote | null>(null);
-  const [showCostEstimateForm, setShowCostEstimateForm] = useState(false);
+  // const [loading, setLoading] = useState(false);
+  // const [userHasQuote, setUserHasQuote] = useState(false);
+  // const [userQuote, setUserQuote] = useState<Quote | null>(null);
+  // const [showCostEstimateForm, setShowCostEstimateForm] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   
   // Neue States für dynamisches Laden der Dokumente
   const [loadedDocuments, setLoadedDocuments] = useState<any[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsError, setDocumentsError] = useState<string | null>(null);
+  
+  // States für neue Features
+  const [currentProgress, setCurrentProgress] = useState(trade?.progress_percentage || 0);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [hasRated, setHasRated] = useState(false);
+  const [acceptedQuote, setAcceptedQuote] = useState<Quote | null>(null);
+  const [completionStatus, setCompletionStatus] = useState(trade?.completion_status || 'in_progress');
 
   console.log('🔍 TradeDetailsModal - Hauptkomponente gerendert:', {
     isOpen,
@@ -764,22 +767,53 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     }
   }, [isOpen, trade?.documents, loadedDocuments.length, documentsLoading]);
 
+    // useEffect(() => {
+  //   if (isOpen && trade) {
+  //   setLoading(true);
+  //     
+  //     const userQuote = existingQuotes.find(quote => quote.service_provider_id === user?.id);
+  //     if (userQuote) {
+  //       setUserHasQuote(true);
+  //       setUserQuote(userQuote);
+  //     } else {
+  //       setUserHasQuote(false);
+  //     setUserQuote(null);
+  //     }
+  //     
+  //     setLoading(false);
+  //   }
+  // }, [isOpen, trade, existingQuotes, user?.id]);
+
+  // Finde akzeptiertes Quote
   useEffect(() => {
-    if (isOpen && trade) {
-    setLoading(true);
-      
-      const userQuote = existingQuotes.find(quote => quote.service_provider_id === user?.id);
-      if (userQuote) {
-        setUserHasQuote(true);
-        setUserQuote(userQuote);
+    if (existingQuotes && existingQuotes.length > 0) {
+      console.log('🔍 Debug existingQuotes:', existingQuotes);
+      const accepted = existingQuotes.find(q => q.status === 'accepted');
+      console.log('🔍 Debug accepted quote:', accepted);
+      if (accepted) {
+        setAcceptedQuote(accepted);
       } else {
-      setUserHasQuote(false);
-      setUserQuote(null);
+        // Fallback: Auch nach anderen möglichen Status-Werten suchen
+        const acceptedFallback = existingQuotes.find(q => 
+          q.status === 'angenommen' || 
+          q.status === 'ACCEPTED' || 
+          q.status === 'Angenommen'
+        );
+        console.log('🔍 Debug accepted fallback:', acceptedFallback);
+        if (acceptedFallback) {
+          setAcceptedQuote(acceptedFallback);
+        }
       }
-      
-      setLoading(false);
     }
-  }, [isOpen, trade, existingQuotes, user?.id]);
+  }, [existingQuotes]);
+
+  // Update completion status from trade
+  useEffect(() => {
+    if (trade) {
+      setCompletionStatus(trade.completion_status || 'in_progress');
+      setCurrentProgress(trade.progress_percentage || 0);
+    }
+  }, [trade]);
 
   const getCategoryIcon = (category: string) => {
     const iconMap: { [key: string]: { color: string; icon: React.ReactNode } } = {
@@ -839,11 +873,59 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     }
   };
 
+  // Handler für Baufortschritt
+  const handleProgressChange = async (newProgress: number) => {
+    setCurrentProgress(newProgress);
+    // Optional: API call to update progress
+  };
+
+  const handleCompletionRequest = async () => {
+    try {
+      await apiCall(`/milestones/${trade?.id}/progress/completion`, {
+        method: 'POST',
+        body: JSON.stringify({
+          message: 'Gewerk fertiggestellt. Bitte um Abnahme.'
+        })
+      });
+      setCompletionStatus('completion_requested');
+    } catch (error) {
+      console.error('Fehler bei Fertigstellungsmeldung:', error);
+    }
+  };
+
+  const handleCompletionResponse = async (accepted: boolean, message?: string, deadline?: string) => {
+    try {
+      await apiCall(`/milestones/${trade?.id}/progress/completion/response`, {
+        method: 'POST',
+        body: JSON.stringify({
+          accepted,
+          message,
+          revision_deadline: deadline
+        })
+      });
+      setCompletionStatus(accepted ? 'completed' : 'under_review');
+    } catch (error) {
+      console.error('Fehler bei Abnahme-Antwort:', error);
+    }
+  };
+
+  const handleInvoiceUploaded = () => {
+    // Refresh trade data after invoice upload
+    if (trade?.id) {
+      loadTradeDocuments(trade.id);
+    }
+  };
+
+  const handleRatingComplete = () => {
+    setHasRated(true);
+    setShowRatingModal(false);
+  };
+
   if (!isOpen || !trade) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-2xl border border-gray-600/30 max-w-4xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-2xl border border-gray-600/30 max-w-6xl w-full max-h-[95vh] overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b border-gray-600/30">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
@@ -862,7 +944,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           </button>
         </div>
 
-        <div className="h-[calc(90vh-120px)] overflow-y-auto p-6">
+        <div className="h-[calc(95vh-120px)] overflow-y-auto p-6">
           <div className="space-y-6">
             {/* Status und Priorität */}
             <div className="flex items-center gap-4">
@@ -1025,7 +1107,9 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       <div className="flex items-center justify-between">
                             <div>
                           <p className="text-white font-medium">
-                            {quote.service_provider_name || `Angebot #${quote.id}`}
+                            {quote.status === 'accepted' && quote.contact_released ? 
+                              (quote.company_name || quote.service_provider_name || `Angebot #${quote.id}`) :
+                              (quote.service_provider_name || `Angebot #${quote.id}`)}
                               </p>
                           <p className="text-gray-400 text-sm">
                                 {new Date(quote.created_at).toLocaleDateString('de-DE')}
@@ -1033,13 +1117,46 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                           </div>
                           <div className="text-right">
                           <p className="text-white font-bold">
-                              {quote.total_price.toLocaleString('de-DE')} €
+                              {quote.total_amount?.toLocaleString('de-DE') || quote.total_price?.toLocaleString('de-DE') || 'N/A'} €
                             </p>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getQuoteStatusColor(quote.status)}`}>
                               {getQuoteStatusLabel(quote.status)}
                             </span>
                         </div>
                           </div>
+                          
+                          {/* Kontaktdaten bei akzeptiertem Angebot */}
+                          {quote.status === 'accepted' && quote.contact_released && (
+                            <div className="mt-4 pt-4 border-t border-gray-600/30">
+                              <p className="text-sm text-gray-400 mb-2">Kontaktdaten:</p>
+                              <div className="grid grid-cols-2 gap-2 text-sm">
+                                {quote.contact_person && (
+                                  <div className="flex items-center gap-2">
+                                    <User size={14} className="text-gray-400" />
+                                    <span className="text-white">{quote.contact_person}</span>
+                                  </div>
+                                )}
+                                {quote.phone && (
+                                  <div className="flex items-center gap-2">
+                                    <Phone size={14} className="text-gray-400" />
+                                    <a href={`tel:${quote.phone}`} className="text-[#ffbd59] hover:underline">{quote.phone}</a>
+                                  </div>
+                                )}
+                                {quote.email && (
+                                  <div className="flex items-center gap-2">
+                                    <Mail size={14} className="text-gray-400" />
+                                    <a href={`mailto:${quote.email}`} className="text-[#ffbd59] hover:underline">{quote.email}</a>
+                                  </div>
+                                )}
+                                {quote.website && (
+                                  <div className="flex items-center gap-2">
+                                    <Globe size={14} className="text-gray-400" />
+                                    <a href={quote.website} target="_blank" rel="noopener noreferrer" className="text-[#ffbd59] hover:underline">Website</a>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1107,10 +1224,91 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                 )}
                   </div>
             
+            {/* Debug-Informationen (temporär) */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="bg-red-900/50 rounded-xl p-4 border border-red-600/30 mb-4">
+                <h3 className="text-white font-bold mb-2">🐛 Debug Info</h3>
+                <div className="text-sm text-gray-300 space-y-1">
+                  <div>existingQuotes.length: {existingQuotes?.length || 0}</div>
+                  <div>acceptedQuote: {acceptedQuote ? 'JA' : 'NEIN'}</div>
+                  <div>acceptedQuote.status: {acceptedQuote?.status || 'N/A'}</div>
+                  <div>completionStatus: {completionStatus}</div>
+                  <div>currentProgress: {currentProgress}%</div>
+                  <div>isBautraeger: {isBautraeger() ? 'JA' : 'NEIN'}</div>
+                  <div>user?.id: {user?.id}</div>
+                  <div>Quotes: {JSON.stringify(existingQuotes?.map(q => ({ id: q.id, status: q.status })), null, 2)}</div>
+                </div>
+              </div>
+            )}
 
+            {/* Baufortschritt & Kommunikation - TEMPORÄR: Immer anzeigen für Testing */}
+            {(acceptedQuote || existingQuotes?.length > 0) && (
+              <TradeProgress
+                milestoneId={trade.id}
+                currentProgress={currentProgress}
+                onProgressChange={handleProgressChange}
+                isBautraeger={isBautraeger()}
+                isServiceProvider={!isBautraeger() && (acceptedQuote?.service_provider_id === user?.id || existingQuotes?.some(q => q.service_provider_id === user?.id))}
+                completionStatus={completionStatus}
+                onCompletionRequest={handleCompletionRequest}
+                onCompletionResponse={handleCompletionResponse}
+              />
+            )}
+            
+            {/* Rechnungsstellung - nur für Dienstleister nach Abnahme */}
+            {!isBautraeger() && acceptedQuote?.service_provider_id === user?.id && completionStatus === 'completed' && (
+              <InvoiceUpload
+                milestoneId={trade.id}
+                onInvoiceUploaded={handleInvoiceUploaded}
+              />
+            )}
+            
+            {/* Rechnungsanzeige für Bauträger */}
+            {isBautraeger() && completionStatus === 'completed' && trade?.invoice_generated && (
+              <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Receipt size={18} className="text-[#ffbd59]" />
+                  Rechnung
+                </h3>
+                {!hasRated ? (
+                  <div className="text-center">
+                    <p className="text-gray-400 mb-4">
+                      Bitte bewerten Sie zuerst den Dienstleister, um die Rechnung einzusehen.
+                    </p>
+                    <button
+                      onClick={() => setShowRatingModal(true)}
+                      className="px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#1a1a2e] font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
+                    >
+                      <Star size={20} className="inline mr-2" />
+                      Dienstleister bewerten
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Betrag:</span>
+                      <span className="text-white font-bold">{trade?.invoice_amount?.toLocaleString('de-DE')} €</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Fällig bis:</span>
+                      <span className="text-white">{trade?.invoice_due_date ? new Date(trade.invoice_due_date).toLocaleDateString('de-DE') : '-'}</span>
+                    </div>
+                    <a
+                      href={trade?.invoice_pdf_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#1a1a2e] font-semibold rounded-lg hover:shadow-lg transition-all duration-200 text-center"
+                    >
+                      <Download size={20} className="inline mr-2" />
+                      Rechnung herunterladen
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Dienstleister-spezifische Aktionen */}
-            {!isBautraeger() && (
+            {!isBautraeger() && !acceptedQuote && (
               <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30">
                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                   <Calculator size={18} className="text-[#ffbd59]" />
@@ -1127,7 +1325,20 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   )}
                 </div>
               </div>
-            </div>
-          </div>
+      </div>
+      
+      {/* Bewertungs-Modal */}
+      {showRatingModal && acceptedQuote && (
+        <ServiceProviderRating
+          isOpen={showRatingModal}
+          onClose={() => setShowRatingModal(false)}
+          serviceProviderId={acceptedQuote?.service_provider_id || 0}
+          projectId={trade?.project_id || 0}
+          milestoneId={trade?.id || 0}
+          quoteId={acceptedQuote?.id}
+          onRatingComplete={handleRatingComplete}
+        />
+      )}
+    </div>
   );
 } 

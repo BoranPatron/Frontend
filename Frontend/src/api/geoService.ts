@@ -111,6 +111,12 @@ export interface TradeSearchResult {
     has_pending_quotes: boolean;
     has_rejected_quotes: boolean;
   };
+  // Neue Felder für erweiterte Features
+  completion_status?: string;
+  invoice_generated?: boolean;
+  invoice_amount?: number;
+  invoice_due_date?: string;
+  invoice_pdf_url?: string;
 }
 
 export interface ServiceProviderSearchRequest {

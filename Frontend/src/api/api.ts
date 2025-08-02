@@ -281,5 +281,20 @@ api.interceptors.response.use(
   }
 );
 
+// Helper function for API calls with proper typing
+export const apiCall = async (url: string, options?: any) => {
+  // Convert body to data for Axios
+  if (options?.body) {
+    options.data = options.body;
+    delete options.body;
+  }
+  
+  const response = await api({
+    url,
+    ...options
+  });
+  return response.data;
+};
+
 export { api };
 export default api; 

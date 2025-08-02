@@ -1,0 +1,548 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  MessageCircle,
+  Send,
+  Paperclip,
+  Calendar,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  User,
+  ChevronDown,
+  ChevronUp,
+  Image as ImageIcon,
+  FileText,
+  X
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { de } from 'date-fns/locale';
+import { apiCall } from '../api/api';
+
+interface ProgressUpdate {
+  id: number;
+  milestone_id: number;
+  user_id: number;
+  user: {
+    id: number;
+    full_name?: string;
+    company_name?: string;
+    user_type: string;
+  };
+  update_type: string;
+  message: string;
+  progress_percentage?: number;
+  attachments?: Array<{
+    url: string;
+    filename: string;
+    uploaded_at: string;
+  }>;
+  parent_id?: number;
+  defect_severity?: string;
+  defect_resolved?: boolean;
+  revision_deadline?: string;
+  revision_completed?: boolean;
+  is_internal: boolean;
+  created_at: string;
+  updated_at: string;
+  replies: ProgressUpdate[];
+}
+
+interface TradeProgressProps {
+  milestoneId: number;
+  currentProgress: number;
+  onProgressChange: (progress: number) => void;
+  isBautraeger: boolean;
+  isServiceProvider: boolean;
+  completionStatus: string;
+  onCompletionRequest?: () => void;
+  onCompletionResponse?: (accepted: boolean, message?: string, deadline?: string) => void;
+}
+
+export default function TradeProgress({
+  milestoneId,
+  currentProgress,
+  onProgressChange,
+  isBautraeger,
+  isServiceProvider,
+  completionStatus,
+  onCompletionRequest,
+  onCompletionResponse
+}: TradeProgressProps) {
+  const [updates, setUpdates] = useState<ProgressUpdate[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [replyTo, setReplyTo] = useState<number | null>(null);
+  const [showDefectModal, setShowDefectModal] = useState(false);
+  const [defectSeverity, setDefectSeverity] = useState<string>('minor');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [progress, setProgress] = useState(currentProgress);
+
+  useEffect(() => {
+    loadProgressUpdates();
+  }, [milestoneId]);
+
+  const loadProgressUpdates = async () => {
+    try {
+      const response = await apiCall(`/milestones/${milestoneId}/progress/`);
+      console.log('🔍 Geladene Updates:', response);
+      setUpdates(response);
+    } catch (error) {
+      console.error('Fehler beim Laden der Updates:', error);
+    }
+  };
+
+  const handleSubmit = async (type: string = 'comment') => {
+    if (!newMessage.trim() && selectedFiles.length === 0) return;
+
+    setIsLoading(true);
+    try {
+      // Erstelle das Update
+      const updateData: any = {
+        update_type: type,
+        message: newMessage,
+        is_internal: false
+      };
+
+      // Nur definierte Werte hinzufügen
+      if (type === 'comment' && progress !== undefined) {
+        updateData.progress_percentage = progress;
+      }
+      if (replyTo) {
+        updateData.parent_id = replyTo;
+      }
+      if (type === 'defect' && defectSeverity) {
+        updateData.defect_severity = defectSeverity;
+      }
+
+      console.log('🔍 Sende Progress Update:', JSON.stringify(updateData, null, 2));
+
+                      const response = await apiCall(`/milestones/${milestoneId}/progress/`, {
+                    method: 'POST',
+                    body: JSON.stringify(updateData)
+                });
+
+      // Upload Anhänge falls vorhanden (nur wenn normale Response)
+      const responseId = response.id || response.data?.id;
+      if (selectedFiles.length > 0 && responseId) {
+        for (const file of selectedFiles) {
+          const formData = new FormData();
+          formData.append('file', file);
+          
+          await apiCall(`/milestones/${milestoneId}/progress/${responseId}/attachments/`, {
+            method: 'POST',
+            body: formData,
+            headers: {} // Lasse Content-Type automatisch setzen
+          });
+        }
+      }
+
+      // Update lokalen State
+      console.log('🔄 Lade Updates neu nach dem Senden...');
+      await loadProgressUpdates();
+      setNewMessage('');
+      setSelectedFiles([]);
+      setReplyTo(null);
+      setShowDefectModal(false);
+      
+      // Update Progress im Parent
+      if (progress !== currentProgress) {
+        onProgressChange(progress);
+      }
+    } catch (error) {
+      console.error('Fehler beim Senden:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setSelectedFiles([...selectedFiles, ...files]);
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(files => files.filter((_, i) => i !== index));
+  };
+
+  const renderUpdate = (update: ProgressUpdate, isReply: boolean = false) => {
+    const isBautraegerUpdate = update.user.user_type === 'bautraeger';
+    const isOwnUpdate = (isBautraeger && isBautraegerUpdate) || (isServiceProvider && !isBautraegerUpdate);
+
+    return (
+      <div
+        key={update.id}
+        className={`${isReply ? 'ml-12' : ''} mb-4`}
+      >
+        <div className={`flex gap-3 ${isOwnUpdate ? 'flex-row-reverse' : ''}`}>
+          <div className="flex-shrink-0">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+              isBautraegerUpdate ? 'bg-blue-500' : 'bg-[#ffbd59]'
+            }`}>
+              <User size={20} className="text-white" />
+            </div>
+          </div>
+          
+          <div className={`flex-1 ${isOwnUpdate ? 'text-right' : ''}`}>
+            <div className={`inline-block p-4 rounded-xl ${
+              isOwnUpdate 
+                ? 'bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#1a1a2e]' 
+                : 'bg-[#2c3539] text-white'
+            } ${update.update_type === 'defect' ? 'border-2 border-red-500' : ''}`}>
+              
+              {/* Header */}
+              <div className="flex items-center gap-2 mb-2 text-sm opacity-75">
+                <span className="font-medium">
+                  {update.user.company_name || update.user.full_name || 'Unbekannt'}
+                </span>
+                <span>•</span>
+                <span>{format(new Date(update.created_at), 'dd.MM.yyyy HH:mm', { locale: de })}</span>
+                
+                {/* Update Type Badge */}
+                {update.update_type !== 'comment' && (
+                  <>
+                    <span>•</span>
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      update.update_type === 'defect' ? 'bg-red-500/20 text-red-300' :
+                      update.update_type === 'completion' ? 'bg-green-500/20 text-green-300' :
+                      update.update_type === 'revision' ? 'bg-yellow-500/20 text-yellow-300' :
+                      'bg-gray-500/20 text-gray-300'
+                    }`}>
+                      {update.update_type === 'defect' ? `Mangel (${update.defect_severity})` :
+                       update.update_type === 'completion' ? 'Fertigstellung' :
+                       update.update_type === 'revision' ? 'Nachbesserung' :
+                       update.update_type}
+                    </span>
+                  </>
+                )}
+              </div>
+              
+              {/* Message */}
+              <p className="mb-2">{update.message}</p>
+              
+              {/* Progress Update */}
+              {update.progress_percentage !== null && update.progress_percentage !== undefined && (
+                <div className="mt-2 p-2 bg-black/20 rounded">
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span>Fortschritt aktualisiert</span>
+                    <span className="font-bold">{update.progress_percentage}%</span>
+                  </div>
+                  <div className="w-full bg-gray-600/30 rounded-full h-2">
+                    <div 
+                      className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${update.progress_percentage}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              
+              {/* Revision Deadline */}
+              {update.revision_deadline && (
+                <div className="mt-2 p-2 bg-red-500/20 rounded flex items-center gap-2 text-sm">
+                  <Clock size={16} />
+                  <span>Frist: {format(new Date(update.revision_deadline), 'dd.MM.yyyy', { locale: de })}</span>
+                </div>
+              )}
+              
+              {/* Attachments */}
+              {update.attachments && update.attachments.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {update.attachments.map((attachment, idx) => (
+                    <a
+                      key={idx}
+                      href={attachment.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 p-2 bg-black/20 rounded hover:bg-black/30 transition-colors"
+                    >
+                      {attachment.filename.match(/\.(jpg|jpeg|png|gif)$/i) ? (
+                        <ImageIcon size={16} />
+                      ) : (
+                        <FileText size={16} />
+                      )}
+                      <span className="text-sm truncate">{attachment.filename}</span>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* Reply Button */}
+            {!isReply && (
+              <button
+                onClick={() => setReplyTo(update.id)}
+                className="mt-2 text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Antworten
+              </button>
+            )}
+          </div>
+        </div>
+        
+        {/* Replies */}
+        {update.replies && update.replies.length > 0 && (
+          <div className="mt-3">
+            {update.replies.map(reply => renderUpdate(reply, true))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl border border-gray-600/30">
+      {/* Header */}
+      <div 
+        className="flex items-center justify-between p-6 cursor-pointer hover:bg-[#1a1a2e]/30 transition-all duration-200"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+          <MessageCircle size={18} className="text-[#ffbd59]" />
+          Baufortschritt & Kommunikation
+        </h3>
+        <div className="flex items-center gap-4">
+          {/* Progress Display */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-400">Fortschritt:</span>
+            <div className="flex items-center gap-2">
+              <div className="w-32 bg-gray-600/30 rounded-full h-2">
+                <div 
+                  className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <span className="text-white font-bold text-sm">{progress}%</span>
+            </div>
+          </div>
+          
+          <div className={`transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+            <ChevronDown size={20} className="text-[#ffbd59]" />
+          </div>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="border-t border-gray-600/30">
+          {/* Progress Slider (nur für Dienstleister) */}
+          {isServiceProvider && completionStatus !== 'completed' && (
+            <div className="p-6 border-b border-gray-600/30">
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-gray-400">Fortschritt anpassen:</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={progress}
+                  onChange={(e) => setProgress(parseInt(e.target.value))}
+                  className="flex-1 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+                  style={{
+                    background: `linear-gradient(to right, #ffbd59 0%, #ffa726 ${progress}%, #4a5568 ${progress}%, #4a5568 100%)`
+                  }}
+                />
+                <span className="text-white font-bold w-12 text-right">{progress}%</span>
+              </div>
+              
+              {/* Fertigstellung Button */}
+              {progress === 100 && completionStatus === 'in_progress' && (
+                <button
+                  onClick={onCompletionRequest}
+                  className="mt-4 w-full bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all duration-200"
+                >
+                  <CheckCircle size={20} className="inline mr-2" />
+                  Als fertiggestellt markieren
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Messages */}
+          <div className="p-6 max-h-96 overflow-y-auto">
+            {updates.length === 0 ? (
+              <p className="text-gray-400 text-center py-8">
+                Noch keine Updates vorhanden. Beginnen Sie die Kommunikation!
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {updates.filter(u => !u.parent_id).map(update => renderUpdate(update))}
+              </div>
+            )}
+          </div>
+
+          {/* Input Area */}
+          {completionStatus !== 'archived' && (
+            <div className="p-6 border-t border-gray-600/30">
+              {replyTo && (
+                <div className="mb-3 p-2 bg-gray-700/50 rounded flex items-center justify-between">
+                  <span className="text-sm text-gray-400">
+                    Antwort auf Nachricht #{replyTo}
+                  </span>
+                  <button
+                    onClick={() => setReplyTo(null)}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
+              
+              <div className="space-y-3">
+                <textarea
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Nachricht eingeben..."
+                  className="w-full px-4 py-3 bg-[#1a1a2e] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ffbd59] resize-none"
+                  rows={3}
+                />
+                
+                {/* Selected Files */}
+                {selectedFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedFiles.map((file, idx) => (
+                      <div key={idx} className="flex items-center gap-2 px-3 py-1 bg-gray-700 rounded">
+                        <FileText size={16} className="text-gray-400" />
+                        <span className="text-sm text-gray-300">{file.name}</span>
+                        <button
+                          onClick={() => removeFile(idx)}
+                          className="text-gray-400 hover:text-white"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <div className="flex items-center gap-3">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 text-gray-400 hover:text-white transition-colors"
+                    title="Datei anhängen"
+                  >
+                    <Paperclip size={20} />
+                  </button>
+                  
+                  {isBautraeger && (
+                    <button
+                      onClick={() => setShowDefectModal(true)}
+                      className="p-2 text-red-400 hover:text-red-300 transition-colors"
+                      title="Mangel melden"
+                    >
+                      <AlertTriangle size={20} />
+                    </button>
+                  )}
+                  
+                  <div className="flex-1" />
+                  
+                  <button
+                    onClick={() => handleSubmit('comment')}
+                    disabled={isLoading || (!newMessage.trim() && selectedFiles.length === 0)}
+                    className="px-6 py-2 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#1a1a2e] font-semibold rounded-lg hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <Send size={18} />
+                    Senden
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Completion Status Messages */}
+          {completionStatus === 'completion_requested' && isBautraeger && (
+            <div className="p-6 border-t border-gray-600/30 bg-yellow-500/10">
+              <p className="text-yellow-300 mb-4">
+                Der Dienstleister hat das Gewerk als fertiggestellt gemeldet. Bitte prüfen Sie die Arbeiten.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => onCompletionResponse?.(true, 'Arbeiten wurden geprüft und abgenommen.')}
+                  className="flex-1 bg-green-500 text-white font-semibold py-2 px-4 rounded hover:bg-green-600 transition-colors"
+                >
+                  Abnahme bestätigen
+                </button>
+                <button
+                  onClick={() => {
+                    const message = prompt('Begründung für Nachbesserung:');
+                    const deadline = prompt('Frist für Nachbesserung (YYYY-MM-DD):');
+                    if (message) {
+                      onCompletionResponse?.(false, message, deadline || undefined);
+                    }
+                  }}
+                  className="flex-1 bg-red-500 text-white font-semibold py-2 px-4 rounded hover:bg-red-600 transition-colors"
+                >
+                  Nachbesserung anfordern
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {completionStatus === 'completed' && (
+            <div className="p-6 border-t border-gray-600/30 bg-green-500/10">
+              <p className="text-green-300 flex items-center gap-2">
+                <CheckCircle size={20} />
+                Gewerk wurde abgenommen und archiviert.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Defect Modal */}
+      {showDefectModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold text-white mb-4">Mangel dokumentieren</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-gray-400 mb-2 block">Schweregrad</label>
+                <select
+                  value={defectSeverity}
+                  onChange={(e) => setDefectSeverity(e.target.value)}
+                  className="w-full px-4 py-2 bg-[#1a1a2e] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                >
+                  <option value="minor">Gering</option>
+                  <option value="major">Mittel</option>
+                  <option value="critical">Kritisch</option>
+                </select>
+              </div>
+              
+              <textarea
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Beschreiben Sie den Mangel..."
+                className="w-full px-4 py-3 bg-[#1a1a2e] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ffbd59] resize-none"
+                rows={4}
+              />
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDefectModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  onClick={() => handleSubmit('defect')}
+                  disabled={!newMessage.trim()}
+                  className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+                >
+                  Mangel melden
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

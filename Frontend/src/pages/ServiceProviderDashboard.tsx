@@ -895,15 +895,21 @@ export default function ServiceProviderDashboard() {
                           console.log('🔍 User hat Quote:', userHasQuote);
                           console.log('🔍 Eigenes Quote:', userQuote);
                           
-                          if (userHasQuote && userQuote) {
-                            console.log('✅ User hat eigenes Quote - öffne ServiceProviderQuoteModal');
-                            setSelectedTradeForCostEstimateDetails(trade);
-                            setShowCostEstimateDetailsModal(true);
-                          } else {
-                            console.log('⚠️ User hat kein Quote - öffne TradeDetailsModal zum Erstellen');
-                            setDetailTrade(trade);
-                            setShowTradeDetails(true);
-                          }
+                          // TEMPORÄR: Immer TradeDetailsModal öffnen für neue Baufortschrittsfunktionalität
+                          console.log('🔧 Öffne TradeDetailsModal mit Baufortschrittsfunktionalität');
+                          setDetailTrade(trade);
+                          setShowTradeDetails(true);
+                          
+                          // ORIGINAL LOGIK (auskommentiert):
+                          // if (userHasQuote && userQuote) {
+                          //   console.log('✅ User hat eigenes Quote - öffne ServiceProviderQuoteModal');
+                          //   setSelectedTradeForCostEstimateDetails(trade);
+                          //   setShowCostEstimateDetailsModal(true);
+                          // } else {
+                          //   console.log('⚠️ User hat kein Quote - öffne TradeDetailsModal zum Erstellen');
+                          //   setDetailTrade(trade);
+                          //   setShowTradeDetails(true);
+                          // }
                         }}
                       >
                         {/* Geo-Badge */}
@@ -1166,6 +1172,7 @@ export default function ServiceProviderDashboard() {
           setDetailTrade(null);
         }}
         onCreateQuote={handleCreateQuote}
+        existingQuotes={detailTrade ? (allTradeQuotes[detailTrade.id] || []) : []}
       />
 
       {/* ServiceProviderQuoteModal für Dienstleister - zeigt nur das eigene Angebot */}
