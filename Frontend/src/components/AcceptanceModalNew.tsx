@@ -126,21 +126,15 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
           formData.append('file', file);
           formData.append('type', 'defect_photo');
           
-          const token = localStorage.getItem('token');
-          const response = await fetch('/api/v1/acceptance/upload-photo', {
-            method: 'POST',
+          const { api } = await import('../api/api');
+          const response = await api.post('/acceptance/upload-photo', formData, {
             headers: {
-              'Authorization': `Bearer ${token}`
-            },
-            body: formData
+              'Content-Type': 'multipart/form-data'
+            }
           });
 
-          if (response.ok) {
-            const result = await response.json();
-            processedPhotos.push(result.url);
-          } else {
-            throw new Error('Server-Upload fehlgeschlagen');
-          }
+          const result = response.data || response;
+          processedPhotos.push(result.url);
         } catch (serverError) {
           console.warn('Server-Upload fehlgeschlagen, verwende lokale Verarbeitung:', serverError);
           

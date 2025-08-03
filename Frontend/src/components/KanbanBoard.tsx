@@ -4,12 +4,14 @@ import {
   Trash2,
   Calendar,
   Clock,
-  MoreHorizontal,
   X,
   Archive,
-  Building
+  Building,
+  Flag,
+  AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import TaskDetailModal from './TaskDetailModal';
 
 interface Task {
   id: number;
@@ -71,6 +73,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [showTaskDetailModal, setShowTaskDetailModal] = useState(false);
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -139,12 +143,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     urgent: 'Dringend'
   };
 
-  const priorityIcons = {
-    low: '🟢',
-    medium: '🔵',
-    high: '🟠',
-    urgent: '🔴'
-  };
+
 
   useEffect(() => {
     loadTasks();
@@ -270,6 +269,34 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
       console.error('Fehler beim Aktualisieren des Status:', err);
       setError(err instanceof Error ? err.message : 'Fehler beim Verschieben');
     }
+  };
+
+  const handleDeleteTask = async (taskId: number) => {
+    if (!confirm('Sind Sie sicher, dass Sie diese Aufgabe löschen möchten?')) {
+      return;
+    }
+    
+    try {
+      const { api } = await import('../api/api');
+      await api.delete(`/tasks/${taskId}`);
+      console.log('✅ Task gelöscht:', taskId);
+      await loadTasks();
+    } catch (err) {
+      console.error('Fehler beim Löschen der Task:', err);
+      setError(err instanceof Error ? err.message : 'Fehler beim Löschen');
+    }
+  };
+
+  const handleTaskUpdate = (updatedTask: Task) => {
+    setTasks(prevTasks => 
+      prevTasks.map(task => 
+        task.id === updatedTask.id ? updatedTask : task
+      )
+    );
+  };
+
+  const handleTaskDelete = (taskId: number) => {
+    setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
   };
 
   // Drag & Drop Handlers
@@ -440,31 +467,43 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   draggable={!showArchived}
                   onDragStart={(e) => handleDragStart(e, task)}
                   onDragEnd={handleDragEnd}
-                  className="bg-white rounded-xl p-4 shadow-md border border-gray-100 hover:shadow-xl transition-all duration-300 cursor-move hover:scale-105 hover:border-[#ffbd59] group"
+                  onClick={() => {
+                    setSelectedTask(task);
+                    setShowTaskDetailModal(true);
+                  }}
+                  className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 shadow-lg border-2 border-transparent hover:shadow-xl transition-all duration-300 cursor-pointer hover:scale-[1.02] hover:border-gradient-to-r hover:from-blue-400 hover:to-indigo-500 group relative overflow-hidden"
+                  style={{
+                    backgroundImage: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04)'
+                  }}
                 >
+                  {/* CI Color Accent Bar */}
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-t-xl"></div>
+                  
                   {/* Task Header */}
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs text-gray-500 font-medium">#{task.id}</span>
-                        <div className={`px-2 py-1 rounded-full text-xs font-semibold text-white ${priorityColors[task.priority]} shadow-sm`}>
-                          <span className="mr-1">{priorityIcons[task.priority]}</span>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-1 rounded-md">#{task.id}</span>
+                        <div className={`px-2 py-1 rounded-full text-xs font-semibold text-white ${priorityColors[task.priority]} shadow-sm flex items-center gap-1`}>
+                          <Flag size={10} />
                           {priorityLabels[task.priority]}
                         </div>
                       </div>
-                      <h4 className="font-bold text-gray-800 text-base line-clamp-2 group-hover:text-[#2c3539] transition-colors">
+                      <h4 className="font-bold text-gray-800 text-sm line-clamp-2 group-hover:text-blue-600 transition-colors leading-tight">
                         {task.title}
                       </h4>
                     </div>
-                    <div className="flex items-center gap-2 ml-2">
+                    <div className="flex items-center gap-1 ml-2">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setEditingTask(task);
+                          handleDeleteTask(task.id);
                         }}
-                        className="text-gray-400 hover:text-[#ffbd59] p-2 rounded-lg hover:bg-gray-50 transition-all opacity-0 group-hover:opacity-100"
+                        className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 shadow-sm"
+                        title="Task löschen"
                       >
-                        <MoreHorizontal size={16} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </div>
@@ -478,45 +517,50 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     </div>
                   )}
 
-                  {/* Gewerk-Zuordnung */}
-                  {task.milestone && (
-                    <div className="mb-3">
-                      <div className="flex items-center gap-2 text-xs text-purple-700 bg-gradient-to-r from-purple-50 to-purple-100 px-3 py-2 rounded-lg border border-purple-200">
-                        <Building size={14} className="text-purple-600" />
-                        <span className="font-medium">{task.milestone.title}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Task Meta */}
+                  {/* Task Meta Information */}
                   <div className="space-y-2 mb-3">
-                    <div className="flex items-center justify-between">
+                    {/* Gewerk-Zuordnung */}
+                    {task.milestone && (
+                      <div className="flex items-center gap-2 text-xs text-indigo-700 bg-gradient-to-r from-indigo-50 to-blue-50 px-2 py-1.5 rounded-lg border border-indigo-200">
+                        <Building size={12} className="text-indigo-600" />
+                        <span className="font-medium truncate">{task.milestone.title}</span>
+                      </div>
+                    )}
+
+                    {/* Due Date and Hours */}
+                    <div className="flex items-center gap-2 flex-wrap">
                       {task.due_date && (
-                        <div className={`flex items-center gap-2 px-2 py-1 rounded-lg text-xs font-medium ${
+                        <div className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${
                           isOverdue(task.due_date) 
                             ? 'text-red-700 bg-red-50 border border-red-200' 
                             : 'text-blue-700 bg-blue-50 border border-blue-200'
                         }`}>
-                          <Calendar size={12} />
+                          <Calendar size={10} />
                           <span>{formatDate(task.due_date)}</span>
-                          {isOverdue(task.due_date) && <span className="text-red-500">⚠️</span>}
+                          {isOverdue(task.due_date) && <AlertCircle size={10} className="text-red-500" />}
                         </div>
                       )}
                       
-                      {task.estimated_hours && (
-                        <div className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs font-medium text-green-700 bg-green-50 border border-green-200">
-                          <Clock size={12} />
+                      {task.estimated_hours ? (
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200">
+                          <Clock size={10} />
                           <span>{task.estimated_hours % 1 === 0 ? task.estimated_hours.toFixed(0) : task.estimated_hours.toFixed(1)}h</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200">
+                          <AlertCircle size={10} />
+                          <span>Keine Schätzung</span>
                         </div>
                       )}
                     </div>
                     
+                    {/* Assigned User */}
                     {task.assigned_user && (
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-full flex items-center justify-center text-white text-xs font-bold">
-                          {task.assigned_user.first_name[0]}{task.assigned_user.last_name[0]}
+                        <div className="w-5 h-5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                          {task.assigned_user.first_name?.[0] || 'U'}{task.assigned_user.last_name?.[0] || ''}
                         </div>
-                        <span className="text-xs text-gray-600 font-medium">
+                        <span className="text-xs text-gray-600 font-medium truncate">
                           {task.assigned_user.first_name} {task.assigned_user.last_name}
                         </span>
                       </div>
@@ -817,6 +861,19 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Task Detail Modal */}
+      <TaskDetailModal
+        isOpen={showTaskDetailModal}
+        task={selectedTask}
+        onClose={() => {
+          setShowTaskDetailModal(false);
+          setSelectedTask(null);
+        }}
+        onTaskUpdate={handleTaskUpdate}
+        onTaskDelete={handleTaskDelete}
+        milestones={milestones}
+      />
     </div>
   );
 };
