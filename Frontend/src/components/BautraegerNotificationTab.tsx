@@ -86,50 +86,8 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
 
       console.log('🔒 Sichere Abfrage: Bauträger sieht nur eigene Termine mit Antworten:', notifications.length);
 
-      // DEMO: Füge Demo-Benachrichtigung hinzu wenn keine vorhanden
-      if (notifications.length === 0) {
-        console.log('🎭 BautraegerNotificationTab: Füge Demo-Benachrichtigung hinzu');
-        const demoAppointment: AppointmentResponse = {
-          id: 888,
-          project_id: 8,
-          milestone_id: 1,
-          created_by: userId,
-          title: "Demo: Besichtigung Sauna Einbau",
-          description: "Vor-Ort-Besichtigung für Sauna Einbau und Montage",
-          appointment_type: "INSPECTION" as any,
-          status: "ACCEPTED" as any,
-          scheduled_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          duration_minutes: 120,
-          location: "Talstrasse 12, 8620 Wetzikon",
-          location_details: "",
-          invited_service_providers: [],
-          responses: [{
-            service_provider_id: 6,
-            status: 'accepted',
-            message: 'Gerne komme ich zur Besichtigung!',
-            suggested_date: undefined,
-            responded_at: new Date().toISOString()
-          }],
-          inspection_completed: false,
-          selected_service_provider_id: undefined,
-          inspection_notes: undefined,
-          requires_renegotiation: false,
-          renegotiation_details: undefined,
-          notification_sent: false,
-          follow_up_notification_date: undefined,
-          follow_up_sent: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          completed_at: undefined
-        };
-
-        notifications = [{
-          appointment: demoAppointment,
-          response: demoAppointment.responses![0],
-          type: 'confirmation',
-          isHandled: false
-        }];
-      }
+      // Keine Demo-Benachrichtigungen mehr - nur echte Daten
+      console.log('✅ BautraegerNotificationTab: Keine Demo-Benachrichtigungen - nur echte Daten');
 
       setNotifications(notifications);
       console.log('✅ BautraegerNotificationTab: Benachrichtigungen geladen:', notifications.length);

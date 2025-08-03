@@ -17,7 +17,8 @@ import {
   Star,
   Building,
   Calculator,
-  Receipt
+  Receipt,
+  AlertTriangle
 } from 'lucide-react';
 import type { TradeSearchResult } from '../api/geoService';
 import { useAuth } from '../context/AuthContext';
@@ -873,6 +874,39 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     }
   };
 
+  const getCompletionStatusColor = (status: string) => {
+    switch (status) {
+      case 'in_progress': return 'text-blue-400';
+      case 'completion_requested': return 'text-yellow-400';
+      case 'under_review': return 'text-orange-400';
+      case 'completed': return 'text-green-400';
+      case 'archived': return 'text-gray-400';
+      default: return 'text-gray-400';
+    }
+  };
+
+  const getCompletionStatusLabel = (status: string) => {
+    switch (status) {
+      case 'in_progress': return 'In Bearbeitung';
+      case 'completion_requested': return 'Abnahme angefordert';
+      case 'under_review': return 'Nachbesserung';
+      case 'completed': return 'Abgenommen';
+      case 'archived': return 'Archiviert';
+      default: return status;
+    }
+  };
+
+  const getCompletionStatusIcon = (status: string) => {
+    switch (status) {
+      case 'in_progress': return <Clock size={16} />;
+      case 'completion_requested': return <AlertTriangle size={16} />;
+      case 'under_review': return <AlertTriangle size={16} />;
+      case 'completed': return <CheckCircle size={16} />;
+      case 'archived': return <CheckCircle size={16} />;
+      default: return <Clock size={16} />;
+    }
+  };
+
   // Handler für Baufortschritt
   const handleProgressChange = async (newProgress: number) => {
     setCurrentProgress(newProgress);
@@ -881,31 +915,56 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
 
   const handleCompletionRequest = async () => {
     try {
-      await apiCall(`/milestones/${trade?.id}/progress/completion`, {
+      console.log('🔍 TradeDetailsModal - Sende Abnahme-Anfrage für Trade:', trade?.id);
+      
+      const response = await apiCall(`/milestones/${trade?.id}/progress/completion`, {
         method: 'POST',
         body: JSON.stringify({
-          message: 'Gewerk fertiggestellt. Bitte um Abnahme.'
+          message: 'Gewerk fertiggestellt. Bitte um Abnahme.',
+          update_type: 'completion'
         })
       });
+      
+      console.log('✅ TradeDetailsModal - Abnahme-Anfrage erfolgreich:', response);
       setCompletionStatus('completion_requested');
+      
+      // Aktualisiere auch den Fortschritt
+      if (trade?.id) {
+        loadTradeDocuments(trade.id);
+      }
     } catch (error) {
-      console.error('Fehler bei Fertigstellungsmeldung:', error);
+      console.error('❌ TradeDetailsModal - Fehler bei Fertigstellungsmeldung:', error);
+      alert('Fehler beim Anfordern der Abnahme. Bitte versuchen Sie es erneut.');
     }
   };
 
   const handleCompletionResponse = async (accepted: boolean, message?: string, deadline?: string) => {
     try {
-      await apiCall(`/milestones/${trade?.id}/progress/completion/response`, {
+      console.log('🔍 TradeDetailsModal - Sende Abnahme-Antwort für Trade:', trade?.id, {
+        accepted,
+        message,
+        deadline
+      });
+      
+      const response = await apiCall(`/milestones/${trade?.id}/progress/completion/response`, {
         method: 'POST',
         body: JSON.stringify({
           accepted,
-          message,
+          message: message || (accepted ? 'Gewerk abgenommen.' : 'Nachbesserung erforderlich.'),
           revision_deadline: deadline
         })
       });
+      
+      console.log('✅ TradeDetailsModal - Abnahme-Antwort erfolgreich:', response);
       setCompletionStatus(accepted ? 'completed' : 'under_review');
+      
+      // Aktualisiere auch den Fortschritt
+      if (trade?.id) {
+        loadTradeDocuments(trade.id);
+      }
     } catch (error) {
-      console.error('Fehler bei Abnahme-Antwort:', error);
+      console.error('❌ TradeDetailsModal - Fehler bei Abnahme-Antwort:', error);
+      alert('Fehler beim Verarbeiten der Abnahme-Antwort. Bitte versuchen Sie es erneut.');
     }
   };
 
@@ -946,13 +1005,15 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
 
         <div className="h-[calc(95vh-120px)] overflow-y-auto p-6">
           <div className="space-y-6">
-            {/* Status und Priorität */}
+            {/* Priorität und Phase */}
             <div className="flex items-center gap-4">
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(trade.status)}`}>
-                {getStatusLabel(trade.status)}
-              </span>
               <span className="px-3 py-1 rounded-full text-xs font-medium bg-[#ffbd59]/20 text-[#ffbd59]">
                 {trade.priority}
+              </span>
+              {/* Phase-Anzeige für completion_status */}
+              <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getCompletionStatusColor(completionStatus)}`}>
+                {getCompletionStatusIcon(completionStatus)}
+                {getCompletionStatusLabel(completionStatus)}
               </span>
             </div>
 
@@ -1117,7 +1178,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                           </div>
                           <div className="text-right">
                           <p className="text-white font-bold">
-                              {quote.total_amount?.toLocaleString('de-DE') || quote.total_price?.toLocaleString('de-DE') || 'N/A'} €
+                              {quote.total_price?.toLocaleString('de-DE') || 'N/A'} €
                             </p>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getQuoteStatusColor(quote.status)}`}>
                               {getQuoteStatusLabel(quote.status)}
@@ -1225,7 +1286,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   </div>
             
             {/* Debug-Informationen (temporär) */}
-            {process.env.NODE_ENV === 'development' && (
+            {typeof window !== 'undefined' && window.location.hostname === 'localhost' && (
               <div className="bg-red-900/50 rounded-xl p-4 border border-red-600/30 mb-4">
                 <h3 className="text-white font-bold mb-2">🐛 Debug Info</h3>
                 <div className="text-sm text-gray-300 space-y-1">
@@ -1260,6 +1321,241 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               />
             )}
             
+            {/* Debug: Bauträger-Check */}
+            {typeof window !== 'undefined' && window.location.hostname === 'localhost' && (
+              <div className="bg-red-900/50 rounded-xl p-4 border border-red-600/30 mb-4">
+                <h3 className="text-white font-bold mb-2">🐛 Debug Info - Bauträger Check</h3>
+                <div className="text-sm text-gray-300 space-y-1">
+                  <div>isBautraeger(): {isBautraeger() ? 'TRUE' : 'FALSE'}</div>
+                  <div>user?.user_type: {user?.user_type || 'undefined'}</div>
+                  <div>user?.user_role: {user?.user_role || 'undefined'}</div>
+                  <div>user?.email: {user?.email || 'undefined'}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Abnahme-Workflow für Bauträger - zeige wenn NICHT Dienstleister mit eigenem Angebot */}
+            {!(acceptedQuote?.service_provider_id === user?.id) && (
+              <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <CheckCircle size={18} className="text-[#ffbd59]" />
+                  Abnahme-Workflow
+                </h3>
+                
+                {completionStatus === 'in_progress' && (
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock size={20} className="text-blue-400" />
+                      <span className="text-blue-300 font-medium">Arbeiten in Bearbeitung</span>
+                    </div>
+                    <p className="text-blue-200 text-sm">
+                      Das Gewerk ist aktuell zu {currentProgress}% fertiggestellt. Warten Sie auf die Fertigstellungsmeldung des Dienstleisters.
+                    </p>
+                  </div>
+                )}
+                
+                {completionStatus === 'completion_requested' && (
+                  <div className="space-y-4">
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle size={20} className="text-yellow-400" />
+                        <span className="text-yellow-300 font-medium">Abnahme angefordert</span>
+                      </div>
+                      <p className="text-yellow-200 text-sm mb-3">
+                        Der Dienstleister hat das Gewerk als fertiggestellt gemeldet. Bitte prüfen Sie die Arbeiten vor Ort.
+                      </p>
+                      <div className="bg-yellow-500/20 rounded-lg p-3 text-sm text-yellow-100">
+                        <strong>Prüfschritte:</strong>
+                        <ul className="list-disc list-inside mt-2 space-y-1">
+                          <li>Vollständigkeit der Arbeiten kontrollieren</li>
+                          <li>Qualität und Ausführung bewerten</li>
+                          <li>Übereinstimmung mit Spezifikationen prüfen</li>
+                          <li>Sicherheits- und Normenkonformität kontrollieren</li>
+                        </ul>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <button
+                        onClick={() => handleCompletionResponse?.(true, 'Arbeiten wurden geprüft und abgenommen. Alle Anforderungen erfüllt.')}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
+                      >
+                        <CheckCircle size={20} />
+                        Abnahme bestätigen
+                      </button>
+                      <button
+                        onClick={() => {
+                          const message = prompt('Begründung für Nachbesserung (erforderlich):');
+                          if (message && message.trim()) {
+                            const deadline = prompt('Frist für Nachbesserung (YYYY-MM-DD, optional):');
+                            handleCompletionResponse?.(false, message.trim(), deadline || undefined);
+                          } else if (message !== null) {
+                            alert('Bitte geben Sie eine Begründung für die Nachbesserung an.');
+                          }
+                        }}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
+                      >
+                        <AlertTriangle size={20} />
+                        Nachbesserung anfordern
+                      </button>
+                    </div>
+                    
+                    <div className="mt-4 p-3 bg-gray-600/20 rounded-lg">
+                      <p className="text-gray-300 text-sm">
+                        <strong>Hinweis:</strong> Nach der Abnahme wird das Gewerk archiviert und der Dienstleister kann eine Rechnung stellen.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {completionStatus === 'under_review' && (
+                  <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle size={20} className="text-orange-400" />
+                      <span className="text-orange-300 font-medium">Nachbesserung angefordert</span>
+                    </div>
+                    <p className="text-orange-200 text-sm">
+                      Sie haben Nachbesserungen angefordert. Der Dienstleister wird die erforderlichen Arbeiten ausführen und erneut um Abnahme bitten.
+                    </p>
+                  </div>
+                )}
+                
+                {completionStatus === 'completed' && (
+                  <div className="space-y-4">
+                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle size={20} className="text-green-400" />
+                        <span className="text-green-300 font-medium">Gewerk abgenommen</span>
+                      </div>
+                      <p className="text-green-200 text-sm">
+                        Das Gewerk wurde erfolgreich abgenommen und ist archiviert. Der Dienstleister kann nun eine Rechnung stellen.
+                      </p>
+                    </div>
+                    
+                    {/* Bewertung anzeigen falls vorhanden */}
+                    {!hasRated && (
+                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Star size={20} className="text-blue-400" />
+                          <span className="text-blue-300 font-medium">Dienstleister bewerten</span>
+                        </div>
+                        <p className="text-blue-200 text-sm mb-3">
+                          Helfen Sie anderen Bauträgern mit Ihrer Bewertung des Dienstleisters.
+                        </p>
+                        <button
+                          onClick={() => setShowRatingModal(true)}
+                          className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
+                        >
+                          <Star size={16} className="inline mr-2" />
+                          Jetzt bewerten
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Abnahme-Workflow Buttons für Dienstleister */}
+            {!isBautraeger() && acceptedQuote?.service_provider_id === user?.id && (
+              <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <CheckCircle size={18} className="text-[#ffbd59]" />
+                  Abnahme-Workflow
+                </h3>
+                
+                {completionStatus === 'in_progress' && (
+                  <div className="space-y-4">
+                    {currentProgress >= 100 ? (
+                      <>
+                        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <AlertTriangle size={20} className="text-yellow-400" />
+                            <span className="text-yellow-300 font-medium">Bereit für Abnahme</span>
+                          </div>
+                          <p className="text-yellow-200 text-sm">
+                            Das Gewerk ist zu 100% fertiggestellt. Sie können jetzt die Abnahme anfordern.
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleCompletionRequest}
+                          className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 text-white font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
+                        >
+                          <CheckCircle size={20} />
+                          Abnahme anfordern
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Clock size={20} className="text-blue-400" />
+                            <span className="text-blue-300 font-medium">Arbeit in Bearbeitung</span>
+                          </div>
+                          <p className="text-blue-200 text-sm">
+                            Aktueller Fortschritt: {currentProgress}%. Sie können die Abnahme anfordern, sobald das Gewerk zu 100% fertiggestellt ist.
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleCompletionRequest}
+                          disabled={currentProgress < 100}
+                          className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <CheckCircle size={20} />
+                          Abnahme anfordern ({currentProgress}%)
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+                
+                {completionStatus === 'completion_requested' && (
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock size={20} className="text-blue-400" />
+                      <span className="text-blue-300 font-medium">Abnahme angefordert</span>
+                    </div>
+                    <p className="text-blue-200 text-sm">
+                      Die Abnahme wurde angefordert. Der Bauträger wird die Arbeiten prüfen und Ihnen eine Rückmeldung geben.
+                    </p>
+                  </div>
+                )}
+                
+                {completionStatus === 'under_review' && (
+                  <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle size={20} className="text-orange-400" />
+                      <span className="text-orange-300 font-medium">Nachbesserung erforderlich</span>
+                    </div>
+                    <p className="text-orange-200 text-sm">
+                      Der Bauträger hat Nachbesserungen angefordert. Bitte führen Sie die erforderlichen Arbeiten aus.
+                    </p>
+                    <button
+                      onClick={() => {
+                        // Nachbesserung abgeschlossen - zurück zu in_progress
+                        handleCompletionResponse?.(true, 'Nachbesserung abgeschlossen');
+                      }}
+                      className="mt-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold py-2 px-4 rounded hover:shadow-lg transition-all duration-200"
+                    >
+                      Nachbesserung abgeschlossen
+                    </button>
+                  </div>
+                )}
+                
+                {completionStatus === 'completed' && (
+                  <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle size={20} className="text-green-400" />
+                      <span className="text-green-300 font-medium">Abgenommen</span>
+                    </div>
+                    <p className="text-green-200 text-sm">
+                      Das Gewerk wurde erfolgreich abgenommen und ist archiviert.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Rechnungsstellung - nur für Dienstleister nach Abnahme */}
             {!isBautraeger() && acceptedQuote?.service_provider_id === user?.id && completionStatus === 'completed' && (
               <InvoiceUpload

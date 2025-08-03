@@ -78,10 +78,28 @@ export default function TradeProgress({
   const [defectSeverity, setDefectSeverity] = useState<string>('minor');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState(currentProgress);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadProgressUpdates();
   }, [milestoneId]);
+
+  // Synchronisiere den lokalen Progress-State mit dem aktuellen Progress
+  useEffect(() => {
+    setProgress(currentProgress);
+  }, [currentProgress]);
+
+  // Automatisch zur neuesten Nachricht scrollen wenn Updates geladen werden
+  useEffect(() => {
+    if (updates.length > 0 && messagesContainerRef.current) {
+      // Kurze Verzögerung um sicherzustellen, dass alle Nachrichten gerendert sind
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 100);
+    }
+  }, [updates]);
 
   const loadProgressUpdates = async () => {
     try {
@@ -161,6 +179,13 @@ export default function TradeProgress({
       setSelectedFiles([]);
       setReplyTo(null);
       setShowDefectModal(false);
+      
+      // Automatisch zur neuesten Nachricht scrollen nach dem Senden
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 200);
       
       // Update Progress im Parent
       if (progress !== currentProgress) {
@@ -418,7 +443,11 @@ export default function TradeProgress({
                   min="0"
                   max="100"
                   value={progress}
-                  onChange={(e) => setProgress(parseInt(e.target.value))}
+                  onChange={(e) => {
+                    const newProgress = parseInt(e.target.value);
+                    setProgress(newProgress);
+                    onProgressChange(newProgress);
+                  }}
                   className="flex-1 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
                   style={{
                     background: `linear-gradient(to right, #ffbd59 0%, #ffa726 ${progress}%, #4a5568 ${progress}%, #4a5568 100%)`
@@ -441,7 +470,7 @@ export default function TradeProgress({
           )}
 
           {/* Messages */}
-          <div className="p-6 max-h-96 overflow-y-auto">
+          <div ref={messagesContainerRef} className="p-6 max-h-96 overflow-y-auto">
             {updates.length === 0 ? (
               <p className="text-gray-400 text-center py-8">
                 Noch keine Updates vorhanden. Beginnen Sie die Kommunikation!

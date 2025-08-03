@@ -2699,6 +2699,17 @@ export default function Trades() {
             onRejectQuote={handleRejectQuote}
             onResetQuote={handleResetQuote}
             onCreateInspection={handleCreateInspection}
+            onTradeUpdate={(updatedTrade) => {
+              console.log('📋 Quotes - Trade Update erhalten:', updatedTrade);
+              // Update das selectedTradeForCostEstimateDetails
+              setSelectedTradeForCostEstimateDetails(updatedTrade);
+              // Update auch die trades Liste
+              setTrades(prevTrades => 
+                prevTrades.map(trade => 
+                  trade.id === updatedTrade.id ? updatedTrade : trade
+                )
+              );
+            }}
             inspectionStatus={tradeInspectionStatus[selectedTradeForCostEstimateDetails.id]}
           />
         )}

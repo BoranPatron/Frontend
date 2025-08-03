@@ -6,6 +6,7 @@ import AppointmentStatusCard from './AppointmentStatusCard';
 import AppointmentResponseTracker from './AppointmentResponseTracker';
 import InspectionSentBadge from './InspectionSentBadge';
 import TradeProgress from './TradeProgress';
+import AcceptanceModal from './AcceptanceModal';
 import { 
   X, 
   Calendar, 
@@ -63,6 +64,7 @@ interface CostEstimateDetailsModalProps {
   onRejectQuote: (quoteId: number, reason: string) => void;
   onResetQuote: (quoteId: number) => void;
   onCreateInspection?: (tradeId: number, selectedQuoteIds: number[]) => void;
+  onTradeUpdate?: (updatedTrade: any) => void;  // ✅ Callback für Trade-Updates
   inspectionStatus?: {
     hasActiveInspection: boolean;
     appointmentDate?: string;
@@ -81,6 +83,7 @@ export default function CostEstimateDetailsModal({
   onRejectQuote,
   onResetQuote,
   onCreateInspection,
+  onTradeUpdate,
   inspectionStatus: externalInspectionStatus
 }: CostEstimateDetailsModalProps) {
   const { user } = useAuth();
@@ -95,6 +98,12 @@ export default function CostEstimateDetailsModal({
   }>({ hasActiveInspection: false, isInspectionDay: false });
   const [loading, setLoading] = useState(false);
   const [selectedQuotesForInspection, setSelectedQuotesForInspection] = useState<number[]>([]);
+  const [completionStatus, setCompletionStatus] = useState<string>('in_progress');
+  const [showAcceptanceModal, setShowAcceptanceModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [proposedDate, setProposedDate] = useState('');
+  const [proposedTime, setProposedTime] = useState('');
+  const [scheduleNotes, setScheduleNotes] = useState('');
 
   // Lade Besichtigungstermin-Status wenn Modal geöffnet wird
   useEffect(() => {
@@ -107,8 +116,31 @@ export default function CostEstimateDetailsModal({
         // Lade die Daten selbst
         loadInspectionStatus();
       }
+      
+      // Debug: Zeige das komplette trade Objekt
+      console.log('🔍 CostEstimate - Komplettes trade Objekt (completion_status):', trade.completion_status);
+      
+      // WICHTIG: Setze completionStatus SOFORT mit trade.completion_status
+      const currentStatus = trade.completion_status || 'in_progress';
+      console.log('🔄 CostEstimate - Modal geöffnet für Trade:', trade.id);
+      console.log('🔄 CostEstimate - Trade completion_status:', trade.completion_status);
+      console.log('🔄 CostEstimate - Setze completionStatus SOFORT auf:', currentStatus);
+      setCompletionStatus(currentStatus);
+      
+      // IMMER den aktuellen completion_status vom Backend laden um sicherzustellen dass er aktuell ist
+      // Das ist KRITISCH weil das trade Objekt möglicherweise veraltet ist
+      console.log('🔍 CostEstimate - Lade frischen completion_status vom Backend...');
+      loadTradeCompletionStatus();
     }
   }, [isOpen, trade?.id, externalInspectionStatus]);
+
+  // Reagiere auf Änderungen des trade.completion_status von außen
+  useEffect(() => {
+    if (trade?.completion_status && trade.completion_status !== completionStatus) {
+      console.log('🔄 CostEstimate - Trade completion_status hat sich geändert:', trade.completion_status);
+      setCompletionStatus(trade.completion_status);
+    }
+  }, [trade?.completion_status]);
 
   const loadInspectionStatus = async () => {
     try {
@@ -117,6 +149,213 @@ export default function CostEstimateDetailsModal({
       console.log('🔍 Besichtigungsstatus für Gewerk', trade.id, ':', status);
     } catch (error) {
       console.error('❌ Fehler beim Laden des Besichtigungsstatus:', error);
+    }
+  };
+
+  // Terminvereinbarung für Abnahme
+  const handleScheduleAcceptance = async () => {
+    if (!proposedDate || !proposedTime) {
+      alert('Bitte wählen Sie Datum und Uhrzeit für den Abnahme-Termin.');
+      return;
+    }
+
+    try {
+      console.log('📅 Terminvorschlag für Abnahme:', { proposedDate, proposedTime, scheduleNotes });
+      
+      const proposedDateTime = new Date(`${proposedDate}T${proposedTime}`);
+      
+      const response = await fetch('/api/v1/acceptance/schedule-appointment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          milestone_id: trade.id,
+          proposed_date: proposedDateTime.toISOString(),
+          notes: scheduleNotes
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Abnahme-Termin vorgeschlagen:', result);
+        
+        setShowScheduleModal(false);
+        setProposedDate('');
+        setProposedTime('');
+        setScheduleNotes('');
+        
+        alert('Abnahme-Termin wurde vorgeschlagen. Der Dienstleister wird benachrichtigt.');
+      } else {
+        const error = await response.json();
+        console.error('❌ Fehler bei Terminvorschlag:', error);
+        alert('Fehler beim Vorschlagen des Termins. Bitte versuchen Sie es erneut.');
+      }
+    } catch (error) {
+      console.error('❌ Fehler bei Terminvereinbarung:', error);
+      alert('Fehler bei der Terminvereinbarung. Bitte versuchen Sie es erneut.');
+    }
+  };
+
+  // Sofortige Abnahme starten
+  const handleStartAcceptance = () => {
+    setShowAcceptanceModal(true);
+  };
+
+  // Abnahme abschließen
+  const handleCompleteAcceptance = async (acceptanceData: any) => {
+    try {
+      setLoading(true);
+      console.log('🔍 Schließe Abnahme ab:', acceptanceData);
+
+      // Zuerst Abnahme erstellen
+      const createResponse = await fetch('/api/v1/acceptance/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          project_id: trade.project_id,
+          milestone_id: trade.id,
+          service_provider_id: trade.accepted_by,
+          acceptance_type: 'FINAL',
+          acceptance_notes: acceptanceData.acceptanceNotes,
+          contractor_notes: acceptanceData.contractorNotes,
+          quality_rating: acceptanceData.qualityRating,
+          timeliness_rating: acceptanceData.timelinessRating,
+          overall_rating: acceptanceData.overallRating,
+          photos: acceptanceData.photos,
+          warranty_period_months: 24
+        })
+      });
+
+      if (!createResponse.ok) {
+        throw new Error('Fehler beim Erstellen der Abnahme');
+      }
+
+      const acceptance = await createResponse.json();
+
+      // Dann Abnahme abschließen
+      const completeResponse = await fetch(`/api/v1/acceptance/${acceptance.id}/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          accepted: acceptanceData.accepted,
+          acceptance_notes: acceptanceData.acceptanceNotes,
+          contractor_notes: acceptanceData.contractorNotes,
+          quality_rating: acceptanceData.qualityRating,
+          timeliness_rating: acceptanceData.timelinessRating,
+          overall_rating: acceptanceData.overallRating,
+          photos: acceptanceData.photos,
+          defects: acceptanceData.defects
+        })
+      });
+
+      if (completeResponse.ok) {
+        const result = await completeResponse.json();
+        console.log('✅ Abnahme erfolgreich abgeschlossen:', result);
+        
+        // Update Status
+        if (acceptanceData.accepted && acceptanceData.defects.length === 0) {
+          setCompletionStatus('completed');
+          trade.completion_status = 'completed';
+        } else if (acceptanceData.accepted && acceptanceData.defects.length > 0) {
+          setCompletionStatus('completed_with_defects');
+          trade.completion_status = 'completed_with_defects';
+        } else {
+          setCompletionStatus('under_review');
+          trade.completion_status = 'under_review';
+        }
+        
+        setShowAcceptanceModal(false);
+        
+        // Lade aktuelle Daten vom Backend
+        await loadTradeCompletionStatus();
+        
+        alert(`Abnahme erfolgreich ${acceptanceData.accepted ? 'abgeschlossen' : 'mit Mängeln dokumentiert'}. PDF-Protokoll wurde erstellt.`);
+      } else {
+        const error = await completeResponse.json();
+        console.error('❌ Fehler beim Abschließen der Abnahme:', error);
+        alert('Fehler beim Abschließen der Abnahme. Bitte versuchen Sie es erneut.');
+      }
+    } catch (error) {
+      console.error('❌ Fehler bei Abnahme:', error);
+      alert('Fehler bei der Abnahme. Bitte versuchen Sie es erneut.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Lade den aktuellen completion_status vom Backend (KRITISCH für Synchronisation)
+  const loadTradeCompletionStatus = async () => {
+    if (!trade?.id) {
+      console.log('❌ CostEstimate - Kein trade.id vorhanden');
+      return;
+    }
+    
+    try {
+      console.log('🔍 CostEstimate - Lade aktuellen completion_status vom Backend für Trade:', trade.id);
+      
+      const token = localStorage.getItem('token');
+      console.log('🔍 CostEstimate - Token vorhanden:', !!token);
+      
+      const response = await fetch(`/api/v1/milestones/${trade.id}/completion-status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('🔍 CostEstimate - Response Status:', response.status);
+      console.log('🔍 CostEstimate - Response Headers:', response.headers);
+      
+      if (response.ok) {
+        try {
+          const data = await response.json();
+          console.log('✅ CostEstimate - Backend completion_status geladen:', data);
+          console.log('🔍 CostEstimate - Vorher completionStatus:', completionStatus);
+          console.log('🔍 CostEstimate - Neuer completion_status:', data.completion_status);
+          
+          // IMMER updaten - auch wenn der Status gleich ist, um sicherzustellen dass UI aktuell ist
+          if (data.completion_status) {
+            // Update das lokale trade Objekt
+            const updatedTrade = {
+              ...trade,
+              completion_status: data.completion_status,
+              progress_percentage: data.progress_percentage || trade.progress_percentage
+            };
+            
+            console.log('🔄 CostEstimate - Setze completionStatus auf:', data.completion_status);
+            setCompletionStatus(data.completion_status);
+            
+            // Informiere die übergeordnete Komponente über das Update
+            if (onTradeUpdate) {
+              console.log('🔄 CostEstimate - Rufe onTradeUpdate auf mit:', updatedTrade);
+              onTradeUpdate(updatedTrade);
+            }
+            
+            // Force re-render mit Timeout um State-Update zu garantieren
+            setTimeout(() => {
+              console.log('🔄 CostEstimate - Force re-render nach Status-Update');
+              setSelectedQuote({...selectedQuote});
+            }, 50);
+          }
+        } catch (jsonError) {
+          console.error('❌ CostEstimate - JSON Parse Fehler:', jsonError);
+          // Response ist bereits consumed, können nicht nochmal .text() aufrufen
+          console.error('❌ CostEstimate - Response konnte nicht als JSON geparst werden');
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('❌ CostEstimate - Backend API Fehler:', response.status, errorText);
+      }
+    } catch (error) {
+      console.error('❌ CostEstimate - Backend nicht erreichbar:', error);
     }
   };
   const [showInspectionSelection, setShowInspectionSelection] = useState(false);
@@ -1001,19 +1240,310 @@ export default function CostEstimateDetailsModal({
               {trade && (
                 <TradeProgress
                   milestoneId={trade.id}
-                  currentProgress={0}
-                  onProgressChange={() => {}}
+                  currentProgress={trade.progress_percentage || 0}
+                  onProgressChange={(progress) => {
+                    // Update progress in trade object
+                    trade.progress_percentage = progress;
+                  }}
                   isBautraeger={user?.user_type === 'bautraeger' || user?.user_type === 'developer' || user?.user_type === 'PRIVATE' || user?.user_type === 'PROFESSIONAL' || user?.user_type === 'private' || user?.user_type === 'professional'}
                   isServiceProvider={user?.user_type === 'service_provider' || user?.user_type === 'SERVICE_PROVIDER'}
-                  completionStatus={'in_progress'}
-                  onCompletionRequest={() => {}}
-                  onCompletionResponse={() => {}}
+                  completionStatus={completionStatus}
+                  onCompletionRequest={async () => {
+                    try {
+                      console.log('🔍 CostEstimate - Sende Abnahme-Anfrage für Trade:', trade.id);
+                      
+                      const response = await fetch(`/api/v1/milestones/${trade.id}/progress/completion`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        },
+                        body: JSON.stringify({
+                          message: 'Gewerk fertiggestellt. Bitte um Abnahme.',
+                          update_type: 'completion'
+                        })
+                      });
+                      
+                      if (response.ok) {
+                        console.log('✅ CostEstimate - Abnahme-Anfrage erfolgreich');
+                        trade.completion_status = 'completion_requested';
+                        setCompletionStatus('completion_requested');
+                        
+                        // Lade aktuelle Daten vom Backend
+                        await loadTradeCompletionStatus();
+                        
+                        // Force re-render
+                        setSelectedQuote({...selectedQuote});
+                      } else {
+                        throw new Error('API-Fehler');
+                      }
+                    } catch (error) {
+                      console.error('❌ CostEstimate - Fehler bei Fertigstellungsmeldung:', error);
+                      alert('Fehler beim Anfordern der Abnahme. Bitte versuchen Sie es erneut.');
+                    }
+                  }}
+                  onCompletionResponse={async (accepted: boolean, message?: string, deadline?: string) => {
+                    try {
+                      console.log('🔍 CostEstimate - Sende Abnahme-Antwort für Trade:', trade.id, {
+                        accepted,
+                        message,
+                        deadline
+                      });
+                      
+                      const response = await fetch(`/api/v1/milestones/${trade.id}/progress/completion/response`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        },
+                        body: JSON.stringify({
+                          accepted,
+                          message: message || (accepted ? 'Gewerk abgenommen.' : 'Nachbesserung erforderlich.'),
+                          revision_deadline: deadline
+                        })
+                      });
+                      
+                      if (response.ok) {
+                        console.log('✅ CostEstimate - Abnahme-Antwort erfolgreich');
+                        const newStatus = accepted ? 'completed' : 'under_review';
+                        trade.completion_status = newStatus;
+                        setCompletionStatus(newStatus);
+                        
+                        // Lade aktuelle Daten vom Backend
+                        await loadTradeCompletionStatus();
+                        
+                        // Force re-render
+                        setSelectedQuote({...selectedQuote});
+                      } else {
+                        throw new Error('API-Fehler');
+                      }
+                    } catch (error) {
+                      console.error('❌ CostEstimate - Fehler bei Abnahme-Antwort:', error);
+                      alert('Fehler beim Verarbeiten der Abnahme-Antwort. Bitte versuchen Sie es erneut.');
+                    }
+                  }}
                 />
+              )}
+
+
+
+              {/* Abnahme-Workflow für Bauträger in CostEstimate */}
+              {trade && (user?.user_type === 'bautraeger' || user?.user_type === 'developer' || user?.user_type === 'PRIVATE' || user?.user_type === 'PROFESSIONAL' || user?.user_type === 'private' || user?.user_type === 'professional') && (
+                <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30 mt-6">
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <CheckCircle size={18} className="text-[#ffbd59]" />
+                    Abnahme-Workflow
+                  </h3>
+                  
+                  {(!completionStatus || completionStatus === 'in_progress') && (
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Clock size={20} className="text-blue-400" />
+                        <span className="text-blue-300 font-medium">Arbeiten in Bearbeitung</span>
+                      </div>
+                      <p className="text-blue-200 text-sm">
+                        Das Gewerk ist aktuell zu {trade.progress_percentage || 0}% fertiggestellt. Warten Sie auf die Fertigstellungsmeldung des Dienstleisters.
+                      </p>
+                    </div>
+                  )}
+                  
+                  {completionStatus === 'completion_requested' && (
+                    <div className="space-y-4">
+                      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertTriangle size={20} className="text-yellow-400" />
+                          <span className="text-yellow-300 font-medium">Abnahme angefordert</span>
+                        </div>
+                        <p className="text-yellow-200 text-sm mb-3">
+                          Der Dienstleister hat das Gewerk als fertiggestellt gemeldet. Bitte prüfen Sie die Arbeiten vor Ort.
+                        </p>
+                        <div className="bg-yellow-500/20 rounded-lg p-3 text-sm text-yellow-100">
+                          <strong>Prüfschritte:</strong>
+                          <ul className="list-disc list-inside mt-2 space-y-1">
+                            <li>Vollständigkeit der Arbeiten kontrollieren</li>
+                            <li>Qualität und Ausführung bewerten</li>
+                            <li>Übereinstimmung mit Spezifikationen prüfen</li>
+                            <li>Sicherheits- und Normenkonformität kontrollieren</li>
+                          </ul>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <button
+                          onClick={handleStartAcceptance}
+                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
+                        >
+                          <CheckCircle size={20} />
+                          Abnahme starten
+                        </button>
+                        <button
+                          onClick={() => setShowScheduleModal(true)}
+                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
+                        >
+                          <Calendar size={20} />
+                          Termin vereinbaren
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const message = prompt('Begründung für Nachbesserung (erforderlich):');
+                            if (message && message.trim()) {
+                              const deadline = prompt('Frist für Nachbesserung (YYYY-MM-DD, optional):');
+                              try {
+                                const response = await fetch(`/api/v1/milestones/${trade.id}/progress/completion/response`, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                  },
+                                  body: JSON.stringify({
+                                    accepted: false,
+                                    message: message.trim(),
+                                    revision_deadline: deadline || undefined
+                                  })
+                                });
+                                
+                                if (response.ok) {
+                                  trade.completion_status = 'under_review';
+                                  setCompletionStatus('under_review');
+                                  
+                                  // Lade aktuelle Daten vom Backend
+                                  await loadTradeCompletionStatus();
+                                  
+                                  // Force re-render
+                                  setSelectedQuote({...selectedQuote});
+                                }
+                              } catch (error) {
+                                console.error('Fehler bei Nachbesserung:', error);
+                              }
+                            } else if (message !== null) {
+                              alert('Bitte geben Sie eine Begründung für die Nachbesserung an.');
+                            }
+                          }}
+                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
+                        >
+                          <AlertTriangle size={20} />
+                          Nachbesserung anfordern
+                        </button>
+                      </div>
+                      
+                      <div className="mt-4 p-3 bg-gray-600/20 rounded-lg">
+                        <p className="text-gray-300 text-sm">
+                          <strong>Hinweis:</strong> Nach der Abnahme wird das Gewerk archiviert und der Dienstleister kann eine Rechnung stellen.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {completionStatus === 'under_review' && (
+                    <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle size={20} className="text-orange-400" />
+                        <span className="text-orange-300 font-medium">Nachbesserung angefordert</span>
+                      </div>
+                      <p className="text-orange-200 text-sm">
+                        Sie haben Nachbesserungen angefordert. Der Dienstleister wird die erforderlichen Arbeiten ausführen und erneut um Abnahme bitten.
+                      </p>
+                    </div>
+                  )}
+                  
+                  {completionStatus === 'completed' && (
+                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle size={20} className="text-green-400" />
+                        <span className="text-green-300 font-medium">Gewerk abgenommen</span>
+                      </div>
+                      <p className="text-green-200 text-sm">
+                        Das Gewerk wurde erfolgreich abgenommen und ist archiviert. Der Dienstleister kann nun eine Rechnung stellen.
+                      </p>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Terminvereinbarungs-Modal */}
+      {showScheduleModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-60 p-4">
+          <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-md w-full">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Calendar size={20} className="text-purple-400" />
+                Abnahme-Termin vereinbaren
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Datum *
+                  </label>
+                  <input
+                    type="date"
+                    value={proposedDate}
+                    onChange={(e) => setProposedDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Uhrzeit *
+                  </label>
+                  <input
+                    type="time"
+                    value={proposedTime}
+                    onChange={(e) => setProposedTime(e.target.value)}
+                    className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Zusätzliche Notizen
+                  </label>
+                  <textarea
+                    value={scheduleNotes}
+                    onChange={(e) => setScheduleNotes(e.target.value)}
+                    placeholder="Besondere Hinweise zum Termin..."
+                    className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    rows={3}
+                  />
+                </div>
+                
+                <div className="bg-purple-500/10 rounded-lg p-3">
+                  <p className="text-purple-200 text-sm">
+                    <strong>Hinweis:</strong> Der Dienstleister wird über Ihren Terminvorschlag benachrichtigt und kann diesen annehmen oder einen Gegenvorschlag machen.
+                  </p>
+                </div>
+                
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      setShowScheduleModal(false);
+                      setProposedDate('');
+                      setProposedTime('');
+                      setScheduleNotes('');
+                    }}
+                    className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    onClick={handleScheduleAcceptance}
+                    disabled={!proposedDate || !proposedTime}
+                    className="px-6 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Termin vorschlagen
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Ablehnungs-Modal */}
       {showRejectModal && (
@@ -1059,6 +1589,14 @@ export default function CostEstimateDetailsModal({
           </div>
         </div>
       )}
+
+      {/* Abnahme-Modal */}
+      <AcceptanceModal
+        isOpen={showAcceptanceModal}
+        onClose={() => setShowAcceptanceModal(false)}
+        trade={trade}
+        onComplete={handleCompleteAcceptance}
+      />
     </>
   );
 } 
