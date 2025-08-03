@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Notifications</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .log { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e9; color: #2e7d32; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Debug Notifications</h1>
+    
+    <button onclick="testProjects()">Test Projects API</button>
+    <button onclick="testMilestones()">Test Milestones API</button>
+    <button onclick="testProgressUpdates()">Test Progress Updates API</button>
+    <button onclick="clearLogs()">Clear Logs</button>
+    
+    <div id="logs"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1';
+        
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const logDiv = document.createElement('div');
+            logDiv.className = `log ${type}`;
+            logDiv.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            logsDiv.appendChild(logDiv);
+            console.log(message);
+        }
+        
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+        
+        async function makeApiCall(endpoint) {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                log('❌ Kein Token gefunden in localStorage', 'error');
+                return null;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    log(`❌ API Error ${response.status}: ${response.statusText}`, 'error');
+                    return null;
+                }
+                
+                const data = await response.json();
+                log(`✅ API Success: ${JSON.stringify(data).substring(0, 200)}...`, 'success');
+                return data;
+            } catch (error) {
+                log(`❌ Network Error: ${error.message}`, 'error');
+                return null;
+            }
+        }
+        
+        async function testProjects() {
+            log('🔄 Testing /projects/...');
+            const projects = await makeApiCall('/projects/');
+            if (projects) {
+                log(`📋 ${projects.length} Projekte gefunden`);
+                if (projects.length > 0) {
+                    log(`Erstes Projekt: ID ${projects[0].id}, Name: ${projects[0].name}`);
+                }
+            }
+        }
+        
+        async function testMilestones() {
+            log('🔄 Testing /milestones/...');
+            // Erst Projekte holen
+            const projects = await makeApiCall('/projects/');
+            if (projects && projects.length > 0) {
+                const projectId = projects[0].id;
+                log(`📋 Teste Milestones für Projekt ${projectId}`);
+                const milestones = await makeApiCall(`/milestones/?project_id=${projectId}`);
+                if (milestones) {
+                    log(`📋 ${milestones.length} Milestones gefunden`);
+                }
+            }
+        }
+        
+        async function testProgressUpdates() {
+            log('🔄 Testing Progress Updates...');
+            // Erst Projekte und Milestones holen
+            const projects = await makeApiCall('/projects/');
+            if (projects && projects.length > 0) {
+                const projectId = projects[0].id;
+                const milestones = await makeApiCall(`/milestones/?project_id=${projectId}`);
+                if (milestones && milestones.length > 0) {
+                    const milestoneId = milestones[0].id;
+                    log(`📋 Teste Progress Updates für Milestone ${milestoneId}`);
+                    const progressUpdates = await makeApiCall(`/milestones/${milestoneId}/progress/`);
+                    if (progressUpdates) {
+                        log(`📋 ${progressUpdates.length} Progress Updates gefunden`);
+                        progressUpdates.forEach((update, index) => {
+                            if (index < 3) { // Nur erste 3 zeigen
+                                log(`  Update ${update.id}: User ${update.user_id}, "${update.message?.substring(0, 50)}..."`);
+                            }
+                        });
+                    }
+                }
+            }
+        }
+        
+        // Check if token exists on page load
+        window.onload = function() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                log(`✅ Token gefunden: ${token.substring(0, 50)}...`, 'success');
+            } else {
+                log('⚠️ Kein Token gefunden. Bitte erst in der Hauptapp einloggen.', 'error');
+            }
+        };
+    </script>
+</body>
+</html>

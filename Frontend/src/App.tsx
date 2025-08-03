@@ -11,6 +11,7 @@ import ProjectDetail from './pages/ProjectDetail';
 import ProjectMessages from './pages/ProjectMessages';
 import ProjectAnalytics from './pages/ProjectAnalytics';
 import Tasks from './pages/Tasks';
+import TasksPage from './pages/TasksPage';
 import Documents from './pages/Documents';
 import Finance from './pages/Finance';
 import Quotes from './pages/Quotes';
@@ -301,7 +302,7 @@ function AppContent() {
         } />
         <Route path="/tasks" element={
           <ProtectedRoute>
-            <Tasks />
+            <TasksPage />
           </ProtectedRoute>
         } />
         <Route path="/documents" element={

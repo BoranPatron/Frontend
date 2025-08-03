@@ -2709,6 +2709,11 @@ export default function Trades() {
                   trade.id === updatedTrade.id ? updatedTrade : trade
                 )
               );
+              // WICHTIG: Lade auch die kompletten Trades neu um sicherzustellen dass alles aktuell ist
+              console.log('📋 Quotes - Lade Trades neu nach Trade-Update...');
+              setTimeout(() => {
+                loadTrades();
+              }, 1000);
             }}
             inspectionStatus={tradeInspectionStatus[selectedTradeForCostEstimateDetails.id]}
           />

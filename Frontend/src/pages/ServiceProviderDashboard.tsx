@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Clock,
   CheckCircle,
+  CheckSquare,
   AlertTriangle,
   MapPin,
   Search,
@@ -480,8 +481,25 @@ export default function ServiceProviderDashboard() {
 
   const stats = getServiceProviderStats();
 
-  // Dedizierte Dienstleister-Dashboard-Karten (nur Docs und Gewerke)
+  // Dedizierte Dienstleister-Dashboard-Karten inklusive Todo-Kachel
   const getDashboardCards = () => [
+    {
+      title: "To Do",
+      description: "Aufgabenmanagement & Tracking",
+      icon: <CheckSquare size={32} />,
+      onClick: () => navigate('/tasks'),
+      ariaLabel: "Aufgabenmanagement öffnen",
+      badge: { text: `${stats.activeQuotes} offen`, color: "yellow" as const },
+      cardId: "tasks",
+      path: "/tasks",
+      iconString: "<CheckSquare size={16} />",
+      children: (
+        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+          <Clock size={16} />
+          <span>Stundenerfassung</span>
+        </div>
+      )
+    },
     {
       title: "Docs",
       description: "Dokumentenmanagement & Uploads",
@@ -600,25 +618,26 @@ export default function ServiceProviderDashboard() {
         </div>
       </div>
 
-      {/* Dashboard-Karten (nur Docs und Gewerke) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {dashboardCards.map((card, index) => (
-              <DashboardCard
-                key={index}
-                title={card.title}
-                icon={card.icon}
-                onClick={card.onClick}
-                ariaLabel={card.ariaLabel}
+      {/* Dashboard-Karten */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        {/* Alle Dashboard-Karten inklusive Todo-Kachel */}
+        {dashboardCards.map((card, index) => (
+          <DashboardCard
+            key={index}
+            title={card.title}
+            icon={card.icon}
+            onClick={card.onClick}
+            ariaLabel={card.ariaLabel}
             status={isOnline ? 'online' : 'offline'}
-                badge={card.badge}
-                cardId={card.cardId}
-                path={card.path}
-                iconString={card.iconString}
-              >
-                {card.children}
-              </DashboardCard>
-            ))}
-          </div>
+            badge={card.badge}
+            cardId={card.cardId}
+            path={card.path}
+            iconString={card.iconString}
+          >
+            {card.children}
+          </DashboardCard>
+        ))}
+      </div>
 
       {/* Geo-basierte Gewerke-Suche für Dienstleister */}
       {showGeoSearch && (

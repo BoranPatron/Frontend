@@ -6,7 +6,8 @@ import AppointmentStatusCard from './AppointmentStatusCard';
 import AppointmentResponseTracker from './AppointmentResponseTracker';
 import InspectionSentBadge from './InspectionSentBadge';
 import TradeProgress from './TradeProgress';
-import AcceptanceModal from './AcceptanceModal';
+import AcceptanceModal from './AcceptanceModalNew';
+import CostEstimateDocumentViewer from './CostEstimateDocumentViewer';
 import { 
   X, 
   Calendar, 
@@ -51,7 +52,9 @@ import {
   Check,
   ThumbsDown,
   MessageSquare,
-  Send
+  Send,
+  ChevronDown,
+  ExternalLink
 } from 'lucide-react';
 
 interface CostEstimateDetailsModalProps {
@@ -71,6 +74,22 @@ interface CostEstimateDetailsModalProps {
     isInspectionDay: boolean;
     selectedServiceProviderId?: number;
   };
+}
+
+interface DocumentViewerProps {
+  documents: Array<{
+    id: number | string;
+    title?: string;
+    name?: string;
+    file_name?: string;
+    url?: string;
+    file_path?: string;
+    type?: string;
+    mime_type?: string;
+    size?: number;
+    file_size?: number;
+  }>;
+  existingQuotes: any[];
 }
 
 export default function CostEstimateDetailsModal({ 
@@ -104,10 +123,18 @@ export default function CostEstimateDetailsModal({
   const [proposedDate, setProposedDate] = useState('');
   const [proposedTime, setProposedTime] = useState('');
   const [scheduleNotes, setScheduleNotes] = useState('');
+  
+  // Dokumente-States
+  const [loadedDocuments, setLoadedDocuments] = useState<any[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [documentsError, setDocumentsError] = useState<string | null>(null);
+  const [isDocumentsExpanded, setIsDocumentsExpanded] = useState(false);
 
-  // Lade Besichtigungstermin-Status wenn Modal geöffnet wird
+  // Lade aktuelles Trade-Objekt und Status wenn Modal geöffnet wird
   useEffect(() => {
     if (isOpen && trade?.id) {
+      console.log('🔍 CostEstimate - Modal wird geöffnet für Trade:', trade.id);
+      
       if (externalInspectionStatus) {
         // Verwende die von außen übergebenen Daten
         setInspectionStatus(externalInspectionStatus);
@@ -117,20 +144,24 @@ export default function CostEstimateDetailsModal({
         loadInspectionStatus();
       }
       
-      // Debug: Zeige das komplette trade Objekt
-      console.log('🔍 CostEstimate - Komplettes trade Objekt (completion_status):', trade.completion_status);
+      // Debug: Zeige das aktuelle trade Objekt
+      console.log('🔍 CostEstimate - Aktueller trade completion_status:', trade.completion_status);
       
-      // WICHTIG: Setze completionStatus SOFORT mit trade.completion_status
+      // Setze completionStatus mit dem aktuellen Wert (kann veraltet sein)
       const currentStatus = trade.completion_status || 'in_progress';
-      console.log('🔄 CostEstimate - Modal geöffnet für Trade:', trade.id);
-      console.log('🔄 CostEstimate - Trade completion_status:', trade.completion_status);
-      console.log('🔄 CostEstimate - Setze completionStatus SOFORT auf:', currentStatus);
+      console.log('🔄 CostEstimate - Setze temporären completionStatus auf:', currentStatus);
       setCompletionStatus(currentStatus);
       
-      // IMMER den aktuellen completion_status vom Backend laden um sicherzustellen dass er aktuell ist
-      // Das ist KRITISCH weil das trade Objekt möglicherweise veraltet ist
-      console.log('🔍 CostEstimate - Lade frischen completion_status vom Backend...');
+      // KRITISCH: Lade IMMER den frischen completion_status vom Backend
+      // Das stellt sicher, dass wir den aktuellsten Status haben
+      console.log('🔍 CostEstimate - Lade FRISCHEN completion_status vom Backend...');
       loadTradeCompletionStatus();
+      
+      // ZUSÄTZLICH: Lade das komplette Trade-Objekt neu um sicherzustellen dass es aktuell ist
+      loadFreshTradeData();
+      
+      // Lade auch die Dokumente
+      loadTradeDocuments(trade.id);
     }
   }, [isOpen, trade?.id, externalInspectionStatus]);
 
@@ -163,35 +194,23 @@ export default function CostEstimateDetailsModal({
       console.log('📅 Terminvorschlag für Abnahme:', { proposedDate, proposedTime, scheduleNotes });
       
       const proposedDateTime = new Date(`${proposedDate}T${proposedTime}`);
+      const { api } = await import('../api/api');
       
-      const response = await fetch('/api/v1/acceptance/schedule-appointment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          milestone_id: trade.id,
-          proposed_date: proposedDateTime.toISOString(),
-          notes: scheduleNotes
-        })
+      const response = await api.post('/acceptance/schedule-appointment', {
+        milestone_id: trade.id,
+        proposed_date: proposedDateTime.toISOString(),
+        notes: scheduleNotes
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ Abnahme-Termin vorgeschlagen:', result);
-        
-        setShowScheduleModal(false);
-        setProposedDate('');
-        setProposedTime('');
-        setScheduleNotes('');
-        
-        alert('Abnahme-Termin wurde vorgeschlagen. Der Dienstleister wird benachrichtigt.');
-      } else {
-        const error = await response.json();
-        console.error('❌ Fehler bei Terminvorschlag:', error);
-        alert('Fehler beim Vorschlagen des Termins. Bitte versuchen Sie es erneut.');
-      }
+      const result = response.data || response;
+      console.log('✅ Abnahme-Termin vorgeschlagen:', result);
+      
+      setShowScheduleModal(false);
+      setProposedDate('');
+      setProposedTime('');
+      setScheduleNotes('');
+      
+      alert('Abnahme-Termin wurde vorgeschlagen. Der Dienstleister wird benachrichtigt.');
     } catch (error) {
       console.error('❌ Fehler bei Terminvereinbarung:', error);
       alert('Fehler bei der Terminvereinbarung. Bitte versuchen Sie es erneut.');
@@ -200,14 +219,20 @@ export default function CostEstimateDetailsModal({
 
   // Sofortige Abnahme starten
   const handleStartAcceptance = () => {
+    console.log('🚀 handleStartAcceptance aufgerufen');
+    console.log('🔍 Aktueller showAcceptanceModal State:', showAcceptanceModal);
+    console.log('🔍 Trade Objekt:', trade);
     setShowAcceptanceModal(true);
+    console.log('✅ showAcceptanceModal auf true gesetzt');
+    // NICHT das CostEstimateDetailsModal schließen - AcceptanceModal soll darüber liegen
+    // onClose();
   };
 
-  // Abnahme abschließen
-  const handleCompleteAcceptance = async (acceptanceData: any) => {
+  // Abnahme abschließen (alte Version - wird ersetzt)
+  const handleCompleteAcceptanceOld = async (acceptanceData: any) => {
     try {
       setLoading(true);
-      console.log('🔍 Schließe Abnahme ab:', acceptanceData);
+      console.log('🔍 Schließe Abnahme ab (alte Version):', acceptanceData);
 
       // Zuerst Abnahme erstellen
       const createResponse = await fetch('/api/v1/acceptance/', {
@@ -291,6 +316,129 @@ export default function CostEstimateDetailsModal({
     }
   };
 
+  // Funktion zum dynamischen Laden der Dokumente
+  const loadTradeDocuments = async (tradeId: number) => {
+    if (!tradeId) return;
+    
+    setDocumentsLoading(true);
+    setDocumentsError(null);
+    
+    try {
+      console.log('🔍 CostEstimateDetailsModal - Lade Dokumente für Trade:', tradeId);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Kein Authentifizierungstoken verfügbar');
+      }
+      
+      const baseUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+        ? 'http://localhost:8000/api/v1' 
+        : '/api/v1';
+      
+      // Lade das vollständige Milestone mit Dokumenten vom Backend
+      const response = await fetch(`${baseUrl}/milestones/${tradeId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Fehler beim Laden der Gewerk-Details: ${response.status}`);
+      }
+      
+      const milestoneData = await response.json();
+      console.log('✅ CostEstimateDetailsModal - Milestone-Daten geladen:', milestoneData);
+      
+      // Extrahiere und verarbeite die Dokumente
+      let documents = [];
+      if (milestoneData.documents) {
+        if (Array.isArray(milestoneData.documents)) {
+          documents = milestoneData.documents;
+        } else if (typeof milestoneData.documents === 'string') {
+          try {
+            documents = JSON.parse(milestoneData.documents);
+          } catch (e) {
+            console.error('❌ Fehler beim Parsen der Dokumente:', e);
+            documents = [];
+          }
+        }
+      }
+      
+      // Zusätzlich: Lade geteilte Dokumente falls vorhanden
+      if (milestoneData.shared_document_ids) {
+        try {
+          let sharedDocIds = milestoneData.shared_document_ids;
+          if (typeof sharedDocIds === 'string') {
+            sharedDocIds = JSON.parse(sharedDocIds);
+          }
+          
+          if (Array.isArray(sharedDocIds) && sharedDocIds.length > 0) {
+            // Lade die geteilten Dokumente
+            const sharedDocsPromises = sharedDocIds.map(async (docId: number) => {
+              try {
+                const docResponse = await fetch(`${baseUrl}/documents/${docId}`, {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                  }
+                });
+                
+                if (docResponse.ok) {
+                  const docData = await docResponse.json();
+                  return {
+                    id: docData.id,
+                    name: docData.title || docData.file_name,
+                    title: docData.title,
+                    file_name: docData.file_name,
+                    url: `/api/v1/documents/${docData.id}/download`,
+                    file_path: `/api/v1/documents/${docData.id}/download`,
+                    type: docData.mime_type || 'application/octet-stream',
+                    mime_type: docData.mime_type,
+                    size: docData.file_size || 0,
+                    file_size: docData.file_size,
+                    category: docData.category,
+                    subcategory: docData.subcategory,
+                    created_at: docData.created_at
+                  };
+                }
+                return null;
+              } catch (e) {
+                console.error(`❌ Fehler beim Laden des geteilten Dokuments ${docId}:`, e);
+                return null;
+              }
+            });
+            
+            const sharedDocs = await Promise.all(sharedDocsPromises);
+            const validSharedDocs = sharedDocs.filter(doc => doc !== null);
+            
+            console.log('📄 CostEstimateDetailsModal - Geteilte Dokumente geladen:', validSharedDocs);
+            documents = [...documents, ...validSharedDocs];
+          }
+        } catch (e) {
+          console.error('❌ Fehler beim Verarbeiten der geteilten Dokumente:', e);
+        }
+      }
+      
+      console.log('📄 CostEstimateDetailsModal - Finale Dokumentenliste:', documents);
+      setLoadedDocuments(documents);
+      
+    } catch (error) {
+      console.error('❌ CostEstimateDetailsModal - Fehler beim Laden der Dokumente:', error);
+      setDocumentsError(error instanceof Error ? error.message : 'Unbekannter Fehler');
+      
+      // Fallback: Verwende die ursprünglichen trade.documents falls vorhanden
+      if (trade?.documents && Array.isArray(trade.documents)) {
+        console.log('🔄 CostEstimateDetailsModal - Verwende Fallback auf trade.documents:', trade.documents);
+        setLoadedDocuments(trade.documents);
+      } else {
+        setLoadedDocuments([]);
+      }
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
+
   // Lade den aktuellen completion_status vom Backend (KRITISCH für Synchronisation)
   const loadTradeCompletionStatus = async () => {
     if (!trade?.id) {
@@ -358,6 +506,49 @@ export default function CostEstimateDetailsModal({
       console.error('❌ CostEstimate - Backend nicht erreichbar:', error);
     }
   };
+
+  // Lade das komplette Trade-Objekt neu vom Backend
+  const loadFreshTradeData = async () => {
+    if (!trade?.id) {
+      console.log('❌ CostEstimate - Kein trade.id für Fresh-Load vorhanden');
+      return;
+    }
+    
+    try {
+      console.log('🔍 CostEstimate - Lade frisches Trade-Objekt vom Backend für Trade:', trade.id);
+      
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/v1/milestones/${trade.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const freshTrade = await response.json();
+        console.log('✅ CostEstimate - Frisches Trade-Objekt geladen:', freshTrade);
+        console.log('🔍 CostEstimate - Frischer completion_status:', freshTrade.completion_status);
+        
+        // Update das lokale Trade-Objekt und den Status
+        if (freshTrade.completion_status && freshTrade.completion_status !== completionStatus) {
+          console.log('🔄 CostEstimate - Update completionStatus von frischem Trade:', freshTrade.completion_status);
+          setCompletionStatus(freshTrade.completion_status);
+          
+          // Informiere die übergeordnete Komponente über das frische Trade-Objekt
+          if (onTradeUpdate) {
+            console.log('🔄 CostEstimate - Rufe onTradeUpdate mit frischem Trade auf');
+            onTradeUpdate(freshTrade);
+          }
+        }
+      } else {
+        console.log('⚠️ CostEstimate - Konnte frisches Trade-Objekt nicht laden:', response.status);
+      }
+    } catch (error) {
+      console.log('⚠️ CostEstimate - Fehler beim Laden des frischen Trade-Objekts:', error);
+    }
+  };
+
   const [showInspectionSelection, setShowInspectionSelection] = useState(false);
 
   if (!isOpen || !trade) return null;
@@ -542,6 +733,66 @@ export default function CostEstimateDetailsModal({
       setSelectedQuote(null);
     } catch (error) {
       console.error('Fehler beim Ablehnen des Kostenvoranschlags:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCompleteAcceptance = async (acceptanceData: any) => {
+    console.log('🏁 Abnahme wird abgeschlossen:', acceptanceData);
+    setLoading(true);
+    
+    try {
+      const { api } = await import('../api/api');
+      
+      // Erstelle eine neue Abnahme oder aktualisiere eine bestehende
+      const response = await api.post('/acceptance/complete', {
+        accepted: acceptanceData.accepted,
+        acceptanceNotes: acceptanceData.acceptanceNotes,
+        contractorNotes: acceptanceData.contractorNotes,
+        qualityRating: acceptanceData.qualityRating,
+        timelinessRating: acceptanceData.timelinessRating,
+        overallRating: acceptanceData.overallRating,
+        photos: acceptanceData.photos,
+        defects: acceptanceData.defects,
+        reviewDate: acceptanceData.reviewDate,
+        reviewNotes: acceptanceData.reviewNotes,
+        checklist: acceptanceData.checklist,
+        milestone_id: trade.id  // Füge milestone_id hinzu
+      });
+
+      const result = response.data || response;
+      console.log('✅ Abnahme erfolgreich abgeschlossen:', result);
+      
+      // Schließe Modal
+      setShowAcceptanceModal(false);
+      
+      // Aktualisiere Trade-Status
+      if (acceptanceData.accepted) {
+        setCompletionStatus('completed');
+      } else {
+        setCompletionStatus('completed_with_defects');
+      }
+      
+      // Zeige Erfolgs-Nachricht
+      const defectCount = acceptanceData.defects?.length || 0;
+      const message = acceptanceData.accepted 
+        ? `✅ Abnahme erfolgreich abgeschlossen!`
+        : `⚠️ Abnahme unter Vorbehalt abgeschlossen. ${defectCount} Mängel dokumentiert und automatisch als Tasks für den Dienstleister erstellt.`;
+      
+      alert(message);
+      
+      // Lade frische Daten
+      await loadFreshTradeData();
+      
+      // Benachrichtige Parent-Component
+      if (onTradeUpdate) {
+        onTradeUpdate(trade.id);
+      }
+      
+    } catch (error) {
+      console.error('❌ Netzwerkfehler beim Abschließen der Abnahme:', error);
+      alert('Netzwerkfehler beim Abschließen der Abnahme. Bitte versuchen Sie es erneut.');
     } finally {
       setLoading(false);
     }
@@ -1236,6 +1487,56 @@ export default function CostEstimateDetailsModal({
                 </div>
               )}
 
+              {/* Dokumente - Einklappbar */}
+              {trade && (
+                <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl border border-gray-600/30 overflow-hidden mt-6">
+                  <div className="flex items-center justify-between p-6 cursor-pointer hover:bg-[#1a1a2e]/30 transition-all duration-200" onClick={() => setIsDocumentsExpanded(!isDocumentsExpanded)}>
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <FileText size={18} className="text-[#ffbd59]" />
+                      Dokumente ({documentsLoading ? '...' : (loadedDocuments.length > 0 ? loadedDocuments.length : (trade.documents?.length || 0))})
+                      {documentsLoading && (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#ffbd59] ml-2"></div>
+                      )}
+                      </h3>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-400">
+                        {isDocumentsExpanded ? 'Einklappen' : 'Ausklappen'}
+                      </span>
+                      <div className={`transform transition-transform duration-300 ${isDocumentsExpanded ? 'rotate-180' : ''}`}>
+                        <ChevronDown size={20} className="text-[#ffbd59]" />
+                         </div>
+                      </div>
+                    </div>
+
+                  {isDocumentsExpanded && (
+                    <div className="border-t border-gray-600/30">
+                      {documentsLoading ? (
+                        <div className="p-6 text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#ffbd59] mx-auto mb-3"></div>
+                          <p className="text-gray-400">Lade Dokumente...</p>
+                        </div>
+                      ) : documentsError ? (
+                        <div className="p-6 text-center">
+                          <div className="text-red-400 mb-3">❌ Fehler beim Laden der Dokumente</div>
+                          <p className="text-gray-400 text-sm">{documentsError}</p>
+                          <button
+                            onClick={() => trade?.id && loadTradeDocuments(trade.id)}
+                            className="mt-3 px-4 py-2 bg-[#ffbd59] text-[#1a1a2e] rounded-lg hover:bg-[#ffa726] transition-colors text-sm font-medium"
+                          >
+                            Erneut versuchen
+                          </button>
+                        </div>
+                      ) : (
+                        <CostEstimateDocumentViewer 
+                          documents={loadedDocuments.length > 0 ? loadedDocuments : (trade?.documents || [])} 
+                          existingQuotes={quotes} 
+                        />
+                      )}
+                      </div>
+                    )}
+                    </div>
+              )}
+
               {/* Baufortschritt & Kommunikation */}
               {trade && (
                 <TradeProgress
@@ -1327,141 +1628,120 @@ export default function CostEstimateDetailsModal({
 
 
 
-              {/* Abnahme-Workflow für Bauträger in CostEstimate */}
-              {trade && (user?.user_type === 'bautraeger' || user?.user_type === 'developer' || user?.user_type === 'PRIVATE' || user?.user_type === 'PROFESSIONAL' || user?.user_type === 'private' || user?.user_type === 'professional') && (
-                <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30 mt-6">
-                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                    <CheckCircle size={18} className="text-[#ffbd59]" />
-                    Abnahme-Workflow
-                  </h3>
-                  
-                  {(!completionStatus || completionStatus === 'in_progress') && (
-                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Clock size={20} className="text-blue-400" />
-                        <span className="text-blue-300 font-medium">Arbeiten in Bearbeitung</span>
-                      </div>
-                      <p className="text-blue-200 text-sm">
-                        Das Gewerk ist aktuell zu {trade.progress_percentage || 0}% fertiggestellt. Warten Sie auf die Fertigstellungsmeldung des Dienstleisters.
-                      </p>
-                    </div>
-                  )}
-                  
-                  {completionStatus === 'completion_requested' && (
-                    <div className="space-y-4">
-                      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <AlertTriangle size={20} className="text-yellow-400" />
-                          <span className="text-yellow-300 font-medium">Abnahme angefordert</span>
-                        </div>
-                        <p className="text-yellow-200 text-sm mb-3">
-                          Der Dienstleister hat das Gewerk als fertiggestellt gemeldet. Bitte prüfen Sie die Arbeiten vor Ort.
-                        </p>
-                        <div className="bg-yellow-500/20 rounded-lg p-3 text-sm text-yellow-100">
-                          <strong>Prüfschritte:</strong>
-                          <ul className="list-disc list-inside mt-2 space-y-1">
-                            <li>Vollständigkeit der Arbeiten kontrollieren</li>
-                            <li>Qualität und Ausführung bewerten</li>
-                            <li>Übereinstimmung mit Spezifikationen prüfen</li>
-                            <li>Sicherheits- und Normenkonformität kontrollieren</li>
-                          </ul>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <button
-                          onClick={handleStartAcceptance}
-                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
-                        >
-                          <CheckCircle size={20} />
-                          Abnahme starten
-                        </button>
-                        <button
-                          onClick={() => setShowScheduleModal(true)}
-                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
-                        >
-                          <Calendar size={20} />
-                          Termin vereinbaren
-                        </button>
-                        <button
-                          onClick={async () => {
-                            const message = prompt('Begründung für Nachbesserung (erforderlich):');
-                            if (message && message.trim()) {
-                              const deadline = prompt('Frist für Nachbesserung (YYYY-MM-DD, optional):');
-                              try {
-                                const response = await fetch(`/api/v1/milestones/${trade.id}/progress/completion/response`, {
-                                  method: 'POST',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                                  },
-                                  body: JSON.stringify({
-                                    accepted: false,
-                                    message: message.trim(),
-                                    revision_deadline: deadline || undefined
-                                  })
-                                });
-                                
-                                if (response.ok) {
-                                  trade.completion_status = 'under_review';
-                                  setCompletionStatus('under_review');
-                                  
-                                  // Lade aktuelle Daten vom Backend
-                                  await loadTradeCompletionStatus();
-                                  
-                                  // Force re-render
-                                  setSelectedQuote({...selectedQuote});
-                                }
-                              } catch (error) {
-                                console.error('Fehler bei Nachbesserung:', error);
-                              }
-                            } else if (message !== null) {
-                              alert('Bitte geben Sie eine Begründung für die Nachbesserung an.');
-                            }
-                          }}
-                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
-                        >
-                          <AlertTriangle size={20} />
-                          Nachbesserung anfordern
-                        </button>
-                      </div>
-                      
-                      <div className="mt-4 p-3 bg-gray-600/20 rounded-lg">
-                        <p className="text-gray-300 text-sm">
-                          <strong>Hinweis:</strong> Nach der Abnahme wird das Gewerk archiviert und der Dienstleister kann eine Rechnung stellen.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {completionStatus === 'under_review' && (
-                    <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertTriangle size={20} className="text-orange-400" />
-                        <span className="text-orange-300 font-medium">Nachbesserung angefordert</span>
-                      </div>
-                      <p className="text-orange-200 text-sm">
-                        Sie haben Nachbesserungen angefordert. Der Dienstleister wird die erforderlichen Arbeiten ausführen und erneut um Abnahme bitten.
-                      </p>
-                    </div>
-                  )}
-                  
-                  {completionStatus === 'completed' && (
-                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <CheckCircle size={20} className="text-green-400" />
-                        <span className="text-green-300 font-medium">Gewerk abgenommen</span>
-                      </div>
-                      <p className="text-green-200 text-sm">
-                        Das Gewerk wurde erfolgreich abgenommen und ist archiviert. Der Dienstleister kann nun eine Rechnung stellen.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
+
             </div>
           </div>
         </div>
+        
+
+        
+        {/* Abnahme-Workflow für Bauträger - GANZ UNTEN IM MODAL */}
+        {trade && (user?.user_type === 'bautraeger' || user?.user_type === 'developer' || user?.user_type === 'PRIVATE' || user?.user_type === 'PROFESSIONAL' || user?.user_type === 'private' || user?.user_type === 'professional') && (
+          <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30 mt-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <CheckCircle size={18} className="text-[#ffbd59]" />
+              Abnahme-Workflow
+            </h3>
+            
+            {(!completionStatus || completionStatus === 'in_progress') && (
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock size={20} className="text-blue-400" />
+                  <span className="text-blue-300 font-medium">Arbeiten in Bearbeitung</span>
+                </div>
+                <p className="text-blue-200 text-sm">
+                  Das Gewerk ist aktuell zu {trade.progress_percentage || 0}% fertiggestellt. Warten Sie auf die Fertigstellungsmeldung des Dienstleisters.
+                </p>
+              </div>
+            )}
+            
+            {completionStatus === 'completion_requested' && (
+              <div className="space-y-4">
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle size={20} className="text-yellow-400" />
+                    <span className="text-yellow-300 font-medium">Abnahme angefordert</span>
+                  </div>
+                  <p className="text-yellow-200 text-sm mb-3">
+                    Der Dienstleister hat das Gewerk als fertiggestellt gemeldet. Bitte prüfen Sie die Arbeiten vor Ort.
+                  </p>
+                  <div className="bg-yellow-500/20 rounded-lg p-3 text-sm text-yellow-100">
+                    <strong>Prüfschritte:</strong>
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      <li>Vollständigkeit der Arbeiten kontrollieren</li>
+                      <li>Qualität und Ausführung bewerten</li>
+                      <li>Übereinstimmung mit Spezifikationen prüfen</li>
+                      <li>Sicherheits- und Normenkonformität kontrollieren</li>
+                    </ul>
+                  </div>
+                </div>
+                
+                {/* VEREINFACHTER WORKFLOW - Nur Abnahme starten und Termin vereinbaren */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🔵 Abnahme starten Button geklickt');
+                      handleStartAcceptance();
+                    }}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
+                  >
+                    <CheckCircle size={20} />
+                    Abnahme starten
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🟣 Termin vereinbaren Button geklickt');
+                      setShowScheduleModal(true);
+                      // Schließe das CostEstimateDetailsModal
+                      console.log('🔄 Schließe CostEstimateDetailsModal für Terminvereinbarung');
+                      onClose();
+                    }}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
+                  >
+                    <Calendar size={20} />
+                    Termin vereinbaren
+                  </button>
+                </div>
+                
+                <div className="mt-4 p-3 bg-gray-600/20 rounded-lg">
+                  <p className="text-gray-300 text-sm">
+                    <strong>Hinweis:</strong> Nach der Abnahme wird das Gewerk archiviert und der Dienstleister kann eine Rechnung stellen.
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {completionStatus === 'under_review' && (
+              <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle size={20} className="text-orange-400" />
+                  <span className="text-orange-300 font-medium">Nachbesserung angefordert</span>
+                </div>
+                <p className="text-orange-200 text-sm">
+                  Sie haben Nachbesserungen angefordert. Der Dienstleister wird die erforderlichen Arbeiten ausführen und erneut um Abnahme bitten.
+                </p>
+              </div>
+            )}
+            
+            {completionStatus === 'completed' && (
+              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle size={20} className="text-green-400" />
+                  <span className="text-green-300 font-medium">Gewerk abgenommen</span>
+                </div>
+                <p className="text-green-200 text-sm">
+                  Das Gewerk wurde erfolgreich abgenommen und ist archiviert. Der Dienstleister kann nun eine Rechnung stellen.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Terminvereinbarungs-Modal */}
@@ -1591,9 +1871,13 @@ export default function CostEstimateDetailsModal({
       )}
 
       {/* Abnahme-Modal */}
+      {console.log('🔍 AcceptanceModal Render-Check:', { showAcceptanceModal, trade: !!trade })}
       <AcceptanceModal
         isOpen={showAcceptanceModal}
-        onClose={() => setShowAcceptanceModal(false)}
+        onClose={() => {
+          console.log('🔴 AcceptanceModal wird geschlossen');
+          setShowAcceptanceModal(false);
+        }}
         trade={trade}
         onComplete={handleCompleteAcceptance}
       />
