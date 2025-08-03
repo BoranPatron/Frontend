@@ -59,6 +59,16 @@ interface Milestone {
   title: string;
 }
 
+interface Column {
+  id: string;
+  title: string;
+  color: string;
+  headerColor: string;
+  headerStyle?: React.CSSProperties;
+  textColor: string;
+  icon: string;
+}
+
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ 
   projectId, 
   showOnlyAssignedToMe = false,
@@ -99,7 +109,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
       id: 'todo', 
       title: 'Zu erledigen', 
       color: 'bg-gradient-to-br from-slate-50 to-slate-100', 
-      headerColor: 'bg-gradient-to-r from-[#2c3539] to-[#1a1a2e]', 
+      headerColor: '', 
+      headerStyle: { background: `linear-gradient(to right, #51636f, #3a4a54)` },
       textColor: 'text-slate-700',
       icon: '📋'
     },
@@ -107,7 +118,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
       id: 'in_progress', 
       title: 'In Bearbeitung', 
       color: 'bg-gradient-to-br from-orange-50 to-amber-50', 
-      headerColor: 'bg-gradient-to-r from-[#ffbd59] to-[#ff9500]', 
+      headerColor: '', 
+      headerStyle: { background: `linear-gradient(to right, #ffbd59, #ff9500)` },
       textColor: 'text-orange-700',
       icon: '⚡'
     },
@@ -115,7 +127,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
       id: 'review', 
       title: 'Überprüfung', 
       color: 'bg-gradient-to-br from-blue-50 to-indigo-50', 
-      headerColor: 'bg-gradient-to-r from-blue-500 to-indigo-600', 
+      headerColor: '', 
+      headerStyle: { background: `linear-gradient(to right, #51636f, #ffbd59)` },
       textColor: 'text-blue-700',
       icon: '🔍'
     },
@@ -123,7 +136,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
       id: 'completed', 
       title: 'Erledigt', 
       color: 'bg-gradient-to-br from-green-50 to-emerald-50', 
-      headerColor: 'bg-gradient-to-r from-green-500 to-emerald-600', 
+      headerColor: '', 
+      headerStyle: { background: `linear-gradient(to right, #ffbd59, #51636f)` },
       textColor: 'text-green-700',
       icon: '✅'
     }
@@ -424,7 +438,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         {columns.map(column => (
           <div key={column.id} className="flex flex-col">
             {/* Column Header */}
-            <div className={`${column.headerColor} text-white p-4 rounded-t-xl shadow-lg`}>
+            <div 
+              className="text-white p-4 rounded-t-xl shadow-lg"
+              style={column.headerStyle || {}}
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <span className="text-xl">{column.icon}</span>
@@ -478,7 +495,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   }}
                 >
                   {/* CI Color Accent Bar */}
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-t-xl"></div>
+                  <div 
+                    className="absolute top-0 left-0 right-0 h-1 rounded-t-xl"
+                    style={{ 
+                      background: `linear-gradient(to right, #51636f, #ffbd59, #51636f)` 
+                    }}
+                  ></div>
                   
                   {/* Task Header */}
                   <div className="flex items-start justify-between mb-3">
@@ -490,7 +512,18 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                           {priorityLabels[task.priority]}
                         </div>
                       </div>
-                      <h4 className="font-bold text-gray-800 text-sm line-clamp-2 group-hover:text-blue-600 transition-colors leading-tight">
+                      <h4 
+                        className="font-bold text-sm line-clamp-2 transition-colors leading-tight"
+                        style={{ 
+                          color: '#51636f'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = '#ffbd59';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = '#51636f';
+                        }}
+                      >
                         {task.title}
                       </h4>
                     </div>
@@ -557,10 +590,13 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     {/* Assigned User */}
                     {task.assigned_user && (
                       <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                        <div 
+                          className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                          style={{ backgroundColor: '#51636f' }}
+                        >
                           {task.assigned_user.first_name?.[0] || 'U'}{task.assigned_user.last_name?.[0] || ''}
                         </div>
-                        <span className="text-xs text-gray-600 font-medium truncate">
+                        <span className="text-xs font-medium truncate" style={{ color: '#51636f' }}>
                           {task.assigned_user.first_name} {task.assigned_user.last_name}
                         </span>
                       </div>
@@ -581,13 +617,16 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   {(task.progress_percentage > 0 || task.status !== 'todo') && (
                     <div className="mb-3">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-medium text-gray-600">Fortschritt</span>
-                        <span className="text-xs font-bold text-[#ffbd59]">{task.progress_percentage}%</span>
+                        <span className="text-xs font-medium" style={{ color: '#51636f' }}>Fortschritt</span>
+                        <span className="text-xs font-bold" style={{ color: '#ffbd59' }}>{task.progress_percentage}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2 shadow-inner">
                         <div 
-                          className="bg-gradient-to-r from-[#ffbd59] to-[#ff9500] h-2 rounded-full transition-all duration-500 shadow-sm"
-                          style={{ width: `${task.progress_percentage}%` }}
+                          className="h-2 rounded-full transition-all duration-500 shadow-sm"
+                          style={{ 
+                            width: `${task.progress_percentage}%`,
+                            background: `linear-gradient(to right, #ffbd59, #ff9500)`
+                          }}
                         />
                       </div>
                     </div>
@@ -598,7 +637,14 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     {task.status !== 'todo' && (
                       <button
                         onClick={() => moveTask(task.id, 'todo')}
-                        className="flex items-center gap-1 text-xs px-3 py-2 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-lg hover:from-gray-200 hover:to-gray-300 transition-all duration-200 font-medium shadow-sm"
+                        className="flex items-center gap-1 text-xs px-3 py-2 text-white rounded-lg transition-all duration-200 font-medium shadow-sm"
+                        style={{ backgroundColor: '#51636f' }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#3a4a54';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#51636f';
+                        }}
                         title="Zurück zu Todo"
                       >
                         ↩️ Reset
@@ -607,7 +653,14 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     {task.status === 'todo' && (
                       <button
                         onClick={() => moveTask(task.id, 'in_progress')}
-                        className="flex items-center gap-1 text-xs px-3 py-2 bg-gradient-to-r from-[#ffbd59] to-[#ff9500] text-white rounded-lg hover:from-[#ff9500] hover:to-[#ffbd59] transition-all duration-200 font-medium shadow-sm"
+                        className="flex items-center gap-1 text-xs px-3 py-2 text-white rounded-lg transition-all duration-200 font-medium shadow-sm"
+                        style={{ backgroundColor: '#ffbd59' }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#ff9500';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#ffbd59';
+                        }}
                         title="In Bearbeitung"
                       >
                         ⚡ Start
@@ -616,7 +669,14 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     {task.status === 'in_progress' && (
                       <button
                         onClick={() => moveTask(task.id, 'review')}
-                        className="flex items-center gap-1 text-xs px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium shadow-sm"
+                        className="flex items-center gap-1 text-xs px-3 py-2 text-white rounded-lg transition-all duration-200 font-medium shadow-sm"
+                        style={{ backgroundColor: '#51636f' }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#3a4a54';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#51636f';
+                        }}
                         title="Zur Überprüfung"
                       >
                         🔍 Review
@@ -625,7 +685,14 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     {(task.status === 'review' || task.status === 'in_progress') && (
                       <button
                         onClick={() => moveTask(task.id, 'completed')}
-                        className="flex items-center gap-1 text-xs px-3 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 font-medium shadow-sm"
+                        className="flex items-center gap-1 text-xs px-3 py-2 text-white rounded-lg transition-all duration-200 font-medium shadow-sm"
+                        style={{ backgroundColor: '#ffbd59' }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#ff9500';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#ffbd59';
+                        }}
                         title="Abschließen"
                       >
                         ✅ Done
@@ -657,10 +724,16 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl border border-gray-100">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-[#ffbd59] to-[#ff9500] rounded-xl flex items-center justify-center text-white text-lg shadow-lg">
+                <div 
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg shadow-lg"
+                  style={{ background: `linear-gradient(to bottom right, #ffbd59, #ff9500)` }}
+                >
                   ➕
                 </div>
-                <h3 className="text-xl font-bold bg-gradient-to-r from-[#2c3539] to-[#1a1a2e] bg-clip-text text-transparent">
+                <h3 
+                  className="text-xl font-bold"
+                  style={{ color: '#51636f' }}
+                >
                   Neue Aufgabe erstellen
                 </h3>
               </div>

@@ -153,20 +153,34 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100" style={{ backgroundColor: '#51636f0a' }}>
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#51636f' }}>
               <Edit2 className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Task Details</h2>
+              <h2 className="text-xl font-bold" style={{ color: '#51636f' }}>Task Details</h2>
               <p className="text-sm text-gray-600">ID: {task.id}</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setIsEditing(!isEditing)}
-              className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="p-2 text-gray-500 rounded-lg transition-colors"
+              style={{ 
+                '&:hover': { 
+                  color: '#ffbd59', 
+                  backgroundColor: '#ffbd590a' 
+                } 
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#ffbd59';
+                e.currentTarget.style.backgroundColor = '#ffbd590a';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#6b7280';
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
               title={isEditing ? 'Bearbeitung abbrechen' : 'Task bearbeiten'}
             >
               <Edit2 className="w-5 h-5" />
@@ -389,7 +403,17 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             <button
               onClick={handleSave}
               disabled={isLoading}
-              className="flex items-center px-6 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50"
+              className="flex items-center px-6 py-2 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50"
+              style={{ 
+                backgroundColor: '#ffbd59',
+                '&:hover': { backgroundColor: '#ff9500' }
+              }}
+              onMouseEnter={(e) => {
+                if (!isLoading) e.currentTarget.style.backgroundColor = '#ff9500';
+              }}
+              onMouseLeave={(e) => {
+                if (!isLoading) e.currentTarget.style.backgroundColor = '#ffbd59';
+              }}
             >
               {isLoading ? (
                 <>

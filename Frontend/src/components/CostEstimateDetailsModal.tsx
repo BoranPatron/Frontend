@@ -8,6 +8,9 @@ import InspectionSentBadge from './InspectionSentBadge';
 import TradeProgress from './TradeProgress';
 import AcceptanceModal from './AcceptanceModalNew';
 import CostEstimateDocumentViewer from './CostEstimateDocumentViewer';
+import FinalAcceptanceModal from './FinalAcceptanceModal';
+import InvoiceManagement from './InvoiceManagement';
+import ServiceProviderRating from './ServiceProviderRating';
 import { 
   X, 
   Calendar, 
@@ -123,6 +126,9 @@ export default function CostEstimateDetailsModal({
   const [proposedDate, setProposedDate] = useState('');
   const [proposedTime, setProposedTime] = useState('');
   const [scheduleNotes, setScheduleNotes] = useState('');
+  const [showFinalAcceptanceModal, setShowFinalAcceptanceModal] = useState(false);
+  const [acceptanceDefects, setAcceptanceDefects] = useState<any[]>([]);
+  const [showServiceProviderRating, setShowServiceProviderRating] = useState(false);
   
   // Dokumente-States
   const [loadedDocuments, setLoadedDocuments] = useState<any[]>([]);
@@ -770,17 +776,24 @@ export default function CostEstimateDetailsModal({
       // Aktualisiere Trade-Status
       if (acceptanceData.accepted) {
         setCompletionStatus('completed');
+        
+        // Zeige Erfolgs-Nachricht
+        alert('✅ Abnahme erfolgreich abgeschlossen!');
       } else {
         setCompletionStatus('completed_with_defects');
+        
+        // Bei "Abnahme unter Vorbehalt" - lade Mängel und öffne finale Abnahme-Modal
+        const defectCount = acceptanceData.defects?.length || 0;
+        alert(`⚠️ Abnahme unter Vorbehalt abgeschlossen. ${defectCount} Mängel dokumentiert und automatisch als Tasks für den Dienstleister erstellt.`);
+        
+        // Setze die Mängel für das finale Abnahme-Modal
+        setAcceptanceDefects(acceptanceData.defects || []);
+        
+        // Öffne das finale Abnahme-Modal nach kurzer Verzögerung
+        setTimeout(() => {
+          setShowFinalAcceptanceModal(true);
+        }, 1000);
       }
-      
-      // Zeige Erfolgs-Nachricht
-      const defectCount = acceptanceData.defects?.length || 0;
-      const message = acceptanceData.accepted 
-        ? `✅ Abnahme erfolgreich abgeschlossen!`
-        : `⚠️ Abnahme unter Vorbehalt abgeschlossen. ${defectCount} Mängel dokumentiert und automatisch als Tasks für den Dienstleister erstellt.`;
-      
-      alert(message);
       
       // Lade frische Daten
       await loadFreshTradeData();
@@ -1729,6 +1742,40 @@ export default function CostEstimateDetailsModal({
               </div>
             )}
             
+            {completionStatus === 'completed_with_defects' && (
+              <div className="space-y-4">
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle size={20} className="text-yellow-400" />
+                    <span className="text-yellow-300 font-medium">Abnahme unter Vorbehalt</span>
+                  </div>
+                  <p className="text-yellow-200 text-sm mb-3">
+                    Das Gewerk wurde unter Vorbehalt abgenommen. Dokumentierte Mängel wurden als Tasks für den Dienstleister erstellt.
+                  </p>
+                  <div className="bg-yellow-500/20 rounded-lg p-3 text-sm text-yellow-100">
+                    <strong>Nächste Schritte:</strong>
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      <li>Überwachen Sie die Mängelbehebung durch den Dienstleister</li>
+                      <li>Prüfen Sie die behobenen Mängel vor Ort</li>
+                      <li>Führen Sie die finale Abnahme durch, wenn alle Mängel behoben sind</li>
+                    </ul>
+                  </div>
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    console.log('🔵 Finale Abnahme Button geklickt');
+                    setShowFinalAcceptanceModal(true);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
+                >
+                  <CheckCircle size={20} />
+                  Finale Abnahme durchführen
+                </button>
+              </div>
+            )}
+            
             {completionStatus === 'completed' && (
               <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -1741,6 +1788,22 @@ export default function CostEstimateDetailsModal({
               </div>
             )}
           </div>
+        )}
+
+        {/* Rechnungsmanagement für Bauträger */}
+        {trade && (user?.user_type === 'bautraeger' || user?.user_type === 'developer' || user?.user_type === 'PRIVATE' || user?.user_type === 'PROFESSIONAL' || user?.user_type === 'private' || user?.user_type === 'professional') && (completionStatus === 'completed' || completionStatus === 'completed_with_defects') && (
+          <InvoiceManagement
+            milestoneId={trade.id}
+            milestoneTitle={trade.title}
+            onInvoiceAction={(action, invoice) => {
+              if (action === 'paid') {
+                // Zeige Bewertungs-Modal nach Bezahlung
+                setTimeout(() => {
+                  setShowServiceProviderRating(true);
+                }, 1000);
+              }
+            }}
+          />
         )}
       </div>
 
@@ -1881,6 +1944,58 @@ export default function CostEstimateDetailsModal({
         trade={trade}
         onComplete={handleCompleteAcceptance}
       />
+
+      {/* Rechnungsmanagement für Bauträger */}
+      {user?.user_type === 'bautraeger' && trade && (completionStatus === 'completed' || completionStatus === 'completed_with_defects') && (
+        <div className="mt-6">
+          <InvoiceManagement
+            milestoneId={trade.id}
+            milestoneTitle={trade.title}
+            onInvoiceAction={(action, invoice) => {
+              console.log('📄 Rechnung-Aktion:', action, invoice);
+              if (action === 'paid') {
+                // Trigger Service Provider Rating
+                setShowServiceProviderRating(true);
+              }
+            }}
+          />
+        </div>
+      )}
+
+      {/* Finale Abnahme-Modal */}
+      {showFinalAcceptanceModal && trade && (
+        <FinalAcceptanceModal
+          isOpen={showFinalAcceptanceModal}
+          onClose={() => setShowFinalAcceptanceModal(false)}
+          acceptanceId={1} // TODO: Echte Acceptance-ID verwenden
+          milestoneId={trade.id}
+          milestoneTitle={trade.title}
+          defects={acceptanceDefects}
+          onAcceptanceComplete={() => {
+            setShowFinalAcceptanceModal(false);
+            // Aktualisiere den Status nach finaler Abnahme
+            setCompletionStatus('completed');
+            if (onTradeUpdate) {
+              onTradeUpdate();
+            }
+          }}
+        />
+      )}
+
+      {/* Service Provider Rating Modal */}
+      {showServiceProviderRating && trade && (
+        <ServiceProviderRating
+          isOpen={showServiceProviderRating}
+          onClose={() => setShowServiceProviderRating(false)}
+          serviceProviderId={trade.service_provider_id || 0}
+          projectId={trade.project_id || 0}
+          milestoneId={trade.id}
+          onRatingComplete={() => {
+            setShowServiceProviderRating(false);
+            console.log('✅ Service Provider Rating abgeschlossen');
+          }}
+        />
+      )}
     </>
   );
 } 

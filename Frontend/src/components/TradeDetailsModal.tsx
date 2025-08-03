@@ -25,7 +25,7 @@ import { useAuth } from '../context/AuthContext';
 import { getAuthenticatedFileUrl, getApiBaseUrl, apiCall } from '../api/api';
 import TradeProgress from './TradeProgress';
 import ServiceProviderRating from './ServiceProviderRating';
-import InvoiceUpload from './InvoiceUpload';
+import InvoiceModal from './InvoiceModal';
 // import FullDocumentViewer from './DocumentViewer';
 
 // PDF Viewer Komponente
@@ -497,8 +497,10 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   const [currentProgress, setCurrentProgress] = useState(trade?.progress_percentage || 0);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [hasRated, setHasRated] = useState(false);
-  const [acceptedQuote, setAcceptedQuote] = useState<Quote | null>(null);
-  const [completionStatus, setCompletionStatus] = useState(trade?.completion_status || 'in_progress');
+      const [acceptedQuote, setAcceptedQuote] = useState<Quote | null>(null);
+    const [completionStatus, setCompletionStatus] = useState(trade?.completion_status || 'in_progress');
+    const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+    const [existingInvoice, setExistingInvoice] = useState<any>(null);
 
   console.log('🔍 TradeDetailsModal - Hauptkomponente gerendert:', {
     isOpen,
@@ -813,10 +815,38 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     if (trade) {
       setCompletionStatus(trade.completion_status || 'in_progress');
       setCurrentProgress(trade.progress_percentage || 0);
-    }
-  }, [trade]);
+          }
+    }, [trade]);
 
-  const getCategoryIcon = (category: string) => {
+    // Lade bestehende Rechnung
+    const loadExistingInvoice = async () => {
+      if (!trade?.id) return;
+      
+      try {
+        const { api } = await import('../api/api');
+        const response = await api.get(`/invoices/milestone/${trade.id}`);
+        
+        if (response.data) {
+          setExistingInvoice(response.data);
+          console.log('✅ Bestehende Rechnung geladen:', response.data);
+        }
+      } catch (error: any) {
+        if (error.response?.status !== 404) {
+          console.error('❌ Fehler beim Laden der bestehenden Rechnung:', error);
+        }
+        // 404 ist OK - bedeutet nur dass noch keine Rechnung existiert
+        setExistingInvoice(null);
+      }
+    };
+
+    // Lade bestehende Rechnung wenn Modal geöffnet wird
+    useEffect(() => {
+      if (isOpen && trade?.id && (completionStatus === 'completed' || completionStatus === 'completed_with_defects')) {
+        loadExistingInvoice();
+      }
+    }, [isOpen, trade?.id, completionStatus]);
+
+    const getCategoryIcon = (category: string) => {
     const iconMap: { [key: string]: { color: string; icon: React.ReactNode } } = {
       'electrical': { color: '#fbbf24', icon: <span className="text-lg">⚡</span> },
       'plumbing': { color: '#3b82f6', icon: <span className="text-lg">🔧</span> },
@@ -1557,11 +1587,61 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             )}
 
             {/* Rechnungsstellung - nur für Dienstleister nach Abnahme */}
-            {!isBautraeger() && acceptedQuote?.service_provider_id === user?.id && completionStatus === 'completed' && (
-              <InvoiceUpload
-                milestoneId={trade.id}
-                onInvoiceUploaded={handleInvoiceUploaded}
-              />
+            {!isBautraeger() && acceptedQuote?.service_provider_id === user?.id && (completionStatus === 'completed' || completionStatus === 'completed_with_defects') && (
+              <div className="space-y-4">
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle size={20} className="text-green-400" />
+                    <span className="text-green-300 font-medium">
+                      {completionStatus === 'completed_with_defects' ? 'Abnahme unter Vorbehalt' : 'Abgenommen'}
+                    </span>
+                  </div>
+                  <p className="text-green-200 text-sm">
+                    {completionStatus === 'completed_with_defects' 
+                      ? 'Das Gewerk wurde unter Vorbehalt abgenommen. Sie können nun eine Rechnung stellen.' 
+                      : 'Das Gewerk wurde erfolgreich abgenommen und ist archiviert. Sie können nun eine Rechnung stellen.'
+                    }
+                  </p>
+                </div>
+                
+                {/* Rechnung stellen Button */}
+                {!existingInvoice && (
+                  <button
+                    onClick={() => setShowInvoiceModal(true)}
+                    className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
+                  >
+                    <Receipt size={20} />
+                    Rechnung stellen
+                  </button>
+                )}
+                
+                {/* Rechnung bereits gestellt */}
+                {existingInvoice && (
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Receipt size={20} className="text-blue-400" />
+                      <span className="text-blue-300 font-medium">Rechnung gestellt</span>
+                    </div>
+                    <p className="text-blue-200 text-sm mb-3">
+                      Rechnung Nr. {existingInvoice.invoice_number} wurde erfolgreich eingereicht.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        existingInvoice.status === 'paid' ? 'bg-green-500/20 text-green-300' :
+                        existingInvoice.status === 'overdue' ? 'bg-red-500/20 text-red-300' :
+                        'bg-yellow-500/20 text-yellow-300'
+                      }`}>
+                        {existingInvoice.status === 'paid' ? 'Bezahlt' :
+                         existingInvoice.status === 'overdue' ? 'Überfällig' :
+                         existingInvoice.status === 'viewed' ? 'Eingesehen' : 'Gesendet'}
+                      </span>
+                      <span className="text-sm text-gray-300">
+                        {existingInvoice.total_amount?.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
             
             {/* Rechnungsanzeige für Bauträger */}
@@ -1638,6 +1718,22 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           milestoneId={trade?.id || 0}
           quoteId={acceptedQuote?.id}
           onRatingComplete={handleRatingComplete}
+        />
+      )}
+
+      {/* Rechnungs-Modal */}
+      {showInvoiceModal && acceptedQuote && (
+        <InvoiceModal
+          isOpen={showInvoiceModal}
+          onClose={() => setShowInvoiceModal(false)}
+          milestoneId={trade.id}
+          milestoneTitle={trade.title}
+          contractValue={acceptedQuote.total_price || 0}
+          onInvoiceSubmitted={() => {
+            setShowInvoiceModal(false);
+            // Lade die Rechnung neu
+            loadExistingInvoice();
+          }}
         />
       )}
     </div>
