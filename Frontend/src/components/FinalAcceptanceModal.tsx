@@ -45,29 +45,16 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
   });
   const [finalNotes, setFinalNotes] = useState('');
 
-  // Lade den aktuellen Status der Mängel
+  // Initialisiere mit den übergebenen Mängeln
   useEffect(() => {
     if (isOpen && defects.length > 0) {
-      loadDefectStatus();
+      console.log('🔍 FinalAcceptanceModal: Initialisiere mit Mängeln:', defects);
+      // Alle Mängel sind erstmal nicht als behoben markiert
+      setCheckedDefects(new Set());
+    } else if (isOpen && defects.length === 0) {
+      console.log('ℹ️ FinalAcceptanceModal: Keine Mängel übergeben');
     }
   }, [isOpen, defects]);
-
-  const loadDefectStatus = async () => {
-    try {
-      const response = await api.get(`/acceptance/${acceptanceId}/defects`);
-      const defectStatuses = response.data;
-      
-      const resolvedDefectIds = new Set(
-        defectStatuses
-          .filter((defect: any) => defect.resolved)
-          .map((defect: any) => defect.id)
-      );
-      
-      setCheckedDefects(resolvedDefectIds);
-    } catch (error) {
-      console.error('Fehler beim Laden der Mangel-Status:', error);
-    }
-  };
 
   const toggleDefectCheck = (defectId: number) => {
     const newChecked = new Set(checkedDefects);
@@ -208,6 +195,7 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
                 <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
                 <p className="text-gray-600">Keine Mängel dokumentiert</p>
                 <p className="text-sm text-gray-500">Das Gewerk kann ohne Einschränkungen abgenommen werden.</p>
+
               </div>
             ) : (
               <div className="space-y-4">

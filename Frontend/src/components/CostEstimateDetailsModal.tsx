@@ -108,7 +108,7 @@ export default function CostEstimateDetailsModal({
   onTradeUpdate,
   inspectionStatus: externalInspectionStatus
 }: CostEstimateDetailsModalProps) {
-  const { user } = useAuth();
+  const { user, isBautraeger } = useAuth();
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -129,12 +129,62 @@ export default function CostEstimateDetailsModal({
   const [showFinalAcceptanceModal, setShowFinalAcceptanceModal] = useState(false);
   const [acceptanceDefects, setAcceptanceDefects] = useState<any[]>([]);
   const [showServiceProviderRating, setShowServiceProviderRating] = useState(false);
+  const [existingInvoice, setExistingInvoice] = useState<any>(null);
   
   // Dokumente-States
   const [loadedDocuments, setLoadedDocuments] = useState<any[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsError, setDocumentsError] = useState<string | null>(null);
   const [isDocumentsExpanded, setIsDocumentsExpanded] = useState(false);
+
+  // Lade bestehende Rechnung
+  const loadExistingInvoice = async () => {
+    if (!trade?.id) return;
+    
+    try {
+      const { api } = await import('../api/api');
+      const response = await api.get(`/invoices/milestone/${trade.id}`);
+      
+      if (response.data) {
+        setExistingInvoice(response.data);
+        console.log('✅ Bestehende Rechnung geladen:', response.data);
+      }
+    } catch (error: any) {
+      if (error.response?.status !== 404) {
+        console.error('❌ Fehler beim Laden der bestehenden Rechnung:', error);
+      }
+      // 404 ist OK - bedeutet nur dass noch keine Rechnung existiert
+      setExistingInvoice(null);
+    }
+  };
+
+  // Lade dokumentierte Mängel für finale Abnahme
+  const loadAcceptanceDefects = async () => {
+    if (!trade?.id) return;
+    
+    try {
+      console.log('🔍 Lade Mängel für Trade ID:', trade.id);
+      const { api } = await import('../api/api');
+      const response = await api.get(`/acceptance/milestone/${trade.id}/defects`);
+      
+      console.log('🔍 API Response für Mängel:', response);
+      
+      if (response.data && Array.isArray(response.data)) {
+        console.log('✅ Mängel für finale Abnahme geladen:', response.data);
+        setAcceptanceDefects(response.data);
+      } else {
+        console.log('ℹ️ Keine Mängel für finale Abnahme gefunden, Response:', response.data);
+        setAcceptanceDefects([]);
+      }
+    } catch (error: any) {
+      console.error('❌ Fehler beim Laden der Mängel:', error);
+      if (error.response?.status !== 404) {
+        console.error('❌ Error Response:', error.response);
+      }
+      // 404 ist OK - bedeutet nur dass noch keine Mängel existieren
+      setAcceptanceDefects([]);
+    }
+  };
 
   // Lade aktuelles Trade-Objekt und Status wenn Modal geöffnet wird
   useEffect(() => {
@@ -168,6 +218,16 @@ export default function CostEstimateDetailsModal({
       
       // Lade auch die Dokumente
       loadTradeDocuments(trade.id);
+      
+      // Lade bestehende Rechnung wenn Status completed ist
+      if (currentStatus === 'completed' || currentStatus === 'completed_with_defects') {
+        loadExistingInvoice();
+      }
+      
+      // Lade Mängel wenn Status completed_with_defects ist
+      if (currentStatus === 'completed_with_defects') {
+        loadAcceptanceDefects();
+      }
     }
   }, [isOpen, trade?.id, externalInspectionStatus]);
 
@@ -787,10 +847,12 @@ export default function CostEstimateDetailsModal({
         alert(`⚠️ Abnahme unter Vorbehalt abgeschlossen. ${defectCount} Mängel dokumentiert und automatisch als Tasks für den Dienstleister erstellt.`);
         
         // Setze die Mängel für das finale Abnahme-Modal
+        console.log('🔍 Setze Mängel für finale Abnahme:', acceptanceData.defects);
         setAcceptanceDefects(acceptanceData.defects || []);
         
         // Öffne das finale Abnahme-Modal nach kurzer Verzögerung
         setTimeout(() => {
+          console.log('🔍 Öffne FinalAcceptanceModal mit Mängeln:', acceptanceData.defects);
           setShowFinalAcceptanceModal(true);
         }, 1000);
       }
@@ -1184,6 +1246,26 @@ export default function CostEstimateDetailsModal({
           {/* Content */}
           <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
             <div className="p-6">
+              {/* Warten auf Rechnung Banner - nur nach finaler Abnahme (nicht bei completed_with_defects) und solange keine Rechnung da ist */}
+                              {completionStatus === 'completed' && isBautraeger() && !existingInvoice && (
+                <div className="mb-6 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/30 rounded-lg p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
+                      <Clock size={20} className="text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-white mb-1">Warten auf Rechnung</h3>
+                      <p className="text-sm text-blue-200">
+                        Das Gewerk wurde erfolgreich abgenommen. Der Dienstleister kann nun eine Rechnung stellen.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 text-blue-300">
+                      <div className="animate-pulse w-2 h-2 bg-blue-400 rounded-full"></div>
+                      <span className="text-sm font-medium">Wartend</span>
+                    </div>
+                  </div>
+                </div>
+              )}
               {selectedQuote ? (
                 renderQuoteDetails(selectedQuote)
               ) : (
@@ -1559,7 +1641,7 @@ export default function CostEstimateDetailsModal({
                     // Update progress in trade object
                     trade.progress_percentage = progress;
                   }}
-                  isBautraeger={user?.user_type === 'bautraeger' || user?.user_type === 'developer' || user?.user_type === 'PRIVATE' || user?.user_type === 'PROFESSIONAL' || user?.user_type === 'private' || user?.user_type === 'professional'}
+                  isBautraeger={isBautraeger()}
                   isServiceProvider={user?.user_type === 'service_provider' || user?.user_type === 'SERVICE_PROVIDER'}
                   completionStatus={completionStatus}
                   onCompletionRequest={async () => {
@@ -1639,172 +1721,169 @@ export default function CostEstimateDetailsModal({
                 />
               )}
 
+              {/* Abnahme-Workflow für Bauträger */}
+              {trade && isBautraeger() && (
+                <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30 mt-6">
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <CheckCircle size={18} className="text-[#ffbd59]" />
+                    Abnahme-Workflow
+                  </h3>
+            
+                  {(!completionStatus || completionStatus === 'in_progress') && (
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Clock size={20} className="text-blue-400" />
+                        <span className="text-blue-300 font-medium">Arbeiten in Bearbeitung</span>
+                      </div>
+                      <p className="text-blue-200 text-sm">
+                        Das Gewerk ist aktuell zu {trade.progress_percentage || 0}% fertiggestellt. Warten Sie auf die Fertigstellungsmeldung des Dienstleisters.
+                      </p>
+                    </div>
+                  )}
+                  
+                  {completionStatus === 'completion_requested' && (
+                    <div className="space-y-4">
+                      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertTriangle size={20} className="text-yellow-400" />
+                          <span className="text-yellow-300 font-medium">Abnahme angefordert</span>
+                        </div>
+                        <p className="text-yellow-200 text-sm mb-3">
+                          Der Dienstleister hat das Gewerk als fertiggestellt gemeldet. Bitte prüfen Sie die Arbeiten vor Ort.
+                        </p>
+                        <div className="bg-yellow-500/20 rounded-lg p-3 text-sm text-yellow-100">
+                          <strong>Prüfschritte:</strong>
+                          <ul className="list-disc list-inside mt-2 space-y-1">
+                            <li>Vollständigkeit der Arbeiten kontrollieren</li>
+                            <li>Qualität und Ausführung bewerten</li>
+                            <li>Übereinstimmung mit Spezifikationen prüfen</li>
+                            <li>Sicherheits- und Normenkonformität kontrollieren</li>
+                          </ul>
+                        </div>
+                      </div>
+                      
+                      {/* VEREINFACHTER WORKFLOW - Nur Abnahme starten und Termin vereinbaren */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('🔵 Abnahme starten Button geklickt');
+                            handleStartAcceptance();
+                          }}
+                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
+                        >
+                          <CheckCircle size={20} />
+                          Abnahme starten
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('🟣 Termin vereinbaren Button geklickt');
+                            setShowScheduleModal(true);
+                            // Schließe das CostEstimateDetailsModal
+                            console.log('🔄 Schließe CostEstimateDetailsModal für Terminvereinbarung');
+                            onClose();
+                          }}
+                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
+                        >
+                          <Calendar size={20} />
+                          Termin vereinbaren
+                        </button>
+                      </div>
+                      
+                      <div className="mt-4 p-3 bg-gray-600/20 rounded-lg">
+                        <p className="text-gray-300 text-sm">
+                          <strong>Hinweis:</strong> Nach der Abnahme wird das Gewerk archiviert und der Dienstleister kann eine Rechnung stellen.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {completionStatus === 'under_review' && (
+                    <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle size={20} className="text-orange-400" />
+                        <span className="text-orange-300 font-medium">Nachbesserung angefordert</span>
+                      </div>
+                      <p className="text-orange-200 text-sm">
+                        Sie haben Nachbesserungen angefordert. Der Dienstleister wird die erforderlichen Arbeiten ausführen und erneut um Abnahme bitten.
+                      </p>
+                    </div>
+                  )}
+                  
+                  {completionStatus === 'completed_with_defects' && (
+                    <div className="space-y-4">
+                      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertTriangle size={20} className="text-yellow-400" />
+                          <span className="text-yellow-300 font-medium">Abnahme unter Vorbehalt</span>
+                        </div>
+                        <p className="text-yellow-200 text-sm mb-3">
+                          Das Gewerk wurde unter Vorbehalt abgenommen. Dokumentierte Mängel wurden als Tasks für den Dienstleister erstellt.
+                        </p>
+                        <div className="bg-yellow-500/20 rounded-lg p-3 text-sm text-yellow-100">
+                          <strong>Nächste Schritte:</strong>
+                          <ul className="list-disc list-inside mt-2 space-y-1">
+                            <li>Überwachen Sie die Mängelbehebung durch den Dienstleister</li>
+                            <li>Prüfen Sie die behobenen Mängel vor Ort</li>
+                            <li>Führen Sie die finale Abnahme durch, wenn alle Mängel behoben sind</li>
+                          </ul>
+                        </div>
+                      </div>
+                      
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          console.log('🔵 Finale Abnahme Button geklickt');
+                          // Lade die Mängel bevor das Modal geöffnet wird
+                          await loadAcceptanceDefects();
+                          setShowFinalAcceptanceModal(true);
+                        }}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
+                      >
+                        <CheckCircle size={20} />
+                        Finale Abnahme durchführen
+                      </button>
+                    </div>
+                  )}
+                  
+                  {completionStatus === 'completed' && (
+                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle size={20} className="text-green-400" />
+                        <span className="text-green-300 font-medium">Gewerk abgenommen</span>
+                      </div>
+                      <p className="text-green-200 text-sm">
+                        Das Gewerk wurde erfolgreich abgenommen und ist archiviert. Der Dienstleister kann nun eine Rechnung stellen.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
-
+              {/* Rechnungsmanagement für Bauträger */}
+              {trade && isBautraeger() && (completionStatus === 'completed' || completionStatus === 'completed_with_defects') && (
+                <InvoiceManagement
+                  milestoneId={trade.id}
+                  milestoneTitle={trade.title}
+                  onInvoiceAction={(action, invoice) => {
+                    if (action === 'paid') {
+                      // Zeige Bewertungs-Modal nach Bezahlung
+                      setTimeout(() => {
+                        setShowServiceProviderRating(true);
+                      }, 1000);
+                    }
+                  }}
+                />
+              )}
 
             </div>
           </div>
         </div>
-        
-
-        
-        {/* Abnahme-Workflow für Bauträger - GANZ UNTEN IM MODAL */}
-        {trade && (user?.user_type === 'bautraeger' || user?.user_type === 'developer' || user?.user_type === 'PRIVATE' || user?.user_type === 'PROFESSIONAL' || user?.user_type === 'private' || user?.user_type === 'professional') && (
-          <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30 mt-6">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <CheckCircle size={18} className="text-[#ffbd59]" />
-              Abnahme-Workflow
-            </h3>
-            
-            {(!completionStatus || completionStatus === 'in_progress') && (
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Clock size={20} className="text-blue-400" />
-                  <span className="text-blue-300 font-medium">Arbeiten in Bearbeitung</span>
-                </div>
-                <p className="text-blue-200 text-sm">
-                  Das Gewerk ist aktuell zu {trade.progress_percentage || 0}% fertiggestellt. Warten Sie auf die Fertigstellungsmeldung des Dienstleisters.
-                </p>
-              </div>
-            )}
-            
-            {completionStatus === 'completion_requested' && (
-              <div className="space-y-4">
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle size={20} className="text-yellow-400" />
-                    <span className="text-yellow-300 font-medium">Abnahme angefordert</span>
-                  </div>
-                  <p className="text-yellow-200 text-sm mb-3">
-                    Der Dienstleister hat das Gewerk als fertiggestellt gemeldet. Bitte prüfen Sie die Arbeiten vor Ort.
-                  </p>
-                  <div className="bg-yellow-500/20 rounded-lg p-3 text-sm text-yellow-100">
-                    <strong>Prüfschritte:</strong>
-                    <ul className="list-disc list-inside mt-2 space-y-1">
-                      <li>Vollständigkeit der Arbeiten kontrollieren</li>
-                      <li>Qualität und Ausführung bewerten</li>
-                      <li>Übereinstimmung mit Spezifikationen prüfen</li>
-                      <li>Sicherheits- und Normenkonformität kontrollieren</li>
-                    </ul>
-                  </div>
-                </div>
-                
-                {/* VEREINFACHTER WORKFLOW - Nur Abnahme starten und Termin vereinbaren */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      console.log('🔵 Abnahme starten Button geklickt');
-                      handleStartAcceptance();
-                    }}
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
-                  >
-                    <CheckCircle size={20} />
-                    Abnahme starten
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      console.log('🟣 Termin vereinbaren Button geklickt');
-                      setShowScheduleModal(true);
-                      // Schließe das CostEstimateDetailsModal
-                      console.log('🔄 Schließe CostEstimateDetailsModal für Terminvereinbarung');
-                      onClose();
-                    }}
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
-                  >
-                    <Calendar size={20} />
-                    Termin vereinbaren
-                  </button>
-                </div>
-                
-                <div className="mt-4 p-3 bg-gray-600/20 rounded-lg">
-                  <p className="text-gray-300 text-sm">
-                    <strong>Hinweis:</strong> Nach der Abnahme wird das Gewerk archiviert und der Dienstleister kann eine Rechnung stellen.
-                  </p>
-                </div>
-              </div>
-            )}
-            
-            {completionStatus === 'under_review' && (
-              <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle size={20} className="text-orange-400" />
-                  <span className="text-orange-300 font-medium">Nachbesserung angefordert</span>
-                </div>
-                <p className="text-orange-200 text-sm">
-                  Sie haben Nachbesserungen angefordert. Der Dienstleister wird die erforderlichen Arbeiten ausführen und erneut um Abnahme bitten.
-                </p>
-              </div>
-            )}
-            
-            {completionStatus === 'completed_with_defects' && (
-              <div className="space-y-4">
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle size={20} className="text-yellow-400" />
-                    <span className="text-yellow-300 font-medium">Abnahme unter Vorbehalt</span>
-                  </div>
-                  <p className="text-yellow-200 text-sm mb-3">
-                    Das Gewerk wurde unter Vorbehalt abgenommen. Dokumentierte Mängel wurden als Tasks für den Dienstleister erstellt.
-                  </p>
-                  <div className="bg-yellow-500/20 rounded-lg p-3 text-sm text-yellow-100">
-                    <strong>Nächste Schritte:</strong>
-                    <ul className="list-disc list-inside mt-2 space-y-1">
-                      <li>Überwachen Sie die Mängelbehebung durch den Dienstleister</li>
-                      <li>Prüfen Sie die behobenen Mängel vor Ort</li>
-                      <li>Führen Sie die finale Abnahme durch, wenn alle Mängel behoben sind</li>
-                    </ul>
-                  </div>
-                </div>
-                
-                <button
-                  type="button"
-                  onClick={() => {
-                    console.log('🔵 Finale Abnahme Button geklickt');
-                    setShowFinalAcceptanceModal(true);
-                  }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
-                >
-                  <CheckCircle size={20} />
-                  Finale Abnahme durchführen
-                </button>
-              </div>
-            )}
-            
-            {completionStatus === 'completed' && (
-              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle size={20} className="text-green-400" />
-                  <span className="text-green-300 font-medium">Gewerk abgenommen</span>
-                </div>
-                <p className="text-green-200 text-sm">
-                  Das Gewerk wurde erfolgreich abgenommen und ist archiviert. Der Dienstleister kann nun eine Rechnung stellen.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Rechnungsmanagement für Bauträger */}
-        {trade && (user?.user_type === 'bautraeger' || user?.user_type === 'developer' || user?.user_type === 'PRIVATE' || user?.user_type === 'PROFESSIONAL' || user?.user_type === 'private' || user?.user_type === 'professional') && (completionStatus === 'completed' || completionStatus === 'completed_with_defects') && (
-          <InvoiceManagement
-            milestoneId={trade.id}
-            milestoneTitle={trade.title}
-            onInvoiceAction={(action, invoice) => {
-              if (action === 'paid') {
-                // Zeige Bewertungs-Modal nach Bezahlung
-                setTimeout(() => {
-                  setShowServiceProviderRating(true);
-                }, 1000);
-              }
-            }}
-          />
-        )}
       </div>
 
       {/* Terminvereinbarungs-Modal */}
@@ -1945,22 +2024,7 @@ export default function CostEstimateDetailsModal({
         onComplete={handleCompleteAcceptance}
       />
 
-      {/* Rechnungsmanagement für Bauträger */}
-      {user?.user_type === 'bautraeger' && trade && (completionStatus === 'completed' || completionStatus === 'completed_with_defects') && (
-        <div className="mt-6">
-          <InvoiceManagement
-            milestoneId={trade.id}
-            milestoneTitle={trade.title}
-            onInvoiceAction={(action, invoice) => {
-              console.log('📄 Rechnung-Aktion:', action, invoice);
-              if (action === 'paid') {
-                // Trigger Service Provider Rating
-                setShowServiceProviderRating(true);
-              }
-            }}
-          />
-        </div>
-      )}
+
 
       {/* Finale Abnahme-Modal */}
       {showFinalAcceptanceModal && trade && (
@@ -1976,8 +2040,10 @@ export default function CostEstimateDetailsModal({
             // Aktualisiere den Status nach finaler Abnahme
             setCompletionStatus('completed');
             if (onTradeUpdate) {
-              onTradeUpdate();
+              onTradeUpdate({...trade, completion_status: 'completed'});
             }
+            // Lade bestehende Rechnung nach finaler Abnahme
+            loadExistingInvoice();
           }}
         />
       )}

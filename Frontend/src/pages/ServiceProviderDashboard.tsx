@@ -39,7 +39,8 @@ import {
   Building,
   Shield,
   Star,
-  Wrench
+  Wrench,
+  Archive
 } from 'lucide-react';
 import DashboardCard from '../components/DashboardCard';
 import CostEstimateForm from '../components/CostEstimateForm';
@@ -47,6 +48,8 @@ import TradeMap from '../components/TradeMap';
 import TradeDetailsModal from '../components/TradeDetailsModal';
 import CostEstimateDetailsModal from '../components/CostEstimateDetailsModal';
 import ServiceProviderQuoteModal from '../components/ServiceProviderQuoteModal';
+import ArchivedTrades from '../components/ArchivedTrades';
+import InvoiceManagementModal from '../components/InvoiceManagementModal';
 import { 
   searchTradesInRadius, 
   type TradeSearchRequest, 
@@ -68,6 +71,8 @@ export default function ServiceProviderDashboard() {
   const [manualAddress, setManualAddress] = useState('');
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [showAcceptedTrades, setShowAcceptedTrades] = useState(false);
+  const [showArchive, setShowArchive] = useState(false);
+  const [showInvoiceManagement, setShowInvoiceManagement] = useState(false);
   
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(() => {
     const saved = localStorage.getItem('buildwise_geo_location');
@@ -521,7 +526,7 @@ export default function ServiceProviderDashboard() {
       title: "Rechnungen",
       description: "Rechnungsmanagement & Zahlungen",
       icon: <Euro size={32} />,
-      onClick: () => navigate('/invoices'),
+      onClick: () => setShowInvoiceManagement(true),
       ariaLabel: "Rechnungsmanagement öffnen",
       badge: { text: `${stats.activeQuotes} Rechnungen`, color: "green" as const },
       cardId: "invoices",
@@ -531,6 +536,23 @@ export default function ServiceProviderDashboard() {
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
           <BarChart3 size={16} />
           <span>Rechnungen erstellen & verwalten</span>
+        </div>
+      )
+    },
+    {
+      title: "Archiv",
+      description: "Abgeschlossene Gewerke & Historie",
+      icon: <Archive size={32} />,
+      onClick: () => setShowArchive(true),
+      ariaLabel: "Archivierte Gewerke anzeigen",
+      badge: { text: "Abgeschlossen", color: "gray" as const },
+      cardId: "archive",
+      path: "/archive",
+      iconString: "<Archive size={16} />",
+      children: (
+        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+          <CheckCircle size={16} />
+          <span>Fertige Projekte einsehen</span>
         </div>
       )
     }
@@ -1212,6 +1234,34 @@ export default function ServiceProviderDashboard() {
             owner_name: selectedTradeForCostEstimateDetails.project?.owner_name || 'Nicht angegeben'
           }}
 
+        />
+      )}
+
+      {/* Archiv Modal */}
+      {showArchive && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-7xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-white/10">
+              <h2 className="text-xl font-bold text-white">Archivierte Gewerke</h2>
+              <button
+                onClick={() => setShowArchive(false)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <XCircle size={24} className="text-gray-400" />
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
+              <ArchivedTrades />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rechnungsmanagement Modal */}
+      {showInvoiceManagement && (
+        <InvoiceManagementModal
+          isOpen={showInvoiceManagement}
+          onClose={() => setShowInvoiceManagement(false)}
         />
       )}
     </div>
