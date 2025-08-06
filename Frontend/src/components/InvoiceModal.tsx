@@ -29,18 +29,20 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
     invoiceNumber: '',
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
-    netAmount: contractValue,
+    netAmount: 0,
     vatRate: 19,
-    vatAmount: contractValue * 0.19,
-    totalAmount: contractValue * 1.19,
+    vatAmount: 0,
+    totalAmount: 0,
     description: `Rechnung für ${milestoneTitle}`,
     workPeriodFrom: '',
     workPeriodTo: '',
-    materialCosts: 0,
-    laborCosts: contractValue,
-    additionalCosts: 0,
     notes: ''
   });
+
+  // Flexible Kostenpositionen
+  const [costPositions, setCostPositions] = useState([
+    { id: 1, description: '', amount: 0, category: 'custom', cost_type: 'standard', status: 'active' }
+  ]);
 
   // Upload Data
   const [uploadData, setUploadData] = useState({
@@ -56,13 +58,25 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
     return { vat, total };
   };
 
+  const recalculateTotal = () => {
+    const netAmount = costPositions.reduce((sum, pos) => sum + (pos.amount || 0), 0);
+    const { vat, total } = calculateVAT(netAmount, manualInvoice.vatRate);
+    
+    setManualInvoice(prev => ({
+      ...prev,
+      netAmount,
+      vatAmount: vat,
+      totalAmount: total
+    }));
+  };
+
   const handleManualInputChange = (field: string, value: any) => {
     setManualInvoice(prev => {
       const updated = { ...prev, [field]: value };
       
-      // Automatische Berechnung bei Änderungen
-      if (field === 'materialCosts' || field === 'laborCosts' || field === 'additionalCosts' || field === 'vatRate') {
-        const netAmount = updated.materialCosts + updated.laborCosts + updated.additionalCosts;
+      // Automatische Berechnung bei MwSt-Änderung
+      if (field === 'vatRate') {
+        const netAmount = costPositions.reduce((sum, pos) => sum + (pos.amount || 0), 0);
         const { vat, total } = calculateVAT(netAmount, updated.vatRate);
         
         updated.netAmount = netAmount;
@@ -73,6 +87,39 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
       return updated;
     });
   };
+
+  const addCostPosition = () => {
+    const newId = Math.max(...costPositions.map(p => p.id)) + 1;
+    setCostPositions(prev => [...prev, { id: newId, description: '', amount: 0, category: 'custom', cost_type: 'standard', status: 'active' }]);
+  };
+
+  const removeCostPosition = (id: number) => {
+    if (costPositions.length > 1) {
+      setCostPositions(prev => prev.filter(p => p.id !== id));
+      // Neuberechnung nach Löschen
+      setTimeout(recalculateTotal, 0);
+    }
+  };
+
+  const updateCostPosition = (id: number, field: 'description' | 'amount' | 'category' | 'cost_type' | 'status', value: string | number) => {
+    setCostPositions(prev => 
+      prev.map(pos => 
+        pos.id === id 
+          ? { ...pos, [field]: value }
+          : pos
+      )
+    );
+    
+    // Neuberechnung bei Betrag-Änderung
+    if (field === 'amount') {
+      setTimeout(recalculateTotal, 0);
+    }
+  };
+
+  // Automatische Neuberechnung wenn sich costPositions ändern
+  React.useEffect(() => {
+    recalculateTotal();
+  }, [costPositions.length]); // Nur bei Änderung der Anzahl, nicht bei jedem Update
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -107,21 +154,21 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
         throw new Error('Rechnungsbetrag muss größer als 0 sein');
       }
 
-      const invoiceData = {
+                   const invoiceData = {
+        project_id: 7,  // ✅ Hinzugefügt: project_id
         milestone_id: milestoneId,
+        service_provider_id: 6,  // ✅ Hinzugefügt: service_provider_id
         invoice_number: manualInvoice.invoiceNumber,
-        invoice_date: manualInvoice.invoiceDate,
-        due_date: manualInvoice.dueDate,
+        invoice_date: new Date(manualInvoice.invoiceDate).toISOString(),
+        due_date: new Date(manualInvoice.dueDate).toISOString(),
         net_amount: manualInvoice.netAmount,
         vat_rate: manualInvoice.vatRate,
         vat_amount: manualInvoice.vatAmount,
         total_amount: manualInvoice.totalAmount,
         description: manualInvoice.description,
-        work_period_from: manualInvoice.workPeriodFrom || null,
-        work_period_to: manualInvoice.workPeriodTo || null,
-        material_costs: manualInvoice.materialCosts,
-        labor_costs: manualInvoice.laborCosts,
-        additional_costs: manualInvoice.additionalCosts,
+        work_period_from: manualInvoice.workPeriodFrom ? new Date(manualInvoice.workPeriodFrom).toISOString() : null,
+        work_period_to: manualInvoice.workPeriodTo ? new Date(manualInvoice.workPeriodTo).toISOString() : null,
+        cost_positions: costPositions.filter(pos => pos.description.trim() && pos.amount > 0),
         notes: manualInvoice.notes,
         type: 'manual'
       };
@@ -129,12 +176,28 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
       const response = await api.post('/invoices/create', invoiceData);
       
       console.log('✅ Rechnung erfolgreich erstellt:', response.data);
+      
+      // Sichere Behandlung der Antwort
+      if (response.data && typeof response.data === 'object') {
+        console.log('✅ Rechnung-Daten:', JSON.stringify(response.data, null, 2));
+      }
+      
       onInvoiceSubmitted();
       onClose();
       
     } catch (error: any) {
       console.error('❌ Fehler beim Erstellen der Rechnung:', error);
-      setError(error.response?.data?.detail || error.message || 'Fehler beim Erstellen der Rechnung');
+      
+      // Sichere Fehlerbehandlung - nur Strings erlauben
+      let errorMessage = 'Fehler beim Erstellen der Rechnung';
+      
+      if (error.response?.data?.detail) {
+        errorMessage = String(error.response.data.detail);
+      } else if (error.message) {
+        errorMessage = String(error.message);
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -175,7 +238,17 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
       
     } catch (error: any) {
       console.error('❌ Fehler beim Hochladen der Rechnung:', error);
-      setError(error.response?.data?.detail || error.message || 'Fehler beim Hochladen der Rechnung');
+      
+      // Sichere Fehlerbehandlung - nur Strings erlauben
+      let errorMessage = 'Fehler beim Hochladen der Rechnung';
+      
+      if (error.response?.data?.detail) {
+        errorMessage = String(error.response.data.detail);
+      } else if (error.message) {
+        errorMessage = String(error.message);
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -193,10 +266,10 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-600/30">
         {/* Header */}
         <div 
-          className="flex items-center justify-between p-6 border-b border-gray-200"
+          className="flex items-center justify-between p-6 border-b border-gray-600/30"
           style={{ backgroundColor: '#51636f0a' }}
         >
           <div className="flex items-center space-x-3">
@@ -299,8 +372,9 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
                       type="text"
                       value={manualInvoice.invoiceNumber}
                       onChange={(e) => handleManualInputChange('invoiceNumber', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-transparent"
                       placeholder="z.B. RE-2024-001"
+                      style={{ backgroundColor: '#51636f09' }}
                     />
                   </div>
 
@@ -359,48 +433,68 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
                 </div>
               </div>
 
-              {/* Kostenaufstellung */}
+              {/* Flexible Kostenpositionen */}
               <div>
-                <h4 className="font-medium text-gray-700 mb-4">Kostenaufstellung</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Materialkosten (€)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={manualInvoice.materialCosts}
-                      onChange={(e) => handleManualInputChange('materialCosts', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Arbeitskosten (€)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={manualInvoice.laborCosts}
-                      onChange={(e) => handleManualInputChange('laborCosts', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Zusatzkosten (€)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={manualInvoice.additionalCosts}
-                      onChange={(e) => handleManualInputChange('additionalCosts', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="font-medium text-gray-700">Kostenpositionen</h4>
+                  <button
+                    type="button"
+                    onClick={addCostPosition}
+                    className="px-3 py-1 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    + Position hinzufügen
+                  </button>
+                </div>
+                
+                <div className="space-y-3">
+                  {costPositions.map((position, index) => (
+                    <div key={position.id} className="flex gap-3 items-start">
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          placeholder={`Position ${index + 1} - Beschreibung`}
+                          value={position.description}
+                          onChange={(e) => updateCostPosition(position.id, 'description', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-transparent"
+                          style={{ backgroundColor: '#51636f09' }}
+                        />
+                      </div>
+                      <div className="w-32">
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="Betrag"
+                          value={position.amount || ''}
+                          onChange={(e) => updateCostPosition(position.id, 'amount', parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-transparent"
+                          style={{ backgroundColor: '#51636f09' }}
+                        />
+                      </div>
+                      <div className="w-32">
+                        <select
+                          value={position.category}
+                          onChange={(e) => updateCostPosition(position.id, 'category', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-transparent"
+                          style={{ backgroundColor: '#51636f09' }}
+                        >
+                          <option value="material">Material</option>
+                          <option value="labor">Arbeit</option>
+                          <option value="other">Sonstiges</option>
+                          <option value="custom">Individuell</option>
+                        </select>
+                      </div>
+                      {costPositions.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeCostPosition(position.id)}
+                          className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Position entfernen"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 

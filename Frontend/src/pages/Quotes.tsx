@@ -1578,15 +1578,55 @@ export default function Trades() {
     return matchesSearch && matchesStatus;
   });
 
-  // Debug-Handler
+  // Debug-Handler - Erweiterte Version für alle Abhängigkeiten
   const handleDebugDeleteAll = async () => {
-    if (!window.confirm('Wirklich ALLE Gewerke, Angebote und Kostenpositionen löschen?')) return;
+    if (!window.confirm('Wirklich ALLE Gewerke samt ALLEN Abhängigkeiten löschen?\n\nDies löscht:\n• Alle Gewerke (Milestones)\n• Alle Angebote (Quotes)\n• Alle Kostenpositionen (Cost Positions)\n• Alle Rechnungen (Invoices)\n• Alle Abnahmen (Acceptances)\n• Alle Bewertungen (Ratings)\n• Alle Termine (Appointments)\n• Alle Dokumente (Documents)\n\n⚠️ WARNUNG: Diese Aktion kann nicht rückgängig gemacht werden!')) return;
+    
     try {
-      await api.delete('/milestones/debug/delete-all-milestones-and-quotes');
-      alert('Alle Gewerke, Angebote und Kostenpositionen wurden gelöscht!');
+      console.log('🗑️ Starte umfassendes Löschen aller Gewerke und Abhängigkeiten...');
+      
+      // 1. Lösche alle Rechnungen zuerst (abhängig von Gewerken)
+      console.log('📄 Lösche alle Rechnungen...');
+      await api.delete('/invoices/debug/delete-all-invoices');
+      
+      // 2. Lösche alle Abnahmen (abhängig von Gewerken)
+      console.log('✅ Lösche alle Abnahmen...');
+      await api.delete('/acceptance/debug/delete-all-acceptances');
+      
+      // 3. Lösche alle Bewertungen (abhängig von Gewerken)
+      console.log('⭐ Lösche alle Bewertungen...');
+      await api.delete('/ratings/debug/delete-all-ratings');
+      
+      // 4. Lösche alle Termine (abhängig von Gewerken)
+      console.log('📅 Lösche alle Termine...');
+      await api.delete('/appointments/debug/delete-all-appointments');
+      
+      // 5. Lösche alle Dokumente (abhängig von Gewerken)
+      console.log('📁 Lösche alle Dokumente...');
+      await api.delete('/documents/debug/delete-all-documents');
+      
+      // 6. Lösche alle Kostenpositionen (abhängig von Gewerken)
+      console.log('💰 Lösche alle Kostenpositionen...');
+      await api.delete('/cost-positions/debug/delete-all-cost-positions');
+      
+      // 7. Lösche alle Angebote (abhängig von Gewerken)
+      console.log('📋 Lösche alle Angebote...');
+      await api.delete('/quotes/debug/delete-all-quotes');
+      
+      // 8. Lösche alle Gewerke (Milestones) - zuletzt
+      console.log('🏗️ Lösche alle Gewerke...');
+      await api.delete('/milestones/debug/delete-all-milestones');
+      
+      console.log('✅ Alle Gewerke und Abhängigkeiten erfolgreich gelöscht!');
+      alert('✅ Alle Gewerke samt ALLEN Abhängigkeiten wurden erfolgreich gelöscht!\n\nGelöscht wurden:\n• Alle Gewerke (Milestones)\n• Alle Angebote (Quotes)\n• Alle Kostenpositionen (Cost Positions)\n• Alle Rechnungen (Invoices)\n• Alle Abnahmen (Acceptances)\n• Alle Bewertungen (Ratings)\n• Alle Termine (Appointments)\n• Alle Dokumente (Documents)');
+      
+      // Seite neu laden
       window.location.reload();
+      
     } catch (err: any) {
-      alert('Fehler beim Löschen: ' + (err.response?.data?.detail || err.message));
+      console.error('❌ Fehler beim umfassenden Löschen:', err);
+      const errorMessage = err.response?.data?.detail || err.message || 'Unbekannter Fehler';
+      alert(`❌ Fehler beim Löschen: ${errorMessage}\n\nBitte überprüfen Sie die Backend-Logs für weitere Details.`);
     }
   };
 

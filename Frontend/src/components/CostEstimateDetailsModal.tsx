@@ -57,7 +57,8 @@ import {
   MessageSquare,
   Send,
   ChevronDown,
-  ExternalLink
+  ExternalLink,
+  RefreshCw
 } from 'lucide-react';
 
 interface CostEstimateDetailsModalProps {
@@ -1835,19 +1836,15 @@ export default function CostEstimateDetailsModal({
                         </div>
                       </div>
                       
-                      <button
-                        type="button"
-                        onClick={async () => {
+                      <FinalAcceptanceButton
+                        milestoneId={trade.id}
+                        onFinalAcceptance={async () => {
                           console.log('🔵 Finale Abnahme Button geklickt');
                           // Lade die Mängel bevor das Modal geöffnet wird
                           await loadAcceptanceDefects();
                           setShowFinalAcceptanceModal(true);
                         }}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
-                      >
-                        <CheckCircle size={20} />
-                        Finale Abnahme durchführen
-                      </button>
+                      />
                     </div>
                   )}
                   
@@ -2063,5 +2060,333 @@ export default function CostEstimateDetailsModal({
         />
       )}
     </>
+  );
+}
+
+// 🎯 Finale Abnahme-Button mit Mängel-Status-Prüfung
+interface FinalAcceptanceButtonProps {
+  milestoneId: number;
+  onFinalAcceptance: () => void;
+}
+
+function FinalAcceptanceButton({ milestoneId, onFinalAcceptance }: FinalAcceptanceButtonProps) {
+  const [defectResolutionStatus, setDefectResolutionStatus] = useState<{
+    allResolved: boolean;
+    totalDefects: number;
+    resolvedDefects: number;
+    loading: boolean;
+    error: string | null;
+  }>({
+    allResolved: false,
+    totalDefects: 0,
+    resolvedDefects: 0,
+    loading: true,
+    error: null
+  });
+  
+  const [defects, setDefects] = useState<any[]>([]);
+  const [showDefectDetails, setShowDefectDetails] = useState(false);
+
+  // Prüfe Mängelbehebungsstatus
+  const checkDefectResolutionStatus = async () => {
+    try {
+      setDefectResolutionStatus(prev => ({ ...prev, loading: true, error: null }));
+      
+      const { api } = await import('../api/api');
+      const response = await api.get(`/acceptance/${milestoneId}/defects/status`);
+      
+      const status = response.data || response;
+      console.log('✅ Mängelbehebungsstatus geladen:', status);
+      
+      setDefectResolutionStatus({
+        allResolved: status.all_resolved || false,
+        totalDefects: status.total_defects || 0,
+        resolvedDefects: status.resolved_defects || 0,
+        loading: false,
+        error: null
+      });
+      
+    } catch (error: any) {
+      console.error('❌ Fehler beim Laden des Mängelbehebungsstatus:', error);
+      setDefectResolutionStatus(prev => ({
+        ...prev,
+        loading: false,
+        error: 'Status konnte nicht geladen werden'
+      }));
+    }
+  };
+
+  // Lade detaillierte Mängel-Liste
+  const loadDefects = async () => {
+    try {
+      const { api } = await import('../api/api');
+      const response = await api.get(`/acceptance/${milestoneId}/defects`);
+      
+      if (response.data && Array.isArray(response.data)) {
+        setDefects(response.data);
+        console.log('✅ Detaillierte Mängel geladen:', response.data);
+      } else {
+        setDefects([]);
+      }
+    } catch (error: any) {
+      console.error('❌ Fehler beim Laden der detaillierten Mängel:', error);
+      setDefects([]);
+    }
+  };
+
+  useEffect(() => {
+    if (milestoneId) {
+      checkDefectResolutionStatus();
+      loadDefects();
+      
+      // Polling alle 30 Sekunden für Live-Updates
+      const interval = setInterval(() => {
+        checkDefectResolutionStatus();
+        loadDefects();
+      }, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [milestoneId]);
+
+  const { allResolved, totalDefects, resolvedDefects, loading, error } = defectResolutionStatus;
+
+  if (loading) {
+    return (
+      <div className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-600/30 text-gray-400 rounded-lg">
+        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-400"></div>
+        Status wird geprüft...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full space-y-3">
+        <div className="flex items-center justify-center gap-2 px-4 py-3 bg-red-500/20 text-red-300 rounded-lg border border-red-500/30">
+          <AlertTriangle size={16} />
+          {error}
+        </div>
+        <button
+          onClick={checkDefectResolutionStatus}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-600/30 text-gray-300 rounded-lg hover:bg-gray-600/50 transition-colors"
+        >
+          <RefreshCw size={16} />
+          Status erneut prüfen
+        </button>
+      </div>
+    );
+  }
+
+  const progressPercentage = totalDefects > 0 ? (resolvedDefects / totalDefects) * 100 : 100;
+
+  return (
+    <div className="w-full space-y-4">
+      {/* Mängelbehebungs-Status */}
+      <div className="bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/30 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Settings size={16} className="text-orange-400" />
+            <span className="text-orange-300 font-medium">Mängelbehebung</span>
+          </div>
+          <div className="text-right">
+            <div className="text-sm font-bold text-orange-300">
+              {resolvedDefects}/{totalDefects}
+            </div>
+            <div className="text-xs text-gray-400">Behoben</div>
+          </div>
+        </div>
+        
+        {/* Fortschrittsbalken */}
+        <div className="w-full bg-gray-600/30 rounded-full h-2 mb-3">
+          <div 
+            className={`h-2 rounded-full transition-all duration-500 ${
+              allResolved ? 'bg-gradient-to-r from-green-500 to-green-400' : 'bg-gradient-to-r from-orange-500 to-yellow-500'
+            }`}
+            style={{ width: `${progressPercentage}%` }}
+          ></div>
+        </div>
+        
+        <div className="flex items-center justify-between text-sm">
+          <span className={allResolved ? 'text-green-300' : 'text-orange-300'}>
+            {allResolved ? (
+              <span className="flex items-center gap-1">
+                <CheckCircle size={14} />
+                Alle Mängel behoben
+              </span>
+            ) : (
+              `Noch ${totalDefects - resolvedDefects} Mängel offen`
+            )}
+          </span>
+          <div className="flex items-center gap-2">
+            {/* Mängel-Details Button */}
+            {totalDefects > 0 && (
+              <button
+                onClick={() => setShowDefectDetails(!showDefectDetails)}
+                className="text-gray-400 hover:text-white transition-colors text-xs flex items-center gap-1"
+                title="Mängel-Details anzeigen"
+              >
+                <Eye size={12} />
+                Details
+              </button>
+            )}
+            <button
+              onClick={() => {
+                checkDefectResolutionStatus();
+                loadDefects();
+              }}
+              className="text-gray-400 hover:text-white transition-colors"
+              title="Status aktualisieren"
+            >
+              <RefreshCw size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Mängel-Details Liste */}
+      {showDefectDetails && defects.length > 0 && (
+        <div className="bg-gradient-to-r from-gray-800/50 to-gray-700/50 border border-gray-600/30 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+              <AlertTriangle size={14} className="text-orange-400" />
+              Mängel-Übersicht
+            </h4>
+            <button
+              onClick={() => setShowDefectDetails(false)}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {defects.map((defect, index) => (
+              <div 
+                key={defect.id} 
+                className={`p-3 rounded-lg border text-sm transition-all ${
+                  defect.resolved 
+                    ? 'bg-green-500/10 border-green-500/30 text-green-200' 
+                    : 'bg-orange-500/10 border-orange-500/30 text-orange-200'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-medium text-gray-400">#{index + 1}</span>
+                      {defect.severity && (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          defect.severity === 'critical' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+                          defect.severity === 'high' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
+                          defect.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
+                          'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                        }`}>
+                          {defect.severity === 'critical' ? 'Kritisch' :
+                           defect.severity === 'high' ? 'Hoch' :
+                           defect.severity === 'medium' ? 'Mittel' : 'Niedrig'}
+                        </span>
+                      )}
+                      {defect.category && (
+                        <span className="px-2 py-0.5 bg-gray-600/30 text-gray-300 rounded-full text-xs">
+                          {defect.category}
+                        </span>
+                      )}
+                    </div>
+                    <p className={`text-sm ${defect.resolved ? 'line-through opacity-75' : ''}`}>
+                      {defect.description}
+                    </p>
+                    {defect.resolved && defect.resolution_notes && (
+                      <div className="mt-2 p-2 bg-green-500/10 border border-green-500/20 rounded text-xs">
+                        <span className="text-green-400 font-medium">Behebung: </span>
+                        <span className="text-green-300">{defect.resolution_notes}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {defect.resolved ? (
+                      <div className="flex items-center gap-1 text-green-400">
+                        <CheckCircle size={14} />
+                        <span className="text-xs">Behoben</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-orange-400">
+                        <Clock size={14} />
+                        <span className="text-xs">Offen</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Zeitstempel */}
+                <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                  <span>Festgestellt: {new Date(defect.created_at).toLocaleDateString('de-DE')}</span>
+                  {defect.resolved_at && (
+                    <span className="text-green-500">
+                      Behoben: {new Date(defect.resolved_at).toLocaleDateString('de-DE')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-3 pt-3 border-t border-gray-600/30 text-xs text-gray-400">
+            <div className="flex items-center justify-between">
+              <span>Gesamt: {defects.length} Mängel</span>
+              <span>
+                Behoben: {defects.filter(d => d.resolved).length} | 
+                Offen: {defects.filter(d => !d.resolved).length}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Finale Abnahme Button */}
+      <button
+        type="button"
+        onClick={onFinalAcceptance}
+        disabled={!allResolved}
+        className={`w-full flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-lg transition-all duration-200 ${
+          allResolved
+            ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:shadow-lg hover:from-green-600 hover:to-green-700'
+            : 'bg-gray-600/30 text-gray-400 cursor-not-allowed'
+        }`}
+      >
+        <CheckCircle size={20} />
+        {allResolved ? (
+          'Finale Abnahme durchführen'
+        ) : (
+          `Finale Abnahme (${totalDefects - resolvedDefects} Mängel offen)`
+        )}
+      </button>
+      
+      {/* Hinweis bei offenen Mängeln */}
+      {!allResolved && totalDefects > 0 && (
+        <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle size={14} className="text-orange-400" />
+            <span className="text-orange-300 text-sm font-medium">Mängelbehebung erforderlich</span>
+          </div>
+          <p className="text-orange-200 text-xs">
+            Der Dienstleister muss alle dokumentierten Mängel beheben und als erledigt markieren, 
+            bevor die finale Abnahme durchgeführt werden kann.
+          </p>
+        </div>
+      )}
+      
+      {/* Erfolgs-Hinweis */}
+      {allResolved && totalDefects > 0 && (
+        <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle size={14} className="text-green-400" />
+            <span className="text-green-300 text-sm font-medium">Bereit für finale Abnahme</span>
+          </div>
+          <p className="text-green-200 text-xs">
+            Alle {totalDefects} Mängel wurden vom Dienstleister behoben. 
+            Sie können jetzt die finale Abnahme durchführen.
+          </p>
+        </div>
+      )}
+    </div>
   );
 } 

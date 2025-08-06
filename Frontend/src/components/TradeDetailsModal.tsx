@@ -18,7 +18,11 @@ import {
   Building,
   Calculator,
   Receipt,
-  AlertTriangle
+  AlertTriangle,
+  Settings,
+  RefreshCw,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import type { TradeSearchResult } from '../api/geoService';
 import { useAuth } from '../context/AuthContext';
@@ -515,6 +519,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     console.log('🔍 TradeDetailsModal - Hauptkomponente gerendert:', {
       isOpen,
       tradeId: trade?.id,
+      tradeTitle: trade?.title,
+      tradeDescription: trade?.description,
       completionStatus: completionStatus,
       tradeCompletionStatus: trade?.completion_status,
       existingInvoice: existingInvoice,
@@ -522,6 +528,11 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       existingQuotes: existingQuotes,
       shouldShowInvoiceButton: !isBautraeger() && completionStatus === 'completed' && !existingInvoice
     });
+    
+    // Warnung wenn trade-ID 1 ist (könnte falsches Gewerk sein)
+    if (trade?.id === 1 && trade?.title === 'Elektroinstallation EG') {
+      console.warn('⚠️ WARNUNG: TradeDetailsModal verwendet Milestone ID 1 ("Elektroinstallation EG"). Falls dies ein neues Gewerk sein sollte, könnte es ein Problem mit der Milestone-Erstellung geben.');
+    }
   }
 
   // Funktion zum dynamischen Laden der Dokumente und completion_status
@@ -1048,12 +1059,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     }
   };
 
-  const handleInvoiceUploaded = () => {
-    // Refresh trade data after invoice upload
-    if (trade?.id) {
-      loadTradeDocuments(trade.id);
-    }
-  };
+  // Entfernt: handleInvoiceUploaded da nicht verwendet
 
   const handleRatingComplete = () => {
     setHasRated(true);
@@ -1381,11 +1387,15 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   <div>existingQuotes.length: {existingQuotes?.length || 0}</div>
                   <div>acceptedQuote: {acceptedQuote ? 'JA' : 'NEIN'}</div>
                   <div>acceptedQuote.status: {acceptedQuote?.status || 'N/A'}</div>
+                  <div>acceptedQuote.service_provider_id: {acceptedQuote?.service_provider_id || 'N/A'}</div>
                   <div>completionStatus: {completionStatus}</div>
                   <div>currentProgress: {currentProgress}%</div>
                   <div>isBautraeger: {isBautraeger() ? 'JA' : 'NEIN'}</div>
                   <div>user?.id: {user?.id}</div>
-                  <div>Quotes: {JSON.stringify(existingQuotes?.map(q => ({ id: q.id, status: q.status })), null, 2)}</div>
+                  <div>Dienstleister-Workflow sichtbar: {(!isBautraeger() && ((acceptedQuote?.service_provider_id === user?.id) || (existingQuotes?.some(q => q.service_provider_id === user?.id)))) ? 'JA' : 'NEIN'}</div>
+                  <div>Hat akzeptiertes Angebot: {(acceptedQuote?.service_provider_id === user?.id) ? 'JA' : 'NEIN'}</div>
+                  <div>Hat überhaupt Angebot: {(existingQuotes?.some(q => q.service_provider_id === user?.id)) ? 'JA' : 'NEIN'}</div>
+                  <div>Quotes: {JSON.stringify(existingQuotes?.map(q => ({ id: q.id, status: q.status, service_provider_id: q.service_provider_id })), null, 2)}</div>
                 </div>
               </div>
             )}
@@ -1394,8 +1404,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             {(
               // Für Bauträger: Immer anzeigen (können jederzeit kommentieren)
               isBautraeger() ||
-              // Für Dienstleister: Nur wenn sie ein Angebot haben
-              (acceptedQuote || existingQuotes?.length > 0)
+              // Für Dienstleister: Immer anzeigen (können kommunizieren und Fortschritt melden)
+              !isBautraeger()
             ) && (
               <TradeProgress
                 milestoneId={trade.id}
@@ -1545,14 +1555,44 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             )}
 
             {/* Abnahme-Workflow Buttons für Dienstleister */}
-            {!isBautraeger() && acceptedQuote?.service_provider_id === user?.id && (
+            {!isBautraeger() && (
+              // Zeige für Dienstleister wenn:
+              // 1. Er hat ein akzeptiertes Angebot für dieses Gewerk, ODER
+              // 2. Er hat überhaupt ein Angebot für dieses Gewerk (auch wenn noch nicht akzeptiert)
+              (acceptedQuote?.service_provider_id === user?.id) || 
+              (existingQuotes?.some(q => q.service_provider_id === user?.id))
+            ) && (
               <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30">
                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                   <CheckCircle size={18} className="text-[#ffbd59]" />
                   Abnahme-Workflow
+                  <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full">
+                    Status: {completionStatus}
+                  </span>
                 </h3>
                 
-                {completionStatus === 'in_progress' && (
+                {/* Prüfe ob Dienstleister berechtigt ist */}
+                {!acceptedQuote && !existingQuotes?.some(q => q.service_provider_id === user?.id) ? (
+                  <div className="bg-gray-500/10 border border-gray-500/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle size={20} className="text-gray-400" />
+                      <span className="text-gray-300 font-medium">Kein Angebot vorhanden</span>
+                    </div>
+                    <p className="text-gray-400 text-sm">
+                      Sie haben noch kein Angebot für dieses Gewerk abgegeben. Erst nach der Angebotserstellung und -annahme können Sie den Abnahme-Workflow nutzen.
+                    </p>
+                  </div>
+                ) : !acceptedQuote ? (
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock size={20} className="text-blue-400" />
+                      <span className="text-blue-300 font-medium">Angebot eingereicht</span>
+                    </div>
+                    <p className="text-blue-200 text-sm">
+                      Ihr Angebot wurde eingereicht und wartet auf die Annahme durch den Bauträger. Nach der Annahme können Sie hier den Baufortschritt verfolgen und die Abnahme anfordern.
+                    </p>
+                  </div>
+                ) : completionStatus === 'in_progress' && (
                   <div className="space-y-4">
                     {currentProgress >= 100 ? (
                       <>
@@ -1597,7 +1637,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   </div>
                 )}
                 
-                {completionStatus === 'completion_requested' && (
+                {acceptedQuote && completionStatus === 'completion_requested' && (
                   <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Clock size={20} className="text-blue-400" />
@@ -1609,7 +1649,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   </div>
                 )}
                 
-                {completionStatus === 'under_review' && (
+                {acceptedQuote && completionStatus === 'under_review' && (
                   <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <AlertTriangle size={20} className="text-orange-400" />
@@ -1630,7 +1670,32 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   </div>
                 )}
                 
-                {completionStatus === 'completed' && (
+                {acceptedQuote && completionStatus === 'completed_with_defects' && (
+                  <div className="space-y-4">
+                    <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle size={20} className="text-orange-400" />
+                        <span className="text-orange-300 font-medium">Mängelbehebung erforderlich</span>
+                      </div>
+                      <p className="text-orange-200 text-sm">
+                        Das Gewerk wurde unter Vorbehalt abgenommen. Bitte beheben Sie die festgestellten Mängel.
+                      </p>
+                    </div>
+                    
+                    <DefectResolutionWorkflow
+                      milestoneId={trade.id}
+                      onDefectsResolved={() => {
+                        // Aktualisiere den Status nach Mängelbehebung
+                        if (trade?.id) {
+                          loadTradeDocuments(trade.id);
+                          loadCompletionStatus(trade.id);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+                
+                {acceptedQuote && completionStatus === 'completed' && (
                   <div className="space-y-4">
                     <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
                       <div className="flex items-center gap-2 mb-2">
@@ -1750,7 +1815,10 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   Aktionen
                 </h3>
                       <button
-                  onClick={() => onCreateQuote(trade)}
+                  onClick={() => {
+                    onCreateQuote(trade);
+                    onClose(); // Schließe das Modal nach dem Klick
+                  }}
                   className="w-full bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#1a1a2e] font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
                       >
                   <Calculator size={20} />
@@ -1789,6 +1857,387 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             loadExistingInvoice();
           }}
         />
+      )}
+    </div>
+  );
+}
+
+// 🔧 Mängel-Behebungs-Workflow Komponente für Dienstleister
+interface DefectResolutionWorkflowProps {
+  milestoneId: number;
+  onDefectsResolved: () => void;
+}
+
+interface Defect {
+  id: number;
+  description: string;
+  category?: string;
+  severity?: 'low' | 'medium' | 'high' | 'critical';
+  created_at: string;
+  resolved: boolean;
+  resolved_at?: string;
+  resolution_notes?: string;
+}
+
+function DefectResolutionWorkflow({ milestoneId, onDefectsResolved }: DefectResolutionWorkflowProps) {
+  const [defects, setDefects] = useState<Defect[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [resolutionNotes, setResolutionNotes] = useState<{ [key: number]: string }>({});
+
+  // Lade Mängel vom Backend
+  const loadDefects = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await apiCall(`/acceptance/${milestoneId}/defects`);
+      
+      if (response && Array.isArray(response)) {
+        setDefects(response);
+        console.log('✅ Mängel geladen:', response);
+      } else {
+        setDefects([]);
+      }
+    } catch (error: any) {
+      console.error('❌ Fehler beim Laden der Mängel:', error);
+      setError('Mängel konnten nicht geladen werden');
+      setDefects([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (milestoneId) {
+      loadDefects();
+    }
+  }, [milestoneId]);
+
+  // Mangel als behoben markieren
+  const handleDefectResolution = async (defectId: number, resolved: boolean, notes?: string) => {
+    try {
+      setUpdating(true);
+      
+      await apiCall(`/acceptance/${milestoneId}/defects/${defectId}/resolve`, {
+        method: 'POST',
+        body: JSON.stringify({
+          resolved,
+          resolution_notes: notes || ''
+        })
+      });
+      
+      // Aktualisiere lokalen State
+      setDefects(prev => prev.map(defect => 
+        defect.id === defectId 
+          ? { 
+              ...defect, 
+              resolved, 
+              resolved_at: resolved ? new Date().toISOString() : undefined,
+              resolution_notes: notes || defect.resolution_notes
+            }
+          : defect
+      ));
+      
+      console.log(`✅ Mangel ${defectId} als ${resolved ? 'behoben' : 'unbehoben'} markiert`);
+      
+    } catch (error: any) {
+      console.error('❌ Fehler beim Aktualisieren des Mangels:', error);
+      alert('Fehler beim Aktualisieren des Mangels. Bitte versuchen Sie es erneut.');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // Alle Mängel als behoben melden
+  const handleSubmitResolution = async () => {
+    const unresolvedDefects = defects.filter(d => !d.resolved);
+    
+    if (unresolvedDefects.length > 0) {
+      alert(`Bitte beheben Sie zuerst alle Mängel. Noch ${unresolvedDefects.length} Mängel offen.`);
+      return;
+    }
+    
+    try {
+      setUpdating(true);
+      
+      await apiCall(`/acceptance/${milestoneId}/defects/submit-resolution`, {
+        method: 'POST',
+        body: JSON.stringify({
+          message: 'Alle Mängel wurden behoben und sind bereit für die finale Abnahme.'
+        })
+      });
+      
+      console.log('✅ Mängelbehebung erfolgreich gemeldet');
+      onDefectsResolved();
+      
+    } catch (error: any) {
+      console.error('❌ Fehler beim Melden der Mängelbehebung:', error);
+      alert('Fehler beim Melden der Mängelbehebung. Bitte versuchen Sie es erneut.');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const getSeverityColor = (severity?: string) => {
+    switch (severity) {
+      case 'critical': return 'text-red-400 bg-red-500/20 border-red-500/30';
+      case 'high': return 'text-orange-400 bg-orange-500/20 border-orange-500/30';
+      case 'medium': return 'text-yellow-400 bg-yellow-500/20 border-yellow-500/30';
+      case 'low': return 'text-blue-400 bg-blue-500/20 border-blue-500/30';
+      default: return 'text-gray-400 bg-gray-500/20 border-gray-500/30';
+    }
+  };
+
+  const getSeverityLabel = (severity?: string) => {
+    switch (severity) {
+      case 'critical': return 'Kritisch';
+      case 'high': return 'Hoch';
+      case 'medium': return 'Mittel';
+      case 'low': return 'Niedrig';
+      default: return 'Unbekannt';
+    }
+  };
+
+  const resolvedCount = defects.filter(d => d.resolved).length;
+  const totalCount = defects.length;
+  const progressPercentage = totalCount > 0 ? (resolvedCount / totalCount) * 100 : 0;
+
+  if (loading) {
+    return (
+      <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-xl p-6 border border-orange-500/30">
+        <div className="flex items-center justify-center py-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-400 mx-auto mb-3"></div>
+            <p className="text-orange-300">Lade Mängel...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-gradient-to-br from-red-500/10 to-red-600/10 rounded-xl p-6 border border-red-500/30">
+        <div className="text-center">
+          <AlertTriangle size={48} className="text-red-400 mx-auto mb-3" />
+          <p className="text-red-300 mb-4">{error}</p>
+          <button
+            onClick={loadDefects}
+            className="px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors"
+          >
+            <RefreshCw size={16} className="inline mr-2" />
+            Erneut versuchen
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-xl p-6 border border-orange-500/30">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+          <Settings size={18} className="text-orange-400" />
+          Mängelbehebung
+          <span className="text-sm text-orange-300 bg-orange-500/20 px-2 py-1 rounded-full">
+            {resolvedCount}/{totalCount}
+          </span>
+        </h3>
+        
+        {/* Fortschritts-Anzeige */}
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <div className="text-sm text-orange-300 font-medium">{progressPercentage.toFixed(0)}%</div>
+            <div className="text-xs text-gray-400">Behoben</div>
+          </div>
+          <div className="w-16 h-16 relative">
+            <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 36 36">
+              <path
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeDasharray="100, 100"
+                className="text-gray-600"
+              />
+              <path
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeDasharray={`${progressPercentage}, 100`}
+                className="text-orange-400 transition-all duration-500"
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              {progressPercentage === 100 ? (
+                <CheckCircle size={20} className="text-green-400" />
+              ) : (
+                <Settings size={16} className="text-orange-400" />
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Info-Text */}
+      <div className="bg-orange-500/20 rounded-lg p-4 mb-6">
+        <div className="flex items-center gap-2 mb-2">
+          <AlertTriangle size={16} className="text-orange-400" />
+          <span className="text-orange-300 font-medium">Abnahme unter Vorbehalt</span>
+        </div>
+        <p className="text-orange-200 text-sm">
+          Die folgenden Mängel wurden bei der Abnahme festgestellt. Bitte beheben Sie diese und haken Sie sie als erledigt ab.
+        </p>
+      </div>
+
+      {/* Mängel-Liste */}
+      <div className="space-y-3 mb-6">
+        {defects.map((defect, index) => (
+          <div 
+            key={defect.id} 
+            className={`bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-lg border p-4 transition-all duration-300 ${
+              defect.resolved 
+                ? 'border-green-500/30 bg-green-500/5' 
+                : 'border-gray-600/30 hover:border-orange-400/50'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              {/* Checkbox */}
+              <button
+                onClick={() => handleDefectResolution(defect.id, !defect.resolved, resolutionNotes[defect.id])}
+                disabled={updating}
+                className={`mt-1 p-1 rounded transition-all duration-200 ${
+                  defect.resolved
+                    ? 'text-green-400 hover:text-green-300'
+                    : 'text-gray-400 hover:text-orange-400'
+                }`}
+              >
+                {defect.resolved ? (
+                  <CheckSquare size={20} className="animate-pulse" />
+                ) : (
+                  <Square size={20} />
+                )}
+              </button>
+              
+              <div className="flex-1">
+                {/* Mangel-Header */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-400">#{index + 1}</span>
+                    {defect.severity && (
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getSeverityColor(defect.severity)}`}>
+                        {getSeverityLabel(defect.severity)}
+                      </span>
+                    )}
+                    {defect.category && (
+                      <span className="px-2 py-1 bg-gray-600/30 text-gray-300 rounded-full text-xs">
+                        {defect.category}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {defect.resolved && (
+                    <div className="flex items-center gap-1 text-green-400 text-xs">
+                      <CheckCircle size={14} />
+                      Behoben
+                    </div>
+                  )}
+                </div>
+                
+                {/* Mangel-Beschreibung */}
+                <p className={`text-sm mb-3 ${defect.resolved ? 'text-gray-400 line-through' : 'text-white'}`}>
+                  {defect.description}
+                </p>
+                
+                {/* Notizen-Eingabe */}
+                {!defect.resolved && (
+                  <div className="mt-3">
+                    <textarea
+                      value={resolutionNotes[defect.id] || ''}
+                      onChange={(e) => setResolutionNotes(prev => ({
+                        ...prev,
+                        [defect.id]: e.target.value
+                      }))}
+                      placeholder="Optionale Notizen zur Behebung..."
+                      className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/30 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:border-orange-400/50 resize-none"
+                      rows={2}
+                    />
+                  </div>
+                )}
+                
+                {/* Behoben-Notizen anzeigen */}
+                {defect.resolved && defect.resolution_notes && (
+                  <div className="mt-3 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                    <div className="text-xs text-green-400 mb-1">Behebungs-Notizen:</div>
+                    <p className="text-sm text-green-300">{defect.resolution_notes}</p>
+                  </div>
+                )}
+                
+                {/* Zeitstempel */}
+                <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
+                  <span>Festgestellt: {new Date(defect.created_at).toLocaleDateString('de-DE')}</span>
+                  {defect.resolved_at && (
+                    <span className="text-green-500">
+                      Behoben: {new Date(defect.resolved_at).toLocaleDateString('de-DE')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Leere Mängel-Liste */}
+      {defects.length === 0 && (
+        <div className="text-center py-8">
+          <CheckCircle size={48} className="text-green-400 mx-auto mb-3" />
+          <p className="text-green-300 font-medium">Keine Mängel festgestellt</p>
+          <p className="text-green-200 text-sm">Das Gewerk wurde ohne Beanstandungen abgenommen.</p>
+        </div>
+      )}
+
+      {/* Abschluss-Button */}
+      {defects.length > 0 && (
+        <div className="flex items-center justify-between pt-4 border-t border-gray-600/30">
+          <div className="text-sm text-gray-400">
+            {resolvedCount === totalCount ? (
+              <span className="text-green-400 flex items-center gap-2">
+                <CheckCircle size={16} />
+                Alle Mängel behoben
+              </span>
+            ) : (
+              <span>
+                Noch {totalCount - resolvedCount} Mängel zu beheben
+              </span>
+            )}
+          </div>
+          
+          <button
+            onClick={handleSubmitResolution}
+            disabled={updating || resolvedCount !== totalCount}
+            className={`px-6 py-3 font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 ${
+              resolvedCount === totalCount && !updating
+                ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:shadow-lg'
+                : 'bg-gray-600/30 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            {updating ? (
+              <>
+                <RefreshCw size={16} className="animate-spin" />
+                Wird gemeldet...
+              </>
+            ) : (
+              <>
+                <CheckCircle size={16} />
+                Mängelbehebung melden
+              </>
+            )}
+          </button>
+        </div>
       )}
     </div>
   );

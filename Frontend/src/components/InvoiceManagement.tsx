@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Eye, CreditCard, AlertCircle, CheckCircle, FileText } from 'lucide-react';
+import { Download, Eye, CreditCard, AlertCircle, CheckCircle, FileText, FolderOpen, X } from 'lucide-react';
 import { api } from '../api/api';
 
 interface InvoiceManagementProps {
@@ -15,6 +15,7 @@ const InvoiceManagement: React.FC<InvoiceManagementProps> = ({
   const [invoice, setInvoice] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDmsNotification, setShowDmsNotification] = useState(false);
 
   useEffect(() => {
     loadInvoice();
@@ -38,11 +39,36 @@ const InvoiceManagement: React.FC<InvoiceManagementProps> = ({
 
   const handleViewInvoice = async () => {
     try {
-      // Mark as viewed
+      // Mark as viewed (löst automatische DMS-Integration im Backend aus)
       await api.post(`/invoices/${invoice.id}/mark-viewed`);
       
-      // Open PDF in new window
-      window.open(`/api/v1/invoices/${invoice.id}/download`, '_blank');
+      // Open PDF in new window - KORRIGIERT: Mit Authorization Header
+      const token = localStorage.getItem('token');
+      const baseUrl = window.location.hostname === 'localhost' 
+        ? 'http://localhost:8000' 
+        : '';
+      
+      // Erstelle einen Blob-URL mit Authorization Header
+      const response = await fetch(`${baseUrl}/api/v1/invoices/${invoice.id}/download`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        // Cleanup nach kurzer Verzögerung
+        setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+        
+        // Zeige DMS-Benachrichtigung
+        setShowDmsNotification(true);
+        // Verstecke Benachrichtigung nach 5 Sekunden
+        setTimeout(() => setShowDmsNotification(false), 5000);
+      } else {
+        throw new Error('PDF konnte nicht geladen werden');
+      }
       
       // Update local state
       setInvoice(prev => ({ ...prev, status: 'viewed' }));
@@ -54,6 +80,9 @@ const InvoiceManagement: React.FC<InvoiceManagementProps> = ({
 
   const handleDownloadInvoice = async () => {
     try {
+      // Zuerst mark-viewed aufrufen, damit DMS-Dokument erstellt wird falls noch nicht vorhanden
+      await api.post(`/invoices/${invoice.id}/mark-viewed`);
+      
       const response = await api.get(`/invoices/${invoice.id}/download`, { 
         responseType: 'blob' 
       });
@@ -65,6 +94,11 @@ const InvoiceManagement: React.FC<InvoiceManagementProps> = ({
       link.download = `Rechnung_${invoice.invoice_number}.pdf`;
       link.click();
       window.URL.revokeObjectURL(url);
+      
+      // Zeige DMS-Benachrichtigung
+      setShowDmsNotification(true);
+      // Verstecke Benachrichtigung nach 5 Sekunden
+      setTimeout(() => setShowDmsNotification(false), 5000);
       
       onInvoiceAction?.('downloaded', invoice);
     } catch (error) {
@@ -139,6 +173,26 @@ const InvoiceManagement: React.FC<InvoiceManagementProps> = ({
         <FileText size={18} className="text-[#ffbd59]" />
         Rechnung
       </h3>
+
+      {/* DMS-Benachrichtigung */}
+      {showDmsNotification && (
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-4 animate-fade-in-down relative">
+          <div className="flex items-center gap-2 mb-2">
+            <FolderOpen size={20} className="text-blue-400" />
+            <span className="text-blue-300 font-medium">Dokument im DMS gespeichert</span>
+            <button
+              onClick={() => setShowDmsNotification(false)}
+              className="absolute top-2 right-2 text-blue-400 hover:text-blue-300"
+              aria-label="Schließen"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <p className="text-blue-200 text-sm">
+            Die Rechnung wurde automatisch im Dokumentenmanagementsystem gespeichert und klassifiziert.
+          </p>
+        </div>
+      )}
 
       <div className="space-y-4">
         {/* Rechnungsinfo */}
