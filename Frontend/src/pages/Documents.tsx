@@ -191,26 +191,36 @@ const convertBackendToFrontendCategory = (backendCategory: string): string => {
 const convertCategoryStats = (backendStats: any): CategoryStats[] => {
   const frontendStats: CategoryStats[] = [];
   
+  // Prüfe ob backendStats gültig ist
+  if (!backendStats || typeof backendStats !== 'object') {
+    console.warn('convertCategoryStats: Ungültige backendStats:', backendStats);
+    return frontendStats;
+  }
+  
   // Backend gibt jetzt ein Objekt zurück, nicht mehr ein Array
   Object.entries(backendStats).forEach(([backendCategory, stats]: [string, any]) => {
-    const frontendCategory = convertBackendToFrontendCategory(backendCategory);
-    
-    // Konvertiere Unterkategorien-Format
-    const subcategories: { [key: string]: number } = {};
-    if (stats.subcategories) {
-      Object.entries(stats.subcategories).forEach(([subcategory, subStats]: [string, any]) => {
-        subcategories[subcategory] = subStats.document_count || 0;
+    try {
+      const frontendCategory = convertBackendToFrontendCategory(backendCategory);
+      
+      // Konvertiere Unterkategorien-Format
+      const subcategories: { [key: string]: number } = {};
+      if (stats && stats.subcategories && typeof stats.subcategories === 'object') {
+        Object.entries(stats.subcategories).forEach(([subcategory, subStats]: [string, any]) => {
+          subcategories[subcategory] = subStats.document_count || 0;
+        });
+      }
+      
+      frontendStats.push({
+        category: frontendCategory,
+        count: stats.total_documents || 0,
+        total_size: stats.total_size || 0,
+        avg_size: stats.total_documents > 0 ? (stats.total_size || 0) / stats.total_documents : 0,
+        favorite_count: stats.favorite_count || 0,
+        subcategories: subcategories
       });
+    } catch (error) {
+      console.error('Fehler beim Konvertieren der Kategorie-Statistiken:', error);
     }
-    
-    frontendStats.push({
-      category: frontendCategory,
-      count: stats.total_documents || 0,
-      total_size: stats.total_size || 0,
-      avg_size: stats.total_documents > 0 ? (stats.total_size || 0) / stats.total_documents : 0,
-      favorite_count: stats.favorite_count || 0,
-      subcategories: subcategories
-    });
   });
   
   return frontendStats;
@@ -425,6 +435,45 @@ const Documents: React.FC = () => {
 
   // Dokumente laden
   const loadDocuments = async () => {
+    // Für Dienstleister: Lade eigene Dokumente (Rechnungen, etc.)
+    if (user && (user.user_type === 'service_provider' || user.user_role === 'DIENSTLEISTER') && !selectedProject) {
+      try {
+        setLoading(true);
+        // Lade Dienstleister-spezifische Dokumente (Rechnungen, etc.)
+        const docs = await getDocuments(0, { // project_id wird ignoriert für Dienstleister-Dokumente
+          service_provider_documents: true // Flag für Dienstleister-Dokumente
+        });
+        
+        // Konvertiere Backend-Kategorien zu Frontend-Kategorien
+        const convertedDocs = docs.map((doc: Document) => ({
+          ...doc,
+          category: doc.category ? convertBackendToFrontendCategory(doc.category) : 'documentation'
+        }));
+        
+        setDocuments(convertedDocs);
+        
+        // Kategorie-Statistiken laden und konvertieren
+        try {
+          const backendStats = await getCategoryStatistics(undefined, true); // service_provider_documents = true
+          console.log('Backend Stats für Dienstleister:', backendStats);
+          
+          // Backend gibt ein Objekt zurück, nicht ein Array
+          const convertedStats = convertCategoryStats(backendStats || {});
+          setCategoryStats(convertedStats);
+        } catch (statsError) {
+          console.error('Fehler beim Laden der Kategorie-Statistiken:', statsError);
+          setCategoryStats([]);
+        }
+        
+      } catch (err: any) {
+        setError(err.message || 'Fehler beim Laden der Dokumente');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+    
+    // Für Bauträger: Normale projektspezifische Dokumente
     if (!selectedProject) return;
     
     try {
@@ -449,12 +498,17 @@ const Documents: React.FC = () => {
       setDocuments(convertedDocs);
       
       // Kategorie-Statistiken laden und konvertieren
-      const backendStats = await getCategoryStatistics(selectedProject.id);
-      
-      // Backend gibt ein Objekt zurück, nicht ein Array
-      const convertedStats = convertCategoryStats(backendStats || {});
-      
-      setCategoryStats(convertedStats);
+      try {
+        const backendStats = await getCategoryStatistics(selectedProject.id);
+        console.log('Backend Stats für Projekt:', backendStats);
+        
+        // Backend gibt ein Objekt zurück, nicht ein Array
+        const convertedStats = convertCategoryStats(backendStats || {});
+        setCategoryStats(convertedStats);
+      } catch (statsError) {
+        console.error('Fehler beim Laden der Kategorie-Statistiken:', statsError);
+        setCategoryStats([]);
+      }
       
     } catch (err: any) {
       setError(err.message || 'Fehler beim Laden der Dokumente');
@@ -677,8 +731,8 @@ const Documents: React.FC = () => {
     );
   }
 
-  // Kein Projekt ausgewählt
-  if (!selectedProject) {
+  // Kein Projekt ausgewählt (nur für Bauträger)
+  if (!selectedProject && user && user.user_type !== 'service_provider' && user.user_role !== 'DIENSTLEISTER') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center">
         <div className="text-center">
@@ -724,31 +778,43 @@ const Documents: React.FC = () => {
                 <ArrowLeft size={20} className="text-[#ffbd59]" />
               </button>
               <div>
-                <h1 className="text-xl font-bold text-white">Dokumente</h1>
-                <p className="text-sm text-gray-400">Intelligentes DMS</p>
+                <h1 className="text-xl font-bold text-white">
+                  {user && (user.user_type === 'service_provider' || user.user_role === 'DIENSTLEISTER') 
+                    ? 'Meine Dokumente' 
+                    : 'Dokumente'
+                  }
+                </h1>
+                <p className="text-sm text-gray-400">
+                  {user && (user.user_type === 'service_provider' || user.user_role === 'DIENSTLEISTER')
+                    ? 'Rechnungen & Dokumente'
+                    : 'Intelligentes DMS'
+                  }
+                </p>
               </div>
             </div>
 
-            {/* Projekt-Auswahl */}
-            <div className="space-y-2 mb-4">
-              <label className="text-sm font-medium text-gray-300">Projekt</label>
-              <select
-                value={selectedProject?.id || ''}
-                onChange={(e) => {
-                  const projectId = parseInt(e.target.value);
-                  const project = allProjects.find(p => p.id === projectId);
-                  setSelectedProject(project || null);
-                }}
-                className="w-full px-3 py-2 bg-[#3d4952] border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-              >
-                <option value="">Projekt wählen...</option>
-                {allProjects.map(project => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Projekt-Auswahl (nur für Bauträger) */}
+            {user && user.user_type !== 'service_provider' && user.user_role !== 'DIENSTLEISTER' && (
+              <div className="space-y-2 mb-4">
+                <label className="text-sm font-medium text-gray-300">Projekt</label>
+                <select
+                  value={selectedProject?.id || ''}
+                  onChange={(e) => {
+                    const projectId = parseInt(e.target.value);
+                    const project = allProjects.find(p => p.id === projectId);
+                    setSelectedProject(project || null);
+                  }}
+                  className="w-full px-3 py-2 bg-[#3d4952] border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                >
+                  <option value="">Projekt wählen...</option>
+                  {allProjects.map(project => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             
             {/* Statistiken */}
             <div className="grid grid-cols-2 gap-4">

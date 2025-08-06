@@ -60,11 +60,12 @@ export default function Invoices() {
     loadInvoices();
   }, []);
 
-  const loadInvoices = async () => {
+      const loadInvoices = async () => {
     setLoading(true);
     setError(null);
     try {
-              const response = await api.get('/invoices/invoices/my-invoices');
+      // Korrigierter API-Pfad - Entfernung des doppelten 'invoices'
+      const response = await api.get('/invoices/my-invoices');
       setInvoices(response.data || []);
     } catch (error: any) {
       console.error('❌ Fehler beim Laden der Rechnungen:', error);
@@ -109,9 +110,23 @@ export default function Invoices() {
 
   const handleDownloadInvoice = async (invoice: Invoice) => {
     try {
+      // Markiere als angesehen und lade dann herunter
+      await api.post(`/invoices/${invoice.id}/mark-viewed`);
       window.open(`/api/v1/invoices/${invoice.id}/download`, '_blank');
     } catch (error) {
       console.error('❌ Fehler beim Herunterladen der Rechnung:', error);
+    }
+  };
+
+  const handleViewInvoice = async (invoice: Invoice) => {
+    try {
+      // Markiere als angesehen
+      await api.post(`/invoices/${invoice.id}/mark-viewed`);
+      
+      // Öffne PDF in neuem Tab
+      window.open(`/api/v1/invoices/${invoice.id}/download`, '_blank');
+    } catch (error) {
+      console.error('❌ Fehler beim Ansehen der Rechnung:', error);
     }
   };
 
@@ -312,6 +327,14 @@ export default function Invoices() {
                     </div>
                     
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleViewInvoice(invoice)}
+                        className="flex items-center gap-1 px-3 py-2 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-all duration-200 text-sm font-medium"
+                        title="Rechnung ansehen"
+                      >
+                        <Eye size={16} />
+                        Ansehen
+                      </button>
                       <button
                         onClick={() => handleDownloadInvoice(invoice)}
                         className="flex items-center gap-1 px-3 py-2 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-all duration-200 text-sm font-medium"

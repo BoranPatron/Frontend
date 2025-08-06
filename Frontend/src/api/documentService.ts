@@ -13,6 +13,7 @@ export interface DocumentSearchParams {
   sort_order?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
+  service_provider_documents?: boolean;
 }
 
 export interface CategoryStats {
@@ -39,6 +40,14 @@ export async function getDocuments(project_id: number, params?: Partial<Document
       project_id,
       ...params
     };
+    
+    // Für Dienstleister-Dokumente: Verwende speziellen Endpunkt
+    if (params?.service_provider_documents) {
+      // Vereinfachter Endpoint ohne Parameter
+      const res = await api.get('/documents/service-provider');
+      console.log('✅ Service provider documents loaded successfully:', res.data);
+      return res.data;
+    }
     
     const res = await api.get('/documents', { params: searchParams });
     console.log('✅ Documents loaded successfully:', res.data);
@@ -97,11 +106,20 @@ export async function updateDocumentStatus(documentId: number, newStatus: string
   }
 }
 
-export async function getCategoryStatistics(project_id?: number): Promise<CategoryStats> {
+export async function getCategoryStatistics(project_id?: number, service_provider_documents?: boolean): Promise<CategoryStats> {
   try {
     console.log('📊 Fetching category statistics for project:', project_id);
     
     const params = project_id ? { project_id } : {};
+    
+    // Für Dienstleister-Dokumente: Verwende speziellen Endpunkt
+    if (service_provider_documents) {
+      // Vereinfachter Endpoint ohne Parameter
+      const res = await api.get('/documents/categories/stats/service-provider');
+      console.log('✅ Service provider category statistics loaded:', res.data);
+      return res.data;
+    }
+    
     const res = await api.get('/documents/categories/stats', { params });
     console.log('✅ Category statistics loaded:', res.data);
     return res.data;

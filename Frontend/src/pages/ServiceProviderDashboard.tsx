@@ -526,7 +526,7 @@ export default function ServiceProviderDashboard() {
       title: "Rechnungen",
       description: "Rechnungsmanagement & Zahlungen",
       icon: <Euro size={32} />,
-      onClick: () => setShowInvoiceManagement(true),
+      onClick: () => window.location.href = '/invoices',
       ariaLabel: "Rechnungsmanagement öffnen",
       badge: { text: `${stats.activeQuotes} Rechnungen`, color: "green" as const },
       cardId: "invoices",

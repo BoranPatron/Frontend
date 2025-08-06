@@ -66,7 +66,7 @@ const InvoiceManagementModal: React.FC<InvoiceManagementModalProps> = ({ isOpen,
     setError(null);
     
     try {
-      const response = await api.get('/invoices/invoices/my-invoices');
+      const response = await api.get('/invoices/my-invoices');
       setInvoices(response.data || []);
       console.log('✅ Rechnungen geladen:', response.data);
     } catch (err: any) {

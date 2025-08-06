@@ -885,7 +885,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       
       try {
         const { api } = await import('../api/api');
-        const response = await api.get(`/invoices/invoices/milestone/${trade.id}`);
+        const response = await api.get(`/invoices/milestone/${trade.id}`);
         
         if (response.data) {
           setExistingInvoice(response.data);
@@ -1158,20 +1158,42 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                 <MapPin size={18} className="text-[#ffbd59]" />
                 Standort
               </h3>
-              <div className="space-y-2">
-                <p className="text-white">
-                  {trade.address_street || 'Adresse nicht angegeben'}
-                </p>
-                <p className="text-gray-300">
-                  {trade.address_zip} {trade.address_city}
-                </p>
+              <div className="space-y-3">
+                {/* Projekt-Informationen */}
+                {trade.project_name && (
+                  <div className="mb-3">
+                    <span className="text-sm font-medium text-gray-400">Projekt</span>
+                    <p className="text-white font-medium">{trade.project_name}</p>
+                  </div>
+                )}
+                
+                {/* Adresse */}
+                <div>
+                  <span className="text-sm font-medium text-gray-400">Adresse</span>
+                  {trade.address_street ? (
+                    <>
+                      <p className="text-white">{trade.address_street}</p>
+                      <p className="text-gray-300">
+                        {trade.address_zip} {trade.address_city}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-white">
+                      {trade.address_zip && trade.address_city ? 
+                        `${trade.address_zip} ${trade.address_city}` : 
+                        'Projektstandort'}
+                    </p>
+                  )}
+                </div>
+                
+                {/* Entfernung */}
                 {trade.distance_km && (
                   <div className="flex items-center gap-2 text-sm text-gray-400">
                     <span>📍 Entfernung: {trade.distance_km.toFixed(1)} km</span>
-               </div>
-             )}
-           </div>
-         </div>
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Zeitplan */}
             <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30">
