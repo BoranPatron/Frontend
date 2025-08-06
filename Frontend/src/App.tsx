@@ -4,6 +4,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider } from './context/ProjectContext';
 import Navbar from './components/Navbar';
 import CreditNotification from './components/CreditNotification';
+import OnboardingOverlay from './components/OnboardingOverlay';
+import { useOnboarding } from './hooks/useOnboarding';
 import Dashboard from './pages/Dashboard';
 import ServiceProviderDashboard from './pages/ServiceProviderDashboard';
 import Login from './pages/Login';
@@ -27,6 +29,7 @@ import GeoSearch from './pages/GeoSearch';
 import Invoices from './pages/Invoices';
 import Credits from './pages/Credits';
 import OAuthCallback from './pages/OAuthCallback';
+import OnboardingDemo from './pages/OnboardingDemo';
 import RoleSelectionModal from './components/RoleSelectionModal';
 import NotificationTab from './components/NotificationTab';
 import BautraegerNotificationTab from './components/BautraegerNotificationTab';
@@ -83,6 +86,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [sessionUserId, setSessionUserId] = useState<number | null>(null);
+  
+  // Onboarding Hook
+  const {
+    showOnboarding,
+    userType,
+    completeOnboarding,
+    skipOnboarding,
+    markStepCompleted
+  } = useOnboarding();
   
   useEffect(() => {
     // Reset bei User-Wechsel (Logout/Login)
@@ -170,6 +182,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
           }}
         />
       )}
+      
+      {/* Onboarding Overlay */}
+      <OnboardingOverlay
+        isVisible={showOnboarding}
+        onComplete={completeOnboarding}
+        onSkip={skipOnboarding}
+        userType={userType}
+      />
     </>
   );
   
@@ -368,6 +388,11 @@ function AppContent() {
         <Route path="/credits" element={
           <ProtectedRoute>
             <Credits />
+          </ProtectedRoute>
+        } />
+        <Route path="/onboarding-demo" element={
+          <ProtectedRoute>
+            <OnboardingDemo />
           </ProtectedRoute>
         } />
         {/* Fallback für unbekannte Routen */}
