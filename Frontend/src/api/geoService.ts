@@ -86,6 +86,7 @@ export interface TradeSearchResult {
   project_type: string;
   project_status: string;
   // Adress-Informationen (vom übergeordneten Projekt)
+  project_address: string;  // Vollständige Projektadresse
   address_street: string;
   address_zip: string;
   address_city: string;

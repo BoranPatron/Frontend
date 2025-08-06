@@ -161,6 +161,7 @@ interface Project {
   id: number;
   name: string;
   description: string;
+  address?: string;  // Vollständige Projektadresse
   address_street?: string;
   address_zip?: string;
   address_city?: string;
@@ -299,6 +300,7 @@ interface CombinedTrade extends Trade {
   project_name?: string;
   project_type?: string;
   project_status?: string;
+  project_address?: string;  // Vollständige Projektadresse
   address_street?: string;
   address_zip?: string;
   address_city?: string;
@@ -2017,6 +2019,7 @@ export default function Trades() {
         project_name: geoTrade.project_name,
         project_type: geoTrade.project_type,
         project_status: geoTrade.project_status,
+        project_address: geoTrade.project_address,
         address_street: geoTrade.address_street,
         address_zip: geoTrade.address_zip,
         address_city: geoTrade.address_city,
@@ -2041,6 +2044,7 @@ export default function Trades() {
         address_longitude: project?.address_longitude,
         // Projekt-Adressdaten für Anzeige
         project_name: project?.name,
+        project_address: project?.address,
         address_street: project?.address_street,
         address_zip: project?.address_zip,
         address_city: project?.address_city

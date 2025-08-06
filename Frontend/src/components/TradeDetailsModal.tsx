@@ -1170,18 +1170,22 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                 {/* Adresse */}
                 <div>
                   <span className="text-sm font-medium text-gray-400">Adresse</span>
-                  {trade.address_street ? (
+                  {trade.project_address ? (
+                    <p className="text-white">{trade.project_address}</p>
+                  ) : trade.address_street ? (
                     <>
                       <p className="text-white">{trade.address_street}</p>
                       <p className="text-gray-300">
                         {trade.address_zip} {trade.address_city}
                       </p>
                     </>
-                  ) : (
+                  ) : trade.address_zip && trade.address_city ? (
                     <p className="text-white">
-                      {trade.address_zip && trade.address_city ? 
-                        `${trade.address_zip} ${trade.address_city}` : 
-                        'Projektstandort'}
+                      {trade.address_zip} {trade.address_city}
+                    </p>
+                  ) : (
+                    <p className="text-gray-400 italic">
+                      Projektadresse nicht verfügbar
                     </p>
                   )}
                 </div>
