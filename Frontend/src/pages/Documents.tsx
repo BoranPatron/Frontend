@@ -422,11 +422,19 @@ const Documents: React.FC = () => {
   const loadProjects = async () => {
     try {
       const projects = await getProjects();
+      console.log('📊 Geladene Projekte:', projects);
       setAllProjects(projects);
       
       // Wenn kein Projekt ausgewählt ist, wähle das erste aus
       if (!selectedProject && projects.length > 0) {
+        console.log('🎯 Wähle erstes Projekt aus:', projects[0]);
         setSelectedProject(projects[0]);
+      } else if (selectedProject) {
+        // Aktualisiere das ausgewählte Projekt mit den neuesten Daten
+        const updatedProject = projects.find(p => p.id === selectedProject.id);
+        if (updatedProject) {
+          setSelectedProject(updatedProject);
+        }
       }
     } catch (error: any) {
       console.error('Fehler beim Laden der Projekte:', error);
@@ -435,6 +443,8 @@ const Documents: React.FC = () => {
 
   // Dokumente laden
   const loadDocuments = async () => {
+    console.log('🔍 loadDocuments aufgerufen mit selectedProject:', selectedProject);
+    
     // Für Dienstleister: Lade eigene Dokumente (Rechnungen, etc.)
     if (user && (user.user_type === 'service_provider' || user.user_role === 'DIENSTLEISTER') && !selectedProject) {
       try {
@@ -478,6 +488,8 @@ const Documents: React.FC = () => {
     
     try {
       setLoading(true);
+      console.log('📂 Lade Dokumente für Projekt:', selectedProject.id, selectedProject.name);
+      
       const docs = await getDocuments(selectedProject.id, {
         category: selectedCategory !== 'all' ? selectedCategory : undefined,
         subcategory: selectedSubcategory !== 'all' ? selectedSubcategory : undefined,
@@ -489,6 +501,8 @@ const Documents: React.FC = () => {
         limit: 100
       });
       
+      console.log('📄 Erhaltene Dokumente:', docs);
+      
       // Konvertiere Backend-Kategorien zu Frontend-Kategorien
       const convertedDocs = docs.map((doc: Document) => ({
         ...doc,
@@ -496,6 +510,7 @@ const Documents: React.FC = () => {
       }));
       
       setDocuments(convertedDocs);
+      console.log('✅ Dokumente gesetzt:', convertedDocs);
       
       // Kategorie-Statistiken laden und konvertieren
       try {
@@ -523,6 +538,7 @@ const Documents: React.FC = () => {
 
   useEffect(() => {
     if (contextProject && contextProject !== selectedProject) {
+      console.log('🔄 Context-Projekt geändert, setze neues Projekt:', contextProject);
       setSelectedProject(contextProject);
     }
   }, [contextProject]);

@@ -763,21 +763,38 @@ export default function Navbar() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-200 mb-2">
-                      Projekttyp *
+                      Land
                     </label>
                     <select
-                      name="project_type"
-                      value={projectForm.project_type}
+                      name="address_country"
+                      value={projectForm.address_country}
                       onChange={handleProjectFormChange}
-                      required
                       className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59] text-white"
                     >
-                      <option value="new_build">Neubau</option>
-                      <option value="renovation">Renovierung</option>
-                      <option value="extension">Anbau</option>
-                      <option value="refurbishment">Sanierung</option>
+                      <option value="Deutschland">Deutschland</option>
+                      <option value="Schweiz">Schweiz</option>
+                      <option value="Österreich">Österreich</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Projekttyp */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-200 mb-2">
+                    Projekttyp *
+                  </label>
+                  <select
+                    name="project_type"
+                    value={projectForm.project_type}
+                    onChange={handleProjectFormChange}
+                    required
+                    className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59] text-white"
+                  >
+                    <option value="new_build">Neubau</option>
+                    <option value="renovation">Renovierung</option>
+                    <option value="extension">Anbau</option>
+                    <option value="refurbishment">Sanierung</option>
+                  </select>
                 </div>
 
                 {/* Bauphasen-Auswahl (nur bei Neubau) */}
@@ -878,22 +895,6 @@ export default function Navbar() {
                         placeholder="z.B. München"
                       />
                     </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-2">
-                      Land
-                    </label>
-                    <select
-                      name="address_country"
-                      value={projectForm.address_country}
-                      onChange={handleProjectFormChange}
-                      className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59] text-white"
-                    >
-                      <option value="Deutschland">Deutschland</option>
-                      <option value="Schweiz">Schweiz</option>
-                      <option value="Österreich">Österreich</option>
-                    </select>
                   </div>
                 </div>
 

@@ -22,8 +22,103 @@ import {
   Eye, 
   X, 
   AlertTriangle,
-  Star
+  Star,
+  Building,
+  Calculator,
+  Hammer,
+  Camera,
+  FileCheck,
+  Settings,
+  FolderOpen,
+  CheckCircle,
+  Plus,
+  Info
 } from 'lucide-react';
+
+// DMS-Kategorien (synchron mit Backend)
+const DOCUMENT_CATEGORIES = {
+  planning: {
+    name: 'Planung & Genehmigung',
+    icon: Building,
+    color: 'blue',
+    subcategories: [
+      'Baupläne & Grundrisse',
+      'Baugenehmigungen',
+      'Statische Berechnungen',
+      'Energieausweise',
+      'Vermessungsunterlagen'
+    ]
+  },
+  contracts: {
+    name: 'Verträge & Rechtliches',
+    icon: FileText,
+    color: 'green',
+    subcategories: [
+      'Bauverträge',
+      'Nachträge',
+      'Versicherungen',
+      'Gewährleistungen',
+      'Mängelrügen'
+    ]
+  },
+  finance: {
+    name: 'Finanzen & Abrechnung',
+    icon: Calculator,
+    color: 'yellow',
+    subcategories: [
+      'Rechnungen',
+      'Kostenvoranschläge',
+      'Leistungsverzeichnisse',
+      'Zahlungsbelege',
+      'Änderungsaufträge',
+      'Schlussrechnungen'
+    ]
+  },
+  execution: {
+    name: 'Ausführung & Handwerk',
+    icon: Hammer,
+    color: 'orange',
+    subcategories: [
+      'Lieferscheine',
+      'Materialbelege',
+      'Abnahmeprotokolle',
+      'Prüfberichte',
+      'Zertifikate',
+      'Arbeitsanweisungen'
+    ]
+  },
+  documentation: {
+    name: 'Dokumentation & Medien',
+    icon: Camera,
+    color: 'purple',
+    subcategories: [
+      'Baufortschrittsfotos',
+      'Mängeldokumentation',
+      'Bestandsdokumentation',
+      'Videos',
+      'Baustellenberichte'
+    ]
+  },
+  order_confirmations: {
+    name: 'Auftragsbestätigungen',
+    icon: FileCheck,
+    color: 'indigo',
+    subcategories: [
+      'Auftragsbestätigungen',
+      'Bestellbestätigungen',
+      'Leistungsbestätigungen'
+    ]
+  }
+};
+
+interface UploadFile {
+  file: File;
+  category?: string;
+  subcategory?: string;
+  status: 'pending' | 'uploading' | 'success' | 'error';
+  progress: number;
+  error?: string;
+}
 
 interface Project {
   id: number;
@@ -99,6 +194,11 @@ export default function Dashboard() {
     is_public: false,
     allow_quotes: true
   });
+
+  // State für Dokumenten-Upload (vollständiges DMS-System)
+  const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const fileInputRef = React.createRef<HTMLInputElement>();
 
   // Bauphasen je nach Land
   const getConstructionPhases = (country: string) => {
@@ -315,6 +415,9 @@ export default function Dashboard() {
       is_public: false,
       allow_quotes: true
     });
+    // Reset document upload state
+    setUploadFiles([]);
+    setShowUploadModal(false);
   };
 
   const handleProjectFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -356,6 +459,44 @@ export default function Dashboard() {
       const newProject = await createProject(projectData);
       console.log('✅ Neues Projekt erstellt:', newProject);
 
+      // Upload documents if any
+      if (uploadFiles.length > 0) {
+        console.log('📄 Lade Dokumente ins DMS hoch...');
+        // Setze project_id für alle Upload-Dateien
+        for (let i = 0; i < uploadFiles.length; i++) {
+          const uploadFile = uploadFiles[i];
+          
+          // Nur kategorisierte Dateien hochladen
+          if (!uploadFile.category) {
+            console.warn(`⚠️ Dokument ${uploadFile.file.name} wurde nicht kategorisiert und wird übersprungen`);
+            continue;
+          }
+          
+          try {
+            const formData = new FormData();
+            formData.append('project_id', newProject.id.toString());
+            formData.append('file', uploadFile.file);
+            formData.append('title', uploadFile.file.name.replace(/\.[^/.]+$/, ""));
+            formData.append('description', '');
+            
+            // Konvertiere Frontend-Kategorie zu Backend-Format (lowercase)
+            const backendCategory = uploadFile.category.toLowerCase();
+            formData.append('category', backendCategory);
+            
+            if (uploadFile.subcategory) {
+              formData.append('subcategory', uploadFile.subcategory);
+            }
+            formData.append('document_type', getDocumentTypeFromFile(uploadFile.file.name));
+
+            await uploadDocument(formData);
+            console.log(`✅ Dokument ${uploadFile.file.name} erfolgreich hochgeladen`);
+          } catch (error) {
+            console.error(`❌ Fehler beim Upload von ${uploadFile.file.name}:`, error);
+          }
+        }
+        console.log('✅ Alle kategorisierten Dokumente wurden verarbeitet');
+      }
+
       // Schließe Modal und lade Projekte neu
       handleCloseCreateProjectModal();
       await loadProjects();
@@ -369,6 +510,118 @@ export default function Dashboard() {
     } finally {
       setIsCreatingProject(false);
     }
+  };
+
+  // Dokumenten-Upload-Funktionen (vollständiges DMS-System)
+  const getFileIcon = (file: File) => {
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return FileText;
+      case 'doc':
+      case 'docx':
+        return FileText;
+      case 'xls':
+      case 'xlsx':
+        return Calculator;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return Camera;
+      case 'mp4':
+      case 'mov':
+      case 'avi':
+        return Camera;
+      default:
+        return FileText;
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getDocumentTypeFromFile = (fileName: string) => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf': return 'PDF';
+      case 'doc':
+      case 'docx': return 'WORD';
+      case 'xls':
+      case 'xlsx': return 'EXCEL';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif': return 'IMAGE';
+      case 'mp4':
+      case 'mov':
+      case 'avi': return 'VIDEO';
+      default: return 'OTHER';
+    }
+  };
+
+  const handleFilesSelected = (files: File[]) => {
+    const newUploadFiles: UploadFile[] = files.map(file => ({
+      file,
+      status: 'pending',
+      progress: 0
+    }));
+    
+    setUploadFiles(newUploadFiles);
+    setShowUploadModal(true);
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    handleFilesSelected(files);
+  };
+
+  const assignCategoryToFile = (index: number, category: string, subcategory?: string) => {
+    setUploadFiles(prev => prev.map((file, i) => 
+      i === index ? { ...file, category, subcategory } : file
+    ));
+  };
+
+  const removeUploadFile = (index: number) => {
+    setUploadFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadDocument = async (formData: FormData) => {
+    const response = await fetch('/api/v1/documents/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(errorData || 'Upload fehlgeschlagen');
+    }
+
+    return await response.json();
+  };
+
+  const confirmDocumentCategorization = () => {
+    // Markiere alle Dateien als kategorisiert
+    const allCategorized = uploadFiles.every(f => f.category);
+    
+    if (!allCategorized) {
+      alert('Bitte kategorisieren Sie alle Dokumente bevor Sie fortfahren.');
+      return;
+    }
+
+    // Schließe das Modal - die Dokumente werden beim "Projekt erstellen" hochgeladen
+    setShowUploadModal(false);
+    
+    // Zeige Bestätigungsmeldung
+    console.log('✅ Dokumente kategorisiert und bereit zum Upload beim Projekt erstellen');
   };
 
   // Handler für FloatingActionButton
@@ -1034,21 +1287,38 @@ export default function Dashboard() {
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-200 mb-3">
-                      Projekttyp *
+                      Land
                     </label>
                     <select
-                      name="project_type"
-                      value={projectForm.project_type}
+                      name="address_country"
+                      value={projectForm.address_country}
                       onChange={handleProjectFormChange}
-                      required
                       className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
                     >
-                      <option value="new_build">Neubau</option>
-                      <option value="renovation">Renovierung</option>
-                      <option value="extension">Anbau</option>
-                      <option value="refurbishment">Sanierung</option>
+                      <option value="Deutschland">Deutschland</option>
+                      <option value="Schweiz">Schweiz</option>
+                      <option value="Österreich">Österreich</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Projekttyp */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-200 mb-3">
+                    Projekttyp *
+                  </label>
+                  <select
+                    name="project_type"
+                    value={projectForm.project_type}
+                    onChange={handleProjectFormChange}
+                    required
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
+                  >
+                    <option value="new_build">Neubau</option>
+                    <option value="renovation">Renovierung</option>
+                    <option value="extension">Anbau</option>
+                    <option value="refurbishment">Sanierung</option>
+                  </select>
                 </div>
 
                 {/* Bauphasen-Auswahl (nur für Neubau) */}
@@ -1152,22 +1422,6 @@ export default function Dashboard() {
                       />
                     </div>
                   </div>
-                  
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-200 mb-3">
-                      Land
-                    </label>
-                    <select
-                      name="address_country"
-                      value={projectForm.address_country}
-                      onChange={handleProjectFormChange}
-                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
-                    >
-                      <option value="Deutschland">Deutschland</option>
-                      <option value="Schweiz">Schweiz</option>
-                      <option value="Österreich">Österreich</option>
-                    </select>
-                  </div>
                 </div>
 
                 {/* Projektdetails */}
@@ -1242,6 +1496,83 @@ export default function Dashboard() {
                       className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
                     />
                   </div>
+                </div>
+
+                {/* Dokumente hochladen */}
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
+                      Projekt-Dokumente (optional)
+                    </label>
+                    <div className="border-2 border-dashed border-gray-600 rounded-xl p-8 text-center hover:border-[#ffbd59] transition-all duration-200">
+                      <div className="space-y-4">
+                        <div className="mx-auto w-16 h-16 bg-[#ffbd59]/10 rounded-full flex items-center justify-center">
+                          <Upload className="w-8 h-8 text-[#ffbd59]" />
+                        </div>
+                        <div>
+                          <p className="text-white font-medium mb-2">Dokumente zum Projekt hochladen</p>
+                          <p className="text-gray-400 text-sm mb-4">
+                            Baupläne, Genehmigungen, Verträge und andere relevante Dokumente
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="bg-[#ffbd59] hover:bg-[#ffa726] text-[#1a1a2e] px-6 py-3 rounded-lg font-medium transition-colors"
+                          >
+                            Dateien auswählen
+                          </button>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            multiple
+                            onChange={handleFileInputChange}
+                            className="hidden"
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.mp4,.mov,.avi"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ausgewählte Dateien Anzeige */}
+                  {uploadFiles.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                        <div className="flex items-center gap-2 text-blue-300 mb-3">
+                          <FileText className="w-5 h-5" />
+                          <span className="font-medium">
+                            {uploadFiles.length} Datei{uploadFiles.length !== 1 ? 'en' : ''} ausgewählt
+                          </span>
+                        </div>
+                        
+                        {/* Liste der Dokumente */}
+                        <div className="space-y-2 mb-3">
+                          {uploadFiles.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between bg-[#2c3539]/30 rounded-lg px-3 py-2">
+                              <div className="flex items-center gap-2 flex-1">
+                                <FileText className="w-4 h-4 text-gray-400" />
+                                <span className="text-sm text-gray-300 truncate">{file.file.name}</span>
+                                <span className="text-xs text-gray-500">({formatFileSize(file.file.size)})</span>
+                              </div>
+                              {file.category && (
+                                <div className="flex items-center gap-2">
+                                  <CheckCircle className="w-4 h-4 text-green-400" />
+                                  <span className="text-xs text-green-400">Kategorisiert</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        
+                        <p className="text-blue-200 text-sm">
+                          {uploadFiles.some(f => f.category) 
+                            ? `${uploadFiles.filter(f => f.category).length} von ${uploadFiles.length} Dokumenten kategorisiert. Diese werden beim Klick auf "Projekt erstellen" ins DMS hochgeladen.`
+                            : 'Die Dokumente werden nach der Kategorisierung beim Projekt erstellen ins DMS hochgeladen.'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Einstellungen */}
@@ -1353,6 +1684,163 @@ export default function Dashboard() {
         onCreateTodo={handleCreateTodo}
         onCreateExpense={handleCreateExpense}
       />
+
+      {/* DMS Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden border border-gray-700">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white">Dokumente kategorisieren</h2>
+                <button
+                  onClick={() => {
+                    setShowUploadModal(false);
+                    setUploadFiles([]);
+                  }}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+                
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(80vh-140px)]">
+              {/* Info Banner */}
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-4">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-blue-400 mt-0.5" />
+                  <div>
+                    <p className="text-blue-300 font-medium">Hinweis zur Dokumentenverwaltung</p>
+                    <p className="text-blue-200 text-sm mt-1">
+                      Bitte kategorisieren Sie hier Ihre Dokumente. Der eigentliche Upload erfolgt automatisch beim Klick auf "Projekt erstellen".
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                {uploadFiles.map((uploadFile, index) => (
+                  <div key={index} className="bg-[#3d4952]/50 rounded-lg p-4 border border-gray-600">
+                    <div className="flex items-start gap-4">
+                      {/* File Info */}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileText className="w-5 h-5 text-blue-400" />
+                          <span className="font-medium text-white">{uploadFile.file.name}</span>
+                          <span className="text-sm text-gray-400">
+                            ({formatFileSize(uploadFile.file.size)})
+                          </span>
+                        </div>
+
+                        {/* Category Selection */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">
+                              Kategorie
+                            </label>
+                            <select
+                              value={uploadFile.category || ''}
+                              onChange={(e) => assignCategoryToFile(index, e.target.value)}
+                              className="w-full bg-[#2c3539] border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                            >
+                              <option value="">Kategorie wählen...</option>
+                              {Object.entries(DOCUMENT_CATEGORIES).map(([key, category]) => (
+                                <option key={key} value={key}>{category.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                
+                          {uploadFile.category && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-300 mb-1">
+                                Unterkategorie
+                              </label>
+                              <select
+                                value={uploadFile.subcategory || ''}
+                                onChange={(e) => assignCategoryToFile(index, uploadFile.category!, e.target.value)}
+                                className="w-full bg-[#2c3539] border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                              >
+                                <option value="">Unterkategorie wählen...</option>
+                                {DOCUMENT_CATEGORIES[uploadFile.category as keyof typeof DOCUMENT_CATEGORIES]?.subcategories.map(sub => (
+                                  <option key={sub} value={sub}>{sub}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                
+                        {/* Progress Bar */}
+                        {uploadFile.status === 'uploading' && (
+                          <div className="mt-3">
+                            <div className="bg-[#2c3539] rounded-full h-2">
+                              <div 
+                                className="bg-[#ffbd59] h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${uploadFile.progress}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Status */}
+                        {uploadFile.status === 'success' && (
+                          <div className="mt-2 flex items-center gap-2 text-green-400">
+                            <CheckCircle className="w-4 h-4" />
+                            <span className="text-sm">Upload erfolgreich</span>
+                          </div>
+                        )}
+
+                        {uploadFile.status === 'error' && (
+                          <div className="mt-2 flex items-center gap-2 text-red-400">
+                            <AlertTriangle className="w-4 h-4" />
+                            <span className="text-sm">{uploadFile.error || 'Upload fehlgeschlagen'}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Remove Button */}
+                      {uploadFile.status === 'pending' && (
+                        <button
+                          onClick={() => removeUploadFile(index)}
+                          className="text-gray-400 hover:text-red-400 transition-colors"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-700 flex items-center justify-between">
+              <div className="text-sm text-gray-400">
+                {uploadFiles.length} Datei{uploadFiles.length !== 1 ? 'en' : ''} ausgewählt
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setShowUploadModal(false);
+                    setUploadFiles([]);
+                  }}
+                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  onClick={confirmDocumentCategorization}
+                  disabled={uploadFiles.some(f => !f.category)}
+                  className="bg-[#ffbd59] hover:bg-[#ffa726] disabled:bg-[#2c3539] disabled:cursor-not-allowed text-[#1a1a2e] disabled:text-gray-400 px-6 py-2 rounded-lg font-medium transition-colors"
+                >
+                  Kategorisierung bestätigen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

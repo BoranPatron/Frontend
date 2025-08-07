@@ -309,6 +309,22 @@ export default function ProjectCreationModal({ isOpen, onClose, onSubmit }: Proj
 
                       <div>
                         <label className="block text-sm font-medium text-gray-200 mb-2">
+                          Land
+                        </label>
+                        <select
+                          name="address_country"
+                          value={formData.address_country}
+                          onChange={handleFormChange}
+                          className="w-full px-4 py-3 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59] text-white"
+                        >
+                          <option value="CH">Schweiz</option>
+                          <option value="DE">Deutschland</option>
+                          <option value="AT">Österreich</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-200 mb-2">
                           Projekttyp *
                         </label>
                         <select
@@ -391,22 +407,6 @@ export default function ProjectCreationModal({ isOpen, onClose, onSubmit }: Proj
                           />
                           {errors.address_city && <p className="text-red-400 text-sm mt-1">{errors.address_city}</p>}
                         </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-200 mb-2">
-                          Land
-                        </label>
-                        <select
-                          name="address_country"
-                          value={formData.address_country}
-                          onChange={handleFormChange}
-                          className="w-full px-4 py-3 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59] text-white"
-                        >
-                          <option value="CH">Schweiz</option>
-                          <option value="DE">Deutschland</option>
-                          <option value="AT">Österreich</option>
-                        </select>
                       </div>
                     </div>
                   </div>

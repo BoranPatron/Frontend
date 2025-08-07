@@ -10,5 +10,12 @@ export default defineConfig({
     strictPort: false, // Erlaubt automatische Port-Suche falls 5173 belegt ist
     open: false, // Öffnet Browser nicht automatisch
     cors: true, // Aktiviert CORS für Cross-Origin Requests
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
   },
 })
