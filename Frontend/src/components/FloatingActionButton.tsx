@@ -36,6 +36,7 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
           <button
             onClick={() => handleOptionClick(onCreateProject)}
             className="flex items-center gap-3 bg-gradient-to-r from-[#1a1a2e] to-[#16213e] text-white px-4 py-3 rounded-lg shadow-lg border border-gray-600 hover:border-[#ffbd59] transition-all duration-200 transform hover:scale-105"
+            data-tour-id="fab-create-project"
           >
             <div className="w-10 h-10 bg-[#ffbd59] rounded-full flex items-center justify-center">
               <FileText size={20} className="text-[#1a1a2e]" />
@@ -94,6 +95,7 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
       <button
         onClick={toggleMenu}
         className="w-16 h-16 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] hover:from-[#ffa726] hover:to-[#ff9800] text-[#1a1a2e] rounded-full shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-110 flex items-center justify-center"
+        data-tour-id="fab-main"
       >
         <Plus size={24} className={`transition-transform duration-200 ${isOpen ? 'rotate-45' : ''}`} />
       </button>

@@ -34,6 +34,7 @@ import {
   Plus,
   Info
 } from 'lucide-react';
+import GuidedTourOverlay from '../components/Onboarding/GuidedTourOverlay';
 
 // DMS-Kategorien (synchron mit Backend)
 const DOCUMENT_CATEGORIES = {
@@ -171,6 +172,7 @@ export default function Dashboard() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [showTour, setShowTour] = useState(false);
   
   // State für Projekt-Erstellung
   const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
@@ -316,6 +318,17 @@ export default function Dashboard() {
       navigate('/login?message=please_login');
     }
   }, [isInitialized, isAuthenticated, navigate]);
+
+  // Zeige geführte Tour für Erstbenutzer (nach Rollenauswahl) einmalig
+  useEffect(() => {
+    if (isInitialized && user && (user as any).role_selected) {
+      const cf = (user as any).consent_fields || {};
+      const tourCompleted = cf?.dashboard_tour?.completed === true;
+      if (!tourCompleted) {
+        setShowTour(true);
+      }
+    }
+  }, [isInitialized, user]);
 
   // Swipe-Handler für Projekt-Navigation
   const handleSwipe = (direction: 'left' | 'right') => {
@@ -957,7 +970,7 @@ export default function Dashboard() {
       {/* Header mit Projekt-Informationen */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+          <h1 className="text-3xl font-bold text-white" data-tour-id="dashboard-title">Dashboard</h1>
           <div className="flex items-center space-x-2">
             <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-400' : 'bg-red-400'}`}></div>
             <span className="text-sm text-gray-300">{isOnline ? 'Online' : 'Offline'}</span>
@@ -988,6 +1001,7 @@ export default function Dashboard() {
                 <button
                   onClick={handleProjectDetailsClick}
                   className="bg-[#ffbd59] text-[#2c3539] px-4 py-2 rounded-lg font-medium hover:bg-[#ffa726] transition-colors flex items-center gap-2"
+                  data-tour-id="project-details"
                 >
                   <Eye size={16} />
                   Details
@@ -1248,7 +1262,7 @@ export default function Dashboard() {
 
       {/* Projekt-Erstellungs-Modal */}
       {showCreateProjectModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" data-tour-id="create-project-modal">
           <div className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] text-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             {/* Header mit Gradient */}
             <div className="bg-gradient-to-r from-[#3d4952]/95 to-[#51646f]/95 backdrop-blur-lg text-white px-6 py-4 rounded-t-2xl border-b border-[#ffbd59]/20">
@@ -1684,6 +1698,14 @@ export default function Dashboard() {
         onCreateTodo={handleCreateTodo}
         onCreateExpense={handleCreateExpense}
       />
+
+      {/* Geführte Dashboard-Tour */}
+      {showTour && (
+        <GuidedTourOverlay
+          onClose={() => setShowTour(false)}
+          onCompleted={() => setShowTour(false)}
+        />
+      )}
 
       {/* DMS Upload Modal */}
       {showUploadModal && (

@@ -184,6 +184,7 @@ export default function DashboardCard({
       onClick={onClick}
       aria-label={ariaLabel}
       type="button"
+      data-tour-id={cardId}
     >
       {/* Animated Background Glow */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59]/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
