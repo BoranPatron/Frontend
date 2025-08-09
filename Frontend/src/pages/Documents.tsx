@@ -303,6 +303,14 @@ const Documents: React.FC = () => {
   // State für Upload
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  // Query-Param zum direkten Öffnen des Upload-Modals
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const shouldOpenUpload = params.get('create') === 'upload';
+    if (shouldOpenUpload) {
+      setShowUploadModal(true);
+    }
+  }, [location.search]);
   const [dragOver, setDragOver] = useState(false);
   
   // State für Sidebar

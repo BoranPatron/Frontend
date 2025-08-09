@@ -159,10 +159,15 @@ export default function Finance() {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const projectId = urlParams.get('project');
+    const createExpense = urlParams.get('create') === 'expense';
     if (projectId) {
       setSelectedProject(projectId);
     }
     loadProjects();
+    // Optional: direkt Ausgaben-Modal öffnen
+    if (createExpense) {
+      setShowAddExpenseModal(true);
+    }
   }, [location.search]);
 
   // Automatisch das erste Projekt auswählen, wenn keines in der URL steht

@@ -93,7 +93,8 @@ interface FavoriteItem {
 
 export default function Navbar() {
   const { user, logout, isServiceProvider } = useAuth();
-  const pathname = useLocation().pathname;
+  const location = useLocation();
+  const pathname = location.pathname;
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [showFavoritesManager, setShowFavoritesManager] = useState(false);
@@ -160,6 +161,16 @@ export default function Navbar() {
       window.removeEventListener('favoritesChanged', handleCustomStorageChange);
     };
   }, []);
+
+  // Öffne Projekt-Erstellungs-Modal, wenn ?create=project in der URL steht
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('create') === 'project') {
+      setShowCreateProjectModal(true);
+      // Query-Param entfernen, damit ein Refresh nicht erneut öffnet
+      window.history.replaceState({}, '', pathname);
+    }
+  }, [location.search, pathname]);
 
   const renderIcon = (iconString: string) => {
     const iconMap: { [key: string]: React.ReactNode } = {

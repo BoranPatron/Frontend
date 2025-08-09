@@ -205,7 +205,10 @@ export function RadialMenuAdvanced({
         id: "create-project",
         label: "Neues Projekt",
         icon: <FolderPlus size={20} />,
-        onSelect: () => navigate('/projects/create'),
+        onSelect: () => {
+          // Öffnet das globale Projekt-Erstellungs-Modal über URL-Parameter
+          navigate(`${window.location.pathname}?create=project`);
+        },
         color: "#ffbd59",
         description: "Projekt erstellen",
         ring: 2
@@ -215,10 +218,11 @@ export function RadialMenuAdvanced({
         label: "Neue Aufgabe",
         icon: <ListPlus size={20} />,
         onSelect: () => {
+          // Öffnet die Aufgaben-Seite, optional mit Create-Hinweis
           if (projectId) {
-            navigate(`/tasks/create?project=${projectId}`);
+            navigate(`/tasks?project=${projectId}&create=task`);
           } else {
-            navigate('/tasks/create');
+            navigate('/tasks?create=task');
           }
         },
         color: "#10B981",
@@ -230,10 +234,11 @@ export function RadialMenuAdvanced({
         label: "Neue Ausgabe",
         icon: <Receipt size={20} />,
         onSelect: () => {
+          // Öffnet Finanzen und triggert Ausgaben-Modal via Query-Param
           if (projectId) {
-            navigate(`/finance/expense/create?project=${projectId}`);
+            navigate(`/finance?project=${projectId}&create=expense`);
           } else {
-            navigate('/finance/expense/create');
+            navigate('/finance?create=expense');
           }
         },
         color: "#F59E0B",
@@ -245,10 +250,11 @@ export function RadialMenuAdvanced({
         label: "Neues Gewerk",
         icon: <Hammer size={20} />,
         onSelect: () => {
+          // Öffnet Gewerke und triggert Gewerk-Formular via Query-Param
           if (projectId) {
-            navigate(`/quotes/create?project=${projectId}`);
+            navigate(`/quotes?project=${projectId}&create=trade`);
           } else {
-            navigate('/quotes/create');
+            navigate('/quotes?create=trade');
           }
         },
         color: "#8B5CF6",
@@ -260,10 +266,11 @@ export function RadialMenuAdvanced({
         label: "Upload",
         icon: <Upload size={20} />,
         onSelect: () => {
+          // Öffnet DMS und triggert Upload-Modal via Query-Param
           if (projectId) {
-            navigate(`/documents/upload?project=${projectId}`);
+            navigate(`/documents?project=${projectId}&create=upload`);
           } else {
-            navigate('/documents/upload');
+            navigate('/documents?create=upload');
           }
         },
         color: "#4F46E5",
@@ -329,6 +336,9 @@ export function RadialMenuAdvanced({
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         setOpen(true);
+        if (enableSecondRing) {
+          setShowCreateMenu(true);
+        }
       }
       return;
     }
@@ -673,6 +683,9 @@ export function RadialMenuAdvanced({
           onClick={() => {
             if (!open) {
               setOpen(true);
+              if (enableSecondRing) {
+                setShowCreateMenu(true);
+              }
             } else {
               setOpen(false);
               setShowCreateMenu(false);

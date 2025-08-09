@@ -428,6 +428,14 @@ export default function Trades() {
 
   // Neue State-Variablen für TradeCreationForm
   const [showTradeCreationForm, setShowTradeCreationForm] = useState(false);
+  // Query-Param zum direkten Öffnen des Gewerk-Formulars
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const shouldOpenTradeCreate = params.get('create') === 'trade';
+    if (shouldOpenTradeCreate) {
+      setShowTradeCreationForm(true);
+    }
+  }, [location.search]);
   const [showCostEstimateForm, setShowCostEstimateForm] = useState(false);
   const [selectedTradeForEstimate, setSelectedTradeForEstimate] = useState<Trade | null>(null);
   const [selectedTradeForCostEstimate, setSelectedTradeForCostEstimate] = useState<Trade | null>(null);
