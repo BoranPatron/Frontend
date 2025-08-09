@@ -32,6 +32,7 @@ export interface User {
   subscription_plan?: string;
   user_type?: string;
   created_at?: string; // Hinzugefügt für neue User-Erkennung
+  consent_fields?: Record<string, any> | null;
 }
 
 export class OnboardingManager {
@@ -117,6 +118,17 @@ export class OnboardingManager {
         currentStep: OnboardingStep.ROLE_SELECTION,
         isFirstTimeUser: false,
         reason: "Keine Rolle ausgewählt - Rollenauswahl erforderlich"
+      };
+    }
+
+    // 3b. Dashboard-Tour prüfen: Wenn Rolle existiert, aber Tour nicht abgeschlossen → Tour zeigen
+    const tourCompleted = !!(user.consent_fields && user.consent_fields.dashboard_tour && user.consent_fields.dashboard_tour.completed);
+    if (user.role_selected && user.user_role && !tourCompleted) {
+      return {
+        needsOnboarding: true,
+        currentStep: OnboardingStep.COMPLETED,
+        isFirstTimeUser: true,
+        reason: 'Dashboard-Tour noch nicht abgeschlossen'
       };
     }
 

@@ -56,6 +56,11 @@ interface TradeProgressProps {
   completionStatus: string;
   onCompletionRequest?: () => void;
   onCompletionResponse?: (accepted: boolean, message?: string, deadline?: string) => void;
+  /**
+   * Wenn true, blendet die Kommandos "Abnahme bestätigen" und
+   * "Nachbesserung anfordern" aus (z. B. im CostEstimateDetailsModal).
+   */
+  hideCompletionResponseControls?: boolean;
 }
 
 export default function TradeProgress({
@@ -66,7 +71,8 @@ export default function TradeProgress({
   isServiceProvider,
   completionStatus,
   onCompletionRequest,
-  onCompletionResponse
+  onCompletionResponse,
+  hideCompletionResponseControls = false
 }: TradeProgressProps) {
   const [updates, setUpdates] = useState<ProgressUpdate[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -570,7 +576,7 @@ export default function TradeProgress({
           )}
           
           {/* Completion Status Messages */}
-          {completionStatus === 'completion_requested' && isBautraeger && (
+          {completionStatus === 'completion_requested' && isBautraeger && !hideCompletionResponseControls && (
             <div className="p-6 border-t border-gray-600/30 bg-yellow-500/10">
               <p className="text-yellow-300 mb-4">
                 Der Dienstleister hat das Gewerk als fertiggestellt gemeldet. Bitte prüfen Sie die Arbeiten.

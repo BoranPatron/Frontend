@@ -114,10 +114,10 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'CRITICAL': return 'text-red-600 bg-red-50 border-red-200';
-      case 'MAJOR': return 'text-orange-600 bg-orange-50 border-orange-200';
-      case 'MINOR': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+      case 'CRITICAL': return 'text-red-300 bg-red-500/15 border-red-500/30';
+      case 'MAJOR': return 'text-orange-300 bg-orange-500/15 border-orange-500/30';
+      case 'MINOR': return 'text-yellow-300 bg-yellow-500/15 border-yellow-500/30';
+      default: return 'text-gray-300 bg-gray-600/20 border-gray-600/40';
     }
   };
 
@@ -133,30 +133,28 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] text-white rounded-xl border border-gray-600/30 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div 
-          className="flex items-center justify-between p-6 border-b border-gray-200"
-          style={{ backgroundColor: '#51636f0a' }}
+          className="flex items-center justify-between p-6 border-b border-gray-600/30 bg-[#1a1a2e]/60"
         >
           <div className="flex items-center space-x-3">
             <div 
-              className="w-10 h-10 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: '#51636f' }}
+              className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-[#ffbd59] to-[#ffa726] shadow-inner"
             >
-              <CheckCircle className="w-5 h-5 text-white" />
+              <CheckCircle className="w-5 h-5 text-[#1a1a2e]" />
             </div>
             <div>
-              <h2 className="text-xl font-bold" style={{ color: '#51636f' }}>
+              <h2 className="text-xl font-bold text-white">
                 Finale Abnahme
               </h2>
-              <p className="text-sm text-gray-600">{milestoneTitle}</p>
+              <p className="text-sm text-gray-300">{milestoneTitle}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -165,18 +163,18 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
         {/* Content */}
         <div className="p-6 space-y-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-red-600 text-sm">{error}</p>
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+              <p className="text-red-300 text-sm">{error}</p>
             </div>
           )}
 
           {/* Anleitung */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
             <div className="flex items-start space-x-3">
-              <FileText className="w-5 h-5 text-blue-600 mt-0.5" />
+              <FileText className="w-5 h-5 text-blue-300 mt-0.5" />
               <div>
-                <h3 className="font-semibold text-blue-900 mb-2">Abnahme-Checkliste</h3>
-                <p className="text-blue-700 text-sm">
+                <h3 className="font-semibold text-blue-200 mb-2">Abnahme-Checkliste</h3>
+                <p className="text-blue-200/90 text-sm">
                   Prüfen Sie alle dokumentierten Mängel und bestätigen Sie deren Behebung. 
                   Erst wenn alle Mängel als behoben markiert sind, kann die finale Abnahme erfolgen.
                 </p>
@@ -192,9 +190,9 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
             
             {defects.length === 0 ? (
               <div className="text-center py-8">
-                <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                <p className="text-gray-600">Keine Mängel dokumentiert</p>
-                <p className="text-sm text-gray-500">Das Gewerk kann ohne Einschränkungen abgenommen werden.</p>
+                <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
+                <p className="text-gray-300">Keine Mängel dokumentiert</p>
+                <p className="text-sm text-gray-400">Das Gewerk kann ohne Einschränkungen abgenommen werden.</p>
 
               </div>
             ) : (
@@ -204,8 +202,8 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
                     key={defect.id}
                     className={`border rounded-lg p-4 transition-all duration-200 ${
                       checkedDefects.has(defect.id) 
-                        ? 'bg-green-50 border-green-200' 
-                        : 'bg-white border-gray-200'
+                        ? 'bg-green-500/10 border-green-500/20' 
+                        : 'bg-white/5 border-gray-600/30'
                     }`}
                   >
                     <div className="flex items-start space-x-4">
@@ -215,7 +213,7 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
                         className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
                           checkedDefects.has(defect.id)
                             ? 'border-green-500 bg-green-500'
-                            : 'border-gray-300 hover:border-green-400'
+                            : 'border-gray-500 hover:border-green-400'
                         }`}
                       >
                         {checkedDefects.has(defect.id) && (
@@ -227,7 +225,7 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <h4 className={`font-semibold ${
-                            checkedDefects.has(defect.id) ? 'line-through text-gray-500' : 'text-gray-900'
+                            checkedDefects.has(defect.id) ? 'line-through text-gray-500' : 'text-white'
                           }`}>
                             {defect.title}
                           </h4>
@@ -237,20 +235,20 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
                         </div>
                         
                         <p className={`text-sm mb-2 ${
-                          checkedDefects.has(defect.id) ? 'line-through text-gray-500' : 'text-gray-600'
+                          checkedDefects.has(defect.id) ? 'line-through text-gray-500' : 'text-gray-300'
                         }`}>
                           {defect.description}
                         </p>
                         
                         {(defect.room || defect.location) && (
-                          <div className="flex items-center gap-4 text-xs text-gray-500 mb-2">
+                          <div className="flex items-center gap-4 text-xs text-gray-400 mb-2">
                             {defect.room && <span>📍 {defect.room}</span>}
                             {defect.location && <span>🏠 {defect.location}</span>}
                           </div>
                         )}
 
                         {defect.photos && defect.photos.length > 0 && (
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <div className="flex items-center gap-2 text-xs text-gray-400">
                             <span>📸 {defect.photos.length} Foto{defect.photos.length !== 1 ? 's' : ''}</span>
                           </div>
                         )}
@@ -259,12 +257,12 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
                       {/* Status-Indikator */}
                       <div className="flex items-center">
                         {checkedDefects.has(defect.id) ? (
-                          <div className="flex items-center text-green-600 text-sm">
+                          <div className="flex items-center text-green-400 text-sm">
                             <CheckCircle className="w-4 h-4 mr-1" />
                             Behoben
                           </div>
                         ) : (
-                          <div className="flex items-center text-orange-600 text-sm">
+                          <div className="flex items-center text-orange-300 text-sm">
                             <AlertCircle className="w-4 h-4 mr-1" />
                             Offen
                           </div>
@@ -278,14 +276,14 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
           </div>
 
           {/* Status-Übersicht */}
-          <div className="bg-gray-50 rounded-lg p-4">
+          <div className="bg-white/5 rounded-lg p-4 border border-gray-600/30">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className="text-sm text-gray-600">
-                  Behobene Mängel: <span className="font-semibold">{checkedDefects.size}</span> von <span className="font-semibold">{defects.length}</span>
+                <div className="text-sm text-gray-300">
+                  Behobene Mängel: <span className="font-semibold text-white">{checkedDefects.size}</span> von <span className="font-semibold text-white">{defects.length}</span>
                 </div>
                 {allDefectsResolved && (
-                  <div className="flex items-center text-green-600 text-sm">
+                  <div className="flex items-center text-green-400 text-sm">
                     <CheckCircle className="w-4 h-4 mr-1" />
                     Alle Mängel behoben
                   </div>
@@ -294,12 +292,12 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
               
               {/* Fortschrittsbalken */}
               <div className="w-32">
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-gray-700 rounded-full h-2">
                   <div 
                     className="h-2 rounded-full transition-all duration-500"
                     style={{ 
                       width: `${defects.length > 0 ? (checkedDefects.size / defects.length) * 100 : 100}%`,
-                      background: `linear-gradient(to right, #ffbd59, #ff9500)`
+                      background: `linear-gradient(to right, #ffbd59, #ffa726)`
                     }}
                   />
                 </div>
@@ -309,31 +307,20 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-600/30 bg-[#1a1a2e]">
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="px-6 py-2 text-gray-600 hover:text-gray-800 font-medium"
+            className="px-6 py-2 text-gray-300 hover:text-white font-medium"
           >
             Abbrechen
           </button>
           <button
             onClick={handleFinalAcceptance}
             disabled={!allDefectsResolved || isLoading}
-            className="flex items-center px-6 py-2 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ 
-              backgroundColor: allDefectsResolved ? '#ffbd59' : '#9ca3af'
-            }}
-            onMouseEnter={(e) => {
-              if (allDefectsResolved && !isLoading) {
-                e.currentTarget.style.backgroundColor = '#ff9500';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (allDefectsResolved && !isLoading) {
-                e.currentTarget.style.backgroundColor = '#ffbd59';
-              }
-            }}
+            className={`flex items-center px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
+              allDefectsResolved ? 'bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#1a1a2e]' : 'bg-gray-600 text-gray-300'
+            }`}
           >
             {isLoading ? (
               <>
@@ -352,17 +339,17 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
 
       {/* Rating Modal */}
       {showRatingModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-60 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-60 p-4">
+          <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] text-white rounded-xl border border-gray-600/30 shadow-2xl max-w-md w-full">
             <div className="p-6">
-              <h3 className="text-lg font-bold mb-4" style={{ color: '#51636f' }}>
+              <h3 className="text-lg font-bold mb-4 text-white">
                 Dienstleister bewerten
               </h3>
               
               <div className="space-y-4">
                 {/* Qualität */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Qualität der Arbeit
                   </label>
                   <div className="flex space-x-1">
@@ -386,7 +373,7 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
 
                 {/* Termintreue */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Termintreue
                   </label>
                   <div className="flex space-x-1">
@@ -410,7 +397,7 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
 
                 {/* Gesamtbewertung */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Gesamtbewertung
                   </label>
                   <div className="flex space-x-1">
@@ -434,13 +421,13 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
 
                 {/* Notizen */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Abschließende Notizen (optional)
                   </label>
                   <textarea
                     value={finalNotes}
                     onChange={(e) => setFinalNotes(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 bg-[#1a1a2e] text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                     rows={3}
                     placeholder="Zusätzliche Bemerkungen zur Abnahme..."
                   />
@@ -450,25 +437,14 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
               <div className="flex items-center justify-end space-x-3 mt-6">
                 <button
                   onClick={() => setShowRatingModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  className="px-4 py-2 text-gray-300 hover:text-white"
                 >
                   Abbrechen
                 </button>
                 <button
                   onClick={submitFinalAcceptance}
                   disabled={isLoading || ratings.overallRating === 0}
-                  className="flex items-center px-6 py-2 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50"
-                  style={{ backgroundColor: '#ffbd59' }}
-                  onMouseEnter={(e) => {
-                    if (!isLoading && ratings.overallRating > 0) {
-                      e.currentTarget.style.backgroundColor = '#ff9500';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isLoading && ratings.overallRating > 0) {
-                      e.currentTarget.style.backgroundColor = '#ffbd59';
-                    }
-                  }}
+                  className="flex items-center px-6 py-2 text-[#1a1a2e] rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] disabled:bg-gray-600 disabled:text-gray-300"
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
                   Abnahme abschließen

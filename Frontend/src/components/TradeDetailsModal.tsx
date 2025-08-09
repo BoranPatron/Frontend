@@ -6,10 +6,6 @@ import {
   ExternalLink, 
   FileText, 
   ChevronDown,
-  User,
-  Mail,
-  Phone,
-  Globe,
   Calendar,
   MapPin,
   CheckCircle,
@@ -28,6 +24,8 @@ import type { TradeSearchResult } from '../api/geoService';
 import { useAuth } from '../context/AuthContext';
 import { getAuthenticatedFileUrl, getApiBaseUrl, apiCall } from '../api/api';
 import TradeProgress from './TradeProgress';
+import QuoteDetailsModal from './QuoteDetailsModal';
+import { appointmentService, type AppointmentResponse } from '../api/appointmentService';
 import ServiceProviderRating from './ServiceProviderRating';
 import InvoiceModal from './InvoiceModal';
 // import FullDocumentViewer from './DocumentViewer';
@@ -138,13 +136,15 @@ interface TradeDetailsModalProps {
   onClose: () => void;
   onCreateQuote: (trade: TradeSearchResult) => void;
   existingQuotes?: Quote[];
+  onCreateInspection?: (tradeId: number, selectedQuoteIds: number[]) => void;
 }
 
 interface Quote {
   id: number;
   service_provider_id: number;
   status: string;
-  total_price: number;
+  total_price?: number;
+  total_amount?: number;
   created_at: string;
   service_provider_name?: string;
   contact_released?: boolean;
@@ -153,6 +153,10 @@ interface Quote {
   phone?: string;
   email?: string;
   website?: string;
+  currency?: string;
+  labor_cost?: number | string;
+  material_cost?: number | string;
+  overhead_cost?: number | string;
 }
 
 interface DocumentViewerProps {
@@ -481,7 +485,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   isOpen, 
   onClose, 
   onCreateQuote, 
-  existingQuotes = [] 
+  existingQuotes = [],
+  onCreateInspection
 }: TradeDetailsModalProps) {
   
 
@@ -491,11 +496,18 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   // const [userQuote, setUserQuote] = useState<Quote | null>(null);
   // const [showCostEstimateForm, setShowCostEstimateForm] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [selectedQuoteIds, setSelectedQuoteIds] = useState<number[]>([]);
   
   // Neue States für dynamisches Laden der Dokumente
   const [loadedDocuments, setLoadedDocuments] = useState<any[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsError, setDocumentsError] = useState<string | null>(null);
+  const [showQuoteDetails, setShowQuoteDetails] = useState(false);
+  const [quoteForDetails, setQuoteForDetails] = useState<Quote | null>(null);
+  const [appointmentsForTrade, setAppointmentsForTrade] = useState<AppointmentResponse[]>([]);
+  const [showAcceptConfirm, setShowAcceptConfirm] = useState(false);
+  const [quoteIdToAccept, setQuoteIdToAccept] = useState<number | null>(null);
+  const [acceptAcknowledged, setAcceptAcknowledged] = useState(false);
   
   // States für neue Features
   const [currentProgress, setCurrentProgress] = useState(trade?.progress_percentage || 0);
@@ -534,6 +546,35 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       console.warn('⚠️ WARNUNG: TradeDetailsModal verwendet Milestone ID 1 ("Elektroinstallation EG"). Falls dies ein neues Gewerk sein sollte, könnte es ein Problem mit der Milestone-Erstellung geben.');
     }
   }
+
+  // Lade Termine für dieses Gewerk, wenn Modal geöffnet
+  useEffect(() => {
+    let cancelled = false;
+    const loadAppointments = async () => {
+      try {
+        if (!trade?.id) return;
+        const all = await appointmentService.getMyAppointments();
+        const relevant = all.filter(a => a.milestone_id === (trade as any).id && a.appointment_type === 'INSPECTION');
+        if (!cancelled) setAppointmentsForTrade(relevant);
+      } catch (e) {
+        console.error('❌ Termine laden fehlgeschlagen:', e);
+      }
+    };
+    if (isOpen) loadAppointments();
+    return () => { cancelled = true; };
+  }, [isOpen, trade?.id]);
+
+  // Hilfsfunktion: Ist aktueller Nutzer (Dienstleister) zur Besichtigung eingeladen?
+  const isUserInvitedForInspection = React.useMemo(() => {
+    if (!user || isBautraeger()) return false;
+    return Array.isArray(appointmentsForTrade) && appointmentsForTrade.some(ap => {
+      const invited = Array.isArray(ap.invited_service_providers) ? ap.invited_service_providers : [];
+      const responsesArr = Array.isArray(ap.responses) ? ap.responses : (Array.isArray((ap as any).responses_array) ? (ap as any).responses_array : []);
+      const inInvites = invited.some((sp: any) => Number(sp.id) === Number(user.id));
+      const inResponses = responsesArr.some((r: any) => Number(r.service_provider_id) === Number(user.id));
+      return inInvites || inResponses;
+    });
+  }, [appointmentsForTrade, user, isBautraeger]);
 
   // Funktion zum dynamischen Laden der Dokumente und completion_status
   const loadTradeDocuments = async (tradeId: number) => {
@@ -1122,6 +1163,315 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
        </div>
             )}
 
+            {/* Debug: Komponentenname */}
+            <div className="mb-3 text-xs text-gray-400">Component: TradeDetailsModal.tsx</div>
+
+            {/* Angebote - WICHTIG: Direkt nach Beschreibung anzeigen */}
+            {(() => {
+              // Sichtbare Angebote abhängig von Rolle filtern
+              const isBt = isBautraeger();
+              const visibleQuotes = isBt
+                ? (existingQuotes || [])
+                : (existingQuotes || []).filter(q => q.service_provider_id === user?.id);
+              return visibleQuotes && visibleQuotes.length > 0 ? (
+              <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Eye size={18} className="text-[#ffbd59]" />
+                  {isBt 
+                    ? `Eingegangene Angebote (${visibleQuotes.length})`
+                    : (visibleQuotes.length > 1 
+                        ? `Meine abgegebenen Gebote (${visibleQuotes.length})`
+                        : 'Mein abgegebenes Gebot')}
+                </h3>
+
+                {/* Vereinbarter Termin (falls vorhanden) */}
+                {appointmentsForTrade.length > 0 && (
+                  <div className="mb-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm text-emerald-300">Vereinbarter Besichtigungstermin</div>
+                        <div className="text-white font-semibold">
+                          {new Date(appointmentsForTrade[0].scheduled_date).toLocaleString('de-DE')}
+                        </div>
+                      </div>
+                      <button
+                        onClick={async (e) => { e.stopPropagation(); await appointmentService.downloadCalendarEvent(appointmentsForTrade[0].id); }}
+                        className="px-3 py-2 text-sm rounded-lg bg-emerald-500/20 text-emerald-200 border border-emerald-500/30 hover:bg-emerald-500/30"
+                      >
+                        .ics herunterladen
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-3">
+                  {visibleQuotes.map((quote) => {
+                    const selectableStatuses = ['draft', 'submitted', 'under_review'];
+                    const statusLower = String(quote.status).toLowerCase();
+                    const isSelectable = isBt && selectableStatuses.includes(statusLower);
+                    const isSelected = selectedQuoteIds.includes(quote.id);
+                    // Ermittele Antwort-Status (accepted | rejected | pending) für diesen Dienstleister
+                    const responseStatus = (() => {
+                      if (!Array.isArray(appointmentsForTrade) || appointmentsForTrade.length === 0) return null;
+                      let status: 'accepted' | 'rejected' | 'pending' | null = null;
+                      for (const ap of appointmentsForTrade) {
+                        // Invites können als String (JSON) oder Array kommen
+                        let invitedRaw: any = (ap as any).invited_service_providers;
+                        if (typeof invitedRaw === 'string') {
+                          try { invitedRaw = JSON.parse(invitedRaw); } catch { invitedRaw = []; }
+                        }
+                        const invited: any[] = Array.isArray(invitedRaw) ? invitedRaw : [];
+
+                        // Responses können ebenfalls String oder Array sein
+                        let responsesRaw: any = (ap as any).responses ?? (ap as any).responses_array;
+                        if (typeof responsesRaw === 'string') {
+                          try { responsesRaw = JSON.parse(responsesRaw); } catch { responsesRaw = []; }
+                        }
+                        const responsesArr: any[] = Array.isArray(responsesRaw) ? responsesRaw : [];
+
+                        const serviceProviderId = Number((quote as any).service_provider_id);
+                        const isInvited = invited.some((sp: any) => Number(sp?.id ?? sp) === serviceProviderId);
+                        const rsp = responsesArr.find((r: any) => Number(r?.service_provider_id) === serviceProviderId);
+
+                        if (rsp) {
+                          const s = String(rsp.status).toLowerCase();
+                          if (s === 'accepted') return 'accepted';
+                          if (s === 'rejected' || s === 'rejected_with_suggestion') status = 'rejected';
+                        } else if (isInvited) {
+                          // eingeladen, aber keine Antwort
+                          status = 'pending';
+                        }
+                      }
+                      return status;
+                    })();
+                    return (
+                      <div
+                        key={quote.id}
+                        className={`relative bg-gradient-to-br from-[#1a1a2e]/30 to-[#2c3539]/30 rounded-lg p-4 border transition-all duration-200 cursor-pointer ${
+                          isSelected ? 'border-emerald-400 ring-4 ring-emerald-400/30 shadow-lg shadow-emerald-500/30' : 'border-gray-600/20 hover:border-emerald-400/50'
+                        } ${isSelectable ? '' : 'opacity-90 cursor-default'}`}
+                        onClick={() => {
+                          if (!isSelectable) return;
+                          setSelectedQuoteIds(prev => prev.includes(quote.id) ? prev.filter(id => id !== quote.id) : [...prev, quote.id]);
+                        }}
+                      >
+                        {isSelected && (
+                          <div className="pointer-events-none absolute -top-2 -right-2 w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg z-20">
+                            <CheckCircle size={16} />
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between relative z-10">
+                          <div>
+                            <p className="text-white font-medium">
+                              {quote.status === 'accepted' && quote.contact_released ? 
+                                (quote.company_name || quote.service_provider_name || `Angebot #${quote.id}`) :
+                                (quote.service_provider_name || `Angebot #${quote.id}`)}
+                            </p>
+                            <p className="text-gray-400 text-sm">
+                              {new Date(quote.created_at).toLocaleDateString('de-DE')}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-white font-bold">
+                              {(() => {
+                                const currency = (quote as any).currency || 'EUR';
+                                const amount =
+                                  (typeof (quote as any).total_amount === 'number' && (quote as any).total_amount) ??
+                                  (typeof (quote as any).total_price === 'number' && (quote as any).total_price) ??
+                                  (typeof (quote as any).labor_cost === 'number' || typeof (quote as any).material_cost === 'number' || typeof (quote as any).overhead_cost === 'number'
+                                    ? ((Number((quote as any).labor_cost) || 0) + (Number((quote as any).material_cost) || 0) + (Number((quote as any).overhead_cost) || 0))
+                                    : null);
+                                if (amount == null) return 'N/A';
+                                try {
+                                  return amount.toLocaleString('de-DE', { style: 'currency', currency });
+                                } catch {
+                                  return `${amount.toLocaleString('de-DE')} €`;
+                                }
+                              })()}
+                            </p>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getQuoteStatusColor(quote.status)}`}>
+                              {getQuoteStatusLabel(quote.status)}
+                            </span>
+                            {responseStatus === 'accepted' && (
+                              <div className="mt-2">
+                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-emerald-500/20 border border-emerald-500/30 text-emerald-300">Besichtigung zugesagt</span>
+                              </div>
+                            )}
+                            {responseStatus === 'rejected' && (
+                              <div className="mt-2">
+                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-500/20 border border-red-500/30 text-red-300">Besichtigung abgelehnt</span>
+                              </div>
+                            )}
+                            {responseStatus === 'pending' && (
+                              <div className="mt-2">
+                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 border border-blue-500/30 text-blue-300">Besichtigung: ausstehend</span>
+                              </div>
+                            )}
+                            <div className="mt-2 flex flex-wrap gap-2 justify-end">
+                              {/* Bauträger: Angebot annehmen/ablehnen */}
+                              {isBt && (
+                                <>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setQuoteIdToAccept(quote.id); setAcceptAcknowledged(false); setShowAcceptConfirm(true); }}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30"
+                                  >✅ Annehmen</button>
+                                  <div className="relative group inline-block">
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); }}
+                                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
+                                    >❌ Ablehnen</button>
+                                    <div className="absolute right-0 mt-2 w-64 bg-[#0f172a] border border-white/10 rounded-xl shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition p-3 z-20">
+                                      <div className="text-xs text-gray-300 mb-2">Begründung (optional)</div>
+                                      <textarea id={`reject-reason-${quote.id}`} className="w-full bg-white/5 border border-white/10 rounded-lg text-white text-xs p-2 outline-none focus:border-white/20" rows={3} placeholder="Kurze Begründung..." />
+                                      <div className="mt-2 flex justify-end gap-2">
+                                        <button className="px-2 py-1 text-xs bg-white/10 border border-white/10 rounded-lg text-white hover:bg-white/15" onClick={(e)=>{e.stopPropagation(); (document.getElementById(`reject-reason-${quote.id}`) as HTMLTextAreaElement).value='';}}>Zurücksetzen</button>
+                                        <button className="px-3 py-1 text-xs bg-red-500/20 border border-red-500/30 text-red-300 rounded-lg hover:bg-red-500/30" onClick={(e)=>{ e.stopPropagation(); const reason=(document.getElementById(`reject-reason-${quote.id}`) as HTMLTextAreaElement).value; (window as any).__onRejectQuote && (window as any).__onRejectQuote(quote.id, reason); }}>Senden</button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setQuoteForDetails(quote); setShowQuoteDetails(true); }}
+                                className="group relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-white text-xs overflow-hidden"
+                              >
+                                <span className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/0 via-[#ffbd59]/20 to-[#ffbd59]/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+                                <Eye size={14} className="text-[#ffbd59]" />
+                                Details ansehen
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        {isSelectable && (
+                          <p className="mt-2 text-xs text-gray-400">Tipp: Karte anklicken, um für Besichtigung auszuwählen.</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Auswahl-Aktionsleiste (nur Bauträger) */}
+                {isBt && (
+                  <div className="mt-4 flex items-center justify-between">
+                    <div className="text-sm text-gray-300">
+                      {selectedQuoteIds.length > 0 ? `Ausgewählt: ${selectedQuoteIds.length}` : 'Wähle ein oder mehrere Angebote aus'}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="px-3 py-2 text-sm bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/15"
+                        onClick={() => {
+                          // Alle auswählbaren Angebote markieren
+                          const selectable = (existingQuotes || [])
+                            .filter(q => ['draft','submitted','under_review'].includes(String(q.status).toLowerCase()))
+                            .map(q => q.id);
+                          setSelectedQuoteIds(selectable);
+                        }}
+                      >Alle auswählen</button>
+                      <button
+                        className="px-3 py-2 text-sm bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/15"
+                        onClick={() => setSelectedQuoteIds([])}
+                      >Auswahl löschen</button>
+                      {/* Dropdown Aktionen: Besichtigung verwalten */}
+                      <div className="relative group">
+                        <button className="px-4 py-2 rounded-lg font-medium bg-white/10 border border-white/20 text-white hover:bg-white/15 flex items-center gap-2">
+                          🗓️ Besichtigung
+                        </button>
+                        <div className="absolute right-0 mt-2 w-64 bg-[#0f172a] border border-white/10 rounded-xl shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition">
+                          <div className="p-2">
+                            <button
+                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-white disabled:opacity-50"
+                              disabled={appointmentsForTrade.length > 0 || selectedQuoteIds.length === 0 || !onCreateInspection || !trade?.id}
+                              onClick={() => onCreateInspection && trade?.id && onCreateInspection(trade.id, selectedQuoteIds)}
+                            >🗓️ Besichtigung vereinbaren</button>
+                            <div className="border-t border-white/10 my-1" />
+                            <button
+                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-emerald-300 disabled:opacity-50"
+                              disabled={appointmentsForTrade.length === 0}
+                              onClick={() => { /* TODO: Implement accept proposal flow */ }}
+                            >✅ Vorschlag annehmen</button>
+                            <button
+                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-red-300 disabled:opacity-50"
+                              disabled={appointmentsForTrade.length === 0}
+                              onClick={() => {
+                                const reason = window.prompt('Begründung (optional)');
+                                // TODO: Implement reject proposal flow with reason
+                              }}
+                            >❌ Vorschlag ablehnen</button>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Bauträger: Kein Angebots-Upload hier */}
+                    </div>
+                  </div>
+                )}
+
+                {/* Dienstleister: Nachbesichtigungs-Angebot hochladen (nur wenn eingeladen und kein Angebot angenommen) */}
+                {!isBt && isUserInvitedForInspection && !acceptedQuote && (
+                  <div className="mt-4 flex items-center justify-end">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onCreateQuote && trade && onCreateQuote(trade as any); }}
+                      className="px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-black hover:shadow-lg"
+                    >📄 Neues Angebot hochladen</button>
+                  </div>
+                )}
+              </div>
+              ) : null;
+            })()}
+
+            {/* Quote Details Modal */}
+            <QuoteDetailsModal
+              isOpen={showQuoteDetails}
+              onClose={() => { setShowQuoteDetails(false); setQuoteForDetails(null); }}
+              quote={quoteForDetails as any}
+              trade={trade as any}
+              project={{ id: (trade as any)?.project_id, name: (trade as any)?.project_name }}
+              user={user}
+              onEditQuote={() => {}}
+              onDeleteQuote={() => {}}
+            />
+
+            {/* Annahme-Bestätigung */}
+            {showAcceptConfirm && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+                <div className="bg-[#0f172a]/95 border border-white/10 rounded-2xl max-w-lg w-full p-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <CheckCircle size={20} className="text-emerald-400" />
+                    <h3 className="text-white text-lg font-semibold">Angebot verbindlich annehmen?</h3>
+                  </div>
+                  <p className="text-gray-300 text-sm mb-4">
+                    Mit der Annahme wird dieses Angebot als verbindlich markiert. Der Dienstleister wird benachrichtigt
+                    und Folgeschritte (z. B. Auftragsbestätigung) werden aktiviert.
+                  </p>
+                  <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs text-gray-300 mb-5">
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Die bisherigen Angebote bleiben zur Dokumentation erhalten.</li>
+                      <li>Du kannst die Annahme später über „Zurücksetzen“ widerrufen.</li>
+                      <li>Finanzübersicht und Status werden automatisch aktualisiert.</li>
+                    </ul>
+                  </div>
+                  <label className="flex items-start gap-3 mb-4 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 w-4 h-4 accent-[#ffbd59]"
+                      checked={acceptAcknowledged}
+                      onChange={(e) => setAcceptAcknowledged(e.target.checked)}
+                    />
+                    <span className="text-sm text-gray-300">Ich habe verstanden, dass die Annahme verbindlich ist und entsprechende Folgeschritte ausgelöst werden.</span>
+                  </label>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      className="px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-white hover:bg-white/15"
+                      onClick={() => { setShowAcceptConfirm(false); setQuoteIdToAccept(null); }}
+                    >Abbrechen</button>
+                    <button
+                      disabled={!acceptAcknowledged}
+                      className={`px-4 py-2 rounded-lg font-semibold transition-shadow ${acceptAcknowledged ? 'bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-black hover:shadow-lg' : 'bg-white/10 text-white/60 cursor-not-allowed border border-white/10'}`}
+                      onClick={() => { if (!acceptAcknowledged) return; if (quoteIdToAccept != null) { (window as any).__onAcceptQuote && (window as any).__onAcceptQuote(quoteIdToAccept); } setShowAcceptConfirm(false); setQuoteIdToAccept(null); }}
+                    >Verbindlich annehmen</button>
+                  </div>
+                </div>
+       </div>
+            )}
+
             {/* Projekt-Informationen */}
             <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30">
               <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -1243,14 +1593,22 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
 
             {/* Technische Details */}
             {trade.requires_inspection && (
-              <div className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-xl p-6 border border-yellow-500/30">
+              <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 rounded-xl p-6 border border-yellow-500/30">
                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                   <CheckCircle size={18} className="text-yellow-400" />
                   Besichtigung
                    </h3>
-                <div className="flex items-center gap-2">
-                  <CheckCircle size={20} className="text-yellow-400" />
-                  <span className="text-yellow-300 font-medium">Vor-Ort-Besichtigung erforderlich</span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="px-3 py-1 rounded-full text-xs bg-yellow-500/20 border border-yellow-500/40 text-yellow-300">Vor-Ort-Besichtigung erforderlich</span>
+                  {((trade as any)?.inspection_status) === 'accepted' && (
+                    <span className="px-3 py-1 rounded-full text-xs bg-green-500/20 border border-green-500/40 text-green-300">Termin angenommen</span>
+                  )}
+                  {((trade as any)?.inspection_status) === 'pending' && (
+                    <span className="px-3 py-1 rounded-full text-xs bg-blue-500/20 border border-blue-500/40 text-blue-300">Termin ausstehend</span>
+                  )}
+                  {((trade as any)?.inspection_status) === 'rejected' && (
+                    <span className="px-3 py-1 rounded-full text-xs bg-red-500/20 border border-red-500/40 text-red-300">Termin abgelehnt</span>
+                  )}
                      </div>
                      </div>
             )}
@@ -1275,74 +1633,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                  </div>
             )}
 
-            {/* Angebote */}
-            {existingQuotes && existingQuotes.length > 0 && (
-              <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <Eye size={18} className="text-[#ffbd59]" />
-                  Angebote ({existingQuotes.length})
-                    </h3>
-                <div className="space-y-3">
-                  {existingQuotes.map((quote) => (
-                    <div key={quote.id} className="bg-gradient-to-br from-[#1a1a2e]/30 to-[#2c3539]/30 rounded-lg p-4 border border-gray-600/20">
-                      <div className="flex items-center justify-between">
-                            <div>
-                          <p className="text-white font-medium">
-                            {quote.status === 'accepted' && quote.contact_released ? 
-                              (quote.company_name || quote.service_provider_name || `Angebot #${quote.id}`) :
-                              (quote.service_provider_name || `Angebot #${quote.id}`)}
-                              </p>
-                          <p className="text-gray-400 text-sm">
-                                {new Date(quote.created_at).toLocaleDateString('de-DE')}
-                              </p>
-                          </div>
-                          <div className="text-right">
-                          <p className="text-white font-bold">
-                              {quote.total_price?.toLocaleString('de-DE') || 'N/A'} €
-                            </p>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getQuoteStatusColor(quote.status)}`}>
-                              {getQuoteStatusLabel(quote.status)}
-                            </span>
-                        </div>
-                          </div>
-                          
-                          {/* Kontaktdaten bei akzeptiertem Angebot */}
-                          {quote.status === 'accepted' && quote.contact_released && (
-                            <div className="mt-4 pt-4 border-t border-gray-600/30">
-                              <p className="text-sm text-gray-400 mb-2">Kontaktdaten:</p>
-                              <div className="grid grid-cols-2 gap-2 text-sm">
-                                {quote.contact_person && (
-                                  <div className="flex items-center gap-2">
-                                    <User size={14} className="text-gray-400" />
-                                    <span className="text-white">{quote.contact_person}</span>
-                                  </div>
-                                )}
-                                {quote.phone && (
-                                  <div className="flex items-center gap-2">
-                                    <Phone size={14} className="text-gray-400" />
-                                    <a href={`tel:${quote.phone}`} className="text-[#ffbd59] hover:underline">{quote.phone}</a>
-                                  </div>
-                                )}
-                                {quote.email && (
-                                  <div className="flex items-center gap-2">
-                                    <Mail size={14} className="text-gray-400" />
-                                    <a href={`mailto:${quote.email}`} className="text-[#ffbd59] hover:underline">{quote.email}</a>
-                                  </div>
-                                )}
-                                {quote.website && (
-                                  <div className="flex items-center gap-2">
-                                    <Globe size={14} className="text-gray-400" />
-                                    <a href={quote.website} target="_blank" rel="noopener noreferrer" className="text-[#ffbd59] hover:underline">Website</a>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+            
 
             {/* Dokumente - Einklappbar */}
             <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl border border-gray-600/30 overflow-hidden">
@@ -1896,9 +2187,13 @@ interface DefectResolutionWorkflowProps {
 
 interface Defect {
   id: number;
+  title?: string;
   description: string;
+  photos?: string[];
   category?: string;
   severity?: 'low' | 'medium' | 'high' | 'critical';
+  room?: string;
+  location?: string;
   created_at: string;
   resolved: boolean;
   resolved_at?: string;
@@ -2153,6 +2448,11 @@ function DefectResolutionWorkflow({ milestoneId, onDefectsResolved }: DefectReso
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-400">#{index + 1}</span>
+                    {defect.title && (
+                      <span className="text-white font-semibold">
+                        {defect.title}
+                      </span>
+                    )}
                     {defect.severity && (
                       <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getSeverityColor(defect.severity)}`}>
                         {getSeverityLabel(defect.severity)}
@@ -2161,6 +2461,11 @@ function DefectResolutionWorkflow({ milestoneId, onDefectsResolved }: DefectReso
                     {defect.category && (
                       <span className="px-2 py-1 bg-gray-600/30 text-gray-300 rounded-full text-xs">
                         {defect.category}
+                      </span>
+                    )}
+                    {(defect.room || defect.location) && (
+                      <span className="text-xs text-gray-400">
+                        {defect.room ? `📍 ${defect.room}` : ''} {defect.location ? `• ${defect.location}` : ''}
                       </span>
                     )}
                   </div>
@@ -2177,6 +2482,20 @@ function DefectResolutionWorkflow({ milestoneId, onDefectsResolved }: DefectReso
                 <p className={`text-sm mb-3 ${defect.resolved ? 'text-gray-400 line-through' : 'text-white'}`}>
                   {defect.description}
                 </p>
+
+                {/* Mangel-Foto-Vorschauen (falls vorhanden) */}
+                {Array.isArray(defect.photos) && defect.photos.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {defect.photos.slice(0, 3).map((photo, idx) => (
+                      <img
+                        key={idx}
+                        src={photo}
+                        alt={`Mangel Foto ${idx + 1}`}
+                        className="w-16 h-16 object-cover rounded border border-gray-600"
+                      />
+                    ))}
+                  </div>
+                )}
                 
                 {/* Notizen-Eingabe */}
                 {!defect.resolved && (

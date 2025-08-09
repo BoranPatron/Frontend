@@ -60,6 +60,7 @@ import {
   ExternalLink,
   RefreshCw
 } from 'lucide-react';
+import { getQuote } from '../api/quoteService';
 
 interface CostEstimateDetailsModalProps {
   isOpen: boolean;
@@ -137,6 +138,134 @@ export default function CostEstimateDetailsModal({
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsError, setDocumentsError] = useState<string | null>(null);
   const [isDocumentsExpanded, setIsDocumentsExpanded] = useState(false);
+  const [acceptedQuoteFull, setAcceptedQuoteFull] = useState<any | null>(null);
+  const acceptedFromList = React.useMemo(() => (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted') || null, [quotes]);
+
+  // Lade vollständige Daten für akzeptierten Quote nach
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!acceptedFromList?.id) {
+          setAcceptedQuoteFull(null);
+          return;
+        }
+        const full = await getQuote(acceptedFromList.id);
+        // Einige Backends liefern { quote: {...} } statt direkt die Felder
+        const normalized = (full && typeof full === 'object' && 'quote' in full) ? (full as any).quote : full;
+        if (!cancelled) setAcceptedQuoteFull(normalized);
+      } catch (e) {
+        console.warn('⚠️ Konnte vollständigen Quote nicht laden. Verwende Minimaldaten.', e);
+        if (!cancelled) setAcceptedQuoteFull(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [acceptedFromList?.id]);
+
+  // Robuste Betrags-Ermittlung für Quotes
+  const getQuoteAmount = (q: any): number | null => {
+    if (!q) return null;
+    const parseAmount = (v: any): number => {
+      if (v == null) return NaN;
+      if (typeof v === 'number') return v;
+      let s = String(v).trim();
+      if (!s) return NaN;
+      // Entferne Währungszeichen und nicht numerische Zeichen außer . , -
+      s = s.replace(/[^\d.,-]/g, '');
+      // Wenn Komma als Dezimaltrenner verwendet wird
+      if (s.includes(',') && (!s.includes('.') || s.lastIndexOf(',') > s.lastIndexOf('.'))) {
+        s = s.replace(/\./g, ''); // Tausenderpunkte entfernen
+        s = s.replace(/,/g, '.');  // Komma zu Punkt
+      }
+      const n = parseFloat(s);
+      return Number.isFinite(n) ? n : NaN;
+    };
+    const totalAmount = parseAmount(q.total_amount);
+    if (!Number.isNaN(totalAmount) && totalAmount > 0) return totalAmount;
+    const totalPrice = parseAmount(q.total_price);
+    if (!Number.isNaN(totalPrice) && totalPrice > 0) return totalPrice;
+    // Weitere mögliche Feldnamen aus anderen UIs/Backends
+    const alt1 = parseAmount((q as any).amount_total);
+    if (!Number.isNaN(alt1) && alt1 > 0) return alt1;
+    const alt2 = parseAmount((q as any).amount);
+    if (!Number.isNaN(alt2) && alt2 > 0) return alt2;
+    const alt3 = parseAmount((q as any).price);
+    if (!Number.isNaN(alt3) && alt3 > 0) return alt3;
+    const alt4 = parseAmount((q as any).offer_total);
+    if (!Number.isNaN(alt4) && alt4 > 0) return alt4;
+
+    const labor = parseAmount(q.labor_cost) || 0;
+    const material = parseAmount(q.material_cost) || 0;
+    const overhead = parseAmount(q.overhead_cost) || 0;
+    const sum = labor + material + overhead;
+    return sum > 0 ? sum : null;
+  };
+
+  const getEffectiveQuote = (q: any) => {
+    if (!q) return q;
+    if (acceptedQuoteFull && q.id === acceptedQuoteFull.id) return acceptedQuoteFull;
+    return q;
+  };
+
+  // Header für akzeptiertes Angebot: Kontakt + Bewertung
+  const renderAcceptedProviderHeader = () => {
+    try {
+      const accepted = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted');
+      if (!accepted) return null;
+
+      const name = accepted.company_name || accepted.service_provider_name || accepted.contact_person || 'Dienstleister';
+      const email = accepted.email || accepted.contact_email || null;
+      const phone = accepted.phone || accepted.contact_phone || null;
+      const providerId = accepted.service_provider_id || accepted.provider_id || accepted.service_provider || null;
+
+      return (
+        <div className="bg-white/5 rounded-lg p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-500/20 rounded-lg border border-emerald-500/30">
+                <User size={18} className="text-emerald-300" />
+              </div>
+              <div>
+                <div className="text-white font-semibold">{name}</div>
+                {(email || phone) && (
+                  <div className="text-sm text-gray-300">
+                    {email && <a href={`mailto:${email}`} className="hover:underline text-gray-200">{email}</a>}
+                    {email && phone && ' • '}
+                    {phone && <a href={`tel:${phone}`} className="hover:underline text-gray-200">{phone}</a>}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-6">
+              {/* Gesamtbetrag des angenommenen Angebots */}
+              <div className="text-right">
+                <div className="text-xs text-gray-400">Gesamtbetrag</div>
+                <div className="text-lg font-bold text-[#ffbd59]">
+                  {(() => {
+                    const eff = getEffectiveQuote(accepted);
+                    const amt = (eff?.total_amount ?? eff?.total_price ?? eff?.amount_total ?? eff?.amount ?? eff?.price ?? eff?.offer_total);
+                    const currency = eff?.currency || 'EUR';
+                    if (amt == null) return '–';
+                    const num = typeof amt === 'string' ? parseFloat(String(amt).replace(/[^0-9.,-]/g, '').replace(',', '.')) : amt;
+                    if (isNaN(num)) return '–';
+                    return new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(num);
+                  })()}
+                </div>
+              </div>
+              {providerId && (
+                <div className="flex items-center gap-3">
+                  <ServiceProviderRating providerId={providerId} className="scale-95" />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    } catch (e) {
+      console.error('⚠️ Fehler beim Rendern des Accepted-Header:', e);
+      return null;
+    }
+  };
 
   // Lade bestehende Rechnung
   const loadExistingInvoice = async () => {
@@ -766,8 +895,9 @@ export default function CostEstimateDetailsModal({
     return colorMap[status] || 'bg-gray-500/20 border-gray-500/30 text-gray-300';
   };
 
-  const formatCurrency = (amount: number, currency: string = 'EUR') => {
-    return amount.toLocaleString('de-DE', { style: 'currency', currency });
+  const formatCurrency = (amount: number | undefined | null, currency: string = 'EUR') => {
+    const safe = typeof amount === 'number' && !Number.isNaN(amount) ? amount : 0;
+    return new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(safe);
   };
 
   const formatDate = (dateString: string) => {
@@ -897,7 +1027,7 @@ export default function CostEstimateDetailsModal({
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold text-[#ffbd59]">
-              {formatCurrency(quote.total_amount, quote.currency)}
+              {(() => { const eq = getEffectiveQuote(quote); const a = getQuoteAmount(eq); return a == null ? '–' : formatCurrency(a, eq.currency); })()}
             </div>
             <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${getQuoteStatusColor(quote.status)}`}>
               {quote.status === 'accepted' && <CheckCircle size={14} />}
@@ -921,7 +1051,13 @@ export default function CostEstimateDetailsModal({
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <span className="text-sm text-gray-400">Gesamtbetrag</span>
                 <span className="text-lg font-bold text-[#ffbd59]">
-                  {formatCurrency(quote.total_amount, quote.currency)}
+                  {(() => {
+                    const amount = (quote.total_amount ?? quote.total_price ?? (
+                      (Number(quote.labor_cost) || 0) + (Number(quote.material_cost) || 0) + (Number(quote.overhead_cost) || 0)
+                    ));
+                    if (amount === undefined || amount === null || Number.isNaN(amount)) return '–';
+                    return formatCurrency(amount, quote.currency);
+                  })()}
                 </span>
               </div>
               
@@ -963,22 +1099,22 @@ export default function CostEstimateDetailsModal({
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <span className="text-sm text-gray-400">Geschätzte Dauer</span>
-                <span className="text-sm font-medium text-white">{quote.estimated_duration} Tage</span>
+                <span className="text-sm font-medium text-white">{quote.estimated_duration ? `${quote.estimated_duration} Tage` : '–'}</span>
               </div>
               
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <span className="text-sm text-gray-400">Startdatum</span>
-                <span className="text-sm font-medium text-white">{formatDate(quote.start_date)}</span>
+                <span className="text-sm font-medium text-white">{quote.start_date ? formatDate(quote.start_date) : '–'}</span>
               </div>
               
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <span className="text-sm text-gray-400">Fertigstellungsdatum</span>
-                <span className="text-sm font-medium text-white">{formatDate(quote.completion_date)}</span>
+                <span className="text-sm font-medium text-white">{quote.completion_date ? formatDate(quote.completion_date) : '–'}</span>
               </div>
               
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <span className="text-sm text-gray-400">Gültig bis</span>
-                <span className="text-sm font-medium text-white">{formatDate(quote.valid_until)}</span>
+                <span className="text-sm font-medium text-white">{quote.valid_until ? formatDate(quote.valid_until) : '–'}</span>
               </div>
               
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
@@ -1005,86 +1141,54 @@ export default function CostEstimateDetailsModal({
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-3">
-              {quote.company_name && (
+              {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); return a && (a.company_name || a.service_provider_name); })() && (
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">Firma</span>
-                  <span className="text-sm font-medium text-white">{quote.company_name}</span>
+                  <span className="text-sm font-medium text-white">{(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.company_name || (quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.service_provider_name}</span>
                 </div>
               )}
               
-              {quote.contact_person && (
+              {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); return a && a.contact_person; })() && (
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">Ansprechpartner</span>
-                  <span className="text-sm font-medium text-white">{quote.contact_person}</span>
+                  <span className="text-sm font-medium text-white">{(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.contact_person}</span>
                 </div>
               )}
             </div>
             
             <div className="space-y-3">
-              {quote.phone && (
+              {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); return a && (a.phone || a.contact_phone); })() && (
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">Telefon</span>
-                  <span className="text-sm font-medium text-white">{quote.phone}</span>
+                  <a className="text-sm font-medium text-white hover:underline" href={`tel:${(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.phone || (quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.contact_phone}`}>
+                    {(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.phone || (quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.contact_phone}
+                  </a>
                 </div>
               )}
               
-              {quote.email && (
+              {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); return a && (a.email || a.contact_email); })() && (
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">E-Mail</span>
-                  <span className="text-sm font-medium text-white">{quote.email}</span>
+                  <a className="text-sm font-medium text-white hover:underline" href={`mailto:${(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.email || (quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.contact_email}`}>
+                    {(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.email || (quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.contact_email}
+                  </a>
                 </div>
               )}
               
-              {quote.website && (
+              {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); return a && a.website; })() && (
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">Website</span>
-                  <span className="text-sm font-medium text-white">{quote.website}</span>
+                  <a className="text-sm font-medium text-white hover:underline" target="_blank" rel="noopener noreferrer" href={(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.website}>
+                    {(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.website}
+                  </a>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Risiko & Qualität */}
+        {/* Qualität & Bewertung */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <h4 className="font-semibold text-white flex items-center gap-2">
-              <AlertTriangle size={16} className="text-[#ffbd59]" />
-              Risiko-Bewertung
-            </h4>
-            
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                <span className="text-sm text-gray-400">Risiko-Score</span>
-                <span className={`text-sm font-medium ${
-                  quote.risk_score > 30 ? 'text-red-400' : 
-                  quote.risk_score > 15 ? 'text-yellow-400' : 'text-green-400'
-                }`}>
-                  {quote.risk_score}%
-                </span>
-              </div>
-              
-              {quote.price_deviation && (
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <span className="text-sm text-gray-400">Preisabweichung</span>
-                  <span className={`text-sm font-medium ${
-                    quote.price_deviation > 20 ? 'text-red-400' : 
-                    quote.price_deviation > 10 ? 'text-yellow-400' : 'text-green-400'
-                  }`}>
-                    {quote.price_deviation}%
-                  </span>
-                </div>
-              )}
-              
-              {quote.ai_recommendation && (
-                <div className="p-3 bg-white/5 rounded-lg">
-                  <span className="text-sm text-gray-400">KI-Empfehlung</span>
-                  <div className="text-sm text-white mt-1">{quote.ai_recommendation}</div>
-                </div>
-              )}
-            </div>
-          </div>
-
           <div className="space-y-4">
             <h4 className="font-semibold text-white flex items-center gap-2">
               <Star size={16} className="text-[#ffbd59]" />
@@ -1092,28 +1196,33 @@ export default function CostEstimateDetailsModal({
             </h4>
             
             <div className="space-y-3">
-              {quote.rating && (
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <span className="text-sm text-gray-400">Bewertung</span>
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star
-                        key={star}
-                        size={14}
-                        className={star <= quote.rating ? 'text-yellow-400 fill-current' : 'text-gray-400'}
-                      />
-                    ))}
-                    <span className="text-sm text-white ml-1">({quote.rating}/5)</span>
+              {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); return a && (a.service_provider_id || a.provider_id || a.service_provider); })() && (
+                <div className="p-3 bg-white/5 rounded-lg">
+                  <ServiceProviderRating providerId={(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.service_provider_id || (quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.provider_id || (quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.service_provider} />
+                </div>
+              )}
+
+              {/* Qualifikationen/Referenzen aus dem Angebot anzeigen, mit angenehmen Platzhaltern */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3 bg-white/5 rounded-lg">
+                  <span className="text-sm text-gray-400">Qualifikationen</span>
+                  <div className="text-sm text-white mt-1">
+                    {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); const v = (a as any)?.qualifications; return v && String(v).trim() ? v : <span className="text-gray-500">–</span>; })()}
                   </div>
                 </div>
-              )}
-              
-              {quote.feedback && (
                 <div className="p-3 bg-white/5 rounded-lg">
-                  <span className="text-sm text-gray-400">Feedback</span>
-                  <div className="text-sm text-white mt-1">{quote.feedback}</div>
+                  <span className="text-sm text-gray-400">Zertifizierungen</span>
+                  <div className="text-sm text-white mt-1">
+                    {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); const v = (a as any)?.certifications; return v && String(v).trim() ? v : <span className="text-gray-500">–</span>; })()}
+                  </div>
                 </div>
-              )}
+                <div className="md:col-span-2 p-3 bg-white/5 rounded-lg">
+                  <span className="text-sm text-gray-400">Referenzen</span>
+                  <div className="text-sm text-white mt-1">
+                    {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); const v = (a as any)?.references; return v && String(v).trim() ? v : <span className="text-gray-500">–</span>; })()}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1170,8 +1279,8 @@ export default function CostEstimateDetailsModal({
             </>
           )}
 
-          {/* Informationsmeldung wenn Annahme wegen Besichtigungstermin blockiert ist */}
-          {inspectionStatus.hasActiveInspection && !inspectionStatus.isInspectionDay && !inspectionStatus.selectedServiceProviderId && (
+          {/* Hinweis zur Termin-Sperre im Bauträger-Detail nach Angebotsannahme ausblenden */}
+          {false && inspectionStatus.hasActiveInspection && !inspectionStatus.isInspectionDay && !inspectionStatus.selectedServiceProviderId && (
             <div className="w-full p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
               <div className="flex items-center gap-2 text-orange-300 mb-2">
                 <Calendar size={16} />
@@ -1223,13 +1332,13 @@ export default function CostEstimateDetailsModal({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-6xl w-full max-h-[90vh] overflow-hidden">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+        <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-[0_0_40px_rgba(255,189,89,0.08)] border border-gray-600/30 max-w-6xl w-full max-h-[90vh] overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-white/10">
+          <div className="flex items-center justify-between p-6 border-b border-gray-600/30">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl">
-                <FileText size={24} className="text-white" />
+              <div className="w-12 h-12 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+                <FileText size={24} />
               </div>
               <div>
                 <h2 className="text-xl font-bold text-white">Kostenvoranschlag Details</h2>
@@ -1244,9 +1353,13 @@ export default function CostEstimateDetailsModal({
             </button>
           </div>
 
+          {/* Debug: Komponentenname */}
+          <div className="px-6 pt-4 text-xs text-gray-400">Component: CostEstimateDetailsModal.tsx</div>
+
           {/* Content */}
           <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
             <div className="p-6">
+              {renderAcceptedProviderHeader()}
               {/* Warten auf Rechnung Banner - nur nach finaler Abnahme (nicht bei completed_with_defects) und solange keine Rechnung da ist */}
                               {completionStatus === 'completed' && isBautraeger() && !existingInvoice && (
                 <div className="mb-6 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/30 rounded-lg p-4">
@@ -1388,9 +1501,7 @@ export default function CostEstimateDetailsModal({
                                   <div className="flex-1">
                                     <div className="flex items-center justify-between">
                                       <span className="text-white font-medium">{quote.title}</span>
-                                      <span className="text-[#ffbd59] font-bold">
-                                        {formatCurrency(quote.total_amount, quote.currency)}
-                                      </span>
+                                      <span className="text-[#ffbd59] font-bold">{(() => { const eq = getEffectiveQuote(quote); const a = getQuoteAmount(eq); return a == null ? '–' : formatCurrency(a, eq.currency); })()}</span>
                                     </div>
                                     <div className="text-sm text-gray-400">
                                       {quote.company_name} • {quote.estimated_duration} Tage
@@ -1483,9 +1594,7 @@ export default function CostEstimateDetailsModal({
                                 }`}></div>
                                 <span className="text-sm font-medium text-white">{quote.title}</span>
                               </div>
-                              <span className="text-lg font-bold text-[#ffbd59]">
-                                {formatCurrency(quote.total_amount, quote.currency)}
-                              </span>
+                              <span className="text-lg font-bold text-[#ffbd59]">{(() => { const eq = getEffectiveQuote(quote); const a = getQuoteAmount(eq); return a == null ? '–' : formatCurrency(a, eq.currency); })()}</span>
                             </div>
                             
                             <div className="grid grid-cols-2 gap-3 text-xs">
@@ -1645,6 +1754,7 @@ export default function CostEstimateDetailsModal({
                   isBautraeger={isBautraeger()}
                   isServiceProvider={user?.user_type === 'service_provider' || user?.user_type === 'SERVICE_PROVIDER'}
                   completionStatus={completionStatus}
+                  hideCompletionResponseControls
                   onCompletionRequest={async () => {
                     try {
                       console.log('🔍 CostEstimate - Sende Abnahme-Anfrage für Trade:', trade.id);
@@ -1763,38 +1873,21 @@ export default function CostEstimateDetailsModal({
                         </div>
                       </div>
                       
-                      {/* VEREINFACHTER WORKFLOW - Nur Abnahme starten und Termin vereinbaren */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            console.log('🔵 Abnahme starten Button geklickt');
-                            handleStartAcceptance();
-                          }}
-                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
-                        >
-                          <CheckCircle size={20} />
-                          Abnahme starten
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            console.log('🟣 Termin vereinbaren Button geklickt');
-                            setShowScheduleModal(true);
-                            // Schließe das CostEstimateDetailsModal
-                            console.log('🔄 Schließe CostEstimateDetailsModal für Terminvereinbarung');
-                            onClose();
-                          }}
-                          className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
-                        >
-                          <Calendar size={20} />
-                          Termin vereinbaren
-                        </button>
-                      </div>
+              {/* VEREINFACHTER WORKFLOW - Nur Abnahme starten */}
+              <div className="grid grid-cols-1 gap-3">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleStartAcceptance();
+                  }}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
+                >
+                  <CheckCircle size={20} />
+                  Abnahme starten
+                </button>
+              </div>
                       
                       <div className="mt-4 p-3 bg-gray-600/20 rounded-lg">
                         <p className="text-gray-300 text-sm">
@@ -1873,6 +1966,10 @@ export default function CostEstimateDetailsModal({
                       setTimeout(() => {
                         setShowServiceProviderRating(true);
                       }, 1000);
+                    }
+                    // Nach jeder Aktion: Dokumente neu laden, damit DMS-Rechnung sofort erscheint
+                    if (trade?.id) {
+                      loadTradeDocuments(trade.id);
                     }
                   }}
                 />

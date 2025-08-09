@@ -33,6 +33,13 @@ interface AcceptanceModalProps {
   onClose: () => void;
   trade: any;
   onComplete: (data: AcceptanceData) => void;
+  // Optional: Nach finaler Abnahme Bewertungsdialog öffnen
+  onRequestServiceProviderRating?: (params: {
+    serviceProviderId: number;
+    projectId: number;
+    milestoneId: number;
+    quoteId?: number;
+  }) => void;
 }
 
 interface AcceptanceData {
@@ -60,7 +67,8 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
   isOpen, 
   onClose, 
   trade, 
-  onComplete 
+  onComplete,
+  onRequestServiceProviderRating
 }) => {
   const [step, setStep] = useState(1); // 1: Checkliste, 2: Mängel & Fotos, 3: Bewertung, 4: Entscheidung
   const [accepted, setAccepted] = useState<boolean | null>(null);
@@ -299,6 +307,19 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
       checklist
     };
     onComplete(data);
+
+    // Direkt nach finaler Abnahme ohne Vorbehalt: Bewertungsdialog anstoßen
+    if (!hasIssues && accepted && typeof onRequestServiceProviderRating === 'function') {
+      const providerId = trade?.service_provider_id || trade?.accepted_by || null;
+      if (providerId) {
+        onRequestServiceProviderRating({
+          serviceProviderId: providerId,
+          projectId: trade?.project_id,
+          milestoneId: trade?.id,
+          quoteId: trade?.accepted_quote_id || undefined
+        });
+      }
+    }
   };
 
   const canProceedFromStep = (currentStep: number) => {
@@ -358,7 +379,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                   Prüfen Sie vor Ort alle Aspekte der Arbeiten. Diese Checkliste hilft bei einer systematischen Bewertung.
                 </p>
                 
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {[
                     { key: 'workCompleted', label: 'Arbeiten vollständig ausgeführt', desc: 'Alle beauftragten Arbeiten sind abgeschlossen' },
                     { key: 'qualityAcceptable', label: 'Qualität entspricht Anforderungen', desc: 'Ausführungsqualität ist zufriedenstellend' },
@@ -366,32 +387,40 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                     { key: 'safetyCompliant', label: 'Sicherheitsvorschriften beachtet', desc: 'Alle Sicherheitsstandards wurden eingehalten' },
                     { key: 'cleanedUp', label: 'Arbeitsplatz ordnungsgemäß gereinigt', desc: 'Baustelle ist sauber hinterlassen' },
                     { key: 'documentsProvided', label: 'Erforderliche Dokumente übergeben', desc: 'Garantien, Zertifikate, Anleitungen vorhanden' }
-                  ].map((item) => (
-                    <div key={item.key} className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
+                  ].map((item) => {
+                    const checked = checklist[item.key as keyof typeof checklist];
+                    return (
                       <button
+                        key={item.key}
+                        type="button"
                         onClick={() => setChecklist(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
-                        className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                          checklist[item.key as keyof typeof checklist]
-                            ? 'bg-green-500 border-green-500'
-                            : 'border-gray-400 hover:border-green-400'
+                        className={`group text-left w-full p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                          checked
+                            ? 'border-green-500 bg-green-500/10 shadow-[0_0_0_2px_rgba(16,185,129,0.2)]'
+                            : 'border-gray-600/60 bg-white/[0.03] hover:border-green-400/70 hover:bg-white/5'
                         }`}
+                        aria-pressed={checked}
                       >
-                        {checklist[item.key as keyof typeof checklist] && (
-                          <CheckCircle size={14} className="text-white" />
-                        )}
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={`mt-1 w-5 h-5 rounded flex items-center justify-center transition-all ${
+                              checked ? 'bg-green-500 text-white' : 'border border-gray-400 text-transparent group-hover:text-white/40'
+                            }`}
+                          >
+                            <CheckCircle size={14} />
+                          </div>
+                          <div className="flex-1">
+                            <div className={`font-medium transition-colors ${checked ? 'text-green-300' : 'text-white'}`}>
+                              {item.label}
+                            </div>
+                            <div className="text-sm text-gray-400 mt-1">
+                              {item.desc}
+                            </div>
+                          </div>
+                        </div>
                       </button>
-                      <div className="flex-1">
-                        <div className={`font-medium transition-colors ${
-                          checklist[item.key as keyof typeof checklist] ? 'text-green-300' : 'text-white'
-                        }`}>
-                          {item.label}
-                        </div>
-                        <div className="text-sm text-gray-400 mt-1">
-                          {item.desc}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 
                 <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">

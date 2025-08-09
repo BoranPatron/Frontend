@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
@@ -438,6 +438,8 @@ export default function Trades() {
 
   // State für CostEstimateDetailsModal (Bauträger-Ansicht)
   const [showCostEstimateDetailsModal, setShowCostEstimateDetailsModal] = useState(false);
+  // Guard, um Modals nur einmal pro Klick zu öffnen (Flacker verhindern)
+  const modalGuardRef = useRef<{ lastTradeId?: number; timestamp?: number }>({});
   const [selectedTradeForCostEstimateDetails, setSelectedTradeForCostEstimateDetails] = useState<Trade | null>(null);
 
   // State für Auftragsbestätigung
@@ -1140,6 +1142,10 @@ export default function Trades() {
     }
   };
 
+  // Exponiere Handler temporär für Inline-Menü im TradeDetailsModal
+  ;(window as any).__onAcceptQuote = handleAcceptQuote;
+  ;(window as any).__onRejectQuote = handleRejectQuote;
+
   // Handler für Angebot zurückziehen (Dienstleister)
   const handleWithdrawQuote = async (quoteId: number) => {
     // Bestätigungsdialog für Rückzug
@@ -1219,7 +1225,9 @@ export default function Trades() {
     if (trade && selectedQuotes.length > 0) {
       setSelectedTradeForInspection(trade);
       setSelectedQuotesForInspection(selectedQuotes);
+      // Schliesse beide ggf. offenen Modalfenster, um Überlagerungen zu vermeiden
       setShowCostEstimateDetailsModal(false);
+      setShowTradeDetailsModal(false);
       setTimeout(() => {
         setShowCreateInspectionModal(true);
       }, 150);
@@ -1246,6 +1254,22 @@ export default function Trades() {
     } catch (err: any) {
       console.error('❌ Fehler beim Verarbeiten der Besichtigung:', err);
       setError(`Fehler beim Verarbeiten der Besichtigung: ${err.message}`);
+    }
+  };
+
+  // Öffnet ein Modal exklusiv (verhindert visuelle Überlagerungen/Flackern)
+  const openExclusiveModal = (target: 'trade' | 'cost', trade: any) => {
+    // Setze Auswahl synchron
+    if (target === 'trade') {
+      setSelectedTradeForDetails(trade);
+      setSelectedTradeForCostEstimateDetails(null as any);
+      setShowCostEstimateDetailsModal(false);
+      setShowTradeDetailsModal(true);
+    } else {
+      setSelectedTradeForCostEstimateDetails(trade);
+      setSelectedTradeForDetails(null as any);
+      setShowTradeDetailsModal(false);
+      setShowCostEstimateDetailsModal(true);
     }
   };
 
@@ -1428,7 +1452,14 @@ export default function Trades() {
       };
       
       console.log('📡 Sende Kostenvoranschlag-Daten:', quoteData);
-      await createQuote(quoteData);
+      // Falls der Dienstleister bereits ein Angebot für dieses Gewerk hat: ersetze statt neu anzulegen
+      const existing = (allTradeQuotes[costEstimateData.trade_id] || []).find((q: any) => q.service_provider_id === user?.id);
+      if (existing) {
+        console.log('✏️ Aktualisiere bestehendes Angebot:', existing.id);
+        await updateQuote(existing.id, quoteData);
+      } else {
+        await createQuote(quoteData);
+      }
       
       // Erfolgreich erstellt
       console.log('✅ Kostenvoranschlag erfolgreich erstellt');
@@ -1802,6 +1833,17 @@ export default function Trades() {
   };
 
   const handleTradeClick = (trade: any) => {
+    // Guard: verhindere Doppelevents/Endlosschleifen
+    const now = Date.now();
+    if (
+      modalGuardRef.current.lastTradeId === trade.id &&
+      modalGuardRef.current.timestamp &&
+      now - modalGuardRef.current.timestamp < 500
+    ) {
+      console.log('⏳ Modal guard active, ignoring repeated click');
+      return;
+    }
+    modalGuardRef.current = { lastTradeId: trade.id, timestamp: now };
     // Debug-Logging hinzufügen
     console.log('🔍 handleTradeClick aufgerufen:', {
       trade: trade,
@@ -1811,10 +1853,32 @@ export default function Trades() {
       userType: user?.user_type
     });
 
-    // Für Bauträger immer TradeDetailsModal öffnen
-    if (user?.user_type === 'bautraeger' || user?.user_type === 'developer') {
-      console.log('📋 Öffne TradeDetailsModal für Bauträger - Trade', trade.id);
-      openTradeDetailsModal(trade);
+    // Robuste Bauträger-Erkennung (Role oder Type)
+    const isBautraegerUser = (user?.user_role?.toUpperCase?.() === 'BAUTRAEGER') || (user?.user_type === 'bautraeger') || (user?.user_type === 'developer');
+
+    // Für Bauträger: Erst Angebotsübersicht (TradeDetailsModal) solange NICHT angenommen; nach Annahme → Kostenvoranschlag-Details
+    if (isBautraegerUser) {
+      const quotes = allTradeQuotes[trade.id] || [];
+      const hasAccepted = quotes.some(q => String(q.status).toLowerCase() === 'accepted');
+      
+      console.log('🔍 Bauträger Klick Debug:', {
+        tradeId: trade.id,
+        quotesCount: quotes.length,
+        quotesStatus: quotes.map(q => q.status),
+        hasAccepted,
+        userRole: user?.user_role,
+        userType: user?.user_type
+      });
+      
+      // WICHTIG: Bauträger soll IMMER zuerst die Angebotsauswahl sehen (TradeDetailsModal)
+      // Nur wenn bereits ein Angebot angenommen wurde, dann CostEstimateDetailsModal
+      if (hasAccepted) {
+        console.log('📋 (Bauträger) Angenommenes Angebot vorhanden → CostEstimateDetailsModal', { tradeId: trade.id, quotes });
+        openExclusiveModal('cost', trade);
+      } else {
+        console.log('📋 (Bauträger) IMMER ZUERST → TradeDetailsModal (Angebotsauswahl + Besichtigung)', { tradeId: trade.id, quotes });
+        openExclusiveModal('trade', trade);
+      }
       return;
     }
 
@@ -1822,11 +1886,10 @@ export default function Trades() {
     const quotes = allTradeQuotes[trade.id] || [];
     if (quotes.length > 0) {
       console.log('📋 Öffne CostEstimateDetailsModal für Dienstleister - Trade', trade.id);
-      setSelectedTradeForCostEstimateDetails(trade);
-      setShowCostEstimateDetailsModal(true);
+      openExclusiveModal('cost', trade);
     } else {
       console.log('📋 Öffne TradeDetailsModal für Dienstleister - Trade', trade.id);
-      openTradeDetailsModal(trade);
+      openExclusiveModal('trade', trade);
     }
   };
 
@@ -2498,21 +2561,7 @@ export default function Trades() {
                   ? 'border-2 border-green-500/40 bg-gradient-to-r from-green-500/5 to-emerald-500/5 shadow-lg shadow-green-500/10' 
                   : ''
               }`}
-              onClick={() => {
-                // Prüfe ob Kostenvoranschläge vorhanden sind
-                const quotes = allTradeQuotes[trade.id] || [];
-                // Bauträger bekommen immer TradeDetailsModal (mit Kommentar-Funktionalität)
-                if (user?.user_type === 'bautraeger' || user?.user_type === 'developer') {
-                  openTradeDetailsModal(trade);
-                } else if (quotes.length > 0) {
-                  // Dienstleister: Öffne CostEstimateDetailsModal wenn Angebote vorhanden
-                  setSelectedTradeForCostEstimateDetails(trade);
-                  setShowCostEstimateDetailsModal(true);
-                } else {
-                  // Dienstleister: Öffne TradeDetailsModal wenn keine Angebote vorhanden
-                  openTradeDetailsModal(trade);
-                }
-              }}
+              onClick={() => handleTradeClick(trade)}
             >
               {/* Geo-Badge für Geo-Ergebnisse */}
               {trade.isGeoResult && (
@@ -2714,7 +2763,7 @@ export default function Trades() {
           />
         )}
 
-        {showTradeDetailsModal && selectedTradeForDetails && (
+        {showTradeDetailsModal && !showCostEstimateDetailsModal && selectedTradeForDetails && (
           <>
             {console.log('🔍 TradeDetailsModal wird gerendert:', {
               showTradeDetailsModal,
@@ -2727,12 +2776,16 @@ export default function Trades() {
               onClose={() => setShowTradeDetailsModal(false)}
               trade={selectedTradeForDetails as any}
               existingQuotes={allTradeQuotes[selectedTradeForDetails.id] || []}
-              onCreateQuote={() => {}}
+              onCreateQuote={(trade) => {
+                setSelectedTradeForCostEstimate(trade as any);
+                setShowCostEstimateForm(true);
+              }}
+              onCreateInspection={handleCreateInspection}
             />
           </>
         )}
 
-        {showCostEstimateDetailsModal && selectedTradeForCostEstimateDetails && (
+        {showCostEstimateDetailsModal && !showTradeDetailsModal && selectedTradeForCostEstimateDetails && (
           <CostEstimateDetailsModal
             isOpen={showCostEstimateDetailsModal}
             onClose={() => setShowCostEstimateDetailsModal(false)}
@@ -2753,11 +2806,7 @@ export default function Trades() {
                   trade.id === updatedTrade.id ? updatedTrade : trade
                 )
               );
-              // WICHTIG: Lade auch die kompletten Trades neu um sicherzustellen dass alles aktuell ist
-              console.log('📋 Quotes - Lade Trades neu nach Trade-Update...');
-              setTimeout(() => {
-                loadTrades();
-              }, 1000);
+              // Keine sofortigen Reloads hier, um Flackern/Loops zu verhindern
             }}
             inspectionStatus={tradeInspectionStatus[selectedTradeForCostEstimateDetails.id]}
           />

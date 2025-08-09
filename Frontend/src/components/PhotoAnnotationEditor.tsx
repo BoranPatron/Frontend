@@ -42,6 +42,7 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
   initialAnnotations = []
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [annotations, setAnnotations] = useState<Annotation[]>(initialAnnotations);
   const [currentTool, setCurrentTool] = useState<'select' | 'circle' | 'rectangle' | 'text' | 'freehand'>('select');
   const [isDrawing, setIsDrawing] = useState(false);
@@ -58,9 +59,10 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
   const image = useRef(new Image());
 
   useEffect(() => {
+    image.current.crossOrigin = 'anonymous';
     image.current.onload = () => {
       setImageLoaded(true);
-      drawCanvas();
+      fitImageToContainer();
     };
     image.current.src = imageUrl;
   }, [imageUrl]);
@@ -70,6 +72,18 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
       drawCanvas();
     }
   }, [annotations, zoom, offset, imageLoaded, selectedAnnotation]);
+
+  // Resize Observer to keep canvas fit to container
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(() => {
+      if (imageLoaded) {
+        fitImageToContainer();
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [imageLoaded]);
 
   const drawCanvas = () => {
     const canvas = canvasRef.current;
@@ -103,6 +117,35 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
 
     // Restore context state
     ctx.restore();
+  };
+
+  const fitImageToContainer = () => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container || !imageLoaded) return;
+
+    const rect = container.getBoundingClientRect();
+    const containerWidth = Math.max(320, rect.width);
+    const containerHeight = Math.max(240, rect.height);
+
+    // Set canvas to container size
+    canvas.width = Math.floor(containerWidth);
+    canvas.height = Math.floor(containerHeight);
+
+    // Compute scale to fit image fully (contain)
+    const scale = Math.min(
+      canvas.width / image.current.width,
+      canvas.height / image.current.height
+    );
+    setZoom(scale);
+
+    // Center image
+    const offsetX = (canvas.width / scale - image.current.width) / 2;
+    const offsetY = (canvas.height / scale - image.current.height) / 2;
+    setOffset({ x: offsetX, y: offsetY });
+
+    // Redraw with new settings
+    requestAnimationFrame(drawCanvas);
   };
 
   const drawAnnotation = (ctx: CanvasRenderingContext2D, annotation: Annotation, isSelected: boolean) => {
@@ -261,28 +304,50 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
     }
   };
 
-  const handleSave = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    // Create a temporary canvas with the final image
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = image.current.width;
-    tempCanvas.height = image.current.height;
-    const tempCtx = tempCanvas.getContext('2d');
-    
-    if (tempCtx) {
-      // Draw original image
-      tempCtx.drawImage(image.current, 0, 0);
-      
-      // Draw all annotations
+  const handleSave = async () => {
+    const renderWithImage = (img: HTMLImageElement) => {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = img.width;
+      tempCanvas.height = img.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (!tempCtx) throw new Error('Canvas 2D Context nicht verfügbar');
+      tempCtx.drawImage(img, 0, 0);
       annotations.forEach(annotation => {
         drawAnnotation(tempCtx, annotation, false);
       });
-      
-      // Convert to data URL
-      const annotatedImageUrl = tempCanvas.toDataURL('image/png');
+      return tempCanvas.toDataURL('image/png');
+    };
+
+    try {
+      const annotatedImageUrl = renderWithImage(image.current);
       onSave(annotatedImageUrl, annotations);
+      onClose();
+    } catch (err) {
+      console.warn('Erster Speicherversuch fehlgeschlagen, versuche CORS-Workaround:', err);
+      try {
+        const resp = await fetch(imageUrl, { mode: 'cors' });
+        const blob = await resp.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        await new Promise<void>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const annotatedImageUrl = renderWithImage(img);
+              URL.revokeObjectURL(objectUrl);
+              onSave(annotatedImageUrl, annotations);
+              onClose();
+              resolve();
+            } catch (e) {
+              reject(e);
+            }
+          };
+          img.onerror = reject;
+          img.src = objectUrl;
+        });
+      } catch (e2) {
+        console.error('Speichern fehlgeschlagen (CORS/Canvas):', e2);
+        alert('Speichern fehlgeschlagen. Bitte Bild erneut hochladen oder später versuchen.');
+      }
     }
   };
 
@@ -418,23 +483,21 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
                 </div>
                 <div className="text-gray-400 text-sm text-center">{Math.round(zoom * 100)}%</div>
                 <button
-                  onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }); }}
+                  onClick={() => fitImageToContainer()}
                   className="w-full p-2 bg-gray-600 text-white rounded hover:bg-gray-700 mt-2 flex items-center justify-center gap-2"
                 >
                   <RotateCcw size={16} />
-                  Reset
+                  An Bild anpassen
                 </button>
               </div>
             </div>
           </div>
 
           {/* Canvas Area */}
-          <div className="flex-1 p-4 overflow-auto bg-gray-900">
+          <div ref={containerRef} className="flex-1 p-4 overflow-auto bg-gray-900">
             <canvas
               ref={canvasRef}
-              width={800}
-              height={600}
-              className="border border-gray-600 cursor-crosshair bg-white"
+              className="w-full h-full border border-gray-600 cursor-crosshair bg-white block"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}

@@ -118,7 +118,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
         
         if (onboardingState.needsOnboarding) {
           console.log('🚀 Onboarding erforderlich:', onboardingState.reason);
-          setShowRoleModal(true);
+          // Onboarding kann Rolle oder Dashboard-Tour sein.
+          // Rolle fehlt → Modaldialog anzeigen, Tour wird in Dashboard gestartet.
+          if (!user.role_selected || !user.user_role) {
+            setShowRoleModal(true);
+          } else {
+            setShowRoleModal(false);
+          }
         } else {
           console.log('✅ Kein Onboarding erforderlich:', onboardingState.reason);
           setShowRoleModal(false);

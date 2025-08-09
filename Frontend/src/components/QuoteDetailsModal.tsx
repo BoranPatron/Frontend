@@ -116,18 +116,18 @@ export default function QuoteDetailsModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] rounded-2xl shadow-2xl border border-white/20 max-w-4xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <div className="bg-[#0f172a]/95 rounded-2xl shadow-2xl border border-white/10 max-w-4xl w-full max-h-[90vh] overflow-hidden">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/20">
+        <div className="flex items-center justify-between p-6 border-b border-white/10">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-[#ffbd59]/20 rounded-xl">
-              <FileText size={24} className="text-[#ffbd59]" />
+            <div className="p-3 bg-[#ffbd59]/15 rounded-xl">
+              <FileText size={24} className="text-[#ffbd59] drop-shadow" />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-white">Angebot Details</h2>
-              <p className="text-gray-400">{quote.title}</p>
+              <p className="text-gray-300">{quote.title}</p>
             </div>
           </div>
           <button
@@ -143,7 +143,7 @@ export default function QuoteDetailsModal({
           <div className="p-6 space-y-6">
             
             {/* Status-Banner */}
-            <div className={`${statusInfo.bgColor} border ${statusInfo.borderColor} rounded-xl p-4`}>
+            <div className={`${statusInfo.bgColor} border ${statusInfo.borderColor} rounded-xl p-4`}> 
               <div className="flex items-center gap-3 mb-2">
                 {statusInfo.icon}
                 <h3 className={`text-lg font-semibold ${statusInfo.color}`}>{statusInfo.text}</h3>
@@ -300,7 +300,7 @@ export default function QuoteDetailsModal({
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={handleDownloadPDF}
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-[#ffbd59] text-[#2c3539] rounded-xl font-semibold hover:bg-[#ffa726] transition-all duration-300 transform hover:scale-105 shadow-lg"
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-[#ffbd59] text-[#0f172a] rounded-xl font-semibold hover:bg-[#ffa726] transition-all duration-300 transform hover:scale-105 shadow-lg"
               >
                 <Download size={16} />
                 PDF herunterladen
@@ -308,7 +308,7 @@ export default function QuoteDetailsModal({
               
               <button
                 onClick={handleShareQuote}
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-white/10 text-white rounded-xl font-semibold hover:bg-white/20 transition-all duration-300 border border-white/20"
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-white/10 text-white rounded-xl font-semibold hover:bg-white/15 transition-all duration-300 border border-white/10"
               >
                 <Share2 size={16} />
                 Angebot teilen
