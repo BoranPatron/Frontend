@@ -111,14 +111,9 @@ export interface CostPositionStatistics {
 }
 
 export const costPositionService = {
-  // Get all cost positions for a project
-  getCostPositions: async (projectId: number, category?: string, status?: string): Promise<CostPosition[]> => {
-    const params = new URLSearchParams();
-    params.append('project_id', projectId.toString());
-    if (category) params.append('category', category);
-    if (status) params.append('status', status);
-    
-    const response = await api.get(`/cost-positions/?${params.toString()}`);
+  // Get all cost positions for a project (neuer Backend-Endpoint)
+  getCostPositions: async (projectId: number, _category?: string, _status?: string): Promise<CostPosition[]> => {
+    const response = await api.get(`/cost-positions/project/${projectId}`);
     return response.data;
   },
 
@@ -167,13 +162,9 @@ export const costPositionService = {
     return response.data;
   },
 
-  // Get cost positions from accepted quotes
+  // Get cost positions from accepted quotes → verwende gleiche Projektliste
   getCostPositionsFromAcceptedQuotes: async (projectId: number): Promise<CostPosition[]> => {
-    const params = new URLSearchParams();
-    params.append('project_id', projectId.toString());
-    params.append('accepted_quotes_only', 'true');
-    
-    const response = await api.get(`/cost-positions/?${params.toString()}`);
+    const response = await api.get(`/cost-positions/project/${projectId}`);
     return response.data;
   },
 

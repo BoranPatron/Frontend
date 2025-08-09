@@ -616,6 +616,42 @@ export default function CostEstimateDetailsModal({
         }
       }
       
+      // NEU: Lade alle DMS-Dokumente des Projekts und merge sie ein
+      try {
+        if (trade?.project_id) {
+          const docsResp = await fetch(`${baseUrl}/documents?project_id=${trade.project_id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          if (docsResp.ok) {
+            const projectDocs = await docsResp.json();
+            const normalized = (Array.isArray(projectDocs) ? projectDocs : []).map((doc: any) => ({
+              id: doc.id,
+              name: doc.title || doc.file_name,
+              title: doc.title,
+              file_name: doc.file_name,
+              url: `/api/v1/documents/${doc.id}/download`,
+              file_path: `/api/v1/documents/${doc.id}/download`,
+              type: doc.mime_type || 'application/octet-stream',
+              mime_type: doc.mime_type,
+              size: doc.file_size || 0,
+              file_size: doc.file_size,
+              category: doc.category,
+              subcategory: doc.subcategory,
+              created_at: doc.created_at
+            }));
+            // Merge & de-dupe nach id
+            const byId: Record<string, any> = {};
+            [...documents, ...normalized].forEach((d) => { if (d && d.id != null) byId[String(d.id)] = d; });
+            documents = Object.values(byId);
+          }
+        }
+      } catch (e) {
+        console.error('❌ Fehler beim Laden der Projekt-Dokumente (DMS):', e);
+      }
+
       console.log('📄 CostEstimateDetailsModal - Finale Dokumentenliste:', documents);
       setLoadedDocuments(documents);
       

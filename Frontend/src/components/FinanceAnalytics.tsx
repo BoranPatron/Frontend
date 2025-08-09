@@ -708,7 +708,7 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
                       <div className="ml-4">
                         <p className="text-sm font-medium" style={{ color: '#ffbd59' }}>Gesamtkosten</p>
                         <p className="text-3xl font-bold" style={{ color: '#ffbd59' }}>
-                          {summary.summary.total_amount.toLocaleString('de-DE')} €
+                          {(summary?.total_amount ?? 0).toLocaleString('de-DE')} €
                         </p>
                       </div>
                     </div>
@@ -724,7 +724,7 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
                       <div className="ml-4">
                         <p className="text-sm font-medium" style={{ color: '#ffbd59' }}>Bezahlt</p>
                         <p className="text-3xl font-bold" style={{ color: '#ffbd59' }}>
-                          {summary.summary.total_paid.toLocaleString('de-DE')} €
+                          {(summary?.total_paid ?? 0).toLocaleString('de-DE')} €
                         </p>
                       </div>
                     </div>
@@ -740,7 +740,7 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
                       <div className="ml-4">
                         <p className="text-sm font-medium" style={{ color: '#ffbd59' }}>Verbleibend</p>
                         <p className="text-3xl font-bold" style={{ color: '#ffbd59' }}>
-                          {summary.summary.total_remaining.toLocaleString('de-DE')} €
+                          {(summary?.total_remaining ?? 0).toLocaleString('de-DE')} €
                         </p>
                       </div>
                     </div>
@@ -756,7 +756,7 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
                       <div className="ml-4">
                         <p className="text-sm font-medium" style={{ color: '#ffbd59' }}>Fortschritt</p>
                         <p className="text-3xl font-bold" style={{ color: '#ffbd59' }}>
-                          {summary.summary.completion_percentage}%
+                          {summary?.completion_percentage ?? 0}%
                         </p>
                       </div>
                     </div>

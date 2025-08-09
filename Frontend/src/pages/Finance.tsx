@@ -223,9 +223,9 @@ export default function Finance() {
         setExpenses([]);
       }
 
-      // Lade Kostenpositionen aus akzeptierten Angeboten
+      // Lade Kostenpositionen für das Projekt (über verknüpfte Rechnungen)
       try {
-        console.log('🔍 Lade Kostenpositionen aus akzeptierten Angeboten für Projekt:', selectedProject);
+        console.log('🔍 Lade Kostenpositionen für Projekt:', selectedProject);
         
         // Prüfe Token vor API-Call
         const token = localStorage.getItem('token');
@@ -235,7 +235,7 @@ export default function Finance() {
         
         console.log('🔑 Token verfügbar, starte API-Call...');
         
-        const costPositionsData = await costPositionService.getCostPositionsFromAcceptedQuotes(parseInt(selectedProject));
+        const costPositionsData = await costPositionService.getCostPositions(parseInt(selectedProject));
         console.log('✅ Kostenpositionen geladen:', costPositionsData);
         console.log('📊 Anzahl Kostenpositionen:', costPositionsData.length);
         
@@ -845,132 +845,54 @@ export default function Finance() {
                       <p className="text-gray-400">Akzeptieren Sie Angebote, um hier Kostenpositionen zu sehen.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {costPositions.map((costPosition) => (
-                        <div
-                          key={costPosition.id}
-                          className="group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl cursor-pointer"
-                          onClick={() => openCostPositionModal(costPosition)}
-                        >
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl">
-                                {getCategoryIcon(costPosition.category)}
-                              </div>
-                              <div>
-                                <h4 className="font-semibold text-white group-hover:text-[#ffbd59] transition-colors">{costPosition.title}</h4>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getCategoryColor(costPosition.category)}`}>
-                                    {getCategoryLabel(costPosition.category)}
-                                  </span>
-                                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(costPosition.status)}`}>
-                                    {getStatusLabel(costPosition.status)}
-                                  </span>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-sm text-left text-white/90 overflow-hidden rounded-xl shadow-xl">
+                        <thead className="bg-gradient-to-r from-[#1f2a33] to-[#2c3539] text-xs uppercase border border-white/10">
+                          <tr>
+                            <th className="px-4 py-3 text-[#ffbd59]">Erstellt am</th>
+                            <th className="px-4 py-3 text-[#ffbd59]">Gewerk</th>
+                            <th className="px-4 py-3 text-[#ffbd59]">Dienstleister</th>
+                            <th className="px-4 py-3 text-right text-[#ffbd59]">Betrag</th>
+                          </tr>
+                        </thead>
+                        {/* Mehrere TBodies erlauben gruppiertes Hover-Reveal je Zeile */}
+                        {costPositions.map((cp) => (
+                          <tbody key={cp.id} className="group bg-white/5">
+                            {/* Hauptzeile */}
+                            <tr className="border-b border-white/10 hover:bg-white/10 transition-all duration-200">
+                              <td className="px-4 py-3 text-gray-300">{cp.created_at ? new Date(cp.created_at).toLocaleDateString('de-DE') : '–'}</td>
+                              <td className="px-4 py-3 font-medium">{cp.milestone_title || cp.title || (cp.milestone_id ? `#${cp.milestone_id}` : '–')}</td>
+                              <td className="px-4 py-3 text-gray-300">{cp.service_provider_name || cp.contractor_name || '–'}</td>
+                              <td className="px-4 py-3 text-right font-semibold text-[#ffbd59]">{formatCurrency(cp.amount)}</td>
+                            </tr>
+                            {/* Hover-Details */}
+                            <tr className="hidden group-hover:table-row transition-all">
+                              <td colSpan={4} className="px-4 pt-0 pb-4">
+                                <div className="mt-0.5 p-4 rounded-lg bg-gradient-to-r from-[#1a1f24] to-[#232b31] border border-white/10 shadow-inner">
+                                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+                                    <div>
+                                      <div className="text-gray-400">Titel</div>
+                                      <div className="text-white/90">{cp.title || '–'}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-gray-400">Gewerk</div>
+                                      <div className="text-white/90">{cp.milestone_title || (cp.milestone_id ? `#${cp.milestone_id}` : '–')}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-gray-400">Dienstleister</div>
+                                      <div className="text-white/90">{cp.service_provider_name || cp.contractor_name || '–'}</div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-gray-400">Betrag</div>
+                                      <div className="text-[#ffbd59] font-semibold">{formatCurrency(cp.amount)}</div>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-bold text-lg text-white">
-                                {formatCurrency(costPosition.amount)}
-                              </div>
-                              <div className="text-sm text-gray-400">
-                                {costPosition.currency}
-                              </div>
-                            </div>
-                          </div>
-
-                          <p className="text-gray-300 text-sm mb-4 line-clamp-2">
-                            {costPosition.description}
-                          </p>
-
-                          {/* Contractor Info */}
-                          {costPosition.contractor_name && (
-                            <div className="bg-white/5 rounded-lg p-3 mb-4">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Building className="w-4 h-4 text-[#ffbd59]" />
-                                <span className="font-medium text-sm text-white">{costPosition.contractor_name}</span>
-                              </div>
-                              {costPosition.contractor_contact && (
-                                <div className="flex items-center gap-2 text-sm text-gray-400">
-                                  <span>👤 {costPosition.contractor_contact}</span>
-                                </div>
-                              )}
-                              {costPosition.contractor_phone && (
-                                <div className="flex items-center gap-2 text-sm text-gray-400">
-                                  <Phone className="w-3 h-3" />
-                                  <span>{costPosition.contractor_phone}</span>
-                                </div>
-                              )}
-                              {costPosition.contractor_email && (
-                                <div className="flex items-center gap-2 text-sm text-gray-400">
-                                  <Mail className="w-3 h-3" />
-                                  <span>{costPosition.contractor_email}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Progress and Payment */}
-                          <div className="space-y-3">
-                            <div>
-                              <div className="flex justify-between text-sm mb-1">
-                                <span className="text-gray-400">Fortschritt</span>
-                                <span className="font-medium text-white">{costPosition.progress_percentage}%</span>
-                              </div>
-                              <div className="w-full bg-white/20 rounded-full h-2">
-                                <div
-                                  className="bg-[#ffbd59] h-2 rounded-full transition-all duration-300"
-                                  style={{ width: `${costPosition.progress_percentage}%` }}
-                                ></div>
-                              </div>
-                            </div>
-
-                            <div className="flex justify-between items-center">
-                              <div className="text-sm">
-                                <span className="text-gray-400">Bezahlt:</span>
-                                <span className="font-medium text-green-400 ml-1">
-                                  {formatCurrency(costPosition.paid_amount)}
-                                </span>
-                              </div>
-                              <div className="text-sm">
-                                <span className="text-gray-400">Verbleibend:</span>
-                                <span className="font-medium text-red-400 ml-1">
-                                  {formatCurrency(costPosition.amount - costPosition.paid_amount)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* AI Analysis */}
-                          {costPosition.risk_score && costPosition.price_deviation && (
-                            <div className="mt-4 pt-4 border-t border-white/20">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Award className="w-4 h-4 text-[#ffbd59]" />
-                                <span className="text-sm font-medium text-white">KI-Analyse</span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-3 text-xs">
-                                <div>
-                                  <span className="text-gray-400">Risiko:</span>
-                                  <span className={`ml-1 font-medium ${getRiskColor(costPosition.risk_score)}`}>
-                                    {costPosition.risk_score}/100
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-gray-400">Preisabweichung:</span>
-                                  <span className={`ml-1 font-medium ${getPriceDeviationColor(costPosition.price_deviation)}`}>
-                                    {costPosition.price_deviation > 0 ? '+' : ''}{costPosition.price_deviation.toFixed(1)}%
-                                  </span>
-                                </div>
-                              </div>
-                              {costPosition.ai_recommendation && (
-                                <div className="mt-2 text-xs text-gray-400 italic">
-                                  "{costPosition.ai_recommendation}"
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                              </td>
+                            </tr>
+                          </tbody>
+                        ))}
+                      </table>
                     </div>
                   )}
 
