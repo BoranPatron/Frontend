@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Wrench, User, Euro, BarChart3, Calendar, Tag, CheckCircle, XCircle, AlertTriangle, Eye, FileText, ChevronDown, ChevronUp, Clock, Users, Trophy, Sparkles, MessageCircle } from 'lucide-react';
+import { Wrench, User, Euro, BarChart3, Calendar, Tag, CheckCircle, XCircle, AlertTriangle, Eye, FileText, ChevronDown, ChevronUp, Clock, Users, Trophy, Sparkles, MessageCircle, Edit, Trash2, MoreHorizontal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getQuotesForMilestone } from '../api/quoteService';
 
@@ -49,6 +49,8 @@ interface TradesCardProps {
   onAcceptQuote?: (quoteId: number) => void;
   onRejectQuote?: (quoteId: number, reason: string) => void;
   onResetQuote?: (quoteId: number) => void;
+  onEditTrade?: (tradeId: number) => void;
+  onDeleteTrade?: (tradeId: number) => void;
 }
 
 interface TradeStats {
@@ -65,7 +67,9 @@ export default function TradesCard({
   onToggle,
   onAcceptQuote,
   onRejectQuote,
-  onResetQuote
+  onResetQuote,
+  onEditTrade,
+  onDeleteTrade
 }: TradesCardProps) {
   const navigate = useNavigate();
   const [quoteData, setQuoteData] = useState<{ [tradeId: number]: QuoteData | null }>({});
@@ -75,6 +79,8 @@ export default function TradesCard({
   const [rejectionReason, setRejectionReason] = useState<{ [tradeId: number]: string }>({});
   const [showDetails, setShowDetails] = useState<{ [tradeId: number]: boolean }>({});
   const [tradeStats, setTradeStats] = useState<{ [tradeId: number]: TradeStats }>({});
+  const [showTradeActions, setShowTradeActions] = useState<{ [tradeId: number]: boolean }>({});
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ [tradeId: number]: boolean }>({});
 
   console.log('🔍 TradesCard Props:', { trades, projectId, isExpanded, tradesLength: trades.length });
 
@@ -86,6 +92,16 @@ export default function TradesCard({
       });
     }
   }, [isExpanded, trades]);
+
+  // Schließe Dropdown-Menüs beim Klicken außerhalb
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowTradeActions({});
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const checkQuoteStatus = async (tradeId: number) => {
     try {
@@ -513,6 +529,26 @@ export default function TradesCard({
     return new Date(dateString).toLocaleDateString('de-DE');
   };
 
+  // Prüft, ob ein Gewerk bearbeitet/gelöscht werden kann (keine Angebote erhalten)
+  const canEditOrDeleteTrade = (tradeId: number) => {
+    const stats = tradeStats[tradeId];
+    const hasQuotes = stats && stats.totalQuotes > 0;
+    return !hasQuotes;
+  };
+
+  const handleEditTrade = (tradeId: number) => {
+    if (onEditTrade && canEditOrDeleteTrade(tradeId)) {
+      onEditTrade(tradeId);
+    }
+  };
+
+  const handleDeleteTrade = (tradeId: number) => {
+    if (onDeleteTrade && canEditOrDeleteTrade(tradeId)) {
+      onDeleteTrade(tradeId);
+      setShowDeleteConfirm(prev => ({ ...prev, [tradeId]: false }));
+    }
+  };
+
   return (
     <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
       <button
@@ -702,11 +738,64 @@ export default function TradesCard({
                         </div>
                       </div>
                       
-                      {/* Status-Badges mit verbessertem Design */}
-                      <div className="flex flex-col gap-1">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getTradeStatusColor(trade.status)}`}>
-                          {getTradeStatusLabel(trade.status)}
-                        </span>
+                      {/* Status-Badges und Aktionen */}
+                      <div className="flex flex-col gap-1 items-end">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getTradeStatusColor(trade.status)}`}>
+                            {getTradeStatusLabel(trade.status)}
+                          </span>
+                          
+                          {/* Bearbeiten/Löschen Aktionen für Gewerke ohne Angebote */}
+                          {canEditOrDeleteTrade(trade.id) && (onEditTrade || onDeleteTrade) && (
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowTradeActions(prev => ({ ...prev, [trade.id]: !showTradeActions[trade.id] }));
+                                }}
+                                className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200"
+                                title="Gewerk-Aktionen"
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
+                              
+                              {/* Dropdown-Menü */}
+                              {showTradeActions[trade.id] && (
+                                <div className="absolute right-0 top-full mt-1 bg-[#2c3539] border border-white/20 rounded-lg shadow-2xl z-50 min-w-[160px]">
+                                  <div className="py-1">
+                                    {onEditTrade && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEditTrade(trade.id);
+                                          setShowTradeActions(prev => ({ ...prev, [trade.id]: false }));
+                                        }}
+                                        className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#ffbd59]/20 hover:text-[#ffbd59] transition-colors flex items-center gap-2"
+                                      >
+                                        <Edit className="w-4 h-4" />
+                                        Bearbeiten
+                                      </button>
+                                    )}
+                                    {onDeleteTrade && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setShowDeleteConfirm(prev => ({ ...prev, [trade.id]: true }));
+                                          setShowTradeActions(prev => ({ ...prev, [trade.id]: false }));
+                                        }}
+                                        className="w-full px-4 py-2 text-left text-sm text-red-300 hover:bg-red-500/20 hover:text-red-200 transition-colors flex items-center gap-2"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                        Löschen
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(trade.priority)}`}>
                           {getPriorityLabel(trade.priority)}
                         </span>
@@ -937,6 +1026,66 @@ export default function TradesCard({
                       className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition-colors"
                     >
                       Ablehnen
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })}
+
+      {/* Lösch-Bestätigungs-Modal */}
+      {Object.keys(showDeleteConfirm).map(tradeId => {
+        if (showDeleteConfirm[parseInt(tradeId)]) {
+          const trade = trades.find(t => t.id === parseInt(tradeId));
+          if (!trade) return null;
+
+          return (
+            <div key={tradeId} className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-2xl shadow-2xl border border-red-500/30 max-w-md w-full">
+                <div className="p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-3 bg-red-500/20 rounded-full">
+                      <Trash2 className="w-6 h-6 text-red-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Gewerk löschen</h3>
+                      <p className="text-sm text-gray-400">Diese Aktion kann nicht rückgängig gemacht werden</p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
+                    <p className="text-red-200 text-sm">
+                      Möchten Sie das Gewerk <strong>"{trade.title}"</strong> wirklich löschen?
+                    </p>
+                    {trade.description && (
+                      <p className="text-red-300/70 text-xs mt-2 italic">
+                        {trade.description}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 mb-6">
+                    <div className="flex items-center gap-2 text-green-300 text-sm">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Dieses Gewerk hat noch keine Angebote erhalten</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowDeleteConfirm(prev => ({ ...prev, [parseInt(tradeId)]: false }))}
+                      className="flex-1 px-4 py-2.5 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
+                    >
+                      Abbrechen
+                    </button>
+                    <button
+                      onClick={() => handleDeleteTrade(parseInt(tradeId))}
+                      className="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-lg font-medium transition-all transform hover:scale-105 shadow-lg"
+                    >
+                      Löschen
                     </button>
                   </div>
                 </div>

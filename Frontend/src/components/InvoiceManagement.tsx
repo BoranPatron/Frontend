@@ -62,10 +62,10 @@ const InvoiceManagement: React.FC<InvoiceManagementProps> = ({
         // Cleanup nach kurzer Verzögerung
         setTimeout(() => window.URL.revokeObjectURL(url), 1000);
         
-        // Zeige DMS-Benachrichtigung
+        // Zeige DMS-Benachrichtigung mit Animation
         setShowDmsNotification(true);
-        // Verstecke Benachrichtigung nach 5 Sekunden
-        setTimeout(() => setShowDmsNotification(false), 5000);
+        // Verstecke Benachrichtigung nach 8 Sekunden (mehr Zeit für die detaillierte Info)
+        setTimeout(() => setShowDmsNotification(false), 8000);
       } else {
         throw new Error('PDF konnte nicht geladen werden');
       }
@@ -75,6 +75,9 @@ const InvoiceManagement: React.FC<InvoiceManagementProps> = ({
       onInvoiceAction?.('viewed', invoice);
     } catch (error) {
       console.error('Fehler beim Anzeigen der Rechnung:', error);
+      // Auch bei Fehlern zeigen wir die DMS-Benachrichtigung, da mark-viewed bereits aufgerufen wurde
+      setShowDmsNotification(true);
+      setTimeout(() => setShowDmsNotification(false), 8000);
     }
   };
 
@@ -95,14 +98,17 @@ const InvoiceManagement: React.FC<InvoiceManagementProps> = ({
       link.click();
       window.URL.revokeObjectURL(url);
       
-      // Zeige DMS-Benachrichtigung
+      // Zeige DMS-Benachrichtigung mit Animation
       setShowDmsNotification(true);
-      // Verstecke Benachrichtigung nach 5 Sekunden
-      setTimeout(() => setShowDmsNotification(false), 5000);
+      // Verstecke Benachrichtigung nach 8 Sekunden (mehr Zeit für die detaillierte Info)
+      setTimeout(() => setShowDmsNotification(false), 8000);
       
       onInvoiceAction?.('downloaded', invoice);
     } catch (error) {
       console.error('Download-Fehler:', error);
+      // Auch bei Fehlern zeigen wir die DMS-Benachrichtigung, da mark-viewed bereits aufgerufen wurde
+      setShowDmsNotification(true);
+      setTimeout(() => setShowDmsNotification(false), 8000);
     }
   };
 
@@ -176,21 +182,47 @@ const InvoiceManagement: React.FC<InvoiceManagementProps> = ({
 
       {/* DMS-Benachrichtigung */}
       {showDmsNotification && (
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-4 animate-fade-in-down relative">
-          <div className="flex items-center gap-2 mb-2">
-            <FolderOpen size={20} className="text-blue-400" />
-            <span className="text-blue-300 font-medium">Dokument im DMS gespeichert</span>
+        <div className="bg-gradient-to-r from-green-500/10 via-blue-500/10 to-green-500/10 border border-green-500/30 rounded-xl p-5 mb-4 relative shadow-lg backdrop-blur-sm animate-in slide-in-from-top-2 duration-500 fade-in">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-green-500/20 rounded-lg">
+              <CheckCircle size={20} className="text-green-400" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-green-300 font-semibold">Rechnung automatisch archiviert</span>
+                <div className="flex items-center gap-1 px-2 py-0.5 bg-green-500/20 rounded-full">
+                  <FolderOpen size={12} className="text-green-400" />
+                  <span className="text-xs text-green-300 font-medium">DMS</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-green-200 text-sm">
+                  Die Rechnung wurde automatisch im <strong>Dokumentenmanagementsystem</strong> gespeichert und als <strong>"Rechnung"</strong> kategorisiert.
+                </p>
+                <div className="bg-white/5 rounded-lg p-3 border border-green-500/20">
+                  <div className="flex items-center gap-2 text-xs text-green-300">
+                    <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
+                    <span><strong>Kategorie:</strong> Finanzen & Abrechnung → Rechnungen</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-green-300 mt-1">
+                    <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
+                    <span><strong>Speicherort:</strong> /storage/invoices/</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-green-300 mt-1">
+                    <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
+                    <span><strong>Zugriff:</strong> Über DMS im Projekt & <span className="font-mono">/storage</span> verfügbar</span>
+                  </div>
+                </div>
+              </div>
+            </div>
             <button
               onClick={() => setShowDmsNotification(false)}
-              className="absolute top-2 right-2 text-blue-400 hover:text-blue-300"
+              className="text-green-400 hover:text-green-300 transition-colors p-1"
               aria-label="Schließen"
             >
               <X size={16} />
             </button>
           </div>
-          <p className="text-blue-200 text-sm">
-            Die Rechnung wurde automatisch im Dokumentenmanagementsystem gespeichert und klassifiziert.
-          </p>
         </div>
       )}
 

@@ -136,7 +136,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
   
   // Projekt-Dokumente States
   const [projectDocuments, setProjectDocuments] = useState<ProjectDocument[]>([]);
-  const [showDocumentSelector, setShowDocumentSelector] = useState(false);
+  const [showDocumentSelector, setShowDocumentSelector] = useState(true); // Immer aufgeklappt
   const [selectedDocuments, setSelectedDocuments] = useState<Set<number>>(new Set());
   const [documentFilter, setDocumentFilter] = useState('all');
   const [documentSearch, setDocumentSearch] = useState('');
@@ -542,19 +542,40 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
         >
           <div className="p-6 border-b border-[#ffbd59]/20">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-white">Neues Gewerk erstellen</h2>
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold text-white">Neues Gewerk erstellen</h2>
+                {projectInfo && (
+                  <p className="text-gray-300 mt-1 text-sm">
+                    Projekt: <span className="text-[#ffbd59] font-medium">{projectInfo.name}</span>
+                  </p>
+                )}
+              </div>
+              
+              {/* Prominente Projekt-Anzeige */}
+              {projectInfo && (
+                <div className="bg-gradient-to-r from-[#ffbd59]/10 via-[#ffbd59]/20 to-[#ffa726]/10 border border-[#ffbd59]/30 rounded-2xl px-6 py-4 mr-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-[#ffbd59]/20 rounded-lg">
+                      <Building className="w-5 h-5 text-[#ffbd59]" />
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-gray-400 uppercase tracking-wider font-medium">Projekt</div>
+                      <div className="text-white font-bold text-lg leading-tight">{projectInfo.name}</div>
+                      {projectInfo.description && (
+                        <div className="text-xs text-gray-300 mt-1 max-w-48 truncate">{projectInfo.description}</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <button
                 onClick={handleClose}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="text-gray-400 hover:text-white transition-colors p-2"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
-            {projectInfo && (
-              <p className="text-gray-300 mt-2">
-                Projekt: <span className="text-[#ffbd59] font-medium">{projectInfo.name}</span>
-              </p>
-            )}
           </div>
 
           <form onSubmit={handleSubmit} className="p-6">
@@ -835,32 +856,39 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
 
                 {/* Projekt-Dokumente Auswahl */}
                 <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <label className="block text-sm font-medium text-gray-300">
-                      Projekt-Dokumente für Ausschreibung auswählen
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowDocumentSelector(!showDocumentSelector)}
-                      className="flex items-center space-x-2 px-3 py-1 bg-[#ffbd59]/20 text-[#ffbd59] rounded-lg hover:bg-[#ffbd59]/30 transition-colors"
-                    >
-                      {showDocumentSelector ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                      <span className="text-sm">
-                        {showDocumentSelector ? 'Ausblenden' : 'Anzeigen'} ({projectDocuments.length})
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-white mb-2 relative">
+                      <span className="relative z-10 bg-gradient-to-r from-[#ffbd59] via-white to-[#ffbd59] bg-clip-text text-transparent font-bold">
+                        Projekt-Dokumente für Ausschreibung auswählen
                       </span>
-                    </button>
+                      <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/20 via-[#ffbd59]/40 to-[#ffbd59]/20 rounded-lg blur-sm -z-10 animate-pulse"></div>
+                      <div className="absolute -inset-1 bg-gradient-to-r from-[#ffbd59]/10 via-[#ffbd59]/20 to-[#ffbd59]/10 rounded-xl blur-md -z-20"></div>
+                    </h3>
+                    <p className="text-sm text-gray-400 mb-4">
+                      Wählen Sie bestehende Projektdokumente aus, die den Bewerbern zur Verfügung gestellt werden sollen.
+                      Diese Dokumente helfen bei der präzisen Angebotserstellung.
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-[#ffbd59]/10 border border-[#ffbd59]/30 rounded-full">
+                          <FolderOpen className="w-4 h-4 text-[#ffbd59]" />
+                          <span className="text-sm text-[#ffbd59] font-medium">
+                            {projectDocuments.length} Dokument{projectDocuments.length !== 1 ? 'e' : ''} verfügbar
+                          </span>
+                        </div>
+                        {selectedDocuments.size > 0 && (
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/30 rounded-full">
+                            <CheckCircle className="w-4 h-4 text-green-400" />
+                            <span className="text-sm text-green-400 font-medium">
+                              {selectedDocuments.size} ausgewählt
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
-                  {selectedDocuments.size > 0 && (
-                    <div className="mb-4 p-3 bg-[#ffbd59]/10 rounded-lg border border-[#ffbd59]/30">
-                      <p className="text-[#ffbd59] text-sm">
-                        {selectedDocuments.size} Dokument(e) für Bewerbende ausgewählt
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Aufklappbare Dokument-Liste */}
-                  {showDocumentSelector && (
+                  {/* Dokument-Liste - immer sichtbar */}
                     <div className="bg-[#2c3539]/30 rounded-lg p-4 border border-gray-600/30">
                       {/* Filter & Suche */}
                       <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -967,7 +995,6 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                         )}
                       </div>
                     </div>
-                  )}
                 </div>
               </div>
             </div>

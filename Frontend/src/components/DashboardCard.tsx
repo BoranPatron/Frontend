@@ -84,6 +84,8 @@ export default function DashboardCard({
   iconString
 }: DashboardCardProps) {
   const [isFavorite, setIsFavorite] = useState(false);
+  // Alle Kacheln verwenden jetzt das gleiche Design - keine spezielle Behandlung mehr
+  const isVisualize = false;
 
   // Prüfe ob Karte in Favoriten ist
   useEffect(() => {
@@ -180,14 +182,14 @@ export default function DashboardCard({
 
   return (
     <button
-      className="group relative bg-white/10 backdrop-blur-lg rounded-3xl p-8 cursor-pointer transition-all duration-500 hover:bg-white/15 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:ring-opacity-50 min-h-[320px] w-full border border-white/20 hover:border-[#ffbd59]/30 transform hover:-translate-y-2 hover:scale-105"
+      className={`group relative bg-white/10 backdrop-blur-lg rounded-3xl p-8 cursor-pointer transition-all duration-500 hover:bg-white/15 hover:shadow-2xl focus:outline-none focus:ring-2 ${isVisualize ? 'focus:ring-[#51636f]' : 'focus:ring-[#ffbd59]'} focus:ring-opacity-50 min-h-[320px] w-full border border-white/20 ${isVisualize ? 'hover:border-[#51636f]/40' : 'hover:border-[#ffbd59]/30'} transform hover:-translate-y-2 hover:scale-105`}
       onClick={onClick}
       aria-label={ariaLabel}
       type="button"
       data-tour-id={cardId}
     >
       {/* Animated Background Glow */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59]/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+      <div className={`absolute inset-0 bg-gradient-to-br ${isVisualize ? 'from-[#51636f]/10' : 'from-[#ffbd59]/5'} to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500`}></div>
       
       {/* Favoriten-Stern */}
       <div
@@ -232,8 +234,8 @@ export default function DashboardCard({
 
       {/* Icon Container */}
       <div className="relative flex items-center justify-center mb-6">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-2xl blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
-        <div className="relative w-20 h-20 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-2xl flex items-center justify-center shadow-xl group-hover:shadow-2xl transition-all duration-500 transform group-hover:scale-110 group-hover:rotate-3">
+        <div className={`absolute inset-0 bg-gradient-to-br ${isVisualize ? 'from-[#51636f] to-[#3a4a57]' : 'from-[#ffbd59] to-[#ffa726]'} rounded-2xl blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-500`}></div>
+        <div className={`relative w-20 h-20 bg-gradient-to-br ${isVisualize ? 'from-[#51636f] to-[#3a4a57]' : 'from-[#ffbd59] to-[#ffa726]'} rounded-2xl flex items-center justify-center shadow-xl group-hover:shadow-2xl transition-all duration-500 transform group-hover:scale-110 group-hover:rotate-3`}>
           <div className="text-white drop-shadow-lg">
             {icon}
           </div>
@@ -241,7 +243,7 @@ export default function DashboardCard({
       </div>
 
       {/* Title */}
-      <h3 className="font-bold text-2xl mb-3 tracking-wide text-white group-hover:text-[#ffbd59] transition-all duration-300 text-center">
+      <h3 className={`font-bold text-2xl mb-3 tracking-wide text-white transition-all duration-300 text-center ${isVisualize ? 'group-hover:text-[#51636f]' : 'group-hover:text-[#ffbd59]'}`}>
         {title}
       </h3>
 
@@ -259,11 +261,11 @@ export default function DashboardCard({
         <div className="space-y-3 w-full">
           <div className="flex justify-between text-xs text-gray-400">
             <span>{progress.label}</span>
-            <span className="text-[#ffbd59] font-bold">{progress.value}%</span>
+            <span className={`${isVisualize ? 'text-[#51636f]' : 'text-[#ffbd59]'} font-bold`}>{progress.value}%</span>
           </div>
           <div className="relative w-full bg-gray-700/50 rounded-full h-3 backdrop-blur-sm border border-gray-600/30 overflow-hidden">
             <div 
-              className="absolute inset-0 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-3 rounded-full transition-all duration-1000 ease-out shadow-lg"
+              className={`absolute inset-0 bg-gradient-to-r ${isVisualize ? 'from-[#51636f] to-[#3a4a57]' : 'from-[#ffbd59] to-[#ffa726]'} h-3 rounded-full transition-all duration-1000 ease-out shadow-lg`}
               style={{ width: `${progress.value}%` }}
               role="progressbar"
               aria-valuenow={progress.value}
@@ -276,7 +278,7 @@ export default function DashboardCard({
       )}
 
       {/* Hover Effect Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#ffbd59]/0 to-[#ffbd59]/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+      <div className={`absolute inset-0 bg-gradient-to-br ${isVisualize ? 'from-[#51636f]/0 to-[#51636f]/5' : 'from-[#ffbd59]/0 to-[#ffbd59]/5'} rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`}></div>
     </button>
   );
 }

@@ -1,0 +1,761 @@
+import { useMemo, useRef, useState, useEffect, KeyboardEvent, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { useProject } from "../context/ProjectContext";
+import { useAuth } from "../context/AuthContext";
+import { 
+  Home, 
+  FileText, 
+  CheckSquare, 
+  Euro, 
+  MessageSquare, 
+  BarChart3, 
+  Palette,
+  Plus,
+  X,
+  Info,
+  FolderPlus,
+  ListPlus,
+  Receipt,
+  Hammer,
+  Upload,
+  Settings,
+  Calendar,
+  Bell,
+  Search,
+  Star,
+  TrendingUp
+} from 'lucide-react';
+
+type RadialItem = {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  onSelect: () => void;
+  color: string;
+  description?: string;
+  badge?: {
+    text: string;
+    color: string;
+  };
+  ring?: number; // 1 = inner ring, 2 = outer ring
+};
+
+type RadialMenuAdvancedProps = {
+  enableGooeyEffect?: boolean;
+  showTooltips?: boolean;
+  enableSecondRing?: boolean;
+  customCreateActions?: RadialItem[];
+};
+
+export function RadialMenuAdvanced({
+  enableGooeyEffect = true,
+  showTooltips = true,
+  enableSecondRing = true,
+  customCreateActions
+}: RadialMenuAdvancedProps) {
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState<number>(0);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showCreateMenu, setShowCreateMenu] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const navigate = useNavigate();
+  const { selectedProject } = useProject();
+  const { user, userRole } = useAuth();
+
+  // Responsive Detection
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Main navigation items
+  const getMainItems = (): RadialItem[] => {
+    const projectId = selectedProject?.id;
+    const items: RadialItem[] = [
+      {
+        id: "manager",
+        label: "Manager",
+        icon: <Home size={24} />,
+        onSelect: () => {
+          if (projectId) {
+            navigate(`/project/${projectId}`);
+          } else {
+            navigate('/');
+          }
+        },
+        color: "#ffbd59",
+        description: "Projekt- und Gewerkverwaltung",
+        ring: 1
+      },
+      {
+        id: "docs",
+        label: "Docs",
+        icon: <FileText size={24} />,
+        onSelect: () => {
+          if (projectId) {
+            navigate(`/documents?project=${projectId}`);
+          } else {
+            navigate('/documents');
+          }
+        },
+        color: "#4F46E5",
+        description: "Dokumentenmanagement",
+        ring: 1
+      },
+      {
+        id: "tasks",
+        label: "To-Do",
+        icon: <CheckSquare size={24} />,
+        onSelect: () => {
+          if (projectId) {
+            navigate(`/tasks?project=${projectId}`);
+          } else {
+            navigate('/tasks');
+          }
+        },
+        color: "#10B981",
+        description: "Aufgabenmanagement",
+        ring: 1
+      },
+      {
+        id: "finance",
+        label: "Finance",
+        icon: <Euro size={24} />,
+        onSelect: () => {
+          if (projectId) {
+            navigate(`/finance?project=${projectId}`);
+          } else {
+            navigate('/finance');
+          }
+        },
+        color: "#F59E0B",
+        description: "Budget & Ausgaben",
+        ring: 1
+      },
+      {
+        id: "quotes",
+        label: "Gewerke",
+        icon: <MessageSquare size={24} />,
+        onSelect: () => navigate('/quotes'),
+        color: "#8B5CF6",
+        description: "Angebote & Ausschreibungen",
+        ring: 1
+      },
+      {
+        id: "visualize",
+        label: "Visualize",
+        icon: <BarChart3 size={24} />,
+        onSelect: () => {
+          if (projectId) {
+            navigate(`/visualize?project=${projectId}`);
+          } else {
+            navigate('/visualize');
+          }
+        },
+        color: "#06B6D4",
+        description: "Analytics & Berichte",
+        ring: 1
+      },
+      {
+        id: "canvas",
+        label: "Canvas",
+        icon: <Palette size={24} />,
+        onSelect: () => {
+          if (projectId) {
+            navigate(`/project/${projectId}/canvas`);
+          } else {
+            navigate('/canvas');
+          }
+        },
+        color: "#EC4899",
+        description: "Kollaboration & Zeichnungen",
+        ring: 1
+      }
+    ];
+
+    // Filter based on user role and subscription
+    if (userRole === 'dienstleister' || userRole === 'DIENSTLEISTER') {
+      return items.filter(item => ['manager', 'quotes', 'docs'].includes(item.id));
+    }
+    
+    if (userRole === 'bautraeger' || userRole === 'BAUTRAEGER') {
+      const isProUser = user?.subscription_plan === 'PRO' && user?.subscription_status === 'ACTIVE';
+      if (!isProUser) {
+        return items.filter(item => ['manager', 'quotes', 'docs'].includes(item.id));
+      }
+    }
+    
+    return items;
+  };
+
+  // Create action items (second ring)
+  const getCreateItems = (): RadialItem[] => {
+    if (customCreateActions) return customCreateActions;
+    
+    const projectId = selectedProject?.id;
+    return [
+      {
+        id: "create-project",
+        label: "Neues Projekt",
+        icon: <FolderPlus size={20} />,
+        onSelect: () => navigate('/projects/create'),
+        color: "#ffbd59",
+        description: "Projekt erstellen",
+        ring: 2
+      },
+      {
+        id: "create-task",
+        label: "Neue Aufgabe",
+        icon: <ListPlus size={20} />,
+        onSelect: () => {
+          if (projectId) {
+            navigate(`/tasks/create?project=${projectId}`);
+          } else {
+            navigate('/tasks/create');
+          }
+        },
+        color: "#10B981",
+        description: "Aufgabe hinzufügen",
+        ring: 2
+      },
+      {
+        id: "create-expense",
+        label: "Neue Ausgabe",
+        icon: <Receipt size={20} />,
+        onSelect: () => {
+          if (projectId) {
+            navigate(`/finance/expense/create?project=${projectId}`);
+          } else {
+            navigate('/finance/expense/create');
+          }
+        },
+        color: "#F59E0B",
+        description: "Ausgabe erfassen",
+        ring: 2
+      },
+      {
+        id: "create-trade",
+        label: "Neues Gewerk",
+        icon: <Hammer size={20} />,
+        onSelect: () => {
+          if (projectId) {
+            navigate(`/quotes/create?project=${projectId}`);
+          } else {
+            navigate('/quotes/create');
+          }
+        },
+        color: "#8B5CF6",
+        description: "Gewerk erstellen",
+        ring: 2
+      },
+      {
+        id: "upload-doc",
+        label: "Upload",
+        icon: <Upload size={20} />,
+        onSelect: () => {
+          if (projectId) {
+            navigate(`/documents/upload?project=${projectId}`);
+          } else {
+            navigate('/documents/upload');
+          }
+        },
+        color: "#4F46E5",
+        description: "Dokument hochladen",
+        ring: 2
+      }
+    ];
+  };
+
+  const mainItems = getMainItems();
+  const createItems = enableSecondRing ? getCreateItems() : [];
+  const allItems = showCreateMenu ? [...mainItems, ...createItems] : mainItems;
+
+  // Calculate layout with multiple rings
+  const layout = useMemo(() => {
+    const radius1 = isMobile ? 88 : 120;
+    const radius2 = isMobile ? 140 : 200;
+    
+    return allItems.map((item, i) => {
+      const isSecondRing = item.ring === 2;
+      const radius = isSecondRing ? radius2 : radius1;
+      
+      // Calculate angle based on ring
+      const itemsInRing = allItems.filter(it => it.ring === item.ring);
+      const indexInRing = itemsInRing.indexOf(item);
+      const countInRing = itemsInRing.length;
+      
+      const startAngle = isSecondRing ? -150 : -160;
+      const endAngle = isSecondRing ? -30 : -20;
+      const span = endAngle - startAngle;
+      
+      const t = countInRing === 1 ? 0.5 : indexInRing / (countInRing - 1);
+      const angle = (startAngle + t * span) * (Math.PI / 180);
+      
+      return {
+        x: Math.cos(angle) * radius,
+        y: Math.sin(angle) * radius,
+        angleDeg: startAngle + t * span,
+        ring: item.ring || 1
+      };
+    });
+  }, [allItems, isMobile]);
+
+  // Click outside to close
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) {
+        setOpen(false);
+        setShowCreateMenu(false);
+        setHoveredIndex(null);
+      }
+    };
+    
+    if (open) {
+      document.addEventListener("pointerdown", handleOutsideClick);
+      return () => document.removeEventListener("pointerdown", handleOutsideClick);
+    }
+  }, [open]);
+
+  // Keyboard navigation
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (!open) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        setOpen(true);
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case "Escape":
+        if (showCreateMenu) {
+          setShowCreateMenu(false);
+        } else {
+          setOpen(false);
+        }
+        buttonRef.current?.focus();
+        break;
+      case "ArrowLeft":
+      case "ArrowUp":
+        e.preventDefault();
+        setActiveIndex((i) => (i - 1 + allItems.length) % allItems.length);
+        break;
+      case "ArrowRight":
+      case "ArrowDown":
+        e.preventDefault();
+        setActiveIndex((i) => (i + 1) % allItems.length);
+        break;
+      case "Enter":
+      case " ":
+        e.preventDefault();
+        allItems[activeIndex]?.onSelect();
+        setOpen(false);
+        setShowCreateMenu(false);
+        break;
+      case "Tab":
+        e.preventDefault();
+        if (e.shiftKey) {
+          setActiveIndex((i) => (i - 1 + allItems.length) % allItems.length);
+        } else {
+          setActiveIndex((i) => (i + 1) % allItems.length);
+        }
+        break;
+      case "c":
+      case "C":
+        // Toggle create menu with 'C' key
+        if (enableSecondRing) {
+          setShowCreateMenu(!showCreateMenu);
+        }
+        break;
+    }
+  };
+
+  // Long press detection for mobile
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  
+  const handleTouchStart = useCallback(() => {
+    if (!open) {
+      const timer = setTimeout(() => {
+        setOpen(true);
+        if (enableSecondRing) {
+          setShowCreateMenu(true);
+        }
+      }, 500);
+      setLongPressTimer(timer);
+    }
+  }, [open, enableSecondRing]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  }, [longPressTimer]);
+
+  return (
+    <>
+      {/* Gooey Filter */}
+      {enableGooeyEffect && (
+        <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+          <defs>
+            <filter id="gooey-advanced">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
+              <feColorMatrix
+                in="blur"
+                mode="matrix"
+                values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -10"
+                result="gooey"
+              />
+              <feComposite in="SourceGraphic" in2="gooey" operator="atop" />
+            </filter>
+          </defs>
+        </svg>
+      )}
+
+      <div
+        ref={containerRef}
+        className="radial-menu-container"
+        style={{
+          position: "fixed",
+          right: isMobile ? 16 : 32,
+          bottom: isMobile ? 16 : 32,
+          zIndex: 9999,
+          filter: enableGooeyEffect && open ? 'url(#gooey-advanced)' : undefined,
+        }}
+        role="menu"
+        aria-expanded={open}
+        onKeyDown={handleKeyDown}
+      >
+        {/* Background overlay - outside of menu items AnimatePresence */}
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{ 
+                pointerEvents: 'none',
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0, 0, 0, 0.3)',
+                backdropFilter: 'blur(12px)',
+                zIndex: -1
+              }}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {open && (
+            <>
+
+              {/* Orbit lines (visual enhancement) */}
+              {enableSecondRing && showCreateMenu && (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 0.2, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0 }}
+                    className="absolute"
+                    style={{
+                      width: isMobile ? 176 : 240,
+                      height: isMobile ? 176 : 240,
+                      border: '1px dashed rgba(255, 189, 89, 0.3)',
+                      borderRadius: '50%',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      pointerEvents: 'none'
+                    }}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 0.15, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="absolute"
+                    style={{
+                      width: isMobile ? 280 : 400,
+                      height: isMobile ? 280 : 400,
+                      border: '1px dashed rgba(255, 189, 89, 0.2)',
+                      borderRadius: '50%',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      pointerEvents: 'none'
+                    }}
+                  />
+                </>
+              )}
+
+              {/* Radial menu items */}
+              {allItems.map((item, i) => (
+                <motion.button
+                  key={item.id}
+                  type="button"
+                  role="menuitem"
+                  aria-label={item.label}
+                  data-radial-item={item.id}
+                  initial={{ 
+                    x: 0, 
+                    y: 0, 
+                    opacity: 0, 
+                    scale: 0.3, 
+                    rotate: item.ring === 2 ? 360 : -180 
+                  }}
+                  animate={{
+                    x: layout[i].x,
+                    y: layout[i].y,
+                    opacity: 1,
+                    scale: hoveredIndex === i ? 1.15 : activeIndex === i ? 1.1 : 1,
+                    rotate: 0,
+                  }}
+                  exit={{ 
+                    x: 0, 
+                    y: 0, 
+                    opacity: 0, 
+                    scale: 0.3,
+                    rotate: item.ring === 2 ? -360 : 180
+                  }}
+                  transition={{
+                    type: "spring",
+                    stiffness: item.ring === 2 ? 280 : 350,
+                    damping: 25,
+                    delay: item.ring === 2 ? 0.06 * i : 0.04 * i,
+                  }}
+                  onClick={() => {
+                    item.onSelect();
+                    setOpen(false);
+                    setShowCreateMenu(false);
+                  }}
+                  onMouseEnter={() => {
+                    setHoveredIndex(i);
+                    setActiveIndex(i);
+                  }}
+                  onMouseLeave={() => setHoveredIndex(null)}
+                  onFocus={() => setActiveIndex(i)}
+                  className="absolute group"
+                  style={{
+                    width: item.ring === 2 ? (isMobile ? 48 : 56) : (isMobile ? 52 : 64),
+                    height: item.ring === 2 ? (isMobile ? 48 : 56) : (isMobile ? 52 : 64),
+                    borderRadius: "50%",
+                    border: "none",
+                    background: hoveredIndex === i || activeIndex === i 
+                      ? `linear-gradient(135deg, ${item.color}, ${item.color}dd)`
+                      : item.ring === 2
+                      ? `linear-gradient(135deg, #374151, #1f2937)`
+                      : `linear-gradient(135deg, #2a2f3a, #1f2937)`,
+                    color: "white",
+                    boxShadow: hoveredIndex === i || activeIndex === i
+                      ? `0 8px 24px ${item.color}40, 0 4px 12px rgba(0,0,0,0.3)`
+                      : item.ring === 2
+                      ? "0 4px 12px rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.15)"
+                      : "0 6px 16px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.2)",
+                    cursor: "pointer",
+                    willChange: "transform",
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    outline: 'none',
+                    transition: 'background 0.3s ease',
+                    opacity: item.ring === 2 ? 0.9 : 1,
+                    zIndex: 50,
+                  }}
+                  whileHover={{ scale: 1.15 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  {/* Icon */}
+                  <div className="relative">
+                    {item.icon}
+                    
+                    {/* Badge */}
+                    {item.badge && (
+                      <div 
+                        className="absolute -top-2 -right-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                        style={{
+                          background: item.badge.color,
+                          color: 'white',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        }}
+                      >
+                        {item.badge.text}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tooltip */}
+                  {showTooltips && (hoveredIndex === i || activeIndex === i) && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="absolute bottom-full mb-3 px-3 py-2 bg-gray-900/95 backdrop-blur-md rounded-lg shadow-xl border border-gray-700 whitespace-nowrap pointer-events-none"
+                      style={{ zIndex: 10000 }}
+                    >
+                      <div className="text-sm font-semibold text-white">{item.label}</div>
+                      {item.description && (
+                        <div className="text-xs text-gray-300 mt-0.5">{item.description}</div>
+                      )}
+                      <div 
+                        className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px"
+                        style={{
+                          width: 0,
+                          height: 0,
+                          borderLeft: '6px solid transparent',
+                          borderRight: '6px solid transparent',
+                          borderTop: '6px solid rgb(17 24 39 / 0.95)',
+                        }}
+                      />
+                    </motion.div>
+                  )}
+                </motion.button>
+              ))}
+
+              {/* Secondary action button (Create toggle) */}
+              {enableSecondRing && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0 }}
+                  transition={{ delay: 0.2 }}
+                  onClick={() => setShowCreateMenu(!showCreateMenu)}
+                  className="absolute"
+                  style={{
+                    width: isMobile ? 40 : 48,
+                    height: isMobile ? 40 : 48,
+                    borderRadius: "50%",
+                    border: "none",
+                    background: showCreateMenu 
+                      ? "linear-gradient(135deg, #10B981, #059669)"
+                      : "linear-gradient(135deg, #6B7280, #4B5563)",
+                    color: "white",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+                    cursor: "pointer",
+                    bottom: isMobile ? -60 : -80,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Create Actions (C)"
+                >
+                  <Plus size={isMobile ? 18 : 20} />
+                </motion.button>
+              )}
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Central FAB button - Always on top */}
+        <motion.button
+          ref={buttonRef}
+          type="button"
+          aria-label={open ? "Menü schließen" : "Menü öffnen"}
+          aria-expanded={open}
+          onClick={() => {
+            if (!open) {
+              setOpen(true);
+            } else {
+              setOpen(false);
+              setShowCreateMenu(false);
+            }
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          className="relative group"
+          style={{
+            position: 'relative',
+            width: isMobile ? 56 : 72,
+            height: isMobile ? 56 : 72,
+            borderRadius: "50%",
+            border: "none",
+            background: open 
+              ? "linear-gradient(135deg, #ef4444, #dc2626)"
+              : "linear-gradient(135deg, #ffbd59, #ffa726)",
+            color: "white",
+            boxShadow: open
+              ? "0 12px 28px rgba(239,68,68,0.4), 0 6px 14px rgba(0,0,0,0.3)"
+              : "0 12px 28px rgba(255,189,89,0.4), 0 6px 14px rgba(0,0,0,0.3)",
+            cursor: "pointer",
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: isMobile ? 28 : 36,
+            fontWeight: 'bold',
+            outline: 'none',
+            zIndex: 100,
+          }}
+          whileTap={{ scale: 0.9 }}
+          whileHover={{ scale: 1.1 }}
+          animate={{ rotate: open ? 45 : 0 }}
+          transition={{ type: "spring", stiffness: 260, damping: 20 }}
+        >
+          {open ? <X size={isMobile ? 24 : 32} /> : <Plus size={isMobile ? 24 : 32} />}
+          
+          {/* Pulse animation when closed */}
+          {!open && (
+            <>
+              <motion.div
+                className="absolute inset-0 rounded-full"
+                style={{
+                  background: "linear-gradient(135deg, #ffbd59, #ffa726)",
+                  opacity: 0.3,
+                }}
+                animate={{
+                  scale: [1, 1.3, 1.3],
+                  opacity: [0.3, 0, 0],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  repeatDelay: 1,
+                }}
+              />
+              
+              {/* Notification dot */}
+              {!localStorage.getItem('radial-menu-advanced-used') && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+              )}
+            </>
+          )}
+        </motion.button>
+
+        {/* Hint for keyboard shortcuts */}
+        {open && !isMobile && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="absolute left-1/2 transform -translate-x-1/2 -bottom-20 bg-gray-900/90 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap"
+          >
+            <div className="flex items-center gap-4">
+              <span>←→ Navigate</span>
+              <span>Enter Select</span>
+              {enableSecondRing && <span>C Create Menu</span>}
+              <span>ESC Close</span>
+            </div>
+          </motion.div>
+        )}
+      </div>
+
+      <style jsx>{`
+        .radial-menu-container {
+          -webkit-tap-highlight-color: transparent;
+          user-select: none;
+        }
+      `}</style>
+    </>
+  );
+}

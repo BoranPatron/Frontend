@@ -4,35 +4,26 @@ import { useSwipeable } from 'react-swipeable';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
 import { getProjects, createProject } from '../api/projectService';
-import DashboardCard from '../components/DashboardCard';
 import ConstructionPhaseTimeline from '../components/ConstructionPhaseTimeline';
-import FloatingActionButton from '../components/FloatingActionButton';
+import { RadialMenu } from '../components/RadialMenu';
+import { RadialMenuAdvanced } from '../components/RadialMenuAdvanced';
 import { 
-  Home, 
-  FileText, 
-  CheckSquare, 
-  Euro, 
-  MessageSquare, 
-  BarChart3, 
-  Palette, 
   Users, 
   Upload, 
-  Clock, 
-  TrendingUp, 
   Eye, 
   X, 
   AlertTriangle,
   Star,
   Building,
+  FileText,
   Calculator,
   Hammer,
   Camera,
   FileCheck,
-  Settings,
-  FolderOpen,
   CheckCircle,
-  Plus,
-  Info
+  Info,
+  CheckSquare,
+  MessageSquare
 } from 'lucide-react';
 import GuidedTourOverlay from '../components/Onboarding/GuidedTourOverlay';
 
@@ -637,23 +628,29 @@ export default function Dashboard() {
     console.log('✅ Dokumente kategorisiert und bereit zum Upload beim Projekt erstellen');
   };
 
-  // Handler für FloatingActionButton
+  // Handler für Create-Actions (können vom RadialMenu oder anderen Komponenten genutzt werden)
   const handleCreateTrade = () => {
-    // TODO: Implementiere Gewerk-Erstellung
-    console.log('Gewerk erstellen');
-    alert('Gewerk-Erstellung wird implementiert...');
+    if (selectedProject) {
+      navigate(`/quotes/create?project=${selectedProject.id}`);
+    } else {
+      navigate('/quotes/create');
+    }
   };
 
   const handleCreateTodo = () => {
-    // TODO: Implementiere Todo-Erstellung
-    console.log('Todo erstellen');
-    alert('Todo-Erstellung wird implementiert...');
+    if (selectedProject) {
+      navigate(`/tasks/create?project=${selectedProject.id}`);
+    } else {
+      navigate('/tasks/create');
+    }
   };
 
   const handleCreateExpense = () => {
-    // TODO: Implementiere Ausgaben-Erstellung
-    console.log('Ausgabe erstellen');
-    alert('Ausgaben-Erstellung wird implementiert...');
+    if (selectedProject) {
+      navigate(`/finance/expense/create?project=${selectedProject.id}`);
+    } else {
+      navigate('/finance/expense/create');
+    }
   };
 
   // Hilfsfunktionen für Projekt-Daten
@@ -808,130 +805,8 @@ export default function Dashboard() {
     );
   }
 
-  // Dynamische Dashboard-Karten basierend auf aktuellem Projekt
-  const getDashboardCards = () => [
-    {
-      title: "Manager",
-      description: "Projekt- und Gewerkverwaltung",
-      icon: <Home size={32} />,
-      onClick: onManagerClick,
-      ariaLabel: "Projekt- und Gewerkverwaltung öffnen",
-      status: (isOnline ? 'online' : 'offline') as 'online' | 'offline',
-      progress: { value: currentProject.progress_percentage, label: "Projektfortschritt" },
-      cardId: "manager",
-      path: "/",
-      iconString: "<Home size={16} />",
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <Users size={16} />
-          <span>{projectStats.activeTrades} aktive Gewerke</span>
-        </div>
-      )
-    },
-    {
-      title: "Docs",
-      description: "Dokumentenmanagement & Uploads",
-      icon: <FileText size={32} />,
-      onClick: onDocsClick,
-      ariaLabel: "Dokumentenmanagement öffnen",
-      badge: { text: `${projectStats.newDocuments} neue`, color: "blue" as const },
-      cardId: "docs",
-      path: "/documents",
-      iconString: "<FileText size={16} />",
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <Upload size={16} />
-          <span>Foto-Upload verfügbar</span>
-        </div>
-      )
-    },
-    {
-      title: "To Do",
-      description: "Aufgabenmanagement & Tracking",
-      icon: <CheckSquare size={32} />,
-      onClick: onTodoClick,
-      ariaLabel: "Aufgabenmanagement öffnen",
-      badge: { text: `${projectStats.openTasks} offen`, color: "yellow" as const },
-      cardId: "tasks",
-      path: "/tasks",
-      iconString: "<CheckSquare size={16} />",
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <Clock size={16} />
-          <span>Stundenerfassung</span>
-        </div>
-      )
-    },
-    {
-      title: "Finance",
-      description: "Budget, Ausgaben & Forecasts",
-      icon: <Euro size={32} />,
-      onClick: onFinanceClick,
-      ariaLabel: "Finanzmanagement öffnen",
-      progress: { 
-        value: getBudgetUtilization(currentProject), 
-        label: "Budget-Auslastung" 
-      },
-      cardId: "finance",
-      path: "/finance",
-      iconString: "<Euro size={16} />",
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <TrendingUp size={16} />
-          <span>Forecasts verfügbar</span>
-        </div>
-      )
-    },
-    {
-      title: "Gewerke",
-      description: "Angebote & Ausschreibungen",
-      icon: <MessageSquare size={32} />,
-      onClick: onOfferingClick,
-      ariaLabel: "Angebote und Ausschreibungen öffnen",
-      badge: { text: `${projectStats.newQuotes} neue`, color: "green" as const },
-      cardId: "quotes",
-      path: "/quotes",
-      iconString: "<MessageSquare size={16} />",
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <MessageSquare size={16} />
-          <span>Angebote verwalten</span>
-        </div>
-      )
-    },
-    {
-      title: "Visualize",
-      description: "Analytics & Berichte",
-      icon: <BarChart3 size={32} />,
-      onClick: onVisualizeClick,
-      ariaLabel: "Analytics und Berichte öffnen",
-      cardId: "visualize",
-      path: "/visualize",
-      iconString: "<BarChart3 size={16} />",
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <BarChart3 size={16} />
-          <span>Daten visualisieren</span>
-        </div>
-      )
-    },
-    {
-      title: "Canvas",
-      description: "Unlimited Canvas & Kollaboration",
-      icon: <Palette size={32} />,
-      onClick: onCanvasClick,
-      ariaLabel: "Canvas und Kollaboration öffnen",
-      cardId: "canvas",
-      path: "/canvas",
-      iconString: "<Palette size={16} />",
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <Palette size={16} />
-          <span>Sticky Notes & Zeichnungen</span>
-        </div>
-      )
-    }
-  ];
+  // Note: Die Navigation erfolgt jetzt über das RadialMenu
+  // Die Handler-Funktionen bleiben für die Wiederverwendung in anderen Komponenten erhalten
 
   const handleResetRoleForTesting = async () => {
     try {
@@ -1163,70 +1038,40 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Dashboard-Karten */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {getDashboardCards()
-          .filter(card => {
-            // Debug-Logging für Filterlogik
-            console.log('🔍 Dashboard Filter Debug:', {
-              cardId: card.cardId,
-              userRole: userRole,
-              user_role_from_user: user?.user_role,
-              subscription_plan: user?.subscription_plan,
-              subscription_status: user?.subscription_status,
-              isProUser: user?.subscription_plan === 'PRO' && user?.subscription_status === 'ACTIVE',
-              fullUserObject: user
-            });
-            
-            // Filtere Karten basierend auf Benutzerrolle und Subscription
-            if (userRole === 'dienstleister' || userRole === 'DIENSTLEISTER' || user?.user_role === 'DIENSTLEISTER') {
-              // Dienstleister sehen nur: Manager, Gewerke, Docs (unabhängig von Subscription)
-              return ['manager', 'quotes', 'docs'].includes(card.cardId);
-            }
-            
-            if (userRole === 'bautraeger' || userRole === 'BAUTRAEGER' || user?.user_role === 'BAUTRAEGER') {
-              // Prüfe Subscription-Plan (Backend verwendet Großbuchstaben)
-              const subscriptionPlan = user?.subscription_plan || 'BASIS';
-              const subscriptionStatus = user?.subscription_status || 'INACTIVE';
-              const isProUser = subscriptionPlan === 'PRO' && subscriptionStatus === 'ACTIVE';
-              
-              console.log('🔍 Bauträger Subscription Check:', {
-                subscriptionPlan,
-                subscriptionStatus,
-                isProUser,
-                willShowAllTiles: isProUser
-              });
-              
-              if (isProUser) {
-                // PRO-Bauträger sehen alle Kacheln
-                return true;
-              } else {
-                // BASIS-Bauträger sehen nur: Manager, Gewerke, Docs
-                return ['manager', 'quotes', 'docs'].includes(card.cardId);
-              }
-            }
-            
-            // Admins sehen alle Karten
-            return true;
-          })
-          .map((card, index) => (
-            <DashboardCard
-              key={index}
-              title={card.title}
-              icon={card.icon}
-              onClick={card.onClick}
-              ariaLabel={card.ariaLabel}
-              status={card.status}
-              badge={card.badge}
-              progress={card.progress}
-              cardId={card.cardId}
-              path={card.path}
-              iconString={card.iconString}
-            >
-              {card.children}
-            </DashboardCard>
-          ))
-        }
+      {/* Projekt-Statistiken */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        {/* Quick Stats */}
+        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+          <div className="flex items-center justify-between mb-2">
+            <Users size={20} className="text-[#ffbd59]" />
+            <span className="text-2xl font-bold text-white">{projectStats.activeTrades}</span>
+          </div>
+          <p className="text-sm text-gray-300">Aktive Gewerke</p>
+        </div>
+        
+        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+          <div className="flex items-center justify-between mb-2">
+            <CheckSquare size={20} className="text-green-400" />
+            <span className="text-2xl font-bold text-white">{projectStats.openTasks}</span>
+          </div>
+          <p className="text-sm text-gray-300">Offene Aufgaben</p>
+        </div>
+        
+        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+          <div className="flex items-center justify-between mb-2">
+            <FileText size={20} className="text-blue-400" />
+            <span className="text-2xl font-bold text-white">{projectStats.newDocuments}</span>
+          </div>
+          <p className="text-sm text-gray-300">Neue Dokumente</p>
+        </div>
+        
+        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
+          <div className="flex items-center justify-between mb-2">
+            <MessageSquare size={20} className="text-purple-400" />
+            <span className="text-2xl font-bold text-white">{projectStats.newQuotes}</span>
+          </div>
+          <p className="text-sm text-gray-300">Neue Angebote</p>
+        </div>
       </div>
 
       {/* Debug-Info */}
@@ -1239,23 +1084,7 @@ export default function Dashboard() {
         <p>Debug: Subscription Plan: {user?.subscription_plan || 'nicht gesetzt'}</p>
         <p>Debug: Subscription Status: {user?.subscription_status || 'nicht gesetzt'}</p>
         <p>Debug: Is PRO User: {user?.subscription_plan === 'PRO' && user?.subscription_status === 'ACTIVE' ? 'JA' : 'NEIN'}</p>
-        <p>Debug: Full User Object: {JSON.stringify(user, null, 2)}</p>
-        <p>Debug: Sichtbare Kacheln: {getDashboardCards().filter(card => {
-          if (userRole === 'dienstleister' || userRole === 'DIENSTLEISTER' || user?.user_role === 'DIENSTLEISTER') {
-            return ['manager', 'quotes', 'docs'].includes(card.cardId);
-          }
-          if (userRole === 'bautraeger' || userRole === 'BAUTRAEGER' || user?.user_role === 'BAUTRAEGER') {
-            const subscriptionPlan = user?.subscription_plan || 'BASIS';
-            const subscriptionStatus = user?.subscription_status || 'INACTIVE';
-            const isProUser = subscriptionPlan === 'PRO' && subscriptionStatus === 'ACTIVE';
-            if (isProUser) {
-              return true;
-            } else {
-              return ['manager', 'quotes', 'docs'].includes(card.cardId);
-            }
-          }
-          return true;
-        }).map(card => card.cardId).join(', ')}</p>
+        <p>Debug: Navigation: Radial Menu aktiv</p>
         <p>Debug: Construction Phase: {(currentProject as any).construction_phase || 'NICHT GESETZT'}</p>
         <p>Debug: Address Country: {(currentProject as any).address_country || 'NICHT GESETZT'}</p>
       </div>
@@ -1691,12 +1520,11 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Floating Action Button - für Bauträger und Dienstleister */}
-      <FloatingActionButton
-        onCreateProject={handleCreateProjectClick}
-        onCreateTrade={handleCreateTrade}
-        onCreateTodo={handleCreateTodo}
-        onCreateExpense={handleCreateExpense}
+      {/* Radial Menu - Neues Hauptnavigationssystem */}
+      <RadialMenuAdvanced 
+        enableGooeyEffect={false}
+        showTooltips={true}
+        enableSecondRing={true}
       />
 
       {/* Geführte Dashboard-Tour */}
