@@ -41,10 +41,10 @@ type RadialMenuProps = {
 
 export function RadialMenu({
   items: customItems,
-  radius = 120,
-  mobileRadius = 88,
-  startAngleDeg = -160,
-  endAngleDeg = -20,
+  radius = 280,  // Doubled from 140
+  mobileRadius = 220,  // Doubled from 110
+  startAngleDeg = -170,
+  endAngleDeg = -60,
   className,
   enableGooeyEffect = false,
   showTooltips = true,
@@ -276,8 +276,8 @@ export function RadialMenu({
         className={className}
         style={{
           position: "fixed",
-          right: isMobile ? 16 : 32,
-          bottom: isMobile ? 16 : 32,
+          right: isMobile ? 32 : 64,
+          bottom: isMobile ? 32 : 64,
           zIndex: 9999,
           filter: enableGooeyEffect && open ? 'url(#gooey)' : undefined,
         }}
@@ -362,7 +362,12 @@ export function RadialMenu({
                       : `linear-gradient(135deg, #2a2f3a, #1f2937)`,
                     color: "white",
                     boxShadow: hoveredIndex === i || activeIndex === i
-                      ? `0 8px 24px ${item.color}40, 0 4px 12px rgba(0,0,0,0.3)`
+                      ? `0 0 40px ${item.color}88,
+                         0 0 25px ${item.color}66,
+                         0 12px 32px ${item.color}60,
+                         0 8px 20px rgba(0,0,0,0.4),
+                         0 4px 12px rgba(0,0,0,0.3),
+                         inset 0 1px 0 rgba(255,255,255,0.2)`
                       : "0 6px 16px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.2)",
                     cursor: "pointer",
                     willChange: "transform",

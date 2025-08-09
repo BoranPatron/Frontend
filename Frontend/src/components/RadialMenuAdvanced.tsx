@@ -277,10 +277,10 @@ export function RadialMenuAdvanced({
   const createItems = enableSecondRing ? getCreateItems() : [];
   const allItems = showCreateMenu ? [...mainItems, ...createItems] : mainItems;
 
-  // Calculate layout with multiple rings
+  // Calculate layout with multiple rings - doubled radius for maximum spacing
   const layout = useMemo(() => {
-    const radius1 = isMobile ? 88 : 120;
-    const radius2 = isMobile ? 140 : 200;
+    const radius1 = isMobile ? 220 : 280;  // Doubled from 110/140
+    const radius2 = isMobile ? 330 : 420;  // Doubled from 165/210
     
     return allItems.map((item, i) => {
       const isSecondRing = item.ring === 2;
@@ -291,8 +291,8 @@ export function RadialMenuAdvanced({
       const indexInRing = itemsInRing.indexOf(item);
       const countInRing = itemsInRing.length;
       
-      const startAngle = isSecondRing ? -150 : -160;
-      const endAngle = isSecondRing ? -30 : -20;
+      const startAngle = isSecondRing ? -160 : -170;
+      const endAngle = isSecondRing ? -80 : -60;
       const span = endAngle - startAngle;
       
       const t = countInRing === 1 ? 0.5 : indexInRing / (countInRing - 1);
@@ -424,8 +424,8 @@ export function RadialMenuAdvanced({
         className="radial-menu-container"
         style={{
           position: "fixed",
-          right: isMobile ? 16 : 32,
-          bottom: isMobile ? 16 : 32,
+          right: isMobile ? 32 : 64,
+          bottom: isMobile ? 32 : 64,
           zIndex: 9999,
           filter: enableGooeyEffect && open ? 'url(#gooey-advanced)' : undefined,
         }}
@@ -468,8 +468,8 @@ export function RadialMenuAdvanced({
                     exit={{ opacity: 0, scale: 0 }}
                     className="absolute"
                     style={{
-                      width: isMobile ? 176 : 240,
-                      height: isMobile ? 176 : 240,
+                      width: isMobile ? 440 : 560,
+                      height: isMobile ? 440 : 560,
                       border: '1px dashed rgba(255, 189, 89, 0.3)',
                       borderRadius: '50%',
                       top: '50%',
@@ -485,8 +485,8 @@ export function RadialMenuAdvanced({
                     transition={{ delay: 0.1 }}
                     className="absolute"
                     style={{
-                      width: isMobile ? 280 : 400,
-                      height: isMobile ? 280 : 400,
+                      width: isMobile ? 660 : 840,
+                      height: isMobile ? 660 : 840,
                       border: '1px dashed rgba(255, 189, 89, 0.2)',
                       borderRadius: '50%',
                       top: '50%',
@@ -557,7 +557,12 @@ export function RadialMenuAdvanced({
                       : `linear-gradient(135deg, #2a2f3a, #1f2937)`,
                     color: "white",
                     boxShadow: hoveredIndex === i || activeIndex === i
-                      ? `0 8px 24px ${item.color}40, 0 4px 12px rgba(0,0,0,0.3)`
+                      ? `0 0 40px ${item.color}88,
+                         0 0 25px ${item.color}66,
+                         0 12px 32px ${item.color}60,
+                         0 8px 20px rgba(0,0,0,0.4),
+                         0 4px 12px rgba(0,0,0,0.3),
+                         inset 0 1px 0 rgba(255,255,255,0.2)`
                       : item.ring === 2
                       ? "0 4px 12px rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.15)"
                       : "0 6px 16px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.2)",
