@@ -1520,12 +1520,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Radial Menu - Neues Hauptnavigationssystem */}
-      <RadialMenuAdvanced 
-        enableGooeyEffect={false}
-        showTooltips={true}
-        enableSecondRing={true}
-      />
+      {/* Radial Menu wurde global in App.tsx eingebunden */}
 
       {/* Geführte Dashboard-Tour */}
       {showTour && (

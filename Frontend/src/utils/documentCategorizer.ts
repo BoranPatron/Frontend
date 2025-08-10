@@ -332,3 +332,4 @@ export class DocumentCategorizer {
     return Math.min(100, confidence);
   }
 }
+

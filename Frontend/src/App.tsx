@@ -30,6 +30,7 @@ import OAuthCallback from './pages/OAuthCallback';
 import RoleSelectionModal from './components/RoleSelectionModal';
 import NotificationTab from './components/NotificationTab';
 import BautraegerNotificationTab from './components/BautraegerNotificationTab';
+import { RadialMenuAdvanced } from './components/RadialMenuAdvanced';
 
 // Error Boundary
 class ErrorBoundary extends React.Component<
@@ -244,6 +245,13 @@ function AppContent() {
       
       {/* Credit-Notifications für Bauträger */}
       <CreditNotification />
+
+      {/* Radial Menu: Für Bauträger auf allen Seiten außer Login sichtbar */}
+      {user && location.pathname !== '/login' && (
+        (user.user_role === 'BAUTRAEGER' || user.user_role === 'bautraeger') && (
+          <RadialMenuAdvanced enableGooeyEffect={false} showTooltips enableSecondRing />
+        )
+      )}
       
       {/* Notification Tab für Terminanfragen/antworten - NUR für Dienstleister */}
       {user && user.user_role === 'DIENSTLEISTER' && (
