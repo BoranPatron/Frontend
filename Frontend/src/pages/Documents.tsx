@@ -87,6 +87,7 @@ import {
 } from '../api/documentService';
 import { getProjects } from '../api/projectService';
 import DocumentViewer from '../components/DocumentViewer';
+import PageHeader from '../components/PageHeader';
 
 // Dokumentenkategorien für die Baubranche
 const DOCUMENT_CATEGORIES = {
@@ -966,15 +967,10 @@ const Documents: React.FC = () => {
           {/* Header mit Suche und Filtern */}
           <div className="bg-gradient-to-r from-[#3d4952]/80 to-[#51646f]/80 backdrop-blur-sm border-b border-gray-700/50 p-6">
             <div className="flex items-center justify-between mb-4">
-              <div>
-                <h1 className="text-2xl font-bold text-white">
-                  {selectedCategory === 'all' ? 'Alle Dokumente' : 
-                   DOCUMENT_CATEGORIES[selectedCategory as keyof typeof DOCUMENT_CATEGORIES]?.name || 'Dokumente'}
-                </h1>
-                <p className="text-gray-400">
-                  {filteredDocuments.length} von {documents.length} Dokumenten
-                </p>
-              </div>
+              <PageHeader
+                title={selectedCategory === 'all' ? 'Alle Dokumente' : (DOCUMENT_CATEGORIES[selectedCategory as keyof typeof DOCUMENT_CATEGORIES]?.name || 'Dokumente')}
+                subtitle={`${filteredDocuments.length} von ${documents.length} Dokumenten`}
+              />
 
               {/* View Toggle */}
               <div className="flex items-center gap-2">

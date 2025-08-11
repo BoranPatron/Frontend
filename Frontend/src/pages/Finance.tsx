@@ -5,6 +5,7 @@ import { getProjects } from '../api/projectService';
 import { costPositionService } from '../api/costPositionService';
 import { expenseService } from '../api/expenseService';
 import ProjectBreadcrumb from '../components/ProjectBreadcrumb';
+import PageHeader from '../components/PageHeader';
 import FinanceAnalytics from '../components/FinanceAnalytics';
 import { 
   DollarSign, 
@@ -661,25 +662,10 @@ export default function Finance() {
         {/* Header */}
         <header className="mb-8">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate(-1)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <ArrowLeft size={20} className="text-[#ffbd59]" />
-              </button>
-              <div>
-                <h1 className="text-3xl font-bold text-[#ffbd59]">Finanzen</h1>
-                <p className="text-gray-300">
-                  Budget- und Kostenverwaltung für Ihr Projekt
-                  {selectedProject !== 'all' && (
-                    <span className="block text-sm text-[#ffbd59] mt-1">
-                      Projekt-ID: {selectedProject}
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
+            <PageHeader
+              title="Finanzen"
+              subtitle="Budget- und Kostenverwaltung für Ihr Projekt"
+            />
             <div className="flex gap-3">
               <button
                 onClick={() => setShowBudgetModal(true)}

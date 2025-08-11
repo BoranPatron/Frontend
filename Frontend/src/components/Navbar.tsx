@@ -21,18 +21,94 @@ import {
   CheckSquare,
   Euro,
   MessageSquare,
-  Bell,
   User,
   Menu,
   Target,
   Calendar,
-  Coins
+  Coins,
+  CloudUpload,
+  Image,
+  Video,
+  Archive,
+  FolderOpen,
+  Info,
+  Building
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useProject } from '../context/ProjectContext';
+import { getProject } from '../api/projectService';
 import { createProject } from '../api/projectService';
+import { uploadDocument } from '../api/documentService';
 import FavoritesManager from './FavoritesManager';
 import CreditIndicator from './CreditIndicator';
+import CreditDisplay from './CreditDisplay';
 import logo from '../logo_trans_big.png';
+
+// DMS-Kategorien (synchron mit Backend)
+const DOCUMENT_CATEGORIES = {
+  planning: {
+    name: 'Planung & Genehmigung',
+    icon: Building,
+    color: 'blue',
+    subcategories: [
+      'Baupläne & Grundrisse',
+      'Baugenehmigungen',
+      'Statische Berechnungen',
+      'Energieausweise',
+      'Vermessungsunterlagen'
+    ]
+  },
+  contracts: {
+    name: 'Verträge & Rechtliches',
+    icon: FileText,
+    color: 'green',
+    subcategories: [
+      'Bauverträge',
+      'Nachträge',
+      'Versicherungen',
+      'Gewährleistungen',
+      'Mängelrügen'
+    ]
+  },
+  finance: {
+    name: 'Finanzen & Abrechnung',
+    icon: Settings,
+    color: 'yellow',
+    subcategories: [
+      'Rechnungen',
+      'Kostenvoranschläge',
+      'Leistungsverzeichnisse',
+      'Zahlungsbelege',
+      'Änderungsaufträge',
+      'Schlussrechnungen'
+    ]
+  },
+  execution: {
+    name: 'Ausführung & Handwerk',
+    icon: Settings,
+    color: 'orange',
+    subcategories: [
+      'Lieferscheine',
+      'Materialbelege',
+      'Abnahmeprotokolle',
+      'Prüfberichte',
+      'Zertifikate',
+      'Arbeitsanweisungen'
+    ]
+  },
+  documentation: {
+    name: 'Dokumentation & Medien',
+    icon: FolderOpen,
+    color: 'purple',
+    subcategories: [
+      'Baufortschrittsfotos',
+      'Mängeldokumentation',
+      'Bestandsdokumentation',
+      'Videos',
+      'Baustellenberichte'
+    ]
+  }
+};
 
 // Hilfsfunktion für Bauphasen
 function getConstructionPhases(country: string) {
@@ -95,22 +171,25 @@ export default function Navbar() {
   const { user, logout, isServiceProvider } = useAuth();
   const location = useLocation();
   const pathname = location.pathname;
+  const { selectedProject, projects } = useProject();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [showFavoritesManager, setShowFavoritesManager] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   
   // Projekt-Erstellung State
   const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [createProjectError, setCreateProjectError] = useState<string | null>(null);
+  
+  // Dokument-Upload State
+  const [uploadFiles, setUploadFiles] = useState<any[]>([]);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [projectForm, setProjectForm] = useState({
     name: '',
     description: '',
     project_type: 'new_build',
-    address: '',
     address_street: '',
     address_zip: '',
     address_city: '',
@@ -120,10 +199,84 @@ export default function Navbar() {
     start_date: '',
     end_date: '',
     budget: '',
-    is_public: false,
+    is_public: true,
     allow_quotes: true,
     construction_phase: ''
   });
+
+  // Subtiler Projekt-Hinweis (außerhalb des Dashboards)
+  const [currentProjectId, setCurrentProjectId] = useState<number | null>(null);
+  const [currentProjectName, setCurrentProjectName] = useState<string | null>(null);
+  const [isFetchingProject, setIsFetchingProject] = useState(false);
+
+  useEffect(() => {
+    // Nicht auf Dashboard/Service-Provider-Dashboard anzeigen
+    if (pathname === '/' || pathname === '/service-provider') {
+      setCurrentProjectId(null);
+      setCurrentProjectName(null);
+      return;
+    }
+
+    // 1) Context bevorzugen
+    if (selectedProject) {
+      setCurrentProjectId(selectedProject.id);
+      setCurrentProjectName(selectedProject.name);
+      return;
+    }
+
+    // 2) URL-Query ?project=ID
+    const params = new URLSearchParams(location.search);
+    const projectParam = params.get('project');
+    if (projectParam && /^\d+$/.test(projectParam)) {
+      const id = parseInt(projectParam, 10);
+      setCurrentProjectId(id);
+      // Versuche aus Projektliste zu lesen
+      const inList = projects?.find(p => p.id === id);
+      if (inList) {
+        setCurrentProjectName(inList.name);
+      } else {
+        // Fallback: API-Fetch
+        if (!isFetchingProject) {
+          setIsFetchingProject(true);
+          getProject(id).then(p => {
+            setCurrentProjectName(p?.name || `Projekt #${id}`);
+          }).catch(() => {
+            setCurrentProjectName(`Projekt #${id}`);
+          }).finally(() => setIsFetchingProject(false));
+        }
+      }
+      return;
+    }
+
+    // 3) Route-Param aus /project/:id oder /messages/:projectId etc.
+    const projectIdFromPath = (() => {
+      const m1 = pathname.match(/\/project\/(\d+)/);
+      if (m1) return parseInt(m1[1], 10);
+      const m2 = pathname.match(/\/messages\/(\d+)/);
+      if (m2) return parseInt(m2[1], 10);
+      return null;
+    })();
+
+    if (projectIdFromPath) {
+      setCurrentProjectId(projectIdFromPath);
+      const inList = projects?.find(p => p.id === projectIdFromPath);
+      if (inList) {
+        setCurrentProjectName(inList.name);
+      } else {
+        if (!isFetchingProject) {
+          setIsFetchingProject(true);
+          getProject(projectIdFromPath).then(p => {
+            setCurrentProjectName(p?.name || `Projekt #${projectIdFromPath}`);
+          }).catch(() => {
+            setCurrentProjectName(`Projekt #${projectIdFromPath}`);
+          }).finally(() => setIsFetchingProject(false));
+        }
+      }
+    } else {
+      setCurrentProjectId(null);
+      setCurrentProjectName(null);
+    }
+  }, [pathname, location.search, selectedProject, projects]);
 
   // Favoriten laden
   useEffect(() => {
@@ -208,7 +361,6 @@ export default function Navbar() {
       name: '',
       description: '',
       project_type: 'new_build',
-      address: '',
       address_street: '',
       address_zip: '',
       address_city: '',
@@ -218,7 +370,7 @@ export default function Navbar() {
       start_date: '',
       end_date: '',
       budget: '',
-      is_public: false,
+      is_public: true,
       allow_quotes: true,
       construction_phase: ''
     });
@@ -230,6 +382,37 @@ export default function Navbar() {
       ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
     }));
+  };
+
+  const handleFileSelection = (files: File[]) => {
+    const newFiles = files.map(file => ({
+      file,
+      status: 'pending' as const,
+      progress: 0,
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    }));
+
+    setUploadFiles(prev => [...prev, ...newFiles]);
+    setShowUploadModal(true);
+  };
+
+  const getDocumentTypeFromFile = (filename: string): string => {
+    const extension = filename.toLowerCase().split('.').pop();
+    switch (extension) {
+      case 'pdf': return 'pdf';
+      case 'doc':
+      case 'docx': return 'document';
+      case 'xls':
+      case 'xlsx': return 'spreadsheet';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif': return 'image';
+      case 'mp4':
+      case 'avi':
+      case 'mov': return 'video';
+      default: return 'other';
+    }
   };
 
   const handleCreateProject = async (e: React.FormEvent) => {
@@ -244,7 +427,6 @@ export default function Navbar() {
         description: projectForm.description.trim() || '',
         project_type: projectForm.project_type,
         status: 'planning', // Standard-Status für neue Projekte
-        address: projectForm.address.trim() || undefined,
         address_street: projectForm.address_street?.trim() || undefined,
         address_zip: projectForm.address_zip?.trim() || undefined,
         address_city: projectForm.address_city?.trim() || undefined,
@@ -254,7 +436,7 @@ export default function Navbar() {
         start_date: projectForm.start_date || undefined,
         end_date: projectForm.end_date || undefined,
         budget: projectForm.budget ? parseFloat(projectForm.budget) : undefined,
-        is_public: projectForm.is_public,
+        is_public: true,
         allow_quotes: projectForm.allow_quotes,
         construction_phase: projectForm.construction_phase || undefined
       };
@@ -262,6 +444,44 @@ export default function Navbar() {
       console.log('🚀 Erstelle neues Projekt mit Daten:', projectData);
       const newProject = await createProject(projectData);
       console.log('✅ Neues Projekt erstellt:', newProject);
+
+      // Upload documents if any
+      if (uploadFiles && uploadFiles.length > 0) {
+        console.log('📄 Lade Dokumente ins DMS hoch...');
+        // Setze project_id für alle Upload-Dateien
+        for (let i = 0; i < uploadFiles.length; i++) {
+          const uploadFile = uploadFiles[i];
+          
+          // Nur kategorisierte Dateien hochladen
+          if (!uploadFile.category) {
+            console.warn(`⚠️ Dokument ${uploadFile.file.name} wurde nicht kategorisiert und wird übersprungen`);
+            continue;
+          }
+          
+          try {
+            const formData = new FormData();
+            formData.append('project_id', newProject.id.toString());
+            formData.append('file', uploadFile.file);
+            formData.append('title', uploadFile.file.name.replace(/\.[^/.]+$/, ""));
+            formData.append('description', '');
+            
+            // Konvertiere Frontend-Kategorie zu Backend-Format (lowercase)
+            const backendCategory = uploadFile.category.toLowerCase();
+            formData.append('category', backendCategory);
+            
+            if (uploadFile.subcategory) {
+              formData.append('subcategory', uploadFile.subcategory);
+            }
+            formData.append('document_type', getDocumentTypeFromFile(uploadFile.file.name));
+
+            const response = await uploadDocument(formData);
+            console.log(`✅ Dokument ${uploadFile.file.name} erfolgreich hochgeladen`);
+          } catch (error) {
+            console.error(`❌ Fehler beim Upload von ${uploadFile.file.name}:`, error);
+          }
+        }
+        console.log('✅ Alle kategorisierten Dokumente wurden verarbeitet');
+      }
 
       // Schließe Modal und navigiere zum neuen Projekt
       handleCloseCreateProjectModal();
@@ -275,12 +495,8 @@ export default function Navbar() {
     }
   };
 
-  const getProjectIdFromPath = () => {
-    const match = pathname.match(/\/project\/(\d+)/);
-    return match ? match[1] : null;
-  };
-
-  const currentProjectId = getProjectIdFromPath();
+  // Entfernt: frühere Helper zum Auslesen der Projekt-ID aus dem Pfad,
+  // da der neue dezente Projekt-Hinweis robustere Ermittlung inklusive Fallbacks nutzt
 
   const isActive = (path: string) => pathname === path;
   const isProjectActive = () => pathname.includes('/project/');
@@ -292,7 +508,7 @@ export default function Navbar() {
           {/* Logo und Hauptnavigation */}
           <div className="flex items-center gap-8">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-3 group">
+            <Link to="/" className="flex items-center gap-3 group" data-tour-id="navbar-logo">
               <img src={logo} alt="BuildWise Logo" className="h-8 w-auto" />
               <span className="font-bold text-xl tracking-wide text-[#ffbd59] group-hover:text-[#ffa726] transition-colors">
                 BuildWise
@@ -355,7 +571,7 @@ export default function Navbar() {
                     <span>Übersicht</span>
                   </Link>
 
-                  <div className="relative group">
+                  <div className="relative group" data-tour-id="navbar-favorites">
                     <button className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
                       isProjectActive() 
                         ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
@@ -476,6 +692,18 @@ export default function Navbar() {
 
           {/* Rechte Seite */}
           <div className="flex items-center gap-4">
+            {/* Dezenter Projekt-Hinweis (außer Dashboard) */}
+            {currentProjectId && currentProjectName && (
+              <Link
+                to={`/project/${currentProjectId}`}
+                className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full border border-white/20 bg-white/10 hover:bg-white/15 text-sm text-gray-200 transition-colors"
+                title={`Zum Projekt: ${currentProjectName}`}
+                data-tour-id="navbar-current-project"
+              >
+                <Building size={16} className="text-[#ffbd59]" />
+                <span className="max-w-[220px] truncate">{currentProjectName}</span>
+              </Link>
+            )}
             {/* Pro-Button für Bauträger */}
             {!isServiceProvider() && user?.user_role === 'bautraeger' && (
               <div className="hidden md:block">
@@ -497,56 +725,17 @@ export default function Navbar() {
               </div>
             )}
             
-            {/* Benachrichtigungen */}
-            <div className="relative">
-              <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors relative"
-                title="Benachrichtigungen"
-              >
-                <Bell size={20} className="text-white hover:text-[#ffbd59] transition-colors" />
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  3
-                </span>
-              </button>
-              
-              {showNotifications && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 z-50">
-                  <div className="p-4">
-                    <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
-                      <Bell size={16} />
-                      Benachrichtigungen
-                    </h3>
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      <div className="flex items-center gap-3 p-2 hover:bg-white/10 rounded-lg cursor-pointer">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-white">Neue Aufgabe zugewiesen</div>
-                          <div className="text-xs text-gray-300">Vor 5 Minuten</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 p-2 hover:bg-white/10 rounded-lg cursor-pointer">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-white">Dokument hochgeladen</div>
-                          <div className="text-xs text-gray-300">Vor 1 Stunde</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            
 
             {/* Credit-Indicator für Bauträger */}
             {!isServiceProvider() && user?.user_role === 'BAUTRAEGER' && (
-              <div className="hidden md:block">
-                <CreditIndicator className="text-white" />
+              <div className="hidden md:block" data-tour-id="navbar-credits">
+                <CreditDisplay />
               </div>
             )}
 
             {/* Benutzer-Menü */}
-            <div className="relative">
+            <div className="relative" data-tour-id="navbar-profile">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-3 p-2 hover:bg-white/10 rounded-lg transition-colors"
@@ -722,12 +911,11 @@ export default function Navbar() {
       </div>
 
       {/* Click outside to close dropdowns */}
-      {(showUserMenu || showNotifications || showMobileMenu) && (
+      {(showUserMenu || showMobileMenu) && (
         <div 
           className="fixed inset-0 z-40" 
           onClick={() => {
             setShowUserMenu(false);
-            setShowNotifications(false);
             setShowMobileMenu(false);
           }}
         />
@@ -850,20 +1038,6 @@ export default function Navbar() {
 
                 {/* Adresse */}
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-2">
-                      Vollständige Adresse
-                    </label>
-                    <input
-                      type="text"
-                      name="address"
-                      value={projectForm.address}
-                      onChange={handleProjectFormChange}
-                      className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59] text-white placeholder-gray-400"
-                      placeholder="z.B. Musterstraße 123, 80331 München"
-                    />
-                  </div>
-                  
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-200 mb-2">
@@ -988,19 +1162,6 @@ export default function Navbar() {
                   <div className="flex items-center space-x-3">
                     <input
                       type="checkbox"
-                      name="is_public"
-                      checked={projectForm.is_public}
-                      onChange={handleProjectFormChange}
-                      className="w-4 h-4 text-[#ffbd59] bg-[#1a1a2e]/50 border-gray-600 rounded focus:ring-[#ffbd59] focus:ring-2"
-                    />
-                    <label className="text-sm text-gray-200">
-                      Projekt für Dienstleister sichtbar machen
-                    </label>
-                  </div>
-
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
                       name="allow_quotes"
                       checked={projectForm.allow_quotes}
                       onChange={handleProjectFormChange}
@@ -1010,6 +1171,117 @@ export default function Navbar() {
                       Angebote für dieses Projekt erlauben
                     </label>
                   </div>
+                </div>
+
+                {/* Dokument-Upload */}
+                <div className="bg-[#1a1a2e]/30 rounded-xl p-6 border border-gray-600/30">
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                    <CloudUpload className="w-5 h-5 mr-2 text-[#ffbd59]" />
+                    Projekt-Dokumente hochladen (optional)
+                  </h3>
+                  
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.add('border-[#ffbd59]', 'bg-[#ffbd59]/10');
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove('border-[#ffbd59]', 'bg-[#ffbd59]/10');
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove('border-[#ffbd59]', 'bg-[#ffbd59]/10');
+                      const files = Array.from(e.dataTransfer.files);
+                      handleFileSelection(files);
+                    }}
+                    className="border-2 border-dashed border-gray-600 rounded-xl p-8 text-center transition-all hover:border-[#ffbd59]/50"
+                  >
+                    <CloudUpload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <p className="text-white text-lg font-medium mb-2">
+                      Dokumente hier ablegen oder klicken zum Auswählen
+                    </p>
+                    <p className="text-gray-400 text-sm mb-4">
+                      Unterstützte Formate: PDF, Word, Excel, Bilder, Videos (max. 50MB pro Datei)
+                    </p>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.multiple = true;
+                        input.accept = '.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.mp4,.mov,.avi';
+                        input.onchange = (e) => {
+                          const files = Array.from((e.target as HTMLInputElement).files || []);
+                          handleFileSelection(files);
+                        };
+                        input.click();
+                      }}
+                      className="bg-[#ffbd59] hover:bg-[#ff8c42] text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                    >
+                      Dateien auswählen
+                    </button>
+                  </div>
+
+                  {/* Hochgeladene Dateien */}
+                  {uploadFiles.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-lg font-semibold text-white mb-4">
+                        Hochgeladene Dokumente ({uploadFiles.length})
+                      </h4>
+                      
+                      <div className="space-y-3">
+                        {uploadFiles.map((uploadFile) => {
+                          const getFileIcon = (file: File) => {
+                            const type = file.type.toLowerCase();
+                            if (type.includes('image')) return Image;
+                            if (type.includes('video')) return Video;
+                            if (type.includes('pdf') || type.includes('document')) return FileText;
+                            if (type.includes('zip') || type.includes('rar')) return Archive;
+                            return File;
+                          };
+                          
+                          const FileIcon = getFileIcon(uploadFile.file);
+                          return (
+                            <div key={uploadFile.id} className="flex items-center justify-between p-4 bg-[#1a1a2e]/50 rounded-lg border border-gray-600/30">
+                              <div className="flex items-center space-x-3">
+                                <FileIcon className="w-6 h-6 text-[#ffbd59]" />
+                                <div>
+                                  <p className="text-white font-medium">{uploadFile.file.name}</p>
+                                  <p className="text-gray-400 text-sm">
+                                    {(uploadFile.file.size / 1024 / 1024).toFixed(2)} MB
+                                    {uploadFile.category && (
+                                      <span className="ml-2 text-[#ffbd59]">
+                                        • {DOCUMENT_CATEGORIES[uploadFile.category as keyof typeof DOCUMENT_CATEGORIES]?.name}
+                                        {uploadFile.subcategory && ` > ${uploadFile.subcategory}`}
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center space-x-2">
+                                {uploadFile.status === 'success' && (
+                                  <CheckCircle className="w-5 h-5 text-green-400" />
+                                )}
+                                {uploadFile.status === 'error' && (
+                                  <AlertTriangle className="w-5 h-5 text-red-400" />
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setUploadFiles(prev => prev.filter(f => f.id !== uploadFile.id))}
+                                  className="text-gray-400 hover:text-red-400 transition-colors"
+                                >
+                                  <X size={18} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Fehler-Anzeige */}
@@ -1050,6 +1322,150 @@ export default function Navbar() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DMS Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden border border-gray-700">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white">Dokumente kategorisieren</h2>
+                <button
+                  onClick={() => {
+                    setShowUploadModal(false);
+                    setUploadFiles([]);
+                  }}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+                
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(80vh-140px)]">
+              {/* Info Banner */}
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-4">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-blue-400 mt-0.5" />
+                  <div>
+                    <p className="text-blue-300 font-medium">Hinweis zur Dokumentenverwaltung</p>
+                    <p className="text-blue-200 text-sm mt-1">
+                      Bitte kategorisieren Sie hier Ihre Dokumente. Der eigentliche Upload erfolgt automatisch beim Klick auf "Projekt erstellen".
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                {uploadFiles.map((uploadFile, index) => (
+                  <div key={index} className="bg-[#3d4952]/50 rounded-lg p-4 border border-gray-600">
+                    <div className="flex items-start gap-4">
+                      {/* File Info */}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileText className="w-5 h-5 text-blue-400" />
+                          <span className="font-medium text-white">{uploadFile.file.name}</span>
+                          <span className="text-sm text-gray-400">
+                            ({(uploadFile.file.size / 1024 / 1024).toFixed(2)} MB)
+                          </span>
+                        </div>
+
+                        {/* Category Selection */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Kategorie */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                              Kategorie *
+                            </label>
+                            <select
+                              value={uploadFile.category || ''}
+                              onChange={(e) => {
+                                const newCategory = e.target.value;
+                                setUploadFiles(prev => prev.map((f, i) => 
+                                  i === index 
+                                    ? { ...f, category: newCategory, subcategory: '', document_type: 'other' }
+                                    : f
+                                ));
+                              }}
+                              className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59] text-white"
+                            >
+                              <option value="">Kategorie wählen...</option>
+                              {Object.entries(DOCUMENT_CATEGORIES).map(([key, category]) => (
+                                <option key={key} value={key}>{category.name}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Unterkategorie */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                              Unterkategorie *
+                            </label>
+                            <select
+                              value={uploadFile.subcategory || ''}
+                              onChange={(e) => {
+                                setUploadFiles(prev => prev.map((f, i) => 
+                                  i === index 
+                                    ? { ...f, subcategory: e.target.value }
+                                    : f
+                                ));
+                              }}
+                              disabled={!uploadFile.category}
+                              className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <option value="">Unterkategorie wählen...</option>
+                              {uploadFile.category && DOCUMENT_CATEGORIES[uploadFile.category as keyof typeof DOCUMENT_CATEGORIES]?.subcategories.map((sub) => (
+                                <option key={sub} value={sub}>{sub}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Remove Button */}
+                      <button
+                        onClick={() => setUploadFiles(prev => prev.filter((_, i) => i !== index))}
+                        className="text-gray-400 hover:text-red-400 transition-colors p-1"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-700">
+              <div className="flex items-center justify-between">
+                <p className="text-gray-300 text-sm">
+                  {uploadFiles.filter(f => f.category && f.subcategory).length} von {uploadFiles.length} Dokumenten kategorisiert
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setShowUploadModal(false);
+                      setUploadFiles([]);
+                    }}
+                    className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    onClick={() => setShowUploadModal(false)}
+                    disabled={uploadFiles.some(f => !f.category || !f.subcategory)}
+                    className="bg-[#ffbd59] hover:bg-[#ffa726] disabled:bg-[#2c3539] disabled:cursor-not-allowed text-[#1a1a2e] disabled:text-gray-400 px-6 py-2 rounded-lg font-medium transition-colors"
+                  >
+                    Kategorisierung bestätigen
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

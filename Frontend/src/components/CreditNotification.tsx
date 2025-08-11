@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import creditService, { CreditBalance } from '../api/creditService';
+import { getCreditBalance, CreditBalance } from '../api/creditService';
 import { useAuth } from '../context/AuthContext';
 
 interface CreditNotificationProps {
@@ -26,7 +26,7 @@ export default function CreditNotification({ onClose }: CreditNotificationProps)
   const loadCreditBalance = async () => {
     try {
       setLoading(true);
-      const balanceData = await creditService.getCreditBalance();
+      const balanceData = await getCreditBalance();
       setBalance(balanceData);
       
       // Zeige Benachrichtigung nur bei niedrigen Credits oder abgelaufenem Pro-Status
@@ -71,7 +71,7 @@ export default function CreditNotification({ onClose }: CreditNotificationProps)
       return {
         type: 'warning',
         title: 'Niedrige Credits',
-        message: `Sie haben nur noch ${creditService.formatCredits(balance.credits)} Credits. Kaufen Sie Credits oder führen Sie Aktivitäten aus, um Credits zu verdienen.`,
+        message: `Sie haben nur noch ${balance.credits} Credits. Kaufen Sie Credits oder führen Sie Aktivitäten aus, um Credits zu verdienen.`,
         icon: '⚠️',
         color: 'bg-gradient-to-r from-yellow-600 to-yellow-700',
         buttonText: 'Credits kaufen'

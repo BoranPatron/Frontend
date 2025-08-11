@@ -4,6 +4,7 @@ import { useSwipeable } from 'react-swipeable';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
 import { getProjects, createProject } from '../api/projectService';
+import { uploadDocument } from '../api/documentService';
 import ConstructionPhaseTimeline from '../components/ConstructionPhaseTimeline';
 import { RadialMenu } from '../components/RadialMenu';
 import { RadialMenuAdvanced } from '../components/RadialMenuAdvanced';
@@ -26,6 +27,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import GuidedTourOverlay from '../components/Onboarding/GuidedTourOverlay';
+import PageHeader from '../components/PageHeader';
 
 // DMS-Kategorien (synchron mit Backend)
 const DOCUMENT_CATEGORIES = {
@@ -173,7 +175,6 @@ export default function Dashboard() {
     name: '',
     description: '',
     project_type: 'new_build',
-    address: '',
     address_street: '',
     address_zip: '',
     address_city: '',
@@ -184,7 +185,7 @@ export default function Dashboard() {
     start_date: '',
     end_date: '',
     budget: '',
-    is_public: false,
+    is_public: true,
     allow_quotes: true
   });
 
@@ -405,7 +406,6 @@ export default function Dashboard() {
       name: '',
       description: '',
       project_type: 'new_build',
-      address: '',
       address_street: '',
       address_zip: '',
       address_city: '',
@@ -416,7 +416,7 @@ export default function Dashboard() {
       start_date: '',
       end_date: '',
       budget: '',
-      is_public: false,
+      is_public: true,
       allow_quotes: true
     });
     // Reset document upload state
@@ -432,6 +432,37 @@ export default function Dashboard() {
     }));
   };
 
+  const handleFileSelection = (files: File[]) => {
+    const newFiles = files.map(file => ({
+      file,
+      status: 'pending' as const,
+      progress: 0,
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    }));
+
+    setUploadFiles(prev => [...prev, ...newFiles]);
+    setShowUploadModal(true);
+  };
+
+  const getDocumentTypeFromFile = (filename: string): string => {
+    const extension = filename.toLowerCase().split('.').pop();
+    switch (extension) {
+      case 'pdf': return 'pdf';
+      case 'doc':
+      case 'docx': return 'document';
+      case 'xls':
+      case 'xlsx': return 'spreadsheet';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif': return 'image';
+      case 'mp4':
+      case 'avi':
+      case 'mov': return 'video';
+      default: return 'other';
+    }
+  };
+
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreatingProject(true);
@@ -444,7 +475,7 @@ export default function Dashboard() {
           description: projectForm.description.trim() || '',
           project_type: projectForm.project_type,
           status: 'planning', // Standard-Status für neue Projekte
-          address: projectForm.address.trim() || undefined,
+
           address_street: projectForm.address_street?.trim() || undefined,
           address_zip: projectForm.address_zip?.trim() || undefined,
           address_city: projectForm.address_city?.trim() || undefined,
@@ -455,7 +486,7 @@ export default function Dashboard() {
           start_date: projectForm.start_date || undefined,
           end_date: projectForm.end_date || undefined,
           budget: projectForm.budget ? parseFloat(projectForm.budget) : undefined,
-          is_public: projectForm.is_public,
+          is_public: true,
           allow_quotes: projectForm.allow_quotes
         };
 
@@ -492,7 +523,7 @@ export default function Dashboard() {
             }
             formData.append('document_type', getDocumentTypeFromFile(uploadFile.file.name));
 
-            await uploadDocument(formData);
+            const response = await uploadDocument(formData);
             console.log(`✅ Dokument ${uploadFile.file.name} erfolgreich hochgeladen`);
           } catch (error) {
             console.error(`❌ Fehler beim Upload von ${uploadFile.file.name}:`, error);
@@ -550,24 +581,7 @@ export default function Dashboard() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const getDocumentTypeFromFile = (fileName: string) => {
-    const extension = fileName.split('.').pop()?.toLowerCase();
-    switch (extension) {
-      case 'pdf': return 'PDF';
-      case 'doc':
-      case 'docx': return 'WORD';
-      case 'xls':
-      case 'xlsx': return 'EXCEL';
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'gif': return 'IMAGE';
-      case 'mp4':
-      case 'mov':
-      case 'avi': return 'VIDEO';
-      default: return 'OTHER';
-    }
-  };
+
 
   const handleFilesSelected = (files: File[]) => {
     const newUploadFiles: UploadFile[] = files.map(file => ({
@@ -844,13 +858,15 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6">
       {/* Header mit Projekt-Informationen */}
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-3xl font-bold text-white" data-tour-id="dashboard-title">Dashboard</h1>
-          <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-400' : 'bg-red-400'}`}></div>
-            <span className="text-sm text-gray-300">{isOnline ? 'Online' : 'Offline'}</span>
-          </div>
-        </div>
+        <PageHeader
+          title="Dashboard"
+          right={(
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-400' : 'bg-red-400'}`}></div>
+              <span className="text-sm text-gray-300">{isOnline ? 'Online' : 'Offline'}</span>
+            </div>
+          )}
+        />
 
         {/* Projekt-Auswahl mit Swipe-Funktionalität */}
         {projects.length > 0 && (
@@ -1039,7 +1055,7 @@ export default function Dashboard() {
       </div>
 
       {/* Projekt-Statistiken */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" data-tour-id="dashboard-projects">
         {/* Quick Stats */}
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
           <div className="flex items-center justify-between mb-2">
@@ -1208,20 +1224,6 @@ export default function Dashboard() {
 
                 {/* Adresse */}
                 <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-200 mb-3">
-                      Vollständige Adresse
-                    </label>
-                    <input
-                      type="text"
-                      name="address"
-                      value={projectForm.address}
-                      onChange={handleProjectFormChange}
-                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
-                      placeholder="z.B. Musterstraße 123, 80331 München"
-                    />
-                  </div>
-                  
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                       <label className="block text-sm font-semibold text-gray-200 mb-3">
@@ -1423,19 +1425,6 @@ export default function Dashboard() {
                   <div className="flex items-center space-x-3">
                     <input
                       type="checkbox"
-                      name="is_public"
-                      checked={projectForm.is_public}
-                      onChange={handleProjectFormChange}
-                      className="w-5 h-5 text-[#ffbd59] border-gray-500 rounded focus:ring-[#ffbd59] transition-all duration-200"
-                    />
-                    <label className="text-sm font-medium text-gray-200">
-                      Projekt für Dienstleister sichtbar machen
-                    </label>
-                  </div>
-
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
                       name="allow_quotes"
                       checked={projectForm.allow_quotes}
                       onChange={handleProjectFormChange}
@@ -1447,7 +1436,121 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Fehler-Anzeige */}
+                {/* Dokument-Upload */}
+                <div className="bg-[#1a1a2e]/30 rounded-xl p-6 border border-gray-600/30">
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                    <CloudUpload className="w-5 h-5 mr-2 text-[#ffbd59]" />
+                    Projekt-Dokumente hochladen (optional)
+                  </h3>
+                  
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.add('border-[#ffbd59]', 'bg-[#ffbd59]/10');
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove('border-[#ffbd59]', 'bg-[#ffbd59]/10');
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove('border-[#ffbd59]', 'bg-[#ffbd59]/10');
+                      const files = Array.from(e.dataTransfer.files);
+                      handleFileSelection(files);
+                    }}
+                    className="border-2 border-dashed border-gray-600 rounded-xl p-8 text-center transition-all hover:border-[#ffbd59]/50"
+                  >
+                    <CloudUpload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <p className="text-white text-lg font-medium mb-2">
+                      Dokumente hier ablegen oder klicken zum Auswählen
+                    </p>
+                    <p className="text-gray-400 text-sm mb-4">
+                      Unterstützte Formate: PDF, Word, Excel, Bilder, Videos (max. 50MB pro Datei)
+                    </p>
+                    
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="bg-[#ffbd59] hover:bg-[#ff8c42] text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                    >
+                      Dateien auswählen
+                    </button>
+                    
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          handleFileSelection(Array.from(e.target.files));
+                        }
+                      }}
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.mp4,.mov,.avi"
+                    />
+                  </div>
+
+                  {/* Hochgeladene Dateien */}
+                  {uploadFiles.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-lg font-semibold text-white mb-4">
+                        Hochgeladene Dokumente ({uploadFiles.length})
+                      </h4>
+                      
+                      <div className="space-y-3">
+                        {uploadFiles.map((uploadFile) => {
+                          const getFileIcon = (file: File) => {
+                            const type = file.type.toLowerCase();
+                            if (type.includes('image')) return Image;
+                            if (type.includes('video')) return Video;
+                            if (type.includes('pdf') || type.includes('document')) return FileText;
+                            if (type.includes('zip') || type.includes('rar')) return Archive;
+                            return File;
+                          };
+                          
+                          const FileIcon = getFileIcon(uploadFile.file);
+                          return (
+                            <div key={uploadFile.id} className="flex items-center justify-between p-4 bg-[#1a1a2e]/50 rounded-lg border border-gray-600/30">
+                              <div className="flex items-center space-x-3">
+                                <FileIcon className="w-6 h-6 text-[#ffbd59]" />
+                                <div>
+                                  <p className="text-white font-medium">{uploadFile.file.name}</p>
+                                  <p className="text-gray-400 text-sm">
+                                    {(uploadFile.file.size / 1024 / 1024).toFixed(2)} MB
+                                    {uploadFile.category && (
+                                      <span className="ml-2 text-[#ffbd59]">
+                                        • {DOCUMENT_CATEGORIES[uploadFile.category as keyof typeof DOCUMENT_CATEGORIES]?.name}
+                                        {uploadFile.subcategory && ` > ${uploadFile.subcategory}`}
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center space-x-2">
+                                {uploadFile.status === 'success' && (
+                                  <CheckCircle className="w-5 h-5 text-green-400" />
+                                )}
+                                {uploadFile.status === 'error' && (
+                                  <AlertTriangle className="w-5 h-5 text-red-400" />
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setUploadFiles(prev => prev.filter(f => f.id !== uploadFile.id))}
+                                  className="text-gray-400 hover:text-red-400 transition-colors"
+                                >
+                                  <X size={18} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Error Display */}
                 {createProjectError && (
                   <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
                     <div className="flex items-center space-x-2">

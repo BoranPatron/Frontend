@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import creditService, { CreditBalance } from '../api/creditService';
+import { getCreditBalance, CreditBalance } from '../api/creditService';
 
 interface CreditIndicatorProps {
   className?: string;
@@ -18,7 +18,7 @@ const CreditIndicator: React.FC<CreditIndicatorProps> = ({ className = '' }) => 
     try {
       setLoading(true);
       setError(null);
-      const balanceData = await creditService.getCreditBalance();
+      const balanceData = await getCreditBalance();
       setBalance(balanceData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Fehler beim Laden der Credits');
@@ -57,7 +57,7 @@ const CreditIndicator: React.FC<CreditIndicatorProps> = ({ className = '' }) => 
       <span className="text-lg">{getStatusIcon()}</span>
       <div className="flex flex-col">
         <span className={`text-sm font-medium ${getStatusColor()}`}>
-          {creditService.formatCredits(balance.credits)} Credits
+          {balance.credits} Credits
         </span>
         <span className="text-xs text-gray-400">
           {balance.remaining_pro_days} Tage Pro

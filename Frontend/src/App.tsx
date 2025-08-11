@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider } from './context/ProjectContext';
 import Navbar from './components/Navbar';
 import CreditNotification from './components/CreditNotification';
+import WelcomeCreditNotification from './components/WelcomeCreditNotification';
 import Dashboard from './pages/Dashboard';
 import ServiceProviderDashboard from './pages/ServiceProviderDashboard';
 import Login from './pages/Login';
@@ -84,6 +85,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [sessionUserId, setSessionUserId] = useState<number | null>(null);
+  const [showWelcomeNotification, setShowWelcomeNotification] = useState(false);
   
   useEffect(() => {
     // Reset bei User-Wechsel (Logout/Login)
@@ -169,12 +171,28 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
               // Onboarding als abgeschlossen markieren (verhindert erneutes Erscheinen)
               setOnboardingChecked(true);
               
+              // Zeige Willkommens-Notification für Bauträger bei Erstanmeldung
+              if (role === 'BAUTRAEGER' && !localStorage.getItem(`welcome_shown_${user?.id}`)) {
+                setShowWelcomeNotification(true);
+                localStorage.setItem(`welcome_shown_${user?.id}`, 'true');
+              }
+              
               console.log('✅ Modal geschlossen - wird nicht mehr angezeigt');
             } catch (error) {
               console.error('❌ Fehler beim Speichern der Rolle:', error);
               // Modal bleibt offen bei Fehlern
             }
           }}
+        />
+      )}
+      
+      {/* Willkommens-Notification mit Credit-Bonus */}
+      {showWelcomeNotification && (
+        <WelcomeCreditNotification
+          show={showWelcomeNotification}
+          credits={90}
+          userName={user?.first_name || user?.email?.split('@')[0]}
+          onClose={() => setShowWelcomeNotification(false)}
         />
       )}
     </>
@@ -223,6 +241,7 @@ function NavbarWrapper() {
 
 function AppContent() {
   const { isInitialized, user } = useAuth();
+  const location = useLocation();
 
   console.log('🔍 AppContent Debug:', {
     isInitialized,

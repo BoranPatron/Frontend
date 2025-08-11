@@ -67,7 +67,7 @@ export default function ServiceProviderDashboard() {
 
   // Geo-Search State für Dienstleister
   const [showGeoSearch, setShowGeoSearch] = useState(true);
-  const [activeTab, setActiveTab] = useState<'list' | 'map'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'map'>('map');
   const [manualAddress, setManualAddress] = useState('');
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [showAcceptedTrades, setShowAcceptedTrades] = useState(false);
@@ -545,7 +545,7 @@ export default function ServiceProviderDashboard() {
       icon: <Archive size={32} />,
       onClick: () => setShowArchive(true),
       ariaLabel: "Archivierte Gewerke anzeigen",
-      badge: { text: "Abgeschlossen", color: "gray" as const },
+      badge: { text: "Abgeschlossen", color: "green" as const },
       cardId: "archive",
       path: "/archive",
       iconString: "<Archive size={16} />",
@@ -661,172 +661,227 @@ export default function ServiceProviderDashboard() {
         ))}
       </div>
 
-      {/* Geo-basierte Gewerke-Suche für Dienstleister */}
+      {/* Gewerke in Ihrer Nähe - Moderne Geo-Suche */}
       {showGeoSearch && (
-        <div className="mb-6 bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-4">
+        <div className="mb-6 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl hover:shadow-[0_0_30px_rgba(255,189,89,0.15)] transition-all duration-500">
+          {/* Modern Header with Glow */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg shadow-[#ffbd59]/20">
+                <MapPin size={24} className="text-[#2c3539]" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Gewerke in Ihrer Nähe</h2>
+                <p className="text-gray-400 text-sm mt-1">
+                  {currentLocation ? (
+                    <>Finden Sie passende Dienstleister im Umkreis</>  
+                  ) : (
+                    <>Geben Sie eine Adresse ein oder nutzen Sie Ihren Standort</>  
+                  )}
+                </p>
+              </div>
+            </div>
+            
+            {/* Toolbar: Tabs + Search Icon + Results */}
             <div className="flex items-center gap-3">
-              <MapPin size={20} className="text-[#ffbd59]" />
-              <span className="text-white font-medium">Kostenvoranschläge & Geo-Suche</span>
-              {currentLocation && (
-                <span className="text-[#ffbd59] text-xs">
-                  📍 {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
+              {/* Tabs */}
+              <div className="flex items-center p-1 bg-white/10 rounded-xl backdrop-blur-sm">
+                <button
+                  onClick={() => setActiveTab('list')}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-300 ${
+                    activeTab === 'list'
+                      ? 'bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] shadow-lg shadow-[#ffbd59]/30 transform scale-105'
+                      : 'text-white hover:text-[#ffbd59] hover:bg-white/10'
+                  }`}
+                >
+                  <List size={16} className="inline mr-2" />
+                  Liste
+                </button>
+                <button
+                  onClick={() => setActiveTab('map')}
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-300 ${
+                    activeTab === 'map'
+                      ? 'bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] shadow-lg shadow-[#ffbd59]/30 transform scale-105'
+                      : 'text-white hover:text-[#ffbd59] hover:bg-white/10'
+                  }`}
+                >
+                  <Map size={16} className="inline mr-2" />
+                  Karte
+                </button>
+              </div>
+
+              {/* Search Icon Button */}
+              <button
+                onClick={performGeoSearch}
+                disabled={geoLoading || !currentLocation}
+                title="Gewerke suchen"
+                className="p-2.5 rounded-lg bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] hover:from-[#ffa726] hover:to-[#ff9800] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-md hover:shadow-xl"
+              >
+                {geoLoading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#2c3539]"></div>
+                ) : (
+                  <Search size={18} className="" />
+                )}
+              </button>
+
+              {/* Results inline */}
+              <div className="hidden md:flex items-center text-xs bg-white/10 border border-white/20 text-white rounded-lg px-2 py-1">
+                {(() => {
+                  const tradeIds = new Set([...geoTrades.map(t => t.id), ...trades.map(t => t.id)]);
+                  return (
+                    <span>
+                      <span className="text-emerald-400 font-semibold mr-1">{tradeIds.size}</span>
+                      gefunden{currentLocation ? ` · ${radiusKm}km` : ''}
+                    </span>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+          
+          {/* Modern Location Input with Glow */}
+          <div className="bg-white/5 rounded-xl p-4 mb-4 border border-white/10 hover:border-[#ffbd59]/30 transition-all duration-300">
+            <label className="text-white text-sm font-medium mb-2 block">📍 Standort festlegen</label>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  placeholder="Straße, PLZ Ort eingeben..."
+                  value={manualAddress}
+                  onChange={(e) => setManualAddress(e.target.value)}
+                  className="w-full px-4 py-3 bg-white/10 text-white rounded-xl text-sm border border-white/20 focus:outline-none focus:border-[#ffbd59] focus:shadow-[0_0_15px_rgba(255,189,89,0.2)] placeholder-white/40 transition-all duration-300"
+                />
+                {currentLocation && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  </div>
+                )}
+              </div>
+              
+              <button
+                onClick={handleManualAddressGeocode}
+                disabled={isGeocoding || !manualAddress.trim()}
+                className="px-5 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-[#ffbd59]/30"
+              >
+                {isGeocoding ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#2c3539] inline mr-2"></div>
+                    Suche...
+                  </>
+                ) : (
+                  <>
+                    <Search size={16} className="inline mr-2" />
+                    Suchen
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={useOwnLocation}
+                disabled={geoLoading}
+                className="group px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl hover:from-emerald-600 hover:to-green-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-emerald-500/30"
+                title="Aktuellen Standort verwenden"
+              >
+                <User size={16} className="group-hover:animate-pulse" />
+              </button>
+            </div>
+          </div>
+          
+          {/* Modern Search Controls */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            {/* Radius Slider with Visual Feedback */}
+            <div className="bg-white/5 rounded-xl p-4 border border-white/10 hover:border-[#ffbd59]/30 transition-all duration-300">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-white text-sm font-medium">🎯 Suchradius</span>
+                <span className="px-3 py-1 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] rounded-full text-sm font-bold shadow-lg shadow-[#ffbd59]/20">
+                  {radiusKm} km
                 </span>
-              )}
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setActiveTab('list')}
-                className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-colors ${
-                  activeTab === 'list'
-                    ? 'bg-[#ffbd59] text-[#2c3539]'
-                    : 'bg-white/10 text-white hover:bg-white/20'
-                }`}
-              >
-                <List size={14} className="inline mr-1" />
-                Liste
-              </button>
-              <button
-                onClick={() => setActiveTab('map')}
-                className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-colors ${
-                  activeTab === 'map'
-                    ? 'bg-[#ffbd59] text-[#2c3539]'
-                    : 'bg-white/10 text-white hover:bg-white/20'
-                }`}
-              >
-                <Map size={14} className="inline mr-1" />
-                Karte
-              </button>
-            </div>
-          </div>
-          
-          {/* Standort-Eingabe */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="Adresse eingeben (z.B. Musterstraße 1, 10115 Berlin)"
-                value={manualAddress}
-                onChange={(e) => setManualAddress(e.target.value)}
-                className="w-full px-3 py-2 bg-white/10 text-white rounded-lg text-sm border border-white/20 focus:outline-none focus:border-[#ffbd59] placeholder-white/50"
-              />
-            </div>
-            
-            <button
-              onClick={handleManualAddressGeocode}
-              disabled={isGeocoding || !manualAddress.trim()}
-              className="px-4 py-2 bg-[#ffbd59] text-[#2c3539] rounded-lg hover:bg-[#ffa726] disabled:opacity-50 text-sm font-medium"
-            >
-              {isGeocoding ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b border-[#2c3539] inline mr-2"></div>
-                  Suche...
-                </>
-              ) : (
-                'Adresse suchen'
-              )}
-            </button>
-            
-            <button
-              onClick={useOwnLocation}
-              disabled={geoLoading}
-              className="px-3 py-2 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] disabled:opacity-50 text-sm font-medium"
-              title="Eigenen Standort übernehmen"
-            >
-              <User size={16} />
-            </button>
-          </div>
-          
-          {/* Suchradius und Filter */}
-          <div className="flex items-center gap-4 mb-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <span className="text-white text-sm font-medium">Suchradius:</span>
-              <div className="flex items-center gap-2">
+              </div>
+      <div className="relative">
                 <input
                   type="range"
                   min="1"
                   max="50"
                   value={radiusKm}
                   onChange={(e) => setRadiusKm(parseInt(e.target.value))}
-                  className="w-32 h-2 bg-[#ffbd59]/30 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer slider-thumb"
+                  style={{
+                    background: `linear-gradient(to right, #10b981 0%, #10b981 ${(radiusKm/50)*100}%, rgba(255,255,255,0.15) ${(radiusKm/50)*100}%, rgba(255,255,255,0.15) 100%)`
+                  }}
                 />
-                <span className="text-[#ffbd59] text-sm font-bold min-w-[3rem]">{radiusKm} km</span>
+                <style>{`
+                  /* WebKit */
+                  .slider-thumb::-webkit-slider-thumb {
+                    appearance: none;
+                    width: 14px;
+                    height: 14px;
+                    background: linear-gradient(135deg, #10b981, #34d399);
+                    border-radius: 9999px;
+                    cursor: pointer;
+                    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+                    border: 2px solid rgba(255,255,255,0.6);
+                    transition: transform 0.2s ease, box-shadow 0.2s ease;
+                  }
+                  .slider-thumb::-webkit-slider-thumb:hover {
+                    transform: scale(1.1);
+                    box-shadow: 0 0 14px rgba(16, 185, 129, 0.7);
+                  }
+                  .slider-thumb::-webkit-slider-runnable-track {
+                    height: 4px;
+                    border-radius: 9999px;
+                  }
+                  /* Firefox */
+                  .slider-thumb::-moz-range-thumb {
+                    width: 14px;
+                    height: 14px;
+                    background: linear-gradient(135deg, #10b981, #34d399);
+                    border: 2px solid rgba(255,255,255,0.6);
+                    border-radius: 9999px;
+                    box-shadow: 0 0 8px rgba(16,185,129,0.5);
+                    transition: transform 0.2s ease, box-shadow 0.2s ease;
+                  }
+                  .slider-thumb::-moz-range-thumb:hover {
+                    transform: scale(1.1);
+                    box-shadow: 0 0 14px rgba(16,185,129,0.7);
+                  }
+                  .slider-thumb::-moz-range-track {
+                    height: 4px;
+                    background: transparent;
+                    border: none;
+                    border-radius: 9999px;
+                  }
+                `}</style>
+              </div>
+              <div className="flex justify-between mt-2">
+                <span className="text-gray-500 text-xs">1 km</span>
+                <span className="text-gray-500 text-xs">25 km</span>
+                <span className="text-gray-500 text-xs">50 km</span>
               </div>
             </div>
             
-            <div className="flex items-center gap-2 flex-wrap">
+            {/* Category Filter with Icons */}
+            <div className="bg-white/5 rounded-xl p-4 border border-white/10 hover:border-[#ffbd59]/30 transition-all duration-300">
+              <label className="text-white text-sm font-medium mb-3 block">🏗️ Gewerk-Kategorie</label>
               <select
                 value={geoTradeCategory || ''}
                 onChange={(e) => setGeoTradeCategory(e.target.value)}
-                className="px-3 py-1.5 bg-white/10 text-white rounded-lg text-sm border border-white/20 focus:outline-none focus:border-[#ffbd59]"
+                className="w-full px-4 py-2.5 bg-white/10 text-white rounded-xl text-sm border border-white/20 focus:outline-none focus:border-[#ffbd59] focus:shadow-[0_0_15px_rgba(255,189,89,0.2)] transition-all duration-300 cursor-pointer hover:bg-white/15"
               >
                 <option value="">Alle Kategorien</option>
-                <option value="electrical">Elektro</option>
-                <option value="plumbing">Sanitär</option>
-                <option value="heating">Heizung</option>
-                <option value="roofing">Dach</option>
-                <option value="windows">Fenster/Türen</option>
-                <option value="flooring">Boden</option>
-                <option value="walls">Wände</option>
-                <option value="foundation">Fundament</option>
-                <option value="landscaping">Garten</option>
-              </select>
-              
-              <select
-                value={geoTradeStatus || ''}
-                onChange={(e) => setGeoTradeStatus(e.target.value)}
-                className="px-3 py-1.5 bg-white/10 text-white rounded-lg text-sm border border-white/20 focus:outline-none focus:border-[#ffbd59]"
-              >
-                <option value="">Alle Status</option>
-                <option value="planning">Planung</option>
-                <option value="cost_estimate">Kostenvoranschlag</option>
-                <option value="tender">Ausschreibung</option>
-                <option value="bidding">Angebote</option>
-                <option value="evaluation">Bewertung</option>
-                <option value="awarded">Vergeben</option>
-                <option value="in_progress">In Bearbeitung</option>
-                <option value="completed">Abgeschlossen</option>
+                <option value="electrical">⚡ Elektro</option>
+                <option value="plumbing">🚿 Sanitär</option>
+                <option value="heating">🔥 Heizung</option>
+                <option value="roofing">🏠 Dach</option>
+                <option value="windows">🪟 Fenster/Türen</option>
+                <option value="flooring">🏗️ Boden</option>
+                <option value="walls">🧱 Wände</option>
+                <option value="foundation">🏗️ Fundament</option>
+                <option value="landscaping">🌳 Garten</option>
               </select>
             </div>
-            
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                placeholder="Min €"
-                value={geoMinBudget || ''}
-                onChange={(e) => setGeoMinBudget(e.target.value ? parseInt(e.target.value) : undefined)}
-                className="w-20 px-2 py-1.5 bg-white/10 text-white rounded-lg text-sm border border-white/20 focus:outline-none focus:border-[#ffbd59]"
-              />
-              <span className="text-white text-sm">-</span>
-              <input
-                type="number"
-                placeholder="Max €"
-                value={geoMaxBudget || ''}
-                onChange={(e) => setGeoMaxBudget(e.target.value ? parseInt(e.target.value) : undefined)}
-                className="w-20 px-2 py-1.5 bg-white/10 text-white rounded-lg text-sm border border-white/20 focus:outline-none focus:border-[#ffbd59]"
-              />
-            </div>
-            
-            <button
-              onClick={performGeoSearch}
-              disabled={geoLoading || !currentLocation}
-              className="px-4 py-1.5 bg-[#ffbd59] text-[#2c3539] rounded-lg hover:bg-[#ffa726] disabled:opacity-50 text-sm font-medium flex items-center gap-2"
-            >
-              {geoLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b border-[#2c3539]"></div>
-                  Suche...
-                </>
-              ) : (
-                <>
-                  <Search size={16} />
-                  Suchen
-                </>
-              )}
-            </button>
           </div>
+          
+          {/* Search Button entfernt, da jetzt in der Toolbar */}
           
           {/* Error Banner */}
           {error && (
@@ -854,36 +909,21 @@ export default function ServiceProviderDashboard() {
             </div>
           )}
           
-          {/* Ergebnisse-Anzeige */}
-          {(geoTrades.length > 0 || trades.length > 0) && (
-            <div className="text-white text-sm mb-4">
-              {(() => {
-                // Berechne deduplizierte Anzahl
-                const tradeIds = new Set([...geoTrades.map(t => t.id), ...trades.map(t => t.id)]);
-                return (
-                  <>
-                    <span className="text-[#ffbd59] font-bold">{tradeIds.size}</span> Gewerke gefunden 
-                    {currentLocation && (
-                      <span> im Radius von <span className="text-[#ffbd59] font-bold">{radiusKm}km</span></span>
-                    )}
-                    {geoTrades.length > 0 && trades.length > 0 && (
-                      <span className="text-gray-400 ml-2">
-                        ({geoTrades.length} Geo + {trades.length} Lokal, {tradeIds.size} eindeutig)
-                      </span>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
-          )}
+          
 
-          {/* Kombinierte Gewerke-Darstellung im Quotes-Stil */}
+          {/* Modern Content Area with Smooth Transitions */}
               {activeTab === 'list' ? (
             <div>
               {(isLoadingTrades || geoLoading) ? (
-                <div className="bg-white/5 rounded-2xl p-12 text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ffbd59] mx-auto mb-4"></div>
-                  <p className="text-white">Lade Gewerke...</p>
+                <div className="bg-gradient-to-br from-white/5 to-white/10 rounded-2xl p-12 text-center backdrop-blur-sm border border-white/10">
+                  <div className="relative">
+                    <div className="animate-spin rounded-full h-16 w-16 border-4 border-white/20 border-t-[#ffbd59] mx-auto mb-4"></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <MapPin size={24} className="text-[#ffbd59] animate-pulse" />
+                    </div>
+                  </div>
+                  <p className="text-white font-medium">Suche Gewerke in Ihrer Nähe...</p>
+                  <p className="text-gray-400 text-sm mt-2">Dies kann einen Moment dauern</p>
                           </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -914,11 +954,11 @@ export default function ServiceProviderDashboard() {
                     return (
                       <div 
                         key={`trade-${trade.id}-${index}`}
-                        className={`group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-2xl cursor-pointer ${
-                          hasQuote ? 'border-[#ffbd59]/50' : ''
+                        className={`group relative bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-[#ffbd59]/50 hover:shadow-[0_0_30px_rgba(255,189,89,0.2)] transition-all duration-500 transform hover:-translate-y-1 cursor-pointer overflow-hidden ${
+                          hasQuote ? 'border-[#ffbd59]/50 shadow-lg shadow-[#ffbd59]/10' : ''
                         } ${
                           quoteStatus === 'accepted' 
-                            ? 'border-2 border-green-500/40 bg-gradient-to-r from-green-500/5 to-emerald-500/5 shadow-lg shadow-green-500/10' 
+                            ? 'border-2 border-green-500/40 bg-gradient-to-r from-green-500/5 to-emerald-500/5 shadow-xl shadow-green-500/20' 
                             : ''
                         } ${
                           trade.isGeoResult ? 'border-blue-500/30' : ''
@@ -953,40 +993,46 @@ export default function ServiceProviderDashboard() {
                           // }
                         }}
                       >
-                        {/* Geo-Badge */}
+                        {/* Hover Glow Effect */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/0 to-[#ffa726]/0 group-hover:from-[#ffbd59]/5 group-hover:to-[#ffa726]/5 transition-all duration-500 pointer-events-none"></div>
+                        
+                        {/* Modern Geo-Badge with Glow */}
                         {trade.isGeoResult && (
                           <div className="flex items-center gap-2 mb-3">
-                            <MapPin size={16} className="text-blue-400" />
-                            <span className="text-blue-400 text-sm font-medium">
-                              {trade.distance_km?.toFixed(1)}km entfernt
-                            </span>
+                            <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-blue-500/20 to-blue-400/20 rounded-full border border-blue-400/30">
+                              <MapPin size={14} className="text-blue-400 animate-pulse" />
+                              <span className="text-blue-400 text-xs font-medium">
+                                {trade.distance_km?.toFixed(1)}km entfernt
+                              </span>
+                            </div>
                             {trade.project_name && (
-                              <span className="text-gray-400 text-sm">
-                                • {trade.project_name}
+                              <span className="text-gray-400 text-xs">
+                                {trade.project_name}
                               </span>
                             )}
                           </div>
                         )}
 
-                        <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-start justify-between mb-4 relative z-10">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl">
+                            <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg shadow-[#ffbd59]/20 group-hover:shadow-[#ffbd59]/40 transition-all duration-300 group-hover:scale-110">
                               {getCategoryIcon(trade.category || '')}
                             </div>
                             <div>
-                              <h3 className="text-lg font-semibold text-white group-hover:text-[#ffbd59] transition-colors">
+                              <h3 className="text-lg font-bold text-white group-hover:text-[#ffbd59] transition-all duration-300">
                                 {trade.title}
                               </h3>
-                              <p className="text-gray-300 text-sm">{trade.description}</p>
+                              <p className="text-gray-300 text-sm mt-1">{trade.description}</p>
                               {trade.isGeoResult && trade.address_street && (
-                                <p className="text-gray-400 text-xs mt-1">
-                            📍 {trade.address_street}, {trade.address_zip} {trade.address_city}
+                                <p className="text-gray-400 text-xs mt-2 flex items-center gap-1">
+                                  <MapPin size={12} className="text-gray-500" />
+                                  {trade.address_street}, {trade.address_zip} {trade.address_city}
                                 </p>
                               )}
                           </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(trade.status)}`}>
+                            <span className={`px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm ${getStatusColor(trade.status)} shadow-lg`}>
                               {getStatusLabel(trade.status)}
                             </span>
                           </div>
@@ -1086,8 +1132,8 @@ export default function ServiceProviderDashboard() {
                   )}
                 </div>
               ) : (
-                /* Karten-Ansicht */
-            <div className="h-96 rounded-lg overflow-hidden">
+                /* Modern Map View with Glow */
+            <div className="h-[50vh] min-h-[400px] rounded-2xl overflow-hidden border border-white/20 shadow-2xl hover:shadow-[0_0_40px_rgba(255,189,89,0.2)] transition-all duration-500">
                   <TradeMap
                     currentLocation={currentLocation}
                     trades={geoTrades}

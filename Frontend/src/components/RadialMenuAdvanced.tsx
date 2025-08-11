@@ -39,6 +39,7 @@ type RadialItem = {
     color: string;
   };
   ring?: number; // 1 = inner ring, 2 = outer ring
+  tourId?: string; // data-tour-id for guided tour
 };
 
 type RadialMenuAdvancedProps = {
@@ -80,21 +81,6 @@ export function RadialMenuAdvanced({
     const projectId = selectedProject?.id;
     const items: RadialItem[] = [
       {
-        id: "manager",
-        label: "Manager",
-        icon: <Home size={24} />,
-        onSelect: () => {
-          if (projectId) {
-            navigate(`/project/${projectId}`);
-          } else {
-            navigate('/');
-          }
-        },
-        color: "#ffbd59",
-        description: "Projekt- und Gewerkverwaltung",
-        ring: 1
-      },
-      {
         id: "docs",
         label: "Docs",
         icon: <FileText size={24} />,
@@ -107,7 +93,8 @@ export function RadialMenuAdvanced({
         },
         color: "#4F46E5",
         description: "Dokumentenmanagement",
-        ring: 1
+        ring: 1,
+        tourId: "radial-menu-docs"
       },
       {
         id: "tasks",
@@ -122,7 +109,8 @@ export function RadialMenuAdvanced({
         },
         color: "#10B981",
         description: "Aufgabenmanagement",
-        ring: 1
+        ring: 1,
+        tourId: "radial-menu-tasks"
       },
       {
         id: "finance",
@@ -137,7 +125,8 @@ export function RadialMenuAdvanced({
         },
         color: "#F59E0B",
         description: "Budget & Ausgaben",
-        ring: 1
+        ring: 1,
+        tourId: "radial-menu-finance"
       },
       {
         id: "quotes",
@@ -146,7 +135,8 @@ export function RadialMenuAdvanced({
         onSelect: () => navigate('/quotes'),
         color: "#8B5CF6",
         description: "Angebote & Ausschreibungen",
-        ring: 1
+        ring: 1,
+        tourId: "radial-menu-quotes"
       },
       {
         id: "visualize",
@@ -161,7 +151,8 @@ export function RadialMenuAdvanced({
         },
         color: "#06B6D4",
         description: "Analytics & Berichte",
-        ring: 1
+        ring: 1,
+        tourId: "radial-menu-visualize"
       },
       {
         id: "canvas",
@@ -176,19 +167,20 @@ export function RadialMenuAdvanced({
         },
         color: "#EC4899",
         description: "Kollaboration & Zeichnungen",
-        ring: 1
+        ring: 1,
+        tourId: "radial-menu-canvas"
       }
     ];
 
     // Filter based on user role and subscription
     if (userRole === 'dienstleister' || userRole === 'DIENSTLEISTER') {
-      return items.filter(item => ['manager', 'quotes', 'docs'].includes(item.id));
+      return items.filter(item => ['quotes', 'docs'].includes(item.id));
     }
     
     if (userRole === 'bautraeger' || userRole === 'BAUTRAEGER') {
       const isProUser = user?.subscription_plan === 'PRO' && user?.subscription_status === 'ACTIVE';
       if (!isProUser) {
-        return items.filter(item => ['manager', 'quotes', 'docs'].includes(item.id));
+        return items.filter(item => ['quotes', 'docs'].includes(item.id));
       }
     }
     
@@ -211,7 +203,8 @@ export function RadialMenuAdvanced({
         },
         color: "#ffbd59",
         description: "Projekt erstellen",
-        ring: 2
+        ring: 2,
+        tourId: "radial-menu-create-project"
       },
       {
         id: "create-task",
@@ -436,7 +429,7 @@ export function RadialMenuAdvanced({
           position: "fixed",
           right: isMobile ? 32 : 64,
           bottom: isMobile ? 32 : 64,
-          zIndex: 9999,
+          zIndex: document.querySelector('[data-tour-id-root]') ? 9998 : 9999, // Niedriger z-index während Tour
           filter: enableGooeyEffect && open ? 'url(#gooey-advanced)' : undefined,
         }}
         role="menu"
@@ -516,6 +509,7 @@ export function RadialMenuAdvanced({
                   role="menuitem"
                   aria-label={item.label}
                   data-radial-item={item.id}
+                  data-tour-id={item.tourId}
                   initial={{ 
                     x: 0, 
                     y: 0, 
@@ -527,7 +521,7 @@ export function RadialMenuAdvanced({
                     x: layout[i].x,
                     y: layout[i].y,
                     opacity: 1,
-                    scale: hoveredIndex === i ? 1.15 : activeIndex === i ? 1.1 : 1,
+                    scale: hoveredIndex === i ? 1.25 : activeIndex === i ? 1.1 : 1,
                     rotate: 0,
                   }}
                   exit={{ 
@@ -556,8 +550,12 @@ export function RadialMenuAdvanced({
                   onFocus={() => setActiveIndex(i)}
                   className="absolute group"
                   style={{
-                    width: item.ring === 2 ? (isMobile ? 48 : 56) : (isMobile ? 52 : 64),
-                    height: item.ring === 2 ? (isMobile ? 48 : 56) : (isMobile ? 52 : 64),
+                    width: hoveredIndex === i 
+                      ? (item.ring === 2 ? (isMobile ? 56 : 64) : (isMobile ? 64 : 76))
+                      : (item.ring === 2 ? (isMobile ? 48 : 56) : (isMobile ? 52 : 64)),
+                    height: hoveredIndex === i 
+                      ? (item.ring === 2 ? (isMobile ? 56 : 64) : (isMobile ? 64 : 76))
+                      : (item.ring === 2 ? (isMobile ? 48 : 56) : (isMobile ? 52 : 64)),
                     borderRadius: "50%",
                     border: "none",
                     background: hoveredIndex === i || activeIndex === i 
@@ -567,12 +565,14 @@ export function RadialMenuAdvanced({
                       : `linear-gradient(135deg, #2a2f3a, #1f2937)`,
                     color: "white",
                     boxShadow: hoveredIndex === i || activeIndex === i
-                      ? `0 0 40px ${item.color}88,
+                      ? `0 0 60px ${item.color}aa,
+                         0 0 40px ${item.color}88,
                          0 0 25px ${item.color}66,
                          0 12px 32px ${item.color}60,
                          0 8px 20px rgba(0,0,0,0.4),
                          0 4px 12px rgba(0,0,0,0.3),
-                         inset 0 1px 0 rgba(255,255,255,0.2)`
+                         inset 0 2px 2px rgba(255,255,255,0.3),
+                         inset 0 -2px 2px rgba(0,0,0,0.2)`
                       : item.ring === 2
                       ? "0 4px 12px rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.15)"
                       : "0 6px 16px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.2)",
@@ -582,15 +582,18 @@ export function RadialMenuAdvanced({
                     alignItems: 'center',
                     justifyContent: 'center',
                     outline: 'none',
-                    transition: 'background 0.3s ease',
+                    transition: 'background 0.3s ease, z-index 0.1s ease',
                     opacity: item.ring === 2 ? 0.9 : 1,
-                    zIndex: 50,
+                    zIndex: hoveredIndex === i ? 500 : 50,
                   }}
-                  whileHover={{ scale: 1.15 }}
+                  whileHover={{ scale: 1.2 }}
                   whileTap={{ scale: 0.95 }}
                 >
                   {/* Icon */}
-                  <div className="relative">
+                  <div className="relative" style={{
+                    transform: hoveredIndex === i ? 'scale(1.15)' : 'scale(1)',
+                    transition: 'transform 0.2s ease'
+                  }}>
                     {item.icon}
                     
                     {/* Badge */}
@@ -611,24 +614,27 @@ export function RadialMenuAdvanced({
                   {/* Tooltip */}
                   {showTooltips && (hoveredIndex === i || activeIndex === i) && (
                     <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      className="absolute bottom-full mb-3 px-3 py-2 bg-gray-900/95 backdrop-blur-md rounded-lg shadow-xl border border-gray-700 whitespace-nowrap pointer-events-none"
-                      style={{ zIndex: 10000 }}
+                      initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                      className="absolute bottom-full mb-4 px-4 py-3 bg-gray-900 backdrop-blur-lg rounded-xl shadow-2xl border-2 border-[#ffbd59]/50 whitespace-nowrap pointer-events-none"
+                      style={{ 
+                        zIndex: 99999,
+                        filter: 'drop-shadow(0 0 20px rgba(255,189,89,0.3))'
+                      }}
                     >
-                      <div className="text-sm font-semibold text-white">{item.label}</div>
+                      <div className="text-sm font-bold text-white">{item.label}</div>
                       {item.description && (
-                        <div className="text-xs text-gray-300 mt-0.5">{item.description}</div>
+                        <div className="text-xs text-gray-300 mt-1">{item.description}</div>
                       )}
                       <div 
                         className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px"
                         style={{
                           width: 0,
                           height: 0,
-                          borderLeft: '6px solid transparent',
-                          borderRight: '6px solid transparent',
-                          borderTop: '6px solid rgb(17 24 39 / 0.95)',
+                          borderLeft: '8px solid transparent',
+                          borderRight: '8px solid transparent',
+                          borderTop: '8px solid rgb(17 24 39)',
                         }}
                       />
                     </motion.div>
@@ -644,6 +650,7 @@ export function RadialMenuAdvanced({
                   exit={{ opacity: 0, scale: 0 }}
                   transition={{ delay: 0.2 }}
                   onClick={() => setShowCreateMenu(!showCreateMenu)}
+                  data-tour-id="radial-menu-create-ring"
                   className="absolute"
                   style={{
                     width: isMobile ? 40 : 48,
@@ -680,6 +687,7 @@ export function RadialMenuAdvanced({
           type="button"
           aria-label={open ? "Menü schließen" : "Menü öffnen"}
           aria-expanded={open}
+          data-tour-id="radial-menu-fab"
           onClick={() => {
             if (!open) {
               setOpen(true);

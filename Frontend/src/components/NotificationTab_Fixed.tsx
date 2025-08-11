@@ -230,7 +230,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
   return (
     <>
       {/* Notification Tab - Fixed Position */}
-      <div className="fixed right-0 top-1/2 transform -translate-y-1/2 z-50">
+      <div className="fixed right-0 top-1/2 -mt-6 transform -translate-y-1/2 z-50">
         <button
           onClick={() => {
             setIsExpanded(!isExpanded);

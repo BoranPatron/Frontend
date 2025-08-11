@@ -1,9 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import creditService, { CreditBalance, CreditEvent, CreditPackage } from '../api/creditService';
+import { getCreditBalance, getCreditHistory, getCreditPackages, purchaseCredits, CreditBalance, CreditEvent, CreditPackage } from '../api/creditService';
 
 interface CreditDashboardProps {
   isAdmin?: boolean;
 }
+
+// Helper functions
+const getEventTypeIcon = (eventType: string): string => {
+  const icons: { [key: string]: string } = {
+    'REGISTRATION_BONUS': '🎉',
+    'DAILY_DEDUCTION': '📅',
+    'PURCHASE': '💳',
+    'TASK_COMPLETION': '✅',
+    'MILESTONE_COMPLETION': '🎯',
+    'PROJECT_COMPLETION': '🏆',
+    'REFERRAL_BONUS': '🤝',
+    'ADMIN_ADJUSTMENT': '⚙️',
+  };
+  return icons[eventType] || '📝';
+};
+
+const getEventTypeLabel = (eventType: string): string => {
+  const labels: { [key: string]: string } = {
+    'REGISTRATION_BONUS': 'Registrierungsbonus',
+    'DAILY_DEDUCTION': 'Tägliche Abbuchung',
+    'PURCHASE': 'Credit-Kauf',
+    'TASK_COMPLETION': 'Aufgabe abgeschlossen',
+    'MILESTONE_COMPLETION': 'Meilenstein erreicht',
+    'PROJECT_COMPLETION': 'Projekt abgeschlossen',
+    'REFERRAL_BONUS': 'Empfehlungsbonus',
+    'ADMIN_ADJUSTMENT': 'Admin-Anpassung',
+  };
+  return labels[eventType] || eventType;
+};
 
 const CreditDashboard: React.FC<CreditDashboardProps> = ({ isAdmin = false }) => {
   const [balance, setBalance] = useState<CreditBalance | null>(null);
@@ -24,9 +53,9 @@ const CreditDashboard: React.FC<CreditDashboardProps> = ({ isAdmin = false }) =>
       setError(null);
 
       const [balanceData, eventsData, packagesData] = await Promise.all([
-        creditService.getCreditBalance(),
-        creditService.getCreditEvents(20),
-        creditService.getCreditPackages(),
+        getCreditBalance(),
+        getCreditHistory(),
+        getCreditPackages(),
       ]);
 
       setBalance(balanceData);
@@ -42,7 +71,7 @@ const CreditDashboard: React.FC<CreditDashboardProps> = ({ isAdmin = false }) =>
   const handlePurchaseCredits = async (packageType: string) => {
     try {
       setPurchaseLoading(true);
-      const purchase = await creditService.initiateCreditPurchase(packageType);
+      const purchase = await purchaseCredits(packageType);
       
       // TODO: Stripe-Integration - hier würde der User zu Stripe weitergeleitet
       console.log('Credit-Purchase initiiert:', purchase);
@@ -61,7 +90,8 @@ const CreditDashboard: React.FC<CreditDashboardProps> = ({ isAdmin = false }) =>
 
   const handleAdminDailyDeduction = async () => {
     try {
-      const result = await creditService.processDailyDeductions();
+      // TODO: Implement processDailyDeductions API call
+      console.log('Daily deductions processing not yet implemented');
       alert(result.message);
       await loadCreditData();
     } catch (err) {
@@ -140,7 +170,7 @@ const CreditDashboard: React.FC<CreditDashboardProps> = ({ isAdmin = false }) =>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-300 text-sm">Verfügbare Credits</p>
-                  <p className="text-3xl font-bold text-[#ffbd59]">{creditService.formatCredits(balance.credits)}</p>
+                  <p className="text-3xl font-bold text-[#ffbd59]">{balance.credits}</p>
                 </div>
                 <div className="text-4xl">💎</div>
               </div>
@@ -150,7 +180,7 @@ const CreditDashboard: React.FC<CreditDashboardProps> = ({ isAdmin = false }) =>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-300 text-sm">Pro-Status</p>
-                  <p className="text-2xl font-bold text-[#ffbd59]">{creditService.getPlanStatusLabel(balance.plan_status)}</p>
+                  <p className="text-2xl font-bold text-[#ffbd59]">{balance.plan_status === 'PRO' ? 'Pro' : 'Basic'}</p>
                   <p className="text-gray-300 text-sm">
                     {balance.remaining_pro_days} Tage verbleibend
                   </p>
@@ -261,10 +291,10 @@ const CreditDashboard: React.FC<CreditDashboardProps> = ({ isAdmin = false }) =>
           {events.map((event) => (
             <div key={event.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg border border-gray-600">
               <div className="flex items-center space-x-3">
-                <span className="text-2xl">{creditService.getEventTypeIcon(event.event_type)}</span>
+                <span className="text-2xl">{getEventTypeIcon(event.event_type)}</span>
                 <div>
                   <p className="font-medium text-white">
-                    {creditService.getEventTypeLabel(event.event_type)}
+                    {getEventTypeLabel(event.event_type)}
                   </p>
                   <p className="text-sm text-gray-300">{event.description}</p>
                   <p className="text-xs text-gray-400">

@@ -19,20 +19,67 @@ interface GuidedTourOverlayProps {
 }
 
 const defaultSteps: TourStep[] = [
-  { id: 'dashboard-title', title: 'Willkommen!', description: 'Kurzer Rundgang durch das Dashboard. Folgen Sie den Pfeilen und Hinweisen.', pointer: 'bottom' },
-  { id: 'manager', title: 'Manager', description: 'Zentrale Verwaltung Ihrer Projekte und Gewerke.' },
-  { id: 'docs', title: 'Dokumente', description: 'Hier laden Sie Pläne, Verträge und Nachweise hoch.' },
-  { id: 'quotes', title: 'Gewerke & Angebote', description: 'Ausschreibungen erstellen und Angebote managen.' },
-  { id: 'tasks', title: 'To Do', description: 'Aufgaben verwalten, Fortschritt tracken und Prioritäten setzen.' },
-  { id: 'finance', title: 'Finanzen', description: 'Budget, Ausgaben und Forecasts im Blick behalten.' },
-  { id: 'visualize', title: 'Visualize', description: 'Daten und Berichte visualisieren.' },
-  { id: 'canvas', title: 'Canvas', description: 'Kollaboratives Whiteboard für Ideen und Skizzen.' },
-  { id: 'fab-main', title: 'Aktionen', description: 'Klicken Sie auf das Plus, um Aktionen zu öffnen.', waitForClick: true },
-  { id: 'fab-create-project', title: 'Projekt erstellen', description: 'Erstellen Sie Ihr erstes Projekt. Klicken Sie hier.', waitForClick: true },
-  { id: 'create-project-modal', title: 'Projektdetails', description: 'Füllen Sie die wichtigsten Eckdaten aus und speichern Sie.', pointer: 'top' },
-  { id: 'project-details', title: 'Projekt-Details', description: 'Hier sehen Sie jederzeit alle Details Ihres Projekts.' },
-  { id: 'dashboard-title', title: 'Geschafft!', description: 'Tour abgeschlossen. Viel Erfolg mit BuildWise!' }
-].slice(0, 15);
+  { 
+    id: 'dashboard-title', 
+    title: 'Willkommen bei BuildWise!', 
+    description: 'Ich zeige Ihnen die wichtigsten Funktionen. Diese Tour dauert nur 2 Minuten.', 
+    pointer: 'bottom' 
+  },
+  { 
+    id: 'radial-menu-fab', 
+    title: 'Das Radial Menu', 
+    description: 'Ihr zentraler Zugang zu allen Funktionen. Das Plus-Symbol unten rechts ist immer verfügbar.', 
+    pointer: 'left' 
+  },
+  { 
+    id: 'radial-menu-fab', 
+    title: 'Ihr Kommandozentrum', 
+    description: 'Von hier aus erreichen Sie alle Bereiche: Projekte verwalten, Dokumente hochladen, Finanzen im Blick behalten, Aufgaben koordinieren, Angebote einholen und vieles mehr. Klicken Sie das Plus-Symbol um es zu erkunden!', 
+    pointer: 'top' 
+  },
+  { 
+    id: 'dashboard-projects', 
+    title: 'Ihre Projekte im Überblick', 
+    description: 'Hier in der Mitte sehen Sie alle Ihre Bauprojekte und laufenden Ausschreibungen. Jedes Projekt zeigt den aktuellen Status, Fortschritt und wichtige Kennzahlen.', 
+    pointer: 'auto' 
+  },
+  { 
+    id: 'navbar-logo', 
+    title: 'Die Navigation', 
+    description: 'Die obere Leiste bietet Schnellzugriff auf wichtige Funktionen. Lassen Sie uns die einzelnen Bereiche anschauen.', 
+    pointer: 'bottom' 
+  },
+  { 
+    id: 'navbar-credits', 
+    title: 'Ihre Credits', 
+    description: 'Hier sehen Sie Ihr aktuelles Credit-Guthaben. Credits ermöglichen Ihnen den Zugang zu Pro-Funktionen und werden täglich abgebucht.', 
+    pointer: 'bottom' 
+  },
+  { 
+    id: 'navbar-favorites', 
+    title: 'Favoriten', 
+    description: 'Markieren Sie wichtige Dokumente, Aufgaben oder Bereiche als Favoriten für schnellen Zugriff.', 
+    pointer: 'bottom' 
+  },
+  { 
+    id: 'navbar-notifications', 
+    title: 'Benachrichtigungen', 
+    description: 'Verpassen Sie keine wichtigen Updates. Neue Angebote, Terminanfragen und Statusänderungen werden hier angezeigt.', 
+    pointer: 'bottom' 
+  },
+  { 
+    id: 'navbar-profile', 
+    title: 'Ihr Profil', 
+    description: 'Verwalten Sie Ihre Einstellungen, Credits und persönlichen Informationen über das Profil-Menü.', 
+    pointer: 'bottom' 
+  },
+  { 
+    id: 'dashboard-title', 
+    title: 'Bereit zum Start! 🎉', 
+    description: 'Sie kennen jetzt die wichtigsten Bereiche. Beginnen Sie mit Ihrem ersten Projekt oder erkunden Sie BuildWise auf eigene Faust. Bei Fragen hilft Ihnen unser Support gerne weiter!', 
+    pointer: 'bottom' 
+  }
+];
 
 function getElementRect(el: HTMLElement | null) {
   if (!el) return null;
@@ -47,8 +94,18 @@ function getElementRect(el: HTMLElement | null) {
   } as const;
 }
 
-function decidePointer(el: HTMLElement | null): Pointer {
+function decidePointer(el: HTMLElement | null, stepId?: string): Pointer {
   if (!el) return 'auto';
+  
+  // Spezielle Behandlung für Schritt 3 (Kommandozentrum)
+  if (stepId === 'radial-menu-fab') {
+    const rect = el.getBoundingClientRect();
+    // FAB ist unten rechts, also immer 'top' für bessere Lesbarkeit
+    if (rect.bottom > window.innerHeight - 150) {
+      return 'top';
+    }
+  }
+  
   const rect = el.getBoundingClientRect();
   const vSpaceTop = rect.top;
   const vSpaceBottom = window.innerHeight - rect.bottom;
@@ -70,6 +127,17 @@ export default function GuidedTourOverlay({ onClose, onCompleted, steps = defaul
   const step = steps[current];
 
   useEffect(() => {
+    // Cleanup previous hover state
+    const prevEl = activeEl;
+    if (prevEl && step?.id && !step.id.startsWith('radial-menu-')) {
+      const leaveEvent = new MouseEvent('mouseleave', {
+        view: window,
+        bubbles: true,
+        cancelable: true
+      });
+      prevEl.dispatchEvent(leaveEvent);
+    }
+    
     const el = document.querySelector(`[data-tour-id="${step?.id}"]`) as HTMLElement | null;
     setActiveEl(el);
     setRect(getElementRect(el));
@@ -79,14 +147,39 @@ export default function GuidedTourOverlay({ onClose, onCompleted, steps = defaul
       try {
         el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
       } catch {}
+      
+      // Trigger hover state für Radial Menu Items um Tooltip anzuzeigen
+      if (step?.id && step.id.startsWith('radial-menu-') && step.id !== 'radial-menu-fab' && step.id !== 'radial-menu-create-ring') {
+        // Simuliere Hover um den Tooltip zu zeigen
+        setTimeout(() => {
+          const event = new MouseEvent('mouseenter', {
+            view: window,
+            bubbles: true,
+            cancelable: true
+          });
+          el.dispatchEvent(event);
+        }, 100);
+      }
     }
+    
+    // Cleanup function
+    return () => {
+      if (el && step?.id && step.id.startsWith('radial-menu-') && step.id !== 'radial-menu-fab') {
+        const leaveEvent = new MouseEvent('mouseleave', {
+          view: window,
+          bubbles: true,
+          cancelable: true
+        });
+        el.dispatchEvent(leaveEvent);
+      }
+    };
 
     if (step?.waitForClick && el) {
       setWaitingClick(true);
       const handler = () => {
         setWaitingClick(false);
         // Warte kurz, bis UI (z. B. Modal) geöffnet ist
-        setTimeout(() => setCurrent((c) => Math.min(c + 1, steps.length - 1)), 400);
+        setTimeout(() => setCurrent((c) => Math.min(c + 1, steps.length - 1)), 600);
       };
       el.addEventListener('click', handler, { once: true });
       return () => {
@@ -95,11 +188,32 @@ export default function GuidedTourOverlay({ onClose, onCompleted, steps = defaul
     } else {
       setWaitingClick(false);
     }
+    
+    // Spezielle Behandlung für das Radial Menu
+    const fabButton = document.querySelector('[data-tour-id="radial-menu-fab"]') as HTMLElement;
+    
+    if (step?.id && step.id.startsWith('radial-menu-') && step.id !== 'radial-menu-fab') {
+      // Öffne das Radial Menu automatisch für die Tour (außer beim Klick-Schritt)
+      if (fabButton && (!fabButton.getAttribute('aria-expanded') || fabButton?.getAttribute('aria-expanded') === 'false')) {
+        setTimeout(() => {
+          fabButton?.click();
+        }, 200);
+      }
+    } else if (step?.id === 'dashboard-title' || !step?.id?.startsWith('radial-menu-')) {
+      // Schließe das Radial Menu wenn wir nicht mehr bei den Radial-Menu-Schritten sind
+      if (fabButton && fabButton.getAttribute('aria-expanded') === 'true') {
+        setTimeout(() => {
+          fabButton?.click();
+        }, 100);
+      }
+    }
   }, [current, step?.id, step?.waitForClick, steps.length]);
 
   // Repositionierung bei Scroll/Resize, damit Overlay mitwandert
   useEffect(() => {
-    const update = () => setRect(getElementRect(activeEl));
+    const update = () => {
+      setRect(getElementRect(activeEl));
+    };
     update();
     window.addEventListener('scroll', update, true);
     window.addEventListener('resize', update);
@@ -123,9 +237,18 @@ export default function GuidedTourOverlay({ onClose, onCompleted, steps = defaul
     if (current < steps.length - 1) setCurrent(current + 1);
     else finish();
   };
-  const prev = () => setCurrent((c) => Math.max(0, c - 1));
+  const prev = () => {
+    if (waitingClick) return; // Verhindere Zurück während auf Klick gewartet wird
+    setCurrent((c) => Math.max(0, c - 1));
+  };
 
   const finish = async () => {
+    // Schließe das Radial Menu falls offen
+    const fabButton = document.querySelector('[data-tour-id="radial-menu-fab"]') as HTMLElement;
+    if (fabButton?.getAttribute('aria-expanded') === 'true') {
+      fabButton?.click();
+    }
+    
     try {
       await updateMe({
         consent_fields: {
@@ -145,51 +268,100 @@ export default function GuidedTourOverlay({ onClose, onCompleted, steps = defaul
   };
 
   const handleClose = () => {
+    // Schließe das Radial Menu falls offen
+    const fabButton = document.querySelector('[data-tour-id="radial-menu-fab"]') as HTMLElement;
+    if (fabButton?.getAttribute('aria-expanded') === 'true') {
+      fabButton?.click();
+    }
     onClose?.();
   };
 
   // rect wird live aktualisiert, Memo ist nicht notwendig
   // Dynamische Pointer-Entscheidung: bevorzugt die Platzverhältnisse, falls kein expliziter Pointer angegeben
-  const pointer: Pointer = !step?.pointer || step.pointer === 'auto' ? decidePointer(activeEl) : (step.pointer as Pointer);
+  const pointer: Pointer = !step?.pointer || step.pointer === 'auto' ? decidePointer(activeEl, step?.id) : (step.pointer as Pointer);
 
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[60]"
+      className="fixed inset-0 z-[9999]"
       aria-hidden
       style={{ pointerEvents: 'none' }}
       data-tour-id-root
     >
-      {/* Dimmer */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+      {/* Dimmer - mit reduzierter Transparenz für bessere Sichtbarkeit */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" />
 
-      {/* Highlight-Box um Ziel */}
-      {rect && (
+      {/* Highlight-Box um Ziel - mit Loch für Interaktion */}
+      {rect && !waitingClick && (
         <div
-          className="absolute border-2 border-[#ffbd59] rounded-2xl shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"
+          className="absolute border-3 border-[#ffbd59] rounded-2xl shadow-[0_0_20px_rgba(255,189,89,0.5)]"
           style={{
             top: rect.top - 8,
             left: rect.left - 8,
             width: rect.width + 16,
             height: rect.height + 16,
             pointerEvents: 'none',
-            boxShadow: '0 0 0 9999px rgba(0,0,0,0.55), 0 8px 30px rgba(0,0,0,0.5)'
+            boxShadow: '0 0 0 9999px rgba(0,0,0,0.35), 0 8px 30px rgba(0,0,0,0.3)'
           }}
         />
+      )}
+      
+      {/* Spezielle Behandlung für waitingClick - Loch im Overlay für Klick-Interaktion */}
+      {rect && waitingClick && (
+        <>
+          {/* Overlay mit Loch */}
+          <svg
+            className="absolute inset-0 pointer-events-none"
+            style={{ width: '100%', height: '100%' }}
+          >
+            <defs>
+              <mask id="highlight-mask">
+                <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                <rect
+                  x={rect.left - 8}
+                  y={rect.top - 8}
+                  width={rect.width + 16}
+                  height={rect.height + 16}
+                  rx="16"
+                  fill="black"
+                />
+              </mask>
+            </defs>
+            <rect
+              x="0"
+              y="0"
+              width="100%"
+              height="100%"
+              fill="rgba(0,0,0,0.35)"
+              mask="url(#highlight-mask)"
+            />
+          </svg>
+          {/* Highlight-Rahmen */}
+          <div
+            className="absolute border-3 border-[#ffbd59] rounded-2xl animate-pulse shadow-[0_0_30px_rgba(255,189,89,0.7)]"
+            style={{
+              top: rect.top - 8,
+              left: rect.left - 8,
+              width: rect.width + 16,
+              height: rect.height + 16,
+              pointerEvents: 'none'
+            }}
+          />
+        </>
       )}
 
       {/* Tooltip/Card */}
       {rect ? (
         <div
-          className="absolute max-w-sm bg-white/10 backdrop-blur-lg border border-white/20 text-white rounded-2xl p-4 shadow-2xl"
+          className="absolute max-w-sm bg-gray-900/90 backdrop-blur-md border border-[#ffbd59]/50 text-white rounded-2xl p-4 shadow-2xl"
           style={{
             top: (() => {
-              const cardHeight = 168; // Mindesthöhe Tooltip
-              if (pointer === 'bottom') return Math.min(rect.top + rect.height + 16, window.innerHeight - cardHeight - 16);
-              if (pointer === 'top') return Math.max(rect.top - 16 - cardHeight, 16);
+              const cardHeight = 180; // Mindesthöhe Tooltip (etwas größer für längeren Text)
+              if (pointer === 'bottom') return Math.min(rect.top + rect.height + 20, window.innerHeight - cardHeight - 20);
+              if (pointer === 'top') return Math.max(rect.top - 24 - cardHeight, 20); // Mehr Abstand nach oben
               // left/right oder auto → vertikal mittig, aber im Viewport halten
               const mid = rect.top + rect.height / 2 - cardHeight / 2;
-              return Math.min(Math.max(mid, 16), window.innerHeight - cardHeight - 16);
+              return Math.min(Math.max(mid, 20), window.innerHeight - cardHeight - 20);
             })(),
             left: (() => {
               const cardWidth = 320; // Mindestbreite Tooltip
@@ -218,9 +390,9 @@ export default function GuidedTourOverlay({ onClose, onCompleted, steps = defaul
             <div className="text-xs text-gray-300">Schritt {current + 1} / {steps.length}</div>
             <div className="flex gap-2">
               <button
-                className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm"
+                className="px-3 py-1 rounded-lg bg-gray-700/80 hover:bg-gray-600/80 text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed border border-gray-600"
                 onClick={prev}
-                disabled={current === 0}
+                disabled={current === 0 || waitingClick}
               >
                 <ArrowLeft className="w-4 h-4 inline-block mr-1" /> Zurück
               </button>
@@ -233,7 +405,7 @@ export default function GuidedTourOverlay({ onClose, onCompleted, steps = defaul
                 </button>
               )}
               {waitingClick && (
-                <span className="px-3 py-1 rounded-lg bg-white/10 text-white text-sm">Bitte klicken…</span>
+                <span className="px-3 py-1 rounded-lg bg-orange-500/20 text-orange-300 text-sm border border-orange-500/30 animate-pulse">Bitte klicken…</span>
               )}
               {current === steps.length - 1 && (
                 <button
@@ -248,7 +420,7 @@ export default function GuidedTourOverlay({ onClose, onCompleted, steps = defaul
         </div>
       ) : (
         <div
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-sm bg-white/10 backdrop-blur-lg border border-white/20 text-white rounded-2xl p-4 shadow-2xl"
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-sm bg-gray-900/90 backdrop-blur-md border border-[#ffbd59]/50 text-white rounded-2xl p-4 shadow-2xl"
           style={{ pointerEvents: 'auto' }}
         >
           <div className="flex items-start justify-between gap-4">

@@ -583,7 +583,7 @@ export default function GeoSearch() {
             </div>
 
             {viewMode === 'map' ? (
-              <div className="h-[2000px] rounded-lg overflow-hidden" style={{ minHeight: '2000px', height: '2000px' }}>
+              <div className="h-[50vh] min-h-[400px] rounded-lg overflow-hidden">
                 <TradeMap
                   trades={filteredTrades}
                   currentLocation={currentLocation}
