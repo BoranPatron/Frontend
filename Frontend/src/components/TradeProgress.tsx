@@ -110,7 +110,6 @@ export default function TradeProgress({
   const loadProgressUpdates = async () => {
     try {
       const response = await apiCall(`/milestones/${milestoneId}/progress/`);
-      console.log('🔍 Geladene Updates:', response);
       setUpdates(response);
     } catch (error) {
       console.error('Fehler beim Laden der Updates:', error);
@@ -141,8 +140,6 @@ export default function TradeProgress({
       }
 
              console.log('🔍 Sende Progress Update:', JSON.stringify(updateData, null, 2));
-       console.log('🔍 Selected files:', selectedFiles.length, 'files');
-
        const response = await apiCall(`/milestones/${milestoneId}/progress/`, {
          method: 'POST',
          body: JSON.stringify(updateData)
@@ -151,17 +148,13 @@ export default function TradeProgress({
              // Upload Anhänge falls vorhanden (nur wenn normale Response)
        const responseId = response.id || response.data?.id;
        if (selectedFiles.length > 0 && responseId) {
-         console.log('🔍 Uploading attachments:', selectedFiles.length, 'files');
          for (const file of selectedFiles) {
-           console.log('🔍 Uploading file:', file.name, 'size:', file.size, 'type:', file.type);
            const formData = new FormData();
            formData.append('file', file);
            
            // Debug: Zeige FormData-Inhalt
-           console.log('🔍 FormData entries:');
            for (let [key, value] of formData.entries()) {
-             console.log('  ', key, ':', value);
-           }
+             }
            
            try {
              // Jetzt den echten Attachment-Endpoint verwenden
@@ -170,8 +163,7 @@ export default function TradeProgress({
                body: formData,
                headers: {} // Lasse Content-Type automatisch setzen
              });
-             console.log('✅ Attachment upload successful:', uploadResponse);
-           } catch (uploadError) {
+             } catch (uploadError) {
              console.error('❌ Attachment upload failed:', uploadError);
              console.error('❌ Error details:', uploadError.response?.data);
            }
@@ -179,7 +171,6 @@ export default function TradeProgress({
        }
 
       // Update lokalen State
-      console.log('🔄 Lade Updates neu nach dem Senden...');
       await loadProgressUpdates();
       setNewMessage('');
       setSelectedFiles([]);
@@ -222,15 +213,6 @@ export default function TradeProgress({
                                update.user.user_type === 'professional';
     const isOwnUpdate = (isBautraeger && isBautraegerUpdate) || (isServiceProvider && !isBautraegerUpdate);
     
-    console.log('🔍 RenderUpdate Debug:', {
-      updateId: update.id,
-      user_type: update.user.user_type,
-      isBautraegerUpdate,
-      propsIsBautraeger: isBautraeger,
-      propsIsServiceProvider: isServiceProvider,
-      isOwnUpdate
-    });
-
     return (
       <div
         key={update.id}
@@ -326,8 +308,6 @@ export default function TradeProgress({
                     const fullUrl = attachment.url.startsWith('http') 
                       ? attachment.url 
                       : `http://localhost:8000${attachment.url}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
-                    
-                    console.log('🔍 Attachment URL:', fullUrl);
                     
                     if (isImage) {
                       return (

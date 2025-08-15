@@ -455,14 +455,12 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
       let uploadedDocuments = [];
       
       if (documentsToUpload.length > 0) {
-        console.log('📤 Uploading documents to DMS...');
         const uploadResults = await uploadDocumentsToAPI(documentsToUpload);
         uploadedDocuments = uploadResults
           .filter(result => result.status === 'fulfilled')
           .map(result => (result as PromiseFulfilledResult<any>).value);
         
-        console.log('✅ Documents uploaded to DMS:', uploadedDocuments);
-      }
+        }
 
       // 2. Erstelle Gewerk mit Referenzen zu den hochgeladenen Dokumenten
       const { createMilestoneWithDocuments } = await import('../api/milestoneService');
@@ -484,8 +482,6 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
       };
       
       const result = await createMilestoneWithDocuments(milestoneData);
-      console.log('✅ Gewerk mit DMS-Dokumenten erstellt:', result);
-      
       // Schließe das Modal und rufe onSubmit auf
       await onSubmit(result);
       handleClose();
@@ -558,13 +554,10 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                     <div className="p-2 bg-[#ffbd59]/20 rounded-lg">
                       <Building className="w-5 h-5 text-[#ffbd59]" />
                     </div>
-                    <div className="text-right">
-                      <div className="text-xs text-gray-400 uppercase tracking-wider font-medium">Projekt</div>
-                      <div className="text-white font-bold text-lg leading-tight">{projectInfo.name}</div>
-                      {projectInfo.description && (
-                        <div className="text-xs text-gray-300 mt-1 max-w-48 truncate">{projectInfo.description}</div>
-                      )}
-                    </div>
+                      <div className="text-right">
+                        <div className="text-xs text-gray-400 uppercase tracking-wider font-medium">Projekt</div>
+                        <div className="text-white font-bold text-lg leading-tight">{projectInfo.name}</div>
+                      </div>
                   </div>
                 </div>
               )}
@@ -641,6 +634,18 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                       <option value="painting">Malerei</option>
                       <option value="carpentry">Zimmerei</option>
                       <option value="roofing">Dachdeckerei</option>
+                      <option value="landscaping">Garten- & Landschaftsbau</option>
+                      <option value="civil_engineering">Tiefbau</option>
+                      <option value="structural">Hochbau</option>
+                      <option value="interior">Innenausbau / Interior</option>
+                      <option value="facade">Fassade</option>
+                      <option value="windows_doors">Fenster & Türen</option>
+                      <option value="drywall">Trockenbau</option>
+                      <option value="tiling">Fliesenarbeiten</option>
+                      <option value="insulation">Dämmung</option>
+                      <option value="hvac">Klima / Lüftung (HVAC)</option>
+                      <option value="smart_home">Smart Home</option>
+                      <option value="site_preparation">Erdarbeiten / Baustellenvorbereitung</option>
                       <option value="other">Sonstiges</option>
                     </select>
                     {errors.category && (

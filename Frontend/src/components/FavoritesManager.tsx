@@ -90,7 +90,6 @@ export default function FavoritesManager({ isOpen, onClose }: FavoritesManagerPr
 
     // Event-Listener für localStorage-Änderungen
     const handleStorageChange = () => {
-      console.log('🔄 FavoritesManager: localStorage geändert - Favoriten neu laden');
       loadFavorites();
     };
 
@@ -101,7 +100,6 @@ export default function FavoritesManager({ isOpen, onClose }: FavoritesManagerPr
       if (customEvent.detail?.source === 'FavoritesManager') {
         return;
       }
-      console.log('🔄 FavoritesManager: Favoriten geändert - Favoriten neu laden', customEvent.detail);
       loadFavorites();
     };
 

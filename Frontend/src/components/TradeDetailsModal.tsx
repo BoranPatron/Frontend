@@ -29,6 +29,7 @@ import { appointmentService, type AppointmentResponse } from '../api/appointment
 import ServiceProviderRating from './ServiceProviderRating';
 import InvoiceModal from './InvoiceModal';
 // import FullDocumentViewer from './DocumentViewer';
+import { updateMilestone } from '../api/milestoneService';
 
 // PDF Viewer Komponente
 const PDFViewer: React.FC<{ url: string; filename: string; onError: (error: string) => void }> = ({ url, filename, onError }) => {
@@ -132,6 +133,7 @@ const PDFViewer: React.FC<{ url: string; filename: string; onError: (error: stri
 
 interface TradeDetailsModalProps {
   trade: TradeSearchResult | null;
+  project?: any;
   isOpen: boolean;
   onClose: () => void;
   onCreateQuote: (trade: TradeSearchResult) => void;
@@ -480,8 +482,21 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   );
 }
 
+  // Hilfsfunktion für Projekttyp-Labels
+  const getProjectTypeLabel = (type: string) => {
+    switch (type) {
+      case 'new_build': return 'Neubau';
+      case 'renovation': return 'Renovierung';
+      case 'extension': return 'Erweiterung';
+      case 'modernization': return 'Modernisierung';
+      case 'maintenance': return 'Wartung';
+      default: return type;
+    }
+  };
+
    export default function TradeDetailsModal({ 
   trade, 
+  project,
   isOpen, 
   onClose, 
   onCreateQuote, 
@@ -497,6 +512,9 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   // const [showCostEstimateForm, setShowCostEstimateForm] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedQuoteIds, setSelectedQuoteIds] = useState<number[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<{ title: string; description: string; category?: string; priority?: string; planned_date?: string; notes?: string; requires_inspection?: boolean }>({ title: '', description: '' });
+  const [isUpdatingTrade, setIsUpdatingTrade] = useState(false);
   
   // Neue States für dynamisches Laden der Dokumente
   const [loadedDocuments, setLoadedDocuments] = useState<any[]>([]);
@@ -1109,8 +1127,23 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
 
   if (!isOpen || !trade) return null;
 
+  // Debug-Logging
+  console.log('🔍 TradeDetailsModal RENDERING:', {
+    isOpen,
+    tradeId: trade?.id,
+    tradeTitle: trade?.title,
+    userId: user?.id,
+    userRole: user?.user_role,
+    isBautraeger: isBautraeger(),
+    appointmentsCount: appointmentsForTrade.length
+  });
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      {/* Debug Banner */}
+      <div className="absolute top-4 left-4 z-50 bg-red-500 text-white p-3 rounded font-bold">
+        🚨 TradeDetailsModal GEÖFFNET - Trade: {trade?.id}
+      </div>
       <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-2xl border border-gray-600/30 max-w-6xl w-full max-h-[95vh] overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b border-gray-600/30">
           <div className="flex items-center gap-3">
@@ -1120,14 +1153,63 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-1">
                 <h2 className="text-xl font-bold text-white">{trade.title}</h2>
+                {/* Bearbeiten Button: nur wenn kein Angebot angenommen und keine Angebote vorliegen */}
+                {(() => {
+                  const hasAccepted = (existingQuotes || []).some(q => String(q.status).toLowerCase() === 'accepted');
+                  const hasAnyQuote = (existingQuotes || []).length > 0;
+                  const disabled = hasAnyQuote;
+                  const title = hasAccepted ? 'Bearbeiten nicht möglich, Angebot wurde bereits angenommen' : (hasAnyQuote ? 'Bearbeiten nicht möglich, es liegen bereits Angebote vor' : 'Gewerk bearbeiten');
+                  return (
+                    <button
+                      onClick={() => { if (!disabled) { setIsEditing(true); setEditForm({ title: trade.title || '', description: trade.description || '', category: (trade as any).category || '', priority: (trade as any).priority || 'medium', planned_date: (trade as any).planned_date || '', notes: (trade as any).notes || '', requires_inspection: (trade as any).requires_inspection || false }); }}}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${disabled ? 'bg-white/5 text-gray-400 cursor-not-allowed opacity-50' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                      title={title}
+                      disabled={disabled}
+                    >
+                      <CheckSquare size={14} />
+                      Bearbeiten
+                    </button>
+                  );
+                })()}
                 {(completionStatus === 'completed' || completionStatus === 'completed_with_defects') && (
                   <div className="inline-flex items-center gap-1 px-3 py-1 bg-green-500/20 border border-green-500/30 text-green-300 rounded-full text-sm font-medium">
                     <CheckCircle size={14} />
                     {completionStatus === 'completed_with_defects' ? 'Unter Vorbehalt' : 'Abgeschlossen'}
                   </div>
                 )}
+                {(trade as any).requires_inspection && (
+                  <div className="inline-flex items-center gap-1 px-3 py-1 bg-blue-500/20 border border-blue-500/30 text-blue-300 rounded-full text-sm font-medium">
+                    <Eye size={14} />
+                    Besichtigung erforderlich
+                  </div>
+                )}
               </div>
               <p className="text-gray-400 text-sm">{trade.category}</p>
+              
+              {/* Projektinformationen */}
+              {project && (
+                <div className="mt-3">
+
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                    <div className="flex items-center gap-2 text-gray-300">
+                      <Building size={14} className="text-[#ffbd59]" />
+                      <span className="text-gray-400">Projekt:</span>
+                      <span className="font-medium text-white">{project.name || 'Nicht angegeben'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-300">
+                      <Settings size={14} className="text-[#ffbd59]" />
+                      <span className="text-gray-400">Typ:</span>
+                      <span className="font-medium text-white">{getProjectTypeLabel(project.project_type) || 'Nicht angegeben'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-300">
+                      <MapPin size={14} className="text-[#ffbd59]" />
+                      <span className="text-gray-400">Standort:</span>
+                      <span className="font-medium text-white">{project.address || project.location || project.city || 'Projektadresse nicht verfügbar'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <button
@@ -1139,6 +1221,87 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         </div>
 
         <div className="h-[calc(95vh-120px)] overflow-y-auto p-6">
+          {/* Edit Modal Inline */}
+          {isEditing && (
+            <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
+              <h3 className="text-white font-semibold mb-3">Gewerk bearbeiten</h3>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  try {
+                    setIsUpdatingTrade(true);
+                    const payload: any = {
+                      title: editForm.title,
+                      description: editForm.description,
+                      category: editForm.category || undefined,
+                      priority: editForm.priority || undefined,
+                      planned_date: editForm.planned_date || undefined,
+                      notes: editForm.notes || undefined,
+                      requires_inspection: !!editForm.requires_inspection,
+                    };
+                    await updateMilestone((trade as any).id, payload);
+                    // Lokal aktualisieren
+                    (trade as any).title = payload.title || (trade as any).title;
+                    (trade as any).description = payload.description || (trade as any).description;
+                    (trade as any).category = payload.category ?? (trade as any).category;
+                    (trade as any).priority = payload.priority ?? (trade as any).priority;
+                    (trade as any).planned_date = payload.planned_date ?? (trade as any).planned_date;
+                    (trade as any).notes = payload.notes ?? (trade as any).notes;
+                    (trade as any).requires_inspection = payload.requires_inspection;
+                    setIsEditing(false);
+                  } catch (err) {
+                    console.error('❌ Fehler beim Aktualisieren des Gewerks:', err);
+                    alert('Fehler beim Aktualisieren des Gewerks');
+                  } finally {
+                    setIsUpdatingTrade(false);
+                  }
+                }}
+                className="space-y-3"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-300 mb-1">Titel</label>
+                    <input value={editForm.title} onChange={(e)=>setEditForm(p=>({...p,title:e.target.value}))} className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-300 mb-1">Kategorie</label>
+                    <input value={editForm.category||''} onChange={(e)=>setEditForm(p=>({...p,category:e.target.value}))} className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-300 mb-1">Beschreibung</label>
+                  <textarea rows={3} value={editForm.description} onChange={(e)=>setEditForm(p=>({...p,description:e.target.value}))} className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-300 mb-1">Priorität</label>
+                    <select value={editForm.priority||'medium'} onChange={(e)=>setEditForm(p=>({...p,priority:e.target.value}))} className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white">
+                      <option value="low">Niedrig</option>
+                      <option value="medium">Mittel</option>
+                      <option value="high">Hoch</option>
+                      <option value="critical">Kritisch</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-300 mb-1">Geplantes Datum</label>
+                    <input type="date" value={editForm.planned_date||''} onChange={(e)=>setEditForm(p=>({...p,planned_date:e.target.value}))} className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white" />
+                  </div>
+                  <div className="flex items-center gap-2 mt-6">
+                    <input id="requires_inspection_td" type="checkbox" checked={!!editForm.requires_inspection} onChange={(e)=>setEditForm(p=>({...p,requires_inspection:e.target.checked}))} className="w-4 h-4 text-[#ffbd59] bg-[#2c3539]/50 border-gray-600 rounded" />
+                    <label htmlFor="requires_inspection_td" className="text-xs text-gray-300">Besichtigung erforderlich</label>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-300 mb-1">Notizen</label>
+                  <textarea rows={2} value={editForm.notes||''} onChange={(e)=>setEditForm(p=>({...p,notes:e.target.value}))} className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white" />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={()=>setIsEditing(false)} className="px-4 py-2 text-gray-300 hover:text-white">Abbrechen</button>
+                  <button type="submit" disabled={isUpdatingTrade} className="px-4 py-2 bg-[#ffbd59] text-[#2c3539] rounded-lg font-semibold hover:bg-[#ffa726] disabled:opacity-50">{isUpdatingTrade?'Speichern…':'Speichern'}</button>
+                </div>
+              </form>
+            </div>
+          )}
           <div className="space-y-6">
             {/* Priorität und Phase */}
             <div className="flex items-center gap-4">
@@ -1166,6 +1329,368 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             {/* Debug: Komponentenname */}
             <div className="mb-3 text-xs text-gray-400">Component: TradeDetailsModal.tsx</div>
 
+            {/* Angenommenes Angebot - Details Abschnitt */}
+            {(() => {
+              const isBt = isBautraeger();
+              const acceptedQuote = (existingQuotes || []).find(q => String(q.status).toLowerCase() === 'accepted');
+              
+              if (!acceptedQuote || !isBt) return null;
+              
+              const formatCurrency = (amount: number, currency: string = 'EUR') => {
+                try {
+                  return amount.toLocaleString('de-DE', { style: 'currency', currency });
+                } catch {
+                  return `${amount.toLocaleString('de-DE')} €`;
+                }
+              };
+
+              return (
+                <div className="bg-gradient-to-br from-emerald-500/10 to-green-500/10 rounded-xl p-6 border border-emerald-500/30 mb-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-emerald-500/20 rounded-lg">
+                      <CheckCircle size={20} className="text-emerald-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Angenommenes Angebot</h3>
+                      <p className="text-emerald-300 text-sm">Verbindlich bestätigt</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="bg-white/5 rounded-lg p-4">
+                      <div className="text-sm text-gray-400 mb-1">Dienstleister</div>
+                      <div className="text-white font-semibold">
+                        {acceptedQuote.contact_released ? 
+                          (acceptedQuote.company_name || acceptedQuote.service_provider_name || `Angebot #${acceptedQuote.id}`) :
+                          (acceptedQuote.service_provider_name || `Angebot #${acceptedQuote.id}`)}
+                      </div>
+                      {acceptedQuote.contact_person && (
+                        <div className="text-gray-300 text-sm">{acceptedQuote.contact_person}</div>
+                      )}
+                    </div>
+                    
+                    <div className="bg-white/5 rounded-lg p-4">
+                      <div className="text-sm text-gray-400 mb-1">Angebotssumme</div>
+                      <div className="text-emerald-400 font-bold text-xl">
+                        {(() => {
+                          const currency = (acceptedQuote as any).currency || 'EUR';
+                          const amount =
+                            (typeof (acceptedQuote as any).total_amount === 'number' && (acceptedQuote as any).total_amount) ??
+                            (typeof (acceptedQuote as any).total_price === 'number' && (acceptedQuote as any).total_price) ??
+                            (typeof (acceptedQuote as any).labor_cost === 'number' || typeof (acceptedQuote as any).material_cost === 'number' || typeof (acceptedQuote as any).overhead_cost === 'number'
+                              ? ((Number((acceptedQuote as any).labor_cost) || 0) + (Number((acceptedQuote as any).material_cost) || 0) + (Number((acceptedQuote as any).overhead_cost) || 0))
+                              : null);
+                          if (amount == null) return 'N/A';
+                          return formatCurrency(amount, currency);
+                        })()}
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white/5 rounded-lg p-4">
+                      <div className="text-sm text-gray-400 mb-1">Dauer</div>
+                      <div className="text-white font-semibold">
+                        {(acceptedQuote as any).estimated_duration || 'Nicht angegeben'} Tage
+                      </div>
+                      {(acceptedQuote as any).start_date && (
+                        <div className="text-gray-300 text-sm">
+                          Start: {new Date((acceptedQuote as any).start_date).toLocaleDateString('de-DE')}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {acceptedQuote.contact_released && acceptedQuote.phone && (
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <div className="text-sm text-gray-400 mb-1">Kontakt</div>
+                        <div className="text-white font-semibold">{acceptedQuote.phone}</div>
+                        {acceptedQuote.email && (
+                          <div className="text-gray-300 text-sm">{acceptedQuote.email}</div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {((acceptedQuote as any).labor_cost || (acceptedQuote as any).material_cost || (acceptedQuote as any).overhead_cost) && (
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <div className="text-sm text-gray-400 mb-1">Kostenaufschlüsselung</div>
+                        <div className="space-y-1 text-sm">
+                          {(acceptedQuote as any).labor_cost && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-300">Arbeitskosten:</span>
+                              <span className="text-white">{formatCurrency(Number((acceptedQuote as any).labor_cost), (acceptedQuote as any).currency)}</span>
+                            </div>
+                          )}
+                          {(acceptedQuote as any).material_cost && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-300">Materialkosten:</span>
+                              <span className="text-white">{formatCurrency(Number((acceptedQuote as any).material_cost), (acceptedQuote as any).currency)}</span>
+                            </div>
+                          )}
+                          {(acceptedQuote as any).overhead_cost && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-300">Nebenkosten:</span>
+                              <span className="text-white">{formatCurrency(Number((acceptedQuote as any).overhead_cost), (acceptedQuote as any).currency)}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="mt-4 flex items-center justify-between">
+                    <div className="text-sm text-gray-300">
+                      Angenommen am: {new Date((acceptedQuote as any).updated_at || acceptedQuote.created_at).toLocaleDateString('de-DE')}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setQuoteForDetails(acceptedQuote); setShowQuoteDetails(true); }}
+                        className="px-3 py-1.5 text-sm rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30"
+                      >
+                        Vollständige Details
+                      </button>
+                      {(acceptedQuote as any).pdf_upload_path && (
+                        <a
+                          href={getAuthenticatedFileUrl((acceptedQuote as any).pdf_upload_path)}
+                          download
+                          className="px-3 py-1.5 text-sm rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30"
+                        >
+                          PDF herunterladen
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* DEBUG UND TERMINE FÜR DIENSTLEISTER - VOR ANGEBOTEN */}
+            {(user?.user_role === 'DIENSTLEISTER' || user?.user_role === 'dienstleister' || user?.user_role === 'SERVICE_PROVIDER' || user?.user_role === 'service_provider') && (
+              <>
+                {/* Mein abgegebenes Angebot anzeigen */}
+                {(() => {
+                  const myQuote = (existingQuotes || []).find(q => q.service_provider_id === user?.id);
+                  if (myQuote) {
+                    return (
+                      <div className="mb-4 p-4 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/30">
+                        <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                          <FileText size={18} className="text-green-400" />
+                          Mein abgegebenes Angebot
+                        </h3>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-400">Angebotssumme:</span>
+                            <span className="text-xl font-bold text-green-400">
+                              {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(myQuote.total_amount || 0)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-400">Status:</span>
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              myQuote.status === 'accepted' ? 'bg-green-500/20 text-green-300' :
+                              myQuote.status === 'rejected' ? 'bg-red-500/20 text-red-300' :
+                              myQuote.status === 'submitted' ? 'bg-blue-500/20 text-blue-300' :
+                              'bg-gray-500/20 text-gray-300'
+                            }`}>
+                              {myQuote.status === 'accepted' ? 'Angenommen' :
+                               myQuote.status === 'rejected' ? 'Abgelehnt' :
+                               myQuote.status === 'submitted' ? 'Eingereicht' :
+                               'Entwurf'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-400">Geschätzte Dauer:</span>
+                            <span className="text-white">{myQuote.estimated_duration || '–'} Tage</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {/* DEBUG: Appointment Status für Dienstleister */}
+                <div className="mb-4 p-4 bg-yellow-500/20 border border-yellow-500/30 rounded-xl">
+                  <h4 className="text-yellow-400 font-bold mb-2">🔍 DEBUG: Appointment Status (DIENSTLEISTER)</h4>
+                  <div className="text-xs text-gray-300 space-y-1">
+                    <div>User ID: <span className="text-yellow-400">{user?.id}</span></div>
+                    <div>User Role: <span className="text-yellow-400">{user?.user_role}</span></div>
+                    <div>User Type: <span className="text-yellow-400">{user?.user_type}</span></div>
+                    <div>isBautraeger(): <span className="text-yellow-400">{String(isBautraeger())}</span></div>
+                    <div>appointmentsForTrade.length: <span className="text-yellow-400">{appointmentsForTrade.length}</span></div>
+                    <div>trade.id: <span className="text-yellow-400">{trade?.id}</span></div>
+                    <div>trade.requires_inspection: <span className="text-yellow-400">{String(trade?.requires_inspection)}</span></div>
+                    {appointmentsForTrade.length > 0 && (
+                      <div className="mt-2 p-2 bg-gray-800 rounded">
+                        <div className="text-yellow-400">Appointment Data:</div>
+                        <pre className="text-xs text-gray-300 overflow-auto max-h-40">
+                          {JSON.stringify(appointmentsForTrade[0], null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Terminvorschlag für Dienstleister */}
+                {appointmentsForTrade.length > 0 && (() => {
+                  const appointment = appointmentsForTrade[0];
+                  const serviceProviderId = user?.id;
+                  
+                  // Prüfe Einladungs- und Antwortstatus
+                  let invitedRaw: any = (appointment as any).invited_service_providers;
+                  if (typeof invitedRaw === 'string') {
+                    try { invitedRaw = JSON.parse(invitedRaw); } catch { invitedRaw = []; }
+                  }
+                  const invited: any[] = Array.isArray(invitedRaw) ? invitedRaw : [];
+                  
+                  let responsesRaw: any = (appointment as any).responses ?? (appointment as any).responses_array;
+                  if (typeof responsesRaw === 'string') {
+                    try { responsesRaw = JSON.parse(responsesRaw); } catch { responsesRaw = []; }
+                  }
+                  const responsesArr: any[] = Array.isArray(responsesRaw) ? responsesRaw : [];
+                  
+                  const isInvited = invited.some((sp: any) => Number(sp?.id ?? sp) === Number(serviceProviderId));
+                  const myResponse = responsesArr.find((r: any) => Number(r?.service_provider_id) === Number(serviceProviderId));
+                  const responseStatus = myResponse ? String(myResponse.status).toLowerCase() : 'pending';
+                  
+                  if (!isInvited) return null;
+                  
+                  return (
+                    <div className="mb-4 p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <div>
+                          <div className="text-sm text-blue-300">Besichtigungstermin vorgeschlagen</div>
+                          <div className="text-white font-semibold">
+                            {new Date(appointment.scheduled_date).toLocaleString('de-DE')}
+                          </div>
+                          <div className="text-sm text-gray-400 mt-1">
+                            📍 {appointment.location || 'Ort wird noch bekannt gegeben'}
+                          </div>
+                        </div>
+                        {responseStatus === 'accepted' && (
+                          <div className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/20 border border-emerald-500/30 text-emerald-300">
+                            ✅ Zugesagt
+                          </div>
+                        )}
+                        {responseStatus === 'rejected' && (
+                          <div className="px-3 py-1 rounded-full text-xs font-medium bg-red-500/20 border border-red-500/30 text-red-300">
+                            ❌ Abgesagt
+                          </div>
+                        )}
+                      </div>
+                      
+                      {responseStatus === 'pending' && (
+                        <div className="flex items-center gap-3">
+                          <div className="text-sm text-gray-300 flex-1">
+                            Bitte antworten Sie auf die Einladung:
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await appointmentService.respondToAppointment({
+                                    appointment_id: appointment.id,
+                                    status: 'accepted'
+                                  });
+                                  // Termine neu laden
+                                  const all = await appointmentService.getMyAppointments();
+                                  const relevant = all.filter(a => a.milestone_id === (trade as any).id && a.appointment_type === 'INSPECTION');
+                                  setAppointmentsForTrade(relevant);
+                                } catch (error) {
+                                  console.error('❌ Fehler beim Zusagen:', error);
+                                  alert('Fehler beim Zusagen des Termins');
+                                }
+                              }}
+                              className="px-4 py-2 text-sm rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors"
+                            >
+                              ✅ Zusagen
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await appointmentService.respondToAppointment({
+                                    appointment_id: appointment.id,
+                                    status: 'rejected'
+                                  });
+                                  // Termine neu laden
+                                  const all = await appointmentService.getMyAppointments();
+                                  const relevant = all.filter(a => a.milestone_id === (trade as any).id && a.appointment_type === 'INSPECTION');
+                                  setAppointmentsForTrade(relevant);
+                                } catch (error) {
+                                  console.error('❌ Fehler beim Absagen:', error);
+                                  alert('Fehler beim Absagen des Termins');
+                                }
+                              }}
+                              className="px-4 py-2 text-sm rounded-lg bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 transition-colors"
+                            >
+                              ❌ Absagen
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Neues Angebot hochladen Button - nach der Besichtigung */}
+                      {(() => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        
+                        const appointmentDate = new Date(appointment.scheduled_date);
+                        appointmentDate.setHours(0, 0, 0, 0);
+                        
+                        const isInspectionDay = today.getTime() === appointmentDate.getTime();
+                        const isAfterInspection = today.getTime() > appointmentDate.getTime();
+                        
+                        // Debug
+                        console.log('🔍 Besichtigungs-Upload-Check (DIENSTLEISTER):', {
+                          today: today.toISOString(),
+                          appointmentDate: appointmentDate.toISOString(),
+                          isInspectionDay,
+                          isAfterInspection,
+                          responseStatus,
+                          hasQuote: existingQuotes.some(q => q.service_provider_id === user?.id),
+                          userId: user?.id
+                        });
+                        
+                        // Zeige Button wenn:
+                        // 1. Besichtigung ist heute ODER vorbei
+                        // 2. Dienstleister hat zugesagt (responseStatus === 'accepted')
+                        // 3. Noch kein Angebot vorhanden
+                        if ((isInspectionDay || isAfterInspection) && 
+                            responseStatus === 'accepted' && 
+                            !existingQuotes.some(q => q.service_provider_id === user?.id)) {
+                          return (
+                            <div className="mt-4 p-3 bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 border border-[#ffbd59]/30 rounded-lg">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="text-sm font-semibold text-[#ffbd59]">
+                                    🏗️ {isInspectionDay ? 'Besichtigung heute' : 'Besichtigung abgeschlossen'}
+                                  </div>
+                                  <div className="text-xs text-gray-400 mt-1">
+                                    {isInspectionDay 
+                                      ? 'Nach der Besichtigung können Sie ein Angebot hochladen'
+                                      : `Besichtigung war am ${appointmentDate.toLocaleDateString('de-DE')}`
+                                    }
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    onCreateQuote && trade && onCreateQuote(trade as any); 
+                                  }}
+                                  className="px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-black hover:shadow-lg transition-all duration-200"
+                                >
+                                  📄 Neues Angebot hochladen
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        }
+                        
+                        return null;
+                      })()}
+                    </div>
+                  );
+                })()}
+              </>
+            )}
+
             {/* Angebote - WICHTIG: Direkt nach Beschreibung anzeigen */}
             {(() => {
               // Sichtbare Angebote abhängig von Rolle filtern
@@ -1173,6 +1698,21 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               const visibleQuotes = isBt
                 ? (existingQuotes || [])
                 : (existingQuotes || []).filter(q => q.service_provider_id === user?.id);
+              
+              // Prüfe ob Besichtigung erforderlich ist
+              const requiresInspection = trade.requires_inspection === true || 
+                                       trade.requires_inspection === 'true' || 
+                                       (trade as any).requires_inspection === true || 
+                                       (trade as any).requires_inspection === 'true';
+              
+              console.log('🔍 TradeDetailsModal - Besichtigungs-Debug:', {
+                'trade.requires_inspection': trade.requires_inspection,
+                'requiresInspection (berechnet)': requiresInspection,
+                'visibleQuotes.length': visibleQuotes.length,
+                'isBautraeger': isBt,
+                'existingQuotes': existingQuotes
+              });
+              
               return visibleQuotes && visibleQuotes.length > 0 ? (
               <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30">
                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -1183,9 +1723,143 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                         ? `Meine abgegebenen Gebote (${visibleQuotes.length})`
                         : 'Mein abgegebenes Gebot')}
                 </h3>
+                
 
-                {/* Vereinbarter Termin (falls vorhanden) */}
-                {appointmentsForTrade.length > 0 && (
+
+                {/* DEBUG: Appointment Status für Dienstleister - IMMER ANZEIGEN */}
+                {true && (
+                  <div className="mb-4 p-4 bg-yellow-500/20 border border-yellow-500/30 rounded-xl">
+                    <h4 className="text-yellow-400 font-bold mb-2">🔍 DEBUG: Appointment Status</h4>
+                    <div className="text-xs text-gray-300 space-y-1">
+                      <div>User ID: <span className="text-yellow-400">{user?.id}</span></div>
+                      <div>User Role: <span className="text-yellow-400">{user?.user_role}</span></div>
+                      <div>isBautraeger(): <span className="text-yellow-400">{String(isBautraeger())}</span></div>
+                      <div>appointmentsForTrade.length: <span className="text-yellow-400">{appointmentsForTrade.length}</span></div>
+                      <div>trade.id: <span className="text-yellow-400">{trade?.id}</span></div>
+                      <div>trade.requires_inspection: <span className="text-yellow-400">{String(trade?.requires_inspection)}</span></div>
+                      {appointmentsForTrade.length > 0 && (
+                        <div>
+                          <div>Appointment Data: <span className="text-yellow-400">{JSON.stringify(appointmentsForTrade[0], null, 2)}</span></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Terminvorschlag für Dienstleister - Antwort erforderlich */}
+                {user?.user_role === 'DIENSTLEISTER' && appointmentsForTrade.length > 0 && (() => {
+                  const appointment = appointmentsForTrade[0];
+                  const serviceProviderId = user?.id;
+                  
+                  // Prüfe Einladungs- und Antwortstatus
+                  let invitedRaw: any = (appointment as any).invited_service_providers;
+                  if (typeof invitedRaw === 'string') {
+                    try { invitedRaw = JSON.parse(invitedRaw); } catch { invitedRaw = []; }
+                  }
+                  const invited: any[] = Array.isArray(invitedRaw) ? invitedRaw : [];
+                  
+                  let responsesRaw: any = (appointment as any).responses ?? (appointment as any).responses_array;
+                  if (typeof responsesRaw === 'string') {
+                    try { responsesRaw = JSON.parse(responsesRaw); } catch { responsesRaw = []; }
+                  }
+                  const responsesArr: any[] = Array.isArray(responsesRaw) ? responsesRaw : [];
+                  
+                  const isInvited = invited.some((sp: any) => Number(sp?.id ?? sp) === Number(serviceProviderId));
+                  const myResponse = responsesArr.find((r: any) => Number(r?.service_provider_id) === Number(serviceProviderId));
+                  const responseStatus = myResponse ? String(myResponse.status).toLowerCase() : 'pending';
+                  
+                  if (!isInvited) return null;
+                  
+                  return (
+                    <div className="mb-4 p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <div>
+                          <div className="text-sm text-blue-300">Besichtigungstermin vorgeschlagen</div>
+                          <div className="text-white font-semibold">
+                            {new Date(appointment.scheduled_date).toLocaleString('de-DE')}
+                          </div>
+                          <div className="text-sm text-gray-400 mt-1">
+                            📍 {appointment.location || 'Ort wird noch bekannt gegeben'}
+                          </div>
+                        </div>
+                        {responseStatus === 'accepted' && (
+                          <div className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/20 border border-emerald-500/30 text-emerald-300">
+                            ✅ Zugesagt
+                          </div>
+                        )}
+                        {responseStatus === 'rejected' && (
+                          <div className="px-3 py-1 rounded-full text-xs font-medium bg-red-500/20 border border-red-500/30 text-red-300">
+                            ❌ Abgesagt
+                          </div>
+                        )}
+                      </div>
+                      
+                      {responseStatus === 'pending' && (
+                        <div className="flex items-center gap-3">
+                          <div className="text-sm text-gray-300 flex-1">
+                            Bitte antworten Sie auf die Einladung:
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await appointmentService.respondToAppointment({
+                                    appointment_id: appointment.id,
+                                    status: 'accepted'
+                                  });
+                                  // Termine neu laden
+                                  const all = await appointmentService.getMyAppointments();
+                                  const relevant = all.filter(a => a.milestone_id === (trade as any).id && a.appointment_type === 'INSPECTION');
+                                  setAppointmentsForTrade(relevant);
+                                } catch (error) {
+                                  console.error('❌ Fehler beim Zusagen:', error);
+                                  alert('Fehler beim Zusagen des Termins');
+                                }
+                              }}
+                              className="px-4 py-2 text-sm rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors"
+                            >
+                              ✅ Zusagen
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await appointmentService.respondToAppointment({
+                                    appointment_id: appointment.id,
+                                    status: 'rejected'
+                                  });
+                                  // Termine neu laden
+                                  const all = await appointmentService.getMyAppointments();
+                                  const relevant = all.filter(a => a.milestone_id === (trade as any).id && a.appointment_type === 'INSPECTION');
+                                  setAppointmentsForTrade(relevant);
+                                } catch (error) {
+                                  console.error('❌ Fehler beim Absagen:', error);
+                                  alert('Fehler beim Absagen des Termins');
+                                }
+                              }}
+                              className="px-4 py-2 text-sm rounded-lg bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 transition-colors"
+                            >
+                              ❌ Absagen
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {responseStatus === 'accepted' && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <button
+                            onClick={async (e) => { e.stopPropagation(); await appointmentService.downloadCalendarEvent(appointment.id); }}
+                            className="px-3 py-2 text-sm rounded-lg bg-emerald-500/20 text-emerald-200 border border-emerald-500/30 hover:bg-emerald-500/30"
+                          >
+                            📅 .ics herunterladen
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Vereinbarter Termin für Bauträger (falls vorhanden) */}
+                {user?.user_role === 'BAUTRAEGER' && appointmentsForTrade.length > 0 && (
                   <div className="mb-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
                     <div className="flex items-center justify-between gap-3">
                       <div>
@@ -1246,15 +1920,18 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                     return (
                       <div
                         key={quote.id}
-                        className={`relative bg-gradient-to-br from-[#1a1a2e]/30 to-[#2c3539]/30 rounded-lg p-4 border transition-all duration-200 cursor-pointer ${
+                        className={`relative bg-gradient-to-br from-[#1a1a2e]/30 to-[#2c3539]/30 rounded-lg p-4 border transition-all duration-200 ${
+                          requiresInspection && isSelectable ? 'cursor-pointer' : 'cursor-default'
+                        } ${
                           isSelected ? 'border-emerald-400 ring-4 ring-emerald-400/30 shadow-lg shadow-emerald-500/30' : 'border-gray-600/20 hover:border-emerald-400/50'
-                        } ${isSelectable ? '' : 'opacity-90 cursor-default'}`}
+                        } ${isSelectable ? '' : 'opacity-90'}`}
                         onClick={() => {
-                          if (!isSelectable) return;
+                          // Nur bei Besichtigung erforderlich und selektierbar
+                          if (!requiresInspection || !isSelectable) return;
                           setSelectedQuoteIds(prev => prev.includes(quote.id) ? prev.filter(id => id !== quote.id) : [...prev, quote.id]);
                         }}
                       >
-                        {isSelected && (
+                        {requiresInspection && isSelected && (
                           <div className="pointer-events-none absolute -top-2 -right-2 w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg z-20">
                             <CheckCircle size={16} />
                           </div>
@@ -1307,8 +1984,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                               </div>
                             )}
                             <div className="mt-2 flex flex-wrap gap-2 justify-end">
-                              {/* Bauträger: Angebot annehmen/ablehnen */}
-                              {isBt && (
+                              {/* Bauträger: Direktannahme/Ablehnung nur wenn KEINE Besichtigung erforderlich */}
+                              {isBt && !requiresInspection && (
                                 <>
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setQuoteIdToAccept(quote.id); setAcceptAcknowledged(false); setShowAcceptConfirm(true); }}
@@ -1341,78 +2018,163 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                             </div>
                           </div>
                         </div>
-                        {isSelectable && (
-                          <p className="mt-2 text-xs text-gray-400">Tipp: Karte anklicken, um für Besichtigung auszuwählen.</p>
+                        {requiresInspection && isSelectable && (
+                          <p className="mt-2 text-xs text-gray-400">💡 Karte anklicken, um für Besichtigung auszuwählen.</p>
+                        )}
+                        {!requiresInspection && isBt && (
+                          <p className="mt-2 text-xs text-gray-400">💡 Verwenden Sie die Buttons oben für direkte Annahme/Ablehnung.</p>
                         )}
                       </div>
                     );
                   })}
                 </div>
 
-                {/* Auswahl-Aktionsleiste (nur Bauträger) */}
-                {isBt && (
-                  <div className="mt-4 flex items-center justify-between">
-                    <div className="text-sm text-gray-300">
-                      {selectedQuoteIds.length > 0 ? `Ausgewählt: ${selectedQuoteIds.length}` : 'Wähle ein oder mehrere Angebote aus'}
+                {/* Auswahl-Aktionsleiste (nur Bauträger und nur bei Besichtigung erforderlich) */}
+                {isBt && requiresInspection && (
+                  <div className="mt-4 p-4 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-xl border border-blue-500/30">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Eye size={16} className="text-blue-400" />
+                      <h4 className="text-white font-semibold">Besichtigung erforderlich</h4>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="px-3 py-2 text-sm bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/15"
-                        onClick={() => {
-                          // Alle auswählbaren Angebote markieren
-                          const selectable = (existingQuotes || [])
-                            .filter(q => ['draft','submitted','under_review'].includes(String(q.status).toLowerCase()))
-                            .map(q => q.id);
-                          setSelectedQuoteIds(selectable);
-                        }}
-                      >Alle auswählen</button>
-                      <button
-                        className="px-3 py-2 text-sm bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/15"
-                        onClick={() => setSelectedQuoteIds([])}
-                      >Auswahl löschen</button>
-                      {/* Dropdown Aktionen: Besichtigung verwalten */}
-                      <div className="relative group">
-                        <button className="px-4 py-2 rounded-lg font-medium bg-white/10 border border-white/20 text-white hover:bg-white/15 flex items-center gap-2">
-                          🗓️ Besichtigung
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-gray-300">
+                        {selectedQuoteIds.length > 0 ? 
+                          `${selectedQuoteIds.length} Angebot${selectedQuoteIds.length > 1 ? 'e' : ''} für Besichtigung ausgewählt` : 
+                          'Wählen Sie Angebote für die Besichtigung aus'
+                        }
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="px-3 py-2 text-sm bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/15"
+                          onClick={() => {
+                            // Alle auswählbaren Angebote markieren
+                            const selectable = (existingQuotes || [])
+                              .filter(q => ['draft','submitted','under_review'].includes(String(q.status).toLowerCase()))
+                              .map(q => q.id);
+                            setSelectedQuoteIds(selectable);
+                          }}
+                        >Alle auswählen</button>
+                        <button
+                          className="px-3 py-2 text-sm bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/15"
+                          onClick={() => setSelectedQuoteIds([])}
+                        >Auswahl löschen</button>
+                        {/* Besichtigung vereinbaren Button */}
+                        <button
+                          className="px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-black hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          disabled={appointmentsForTrade.length > 0 || selectedQuoteIds.length === 0 || !onCreateInspection || !trade?.id}
+                          onClick={() => onCreateInspection && trade?.id && onCreateInspection(trade.id, selectedQuoteIds)}
+                        >
+                          🗓️ Besichtigung vereinbaren ({selectedQuoteIds.length})
                         </button>
-                        <div className="absolute right-0 mt-2 w-64 bg-[#0f172a] border border-white/10 rounded-xl shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition">
-                          <div className="p-2">
-                            <button
-                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-white disabled:opacity-50"
-                              disabled={appointmentsForTrade.length > 0 || selectedQuoteIds.length === 0 || !onCreateInspection || !trade?.id}
-                              onClick={() => onCreateInspection && trade?.id && onCreateInspection(trade.id, selectedQuoteIds)}
-                            >🗓️ Besichtigung vereinbaren</button>
-                            <div className="border-t border-white/10 my-1" />
-                            <button
-                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-emerald-300 disabled:opacity-50"
-                              disabled={appointmentsForTrade.length === 0}
-                              onClick={() => { /* TODO: Implement accept proposal flow */ }}
-                            >✅ Vorschlag annehmen</button>
-                            <button
-                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-red-300 disabled:opacity-50"
-                              disabled={appointmentsForTrade.length === 0}
-                              onClick={() => {
-                                const reason = window.prompt('Begründung (optional)');
-                                // TODO: Implement reject proposal flow with reason
-                              }}
-                            >❌ Vorschlag ablehnen</button>
-                          </div>
+                      </div>
+                    </div>
+                    {appointmentsForTrade.length > 0 && (
+                      <div className="mt-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+                        <div className="text-sm text-emerald-300">
+                          ✅ Besichtigungstermin bereits vereinbart
                         </div>
                       </div>
-                      {/* Bauträger: Kein Angebots-Upload hier */}
-                    </div>
+                    )}
                   </div>
                 )}
 
-                {/* Dienstleister: Nachbesichtigungs-Angebot hochladen (nur wenn eingeladen und kein Angebot angenommen) */}
-                {!isBt && isUserInvitedForInspection && !acceptedQuote && (
-                  <div className="mt-4 flex items-center justify-end">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onCreateQuote && trade && onCreateQuote(trade as any); }}
-                      className="px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-black hover:shadow-lg"
-                    >📄 Neues Angebot hochladen</button>
+                {/* Hinweis für Direktannahme ohne Besichtigung */}
+                {isBt && !requiresInspection && (
+                  <div className="mt-4 p-4 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle size={16} className="text-green-400" />
+                      <h4 className="text-white font-semibold">Direktannahme möglich</h4>
+                    </div>
+                    <p className="text-sm text-gray-300">
+                      Für dieses Gewerk ist keine Besichtigung erforderlich. Sie können Angebote direkt über die "Annehmen" und "Ablehnen" Buttons verwalten.
+                    </p>
                   </div>
                 )}
+
+                {/* Dienstleister: Nachbesichtigungs-Angebot hochladen */}
+                {!isBt && (() => {
+                  // Prüfe ob Besichtigung stattgefunden hat
+                  const appointment = appointmentsForTrade[0];
+                  if (!appointment) return false;
+                  
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  
+                  const appointmentDate = new Date(appointment.scheduled_date);
+                  appointmentDate.setHours(0, 0, 0, 0);
+                  
+                  // Prüfe ob heute der Besichtigungstag ist ODER ob er bereits vorbei ist
+                  const isInspectionDay = today.getTime() === appointmentDate.getTime();
+                  const isAfterInspection = today.getTime() > appointmentDate.getTime();
+                  const hasAcceptedAppointment = appointment.responses_array?.some((r: any) => 
+                    r.service_provider_id === user?.id && r.status === 'accepted'
+                  );
+                  
+                  // Debug-Ausgabe
+                  console.log('🔍 Besichtigungs-Check:', {
+                    today: today.toISOString(),
+                    appointmentDate: appointmentDate.toISOString(),
+                    isInspectionDay,
+                    isAfterInspection,
+                    hasAcceptedAppointment,
+                    acceptedQuote: !!acceptedQuote,
+                    userId: user?.id
+                  });
+                  
+                  // Zeige Button wenn:
+                  // 1. Heute ist der Besichtigungstag ODER die Besichtigung war bereits
+                  // 2. Dienstleister hat den Termin zugesagt
+                  // 3. Noch kein Angebot wurde angenommen
+                  if ((isInspectionDay || isAfterInspection) && hasAcceptedAppointment && !acceptedQuote) {
+                    return (
+                      <div className="mt-4 p-4 bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 border border-[#ffbd59]/30 rounded-xl">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="text-sm font-semibold text-[#ffbd59] mb-1">
+                              🏗️ {isInspectionDay ? 'Besichtigung heute' : 'Besichtigung abgeschlossen'}
+                            </h4>
+                            <p className="text-xs text-gray-400">
+                              {isInspectionDay 
+                                ? 'Nach der Besichtigung können Sie ein neues Angebot hochladen'
+                                : `Besichtigung war am ${appointmentDate.toLocaleDateString('de-DE')} - Sie können jetzt ein neues Angebot hochladen`
+                              }
+                            </p>
+                          </div>
+                          <button
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              onCreateQuote && trade && onCreateQuote(trade as any); 
+                            }}
+                            className="px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-black hover:shadow-lg transition-all duration-200"
+                          >
+                            📄 Neues Angebot hochladen
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  // Zeige Info wenn Besichtigung noch bevorsteht
+                  if (!isInspectionDay && !isAfterInspection && hasAcceptedAppointment && !acceptedQuote) {
+                    return (
+                      <div className="mt-4 p-4 bg-gray-500/10 border border-gray-500/30 rounded-xl">
+                        <div className="flex items-center gap-2">
+                          <Clock size={16} className="text-gray-400" />
+                          <div>
+                            <p className="text-sm text-gray-300">
+                              Besichtigung geplant für {appointmentDate.toLocaleDateString('de-DE')}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              Nach der Besichtigung können Sie ein neues Angebot hochladen
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  return null;
+                })()}
               </div>
               ) : null;
             })()}
@@ -1441,13 +2203,28 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                     Mit der Annahme wird dieses Angebot als verbindlich markiert. Der Dienstleister wird benachrichtigt
                     und Folgeschritte (z. B. Auftragsbestätigung) werden aktiviert.
                   </p>
-                  <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs text-gray-300 mb-5">
-                    <ul className="list-disc list-inside space-y-1">
-                      <li>Die bisherigen Angebote bleiben zur Dokumentation erhalten.</li>
-                      <li>Du kannst die Annahme später über „Zurücksetzen“ widerrufen.</li>
-                      <li>Finanzübersicht und Status werden automatisch aktualisiert.</li>
-                    </ul>
-                  </div>
+                  {(() => {
+                    const otherQuotes = (existingQuotes || []).filter(q => 
+                      q.id !== quoteIdToAccept && 
+                      !['accepted', 'rejected'].includes(String(q.status).toLowerCase())
+                    );
+                    
+                    return (
+                      <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs text-gray-300 mb-5">
+                        <ul className="list-disc list-inside space-y-1">
+                          <li>Die bisherigen Angebote bleiben zur Dokumentation erhalten.</li>
+                          <li>Du kannst die Annahme später über „Zurücksetzen" widerrufen.</li>
+                          <li>Finanzübersicht und Status werden automatisch aktualisiert.</li>
+                          {otherQuotes.length > 0 && (
+                            <li className="text-yellow-300 font-medium">
+                              ⚠️ {otherQuotes.length} andere Angebot{otherQuotes.length > 1 ? 'e' : ''} 
+                              {otherQuotes.length > 1 ? ' werden' : ' wird'} automatisch abgelehnt.
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    );
+                  })()}
                   <label className="flex items-start gap-3 mb-4 cursor-pointer select-none">
                     <input
                       type="checkbox"
@@ -1472,82 +2249,9 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
        </div>
             )}
 
-            {/* Projekt-Informationen */}
-            <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <Building size={18} className="text-[#ffbd59]" />
-                Projekt-Informationen
-           </h3>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             <div>
-                  <span className="text-sm font-medium text-gray-400">Projektname</span>
-                  <p className="text-white">{trade.project_name || 'Nicht angegeben'}</p>
-             </div>
-             <div>
-                  <span className="text-sm font-medium text-gray-400">Projekttyp</span>
-                  <p className="text-white">{trade.project_type || 'Nicht angegeben'}</p>
-             </div>
-             <div>
-                  <span className="text-sm font-medium text-gray-400">Projekt-Status</span>
-                  <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(trade.project_status)}`}>
-                    {getStatusLabel(trade.project_status)}
-               </span>
-             </div>
-                {trade.budget && (
-             <div>
-                    <span className="text-sm font-medium text-gray-400">Budget</span>
-                    <p className="text-white font-bold">{trade.budget.toLocaleString('de-DE')} €</p>
-               </div>
-             )}
-                 </div>
-            </div>
 
-            {/* Standort */}
-            <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <MapPin size={18} className="text-[#ffbd59]" />
-                Standort
-              </h3>
-              <div className="space-y-3">
-                {/* Projekt-Informationen */}
-                {trade.project_name && (
-                  <div className="mb-3">
-                    <span className="text-sm font-medium text-gray-400">Projekt</span>
-                    <p className="text-white font-medium">{trade.project_name}</p>
-                  </div>
-                )}
-                
-                {/* Adresse */}
-                <div>
-                  <span className="text-sm font-medium text-gray-400">Adresse</span>
-                  {trade.project_address ? (
-                    <p className="text-white">{trade.project_address}</p>
-                  ) : trade.address_street ? (
-                    <>
-                      <p className="text-white">{trade.address_street}</p>
-                      <p className="text-gray-300">
-                        {trade.address_zip} {trade.address_city}
-                      </p>
-                    </>
-                  ) : trade.address_zip && trade.address_city ? (
-                    <p className="text-white">
-                      {trade.address_zip} {trade.address_city}
-                    </p>
-                  ) : (
-                    <p className="text-gray-400 italic">
-                      Projektadresse nicht verfügbar
-                    </p>
-                  )}
-                </div>
-                
-                {/* Entfernung */}
-                {trade.distance_km && (
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
-                    <span>📍 Entfernung: {trade.distance_km.toFixed(1)} km</span>
-                  </div>
-                )}
-              </div>
-            </div>
+
+
 
             {/* Zeitplan */}
             <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl p-6 border border-gray-600/30">
@@ -2131,16 +2835,23 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   <Calculator size={18} className="text-[#ffbd59]" />
                   Aktionen
                 </h3>
-                      <button
-                  onClick={() => {
-                    onCreateQuote(trade);
-                    onClose(); // Schließe das Modal nach dem Klick
-                  }}
-                  className="w-full bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#1a1a2e] font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
-                      >
-                  <Calculator size={20} />
-                        Angebot abgeben
-                      </button>
+                {/* Angebot abgeben Button - NUR wenn noch kein Angebot vorhanden */}
+                {!(existingQuotes || []).some(q => q.service_provider_id === user?.id) ? (
+                  <button
+                    onClick={() => {
+                      onCreateQuote(trade);
+                      onClose(); // Schließe das Modal nach dem Klick
+                    }}
+                    className="w-full bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#1a1a2e] font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
+                  >
+                    <Calculator size={20} />
+                    Angebot abgeben
+                  </button>
+                ) : (
+                  <div className="text-center text-gray-400 py-3">
+                    ✅ Sie haben bereits ein Angebot für dieses Gewerk abgegeben
+                  </div>
+                )}
                     </div>
                   )}
                 </div>

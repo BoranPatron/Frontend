@@ -72,7 +72,6 @@ export default function ServiceProviderQuoteModal({
   useEffect(() => {
     const handleAppointmentUpdate = () => {
       if (isOpen && trade?.requires_inspection) {
-        console.log('🔄 ServiceProviderQuoteModal: Termine nach Antwort aktualisieren');
         loadAppointments();
       }
     };
@@ -108,13 +107,10 @@ export default function ServiceProviderQuoteModal({
              if (apt.responses_array && Array.isArray(apt.responses_array)) {
                // Neue Struktur: Direkt als Array verfügbar
                responses = apt.responses_array;
-               console.log(`✅ ServiceProviderModal - Using new responses_array for appointment ${apt.id}:`, responses);
-             } else {
+               } else {
                // Fallback: Legacy JSON-Parsing für Kompatibilität
                try {
                  if (apt.responses) {
-                   console.log(`🔍 ServiceProviderModal - Fallback to JSON parsing for appointment ${apt.id}`);
-                   
                    if (typeof apt.responses === 'string') {
                      responses = JSON.parse(apt.responses);
                    } else if (Array.isArray(apt.responses)) {
@@ -123,8 +119,7 @@ export default function ServiceProviderQuoteModal({
                      responses = Array.isArray(apt.responses) ? apt.responses : [apt.responses];
                    }
                    
-                   console.log(`✅ ServiceProviderModal - Parsed legacy responses:`, responses);
-                 }
+                   }
                } catch (e) {
                  console.error('❌ Fehler beim Parsen der legacy responses für Termin', apt.id, e);
                  responses = [];
@@ -135,9 +130,7 @@ export default function ServiceProviderQuoteModal({
              const myResponse = Array.isArray(responses) ? responses.find((r: any) => {
                const responseProviderId = parseInt(String(r.service_provider_id || 0));
                const currentUserId = parseInt(String(user?.id || 0));
-                               console.log(`🔍 ServiceProviderModal Vergleich: responseProviderId=${responseProviderId} vs currentUserId=${currentUserId} [CACHE-BUSTER-2025]`);
-               const match = responseProviderId === currentUserId && responseProviderId > 0;
-               console.log(`🔍 ServiceProviderModal Match: ${match}`);
+                               const match = responseProviderId === currentUserId && responseProviderId > 0;
                return match;
              }) : undefined;
             
@@ -492,9 +485,55 @@ export default function ServiceProviderQuoteModal({
                           )}
                           
                           {!appointment.userResponse && (
-                            <p className="text-gray-500 text-sm">
-                              Bitte antworten Sie über die Benachrichtigungsleiste
-                            </p>
+                            <div className="space-y-3">
+                              <p className="text-gray-400 text-sm mb-3">
+                                Bitte antworten Sie auf die Einladung:
+                              </p>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await appointmentService.respondToAppointment({
+                                        appointment_id: appointment.id,
+                                        status: 'accepted'
+                                      });
+                                      // Termine neu laden
+                                      await loadAppointments();
+                                      // Event für andere Komponenten
+                                      window.dispatchEvent(new CustomEvent('appointmentUpdated'));
+                                    } catch (error) {
+                                      console.error('❌ Fehler beim Zusagen:', error);
+                                      alert('Fehler beim Zusagen des Termins');
+                                    }
+                                  }}
+                                  className="flex-1 px-4 py-2 text-sm rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <CheckCircle size={16} />
+                                  Zusagen
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await appointmentService.respondToAppointment({
+                                        appointment_id: appointment.id,
+                                        status: 'rejected'
+                                      });
+                                      // Termine neu laden
+                                      await loadAppointments();
+                                      // Event für andere Komponenten
+                                      window.dispatchEvent(new CustomEvent('appointmentUpdated'));
+                                    } catch (error) {
+                                      console.error('❌ Fehler beim Absagen:', error);
+                                      alert('Fehler beim Absagen des Termins');
+                                    }
+                                  }}
+                                  className="flex-1 px-4 py-2 text-sm rounded-lg bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <XCircle size={16} />
+                                  Absagen
+                                </button>
+                              </div>
+                            </div>
                           )}
                         </div>
                       </div>

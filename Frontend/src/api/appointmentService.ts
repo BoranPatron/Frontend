@@ -105,20 +105,14 @@ export const appointmentService = {
 
   // Hole meine Termine basierend auf Rolle (SICHERER ENDPUNKT)
   async getMyAppointments(projectId?: number): Promise<AppointmentResponse[]> {
-    console.log('🔍 TESTING: Using test-no-deps endpoint first');
-    
     // Erst Test-Endpoint aufrufen
     try {
       const testResponse = await api.get('/appointments/test-no-deps');
-      console.log('✅ Test endpoint works:', testResponse.data);
-    } catch (error) {
+      } catch (error) {
       console.error('❌ Test endpoint failed:', error);
     }
     
-    console.log('🔍 Using NEW appointments endpoint: /appointments/my-appointments-simple');
     const response = await api.get('/appointments/my-appointments-simple');
-    console.log('✅ New endpoint response:', response.data);
-    
     // Convert simple format to expected format
     if (response.data && response.data.appointments) {
       return response.data.appointments.map((apt: any) => ({
@@ -236,7 +230,6 @@ export const appointmentService = {
       invited_service_provider_ids: [data.service_provider_id]
     };
 
-    console.log('🔄 Creating separate appointment:', appointmentData);
     const response = await api.post('/appointments/', appointmentData);
     return response.data;
   },
@@ -250,15 +243,11 @@ export const appointmentService = {
   }> {
     try {
       const appointments = await this.getMyAppointments();
-      console.log('🔍 DEBUG: Alle Termine für checkActiveInspectionForTrade:', appointments);
-      
       // Finde Termine für das spezifische Gewerk (Milestone)
       const tradeAppointments = appointments.filter(apt => 
         apt.milestone_id === milestoneId && 
         apt.appointment_type === 'INSPECTION'
       );
-      console.log('🔍 DEBUG: Gefilterte Termine für Gewerk', milestoneId, ':', tradeAppointments);
-
       if (tradeAppointments.length === 0) {
         return { hasActiveInspection: false, isInspectionDay: false };
       }
@@ -268,10 +257,7 @@ export const appointmentService = {
         .filter(apt => apt.status !== 'CANCELLED' && apt.status !== 'COMPLETED')
         .sort((a, b) => new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime())[0];
 
-      console.log('🔍 DEBUG: Aktiver Termin für Gewerk', milestoneId, ':', activeAppointment);
-
       if (!activeAppointment) {
-        console.log('🔍 DEBUG: Kein aktiver Termin gefunden');
         return { hasActiveInspection: false, isInspectionDay: false };
       }
 
@@ -288,32 +274,18 @@ export const appointmentService = {
       // Prüfe verschiedene mögliche Datenfelder
       if (activeAppointment.responses && Array.isArray(activeAppointment.responses)) {
         hasInvitedProviders = activeAppointment.responses.length > 0;
-        console.log('🔍 DEBUG: Gefunden über responses:', activeAppointment.responses);
-      } else if (activeAppointment.responses_array && Array.isArray(activeAppointment.responses_array)) {
+        } else if (activeAppointment.responses_array && Array.isArray(activeAppointment.responses_array)) {
         hasInvitedProviders = activeAppointment.responses_array.length > 0;
-        console.log('🔍 DEBUG: Gefunden über responses_array:', activeAppointment.responses_array);
-      } else if (activeAppointment.invited_service_providers && Array.isArray(activeAppointment.invited_service_providers)) {
+        } else if (activeAppointment.invited_service_providers && Array.isArray(activeAppointment.invited_service_providers)) {
         hasInvitedProviders = activeAppointment.invited_service_providers.length > 0;
-        console.log('🔍 DEBUG: Gefunden über invited_service_providers:', activeAppointment.invited_service_providers);
-      } else if (activeAppointment.appointment_responses && Array.isArray(activeAppointment.appointment_responses)) {
+        } else if (activeAppointment.appointment_responses && Array.isArray(activeAppointment.appointment_responses)) {
         hasInvitedProviders = activeAppointment.appointment_responses.length > 0;
-        console.log('🔍 DEBUG: Gefunden über appointment_responses:', activeAppointment.appointment_responses);
-      }
+        }
       
       console.log('🔍 DEBUG: Alle verfügbaren Felder im activeAppointment:', Object.keys(activeAppointment));
 
       if (!hasInvitedProviders) {
-        console.log('⚠️ DEBUG: Keine eingeladenen Dienstleister gefunden! Das könnte das Problem sein.');
-        console.log('⚠️ DEBUG: Vollständiges activeAppointment Objekt:', activeAppointment);
-      }
-
-      console.log('🔍 DEBUG: Dienstleister eingeladen?', {
-        responses: activeAppointment.responses,
-        responses_array: activeAppointment.responses_array,
-        hasInvitedProviders,
-        isInspectionDay,
-        selectedServiceProviderId: activeAppointment.selected_service_provider_id
-      });
+        }
 
       const result = {
         hasActiveInspection: hasInvitedProviders,
@@ -322,8 +294,6 @@ export const appointmentService = {
         selectedServiceProviderId: activeAppointment.selected_service_provider_id
       };
 
-      console.log('🔍 DEBUG: Finales Ergebnis für Gewerk', milestoneId, ':', result);
-      
       return result;
     } catch (error) {
       console.error('❌ Fehler beim Prüfen der Besichtigungstermine:', error);

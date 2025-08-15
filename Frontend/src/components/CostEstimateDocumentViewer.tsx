@@ -40,12 +40,10 @@ export default function CostEstimateDocumentViewer({ documents, existingQuotes }
 
   const safeDocuments = React.useMemo(() => {
     if (!documents || !Array.isArray(documents)) {
-      console.log('⚠️ CostEstimateDocumentViewer - Dokumente sind nicht verfügbar oder kein Array:', documents);
       return [];
     }
     
     const filtered = documents.filter(doc => doc && (doc.id || doc.name || doc.title || doc.file_name));
-    console.log('🔍 CostEstimateDocumentViewer - Gefilterte Dokumente:', filtered);
     return filtered;
   }, [documents]);
 

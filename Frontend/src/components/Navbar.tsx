@@ -38,6 +38,7 @@ import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
 import { getProject } from '../api/projectService';
 import { createProject } from '../api/projectService';
+import AddressAutocomplete from './AddressAutocomplete';
 import { uploadDocument } from '../api/documentService';
 import FavoritesManager from './FavoritesManager';
 import CreditIndicator from './CreditIndicator';
@@ -286,8 +287,7 @@ export default function Navbar() {
         if (storedFavorites) {
           const parsedFavorites = JSON.parse(storedFavorites);
           setFavorites(parsedFavorites);
-          console.log('🔍 Favoriten geladen:', parsedFavorites);
-        }
+          }
       } catch (error) {
         console.error('❌ Fehler beim Laden der Favoriten:', error);
         setFavorites([]);
@@ -441,13 +441,9 @@ export default function Navbar() {
         construction_phase: projectForm.construction_phase || undefined
       };
 
-      console.log('🚀 Erstelle neues Projekt mit Daten:', projectData);
       const newProject = await createProject(projectData);
-      console.log('✅ Neues Projekt erstellt:', newProject);
-
       // Upload documents if any
       if (uploadFiles && uploadFiles.length > 0) {
-        console.log('📄 Lade Dokumente ins DMS hoch...');
         // Setze project_id für alle Upload-Dateien
         for (let i = 0; i < uploadFiles.length; i++) {
           const uploadFile = uploadFiles[i];
@@ -475,13 +471,11 @@ export default function Navbar() {
             formData.append('document_type', getDocumentTypeFromFile(uploadFile.file.name));
 
             const response = await uploadDocument(formData);
-            console.log(`✅ Dokument ${uploadFile.file.name} erfolgreich hochgeladen`);
-          } catch (error) {
+            } catch (error) {
             console.error(`❌ Fehler beim Upload von ${uploadFile.file.name}:`, error);
           }
         }
-        console.log('✅ Alle kategorisierten Dokumente wurden verarbeitet');
-      }
+        }
 
       // Schließe Modal und navigiere zum neuen Projekt
       handleCloseCreateProjectModal();
@@ -1038,49 +1032,22 @@ export default function Navbar() {
 
                 {/* Adresse */}
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-200 mb-2">
-                        Straße & Hausnummer
-                      </label>
-                      <input
-                        type="text"
-                        name="address_street"
-                        value={projectForm.address_street}
-                        onChange={handleProjectFormChange}
-                        className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59] text-white placeholder-gray-400"
-                        placeholder="z.B. Musterstraße 123"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-200 mb-2">
-                        PLZ
-                      </label>
-                      <input
-                        type="text"
-                        name="address_zip"
-                        value={projectForm.address_zip}
-                        onChange={handleProjectFormChange}
-                        className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59] text-white placeholder-gray-400"
-                        placeholder="z.B. 80331"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-200 mb-2">
-                        Ort
-                      </label>
-                      <input
-                        type="text"
-                        name="address_city"
-                        value={projectForm.address_city}
-                        onChange={handleProjectFormChange}
-                        className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59] text-white placeholder-gray-400"
-                        placeholder="z.B. München"
-                      />
-                    </div>
-                  </div>
+                  <AddressAutocomplete
+                    label="Adresse"
+                    value={{
+                      address_street: projectForm.address_street,
+                      address_zip: projectForm.address_zip,
+                      address_city: projectForm.address_city,
+                      address_country: projectForm.address_country,
+                    }}
+                    onChange={(addr) => setProjectForm(prev => ({
+                      ...prev,
+                      address_street: addr.address_street,
+                      address_zip: addr.address_zip,
+                      address_city: addr.address_city,
+                      address_country: addr.address_country || prev.address_country,
+                    }))}
+                  />
                 </div>
 
                 {/* Projektdetails */}

@@ -107,7 +107,6 @@ interface GanttItem {
 }
 
 export default function Roadmap() {
-  console.log('Roadmap geladen');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { token } = useAuth();
@@ -167,21 +166,16 @@ export default function Roadmap() {
       setLoading(true);
       setError('');
 
-      console.log('Lade alle Daten für Gantt-Diagramm...');
-
       // Lade alle Gewerke (Milestones)
       const milestonesData = await getAllMilestones();
-      console.log('Gewerke geladen:', milestonesData.length);
       setMilestones(milestonesData);
 
       // Lade alle Aufgaben
       const tasksData = await getTasks();
-      console.log('Aufgaben geladen:', tasksData.length);
       setTasks(tasksData);
 
       // Lade alle Projekte
       const projectsData = await getProjects();
-      console.log('Projekte geladen:', projectsData.length);
       setProjects(projectsData);
 
       // Berechne Zeitbereich basierend auf allen Daten

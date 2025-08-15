@@ -21,41 +21,32 @@ export default function QuoteDebugInfo({ tradeId, onDebugComplete }: QuoteDebugI
       // Token-Validität prüfen
       const isValid = await validateToken(token);
       if (isValid) {
-        console.log('✅ Token ist gültig');
         return token;
       } else {
-        console.log('❌ Token ist ungültig, versuche Token-Refresh');
-      }
+        }
     }
 
     // Versuche 2: Token-Refresh
     try {
-      console.log('🔄 Versuche Token-Refresh...');
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
         const newToken = await refreshAccessToken(refreshToken);
         if (newToken) {
-          console.log('✅ Token erfolgreich erneuert');
           return newToken;
         }
       }
     } catch (error) {
-      console.log('❌ Token-Refresh fehlgeschlagen:', error);
-    }
+      }
 
     // Versuche 3: Automatische Re-Authentifizierung
     try {
-      console.log('🔄 Versuche automatische Re-Authentifizierung...');
       const newToken = await reAuthenticate();
       if (newToken) {
-        console.log('✅ Re-Authentifizierung erfolgreich');
         return newToken;
       }
     } catch (error) {
-      console.log('❌ Re-Authentifizierung fehlgeschlagen:', error);
-    }
+      }
 
-    console.log('❌ Kein gültiger Token verfügbar');
     return null;
   };
 
@@ -70,7 +61,6 @@ export default function QuoteDebugInfo({ tradeId, onDebugComplete }: QuoteDebugI
       });
       return response.ok;
     } catch (error) {
-      console.log('❌ Token-Validierung fehlgeschlagen:', error);
       return false;
     }
   };
@@ -96,7 +86,6 @@ export default function QuoteDebugInfo({ tradeId, onDebugComplete }: QuoteDebugI
       }
       return null;
     } catch (error) {
-      console.log('❌ Token-Refresh fehlgeschlagen:', error);
       return null;
     }
   };
@@ -127,7 +116,6 @@ export default function QuoteDebugInfo({ tradeId, onDebugComplete }: QuoteDebugI
       }
       return null;
     } catch (error) {
-      console.log('❌ Re-Authentifizierung fehlgeschlagen:', error);
       return null;
     }
   };
@@ -142,7 +130,6 @@ export default function QuoteDebugInfo({ tradeId, onDebugComplete }: QuoteDebugI
       
       // Wenn Token fehlt, versuche manuelle Wiederherstellung
       if (!token) {
-        console.log('🔄 Manuelle Token-Wiederherstellung...');
         try {
           const response = await fetch('http://localhost:8000/api/v1/auth/login', {
             method: 'POST',
@@ -161,12 +148,10 @@ export default function QuoteDebugInfo({ tradeId, onDebugComplete }: QuoteDebugI
             if (token) {
               localStorage.setItem('token', token);
               localStorage.setItem('accessToken', token);
-              console.log('✅ Manuelle Token-Wiederherstellung erfolgreich');
-            }
+              }
           }
         } catch (error) {
-          console.log('❌ Manuelle Token-Wiederherstellung fehlgeschlagen:', error);
-        }
+          }
       }
 
       const debugData: any = {

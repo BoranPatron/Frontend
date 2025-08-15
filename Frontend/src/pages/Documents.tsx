@@ -431,12 +431,10 @@ const Documents: React.FC = () => {
   const loadProjects = async () => {
     try {
       const projects = await getProjects();
-      console.log('📊 Geladene Projekte:', projects);
       setAllProjects(projects);
       
       // Wenn kein Projekt ausgewählt ist, wähle das erste aus
       if (!selectedProject && projects.length > 0) {
-        console.log('🎯 Wähle erstes Projekt aus:', projects[0]);
         setSelectedProject(projects[0]);
       } else if (selectedProject) {
         // Aktualisiere das ausgewählte Projekt mit den neuesten Daten
@@ -452,8 +450,6 @@ const Documents: React.FC = () => {
 
   // Dokumente laden
   const loadDocuments = async () => {
-    console.log('🔍 loadDocuments aufgerufen mit selectedProject:', selectedProject);
-    
     // Für Dienstleister: Lade eigene Dokumente (Rechnungen, etc.)
     if (user && (user.user_type === 'service_provider' || user.user_role === 'DIENSTLEISTER') && !selectedProject) {
       try {
@@ -474,8 +470,6 @@ const Documents: React.FC = () => {
         // Kategorie-Statistiken laden und konvertieren
         try {
           const backendStats = await getCategoryStatistics(undefined, true); // service_provider_documents = true
-          console.log('Backend Stats für Dienstleister:', backendStats);
-          
           // Backend gibt ein Objekt zurück, nicht ein Array
           const convertedStats = convertCategoryStats(backendStats || {});
           setCategoryStats(convertedStats);
@@ -497,8 +491,6 @@ const Documents: React.FC = () => {
     
     try {
       setLoading(true);
-      console.log('📂 Lade Dokumente für Projekt:', selectedProject.id, selectedProject.name);
-      
       const docs = await getDocuments(selectedProject.id, {
         category: selectedCategory !== 'all' ? selectedCategory : undefined,
         subcategory: selectedSubcategory !== 'all' ? selectedSubcategory : undefined,
@@ -510,8 +502,6 @@ const Documents: React.FC = () => {
         limit: 100
       });
       
-      console.log('📄 Erhaltene Dokumente:', docs);
-      
       // Konvertiere Backend-Kategorien zu Frontend-Kategorien
       const convertedDocs = docs.map((doc: Document) => ({
         ...doc,
@@ -519,13 +509,9 @@ const Documents: React.FC = () => {
       }));
       
       setDocuments(convertedDocs);
-      console.log('✅ Dokumente gesetzt:', convertedDocs);
-      
       // Kategorie-Statistiken laden und konvertieren
       try {
         const backendStats = await getCategoryStatistics(selectedProject.id);
-        console.log('Backend Stats für Projekt:', backendStats);
-        
         // Backend gibt ein Objekt zurück, nicht ein Array
         const convertedStats = convertCategoryStats(backendStats || {});
         setCategoryStats(convertedStats);
@@ -547,7 +533,6 @@ const Documents: React.FC = () => {
 
   useEffect(() => {
     if (contextProject && contextProject !== selectedProject) {
-      console.log('🔄 Context-Projekt geändert, setze neues Projekt:', contextProject);
       setSelectedProject(contextProject);
     }
   }, [contextProject]);
@@ -571,6 +556,21 @@ const Documents: React.FC = () => {
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     handleFilesSelected(files);
+  };
+
+  const handleAdditionalFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const newUploadFiles: UploadFile[] = files.map(file => ({
+      file,
+      status: 'pending' as const,
+      progress: 0
+    }));
+    
+    // Füge neue Dateien zur bestehenden Liste hinzu, anstatt sie zu überschreiben
+    setUploadFiles(prev => [...prev, ...newUploadFiles]);
+    
+    // Reset input field for next selection
+    e.target.value = '';
   };
 
   const assignCategoryToFile = (index: number, category: string, subcategory?: string) => {
@@ -1421,10 +1421,25 @@ const Documents: React.FC = () => {
                 >
                   Abbrechen
                 </button>
+                <input
+                  type="file"
+                  id="additional-file-input"
+                  multiple
+                  onChange={handleAdditionalFilesSelected}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => document.getElementById('additional-file-input')?.click()}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#2c3539] hover:bg-[#3d4952] border border-gray-600 text-white rounded-lg font-medium transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Weitere Dokumente
+                </button>
                 <button
                   onClick={uploadAllFiles}
-                  disabled={uploadFiles.some(f => !f.category) || uploadFiles.some(f => f.status === 'uploading')}
+                  disabled={uploadFiles.some(f => !f.category || !f.subcategory) || uploadFiles.some(f => f.status === 'uploading')}
                   className="bg-[#ffbd59] hover:bg-[#ffa726] disabled:bg-[#2c3539] disabled:cursor-not-allowed text-[#1a1a2e] disabled:text-gray-400 px-6 py-2 rounded-lg font-medium transition-colors"
+                  title={uploadFiles.some(f => !f.category || !f.subcategory) ? 'Bitte wählen Sie für alle Dokumente Kategorie und Unterkategorie aus' : ''}
                 >
                   Alle hochladen
                 </button>

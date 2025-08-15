@@ -174,7 +174,6 @@ export default function Finance() {
   // Automatisch das erste Projekt auswählen, wenn keines in der URL steht
   useEffect(() => {
     if (projects.length > 0 && selectedProject === 'all') {
-      console.log('🔍 Automatisch erstes Projekt auswählen:', projects[0].id);
       setSelectedProject(projects[0].id.toString());
     }
   }, [projects, selectedProject]);
@@ -183,7 +182,6 @@ export default function Finance() {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (selectedProject === 'all' && projects.length === 0) {
-        console.log('🔧 Fallback: Wähle Projekt 4 als Standard');
         setSelectedProject('4');
       }
     }, 3000);
@@ -207,21 +205,16 @@ export default function Finance() {
 
   const loadFinanceData = async () => {
     if (selectedProject === 'all') {
-      console.log('⚠️ Kein Projekt ausgewählt, überspringe Datenladung');
       return;
     }
     
-    console.log('🚀 Starte Finanzdaten-Ladung für Projekt:', selectedProject);
     setLoading(true);
     setError('');
     
     try {
       // Lade Ausgaben aus der Datenbank
       try {
-        console.log('🔍 Lade Ausgaben für Projekt:', selectedProject);
-        
         const expensesData = await expenseService.getExpenses(parseInt(selectedProject));
-        console.log('✅ Ausgaben geladen:', expensesData);
         setExpenses(expensesData);
         
       } catch (error: any) {
@@ -231,23 +224,15 @@ export default function Finance() {
 
       // Lade Kostenpositionen für das Projekt (über verknüpfte Rechnungen)
       try {
-        console.log('🔍 Lade Kostenpositionen für Projekt:', selectedProject);
-        
         // Prüfe Token vor API-Call
         const token = localStorage.getItem('token');
         if (!token) {
           throw new Error('Kein Token verfügbar. Bitte melden Sie sich erneut an.');
         }
         
-        console.log('🔑 Token verfügbar, starte API-Call...');
-        
         const costPositionsData = await costPositionService.getCostPositions(parseInt(selectedProject));
-        console.log('✅ Kostenpositionen geladen:', costPositionsData);
-        console.log('📊 Anzahl Kostenpositionen:', costPositionsData.length);
-        
         if (costPositionsData.length === 0) {
-          console.log('ℹ️ Keine Kostenpositionen gefunden - möglicherweise keine akzeptierten Angebote vorhanden');
-        }
+          }
         
         setCostPositions(costPositionsData);
         setSuccess(`Finanzdaten erfolgreich geladen (${costPositionsData.length} Kostenpositionen)`);
@@ -285,7 +270,6 @@ export default function Finance() {
         }
         
         // Fallback: Leere Liste setzen
-        console.log('🔄 Setze leere Kostenpositionen-Liste als Fallback');
         setCostPositions([]);
       }
 

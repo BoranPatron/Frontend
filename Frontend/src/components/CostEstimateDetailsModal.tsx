@@ -122,6 +122,7 @@ export default function CostEstimateDetailsModal({
   }>({ hasActiveInspection: false, isInspectionDay: false });
   const [loading, setLoading] = useState(false);
   const [selectedQuotesForInspection, setSelectedQuotesForInspection] = useState<number[]>([]);
+  const [appointmentResponses, setAppointmentResponses] = useState<any[]>([]);
   const [completionStatus, setCompletionStatus] = useState<string>('in_progress');
   const [showAcceptanceModal, setShowAcceptanceModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -254,7 +255,7 @@ export default function CostEstimateDetailsModal({
               </div>
               {providerId && (
                 <div className="flex items-center gap-3">
-                  <ServiceProviderRating providerId={providerId} className="scale-95" />
+                  <ServiceProviderRating serviceProviderId={providerId} className="scale-95" />
                 </div>
               )}
             </div>
@@ -368,6 +369,97 @@ export default function CostEstimateDetailsModal({
       setCompletionStatus(trade.completion_status);
     }
   }, [trade?.completion_status]);
+
+  // Lade Appointment-Responses für die Anzeige der Terminantworten
+  useEffect(() => {
+    if (isOpen && trade?.id) {
+      loadAppointmentResponses();
+    }
+  }, [isOpen, trade?.id]);
+
+  const loadAppointmentResponses = async () => {
+    try {
+      console.log('🔍 Lade Appointment-Responses für Trade:', trade.id);
+      const appointments = await appointmentService.getMyAppointments();
+      const tradeAppointments = appointments.filter(apt => 
+        apt.milestone_id === trade.id && apt.appointment_type === 'INSPECTION'
+      );
+      
+      if (tradeAppointments.length > 0) {
+        // Nehme den neuesten Appointment
+        const latestAppointment = tradeAppointments.sort((a, b) => 
+          new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime()
+        )[0];
+        
+        console.log('📅 Neuester Appointment gefunden:', latestAppointment);
+        
+        // Parse die Responses
+        let responses = [];
+        if (latestAppointment.responses_array) {
+          responses = latestAppointment.responses_array;
+        } else if (latestAppointment.responses && typeof latestAppointment.responses === 'string') {
+          try {
+            responses = JSON.parse(latestAppointment.responses);
+          } catch (e) {
+            console.warn('Fehler beim Parsen der Responses:', e);
+          }
+        }
+        
+        console.log('📝 Gefundene Responses:', responses);
+        setAppointmentResponses(responses);
+      } else {
+        setAppointmentResponses([]);
+      }
+    } catch (error) {
+      console.error('Fehler beim Laden der Appointment-Responses:', error);
+      setAppointmentResponses([]);
+    }
+  };
+
+  // Hilfsfunktion: Finde Response-Status für Service Provider
+  const getAppointmentResponseForProvider = (serviceProviderId: number) => {
+    const response = appointmentResponses.find(r => r.service_provider_id === serviceProviderId);
+    if (!response) {
+      return { status: 'pending', message: null, responded_at: null };
+    }
+    return response;
+  };
+
+  // Hilfsfunktion: Formatiere Response-Status für Anzeige
+  const formatAppointmentStatus = (serviceProviderId: number, appointmentDate?: string) => {
+    const response = getAppointmentResponseForProvider(serviceProviderId);
+    
+    switch (response.status) {
+      case 'accepted':
+        return {
+          text: 'Zugesagt',
+          detail: response.responded_at ? new Date(response.responded_at).toLocaleDateString('de-DE') : '',
+          color: 'text-green-400',
+          bgColor: 'bg-green-500/20',
+          borderColor: 'border-green-500/30',
+          icon: '✅'
+        };
+      case 'rejected':
+        return {
+          text: 'Abgesagt',
+          detail: response.message || 'Keine Begründung angegeben',
+          color: 'text-red-400',
+          bgColor: 'bg-red-500/20',
+          borderColor: 'border-red-500/30',
+          icon: '❌'
+        };
+      case 'pending':
+      default:
+        return {
+          text: 'Ausstehend',
+          detail: appointmentDate ? `Termin: ${new Date(appointmentDate).toLocaleDateString('de-DE')}` : 'Kein Termin gesetzt',
+          color: 'text-yellow-400',
+          bgColor: 'bg-yellow-500/20',
+          borderColor: 'border-yellow-500/30',
+          icon: '⏳'
+        };
+    }
+  };
 
   const loadInspectionStatus = async () => {
     try {
@@ -1053,24 +1145,50 @@ export default function CostEstimateDetailsModal({
   };
 
   const renderQuoteDetails = (quote: any) => {
+    // 🔧 FIX: Verwende IMMER das akzeptierte Quote für die Anzeige der Details
+    const acceptedQuote = getEffectiveQuote(acceptedFromList) || acceptedQuoteFull || acceptedFromList;
+    const displayQuote = acceptedQuote || quote; // Fallback auf übergebenes Quote
+    
+    console.log('🔍 QUOTE DETAILS RENDER DEBUG:', {
+      acceptedFromList: !!acceptedFromList,
+      acceptedQuoteFull: !!acceptedQuoteFull,
+      displayQuote: !!displayQuote,
+      displayQuoteId: displayQuote?.id,
+      displayQuoteStatus: displayQuote?.status,
+      totalAmount: displayQuote?.total_amount,
+      estimatedDuration: displayQuote?.estimated_duration,
+      startDate: displayQuote?.start_date,
+      completionDate: displayQuote?.completion_date
+    });
+    
     return (
       <div className="space-y-6">
+        {/* Zurück-Button zur Angebotsliste */}
+        {!acceptedFromList && quotes && quotes.length > 0 && (
+          <button
+            onClick={() => setSelectedQuote(null)}
+            className="mb-4 flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+          >
+            ← Zurück zur Angebotsliste
+          </button>
+        )}
+        
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-xl font-bold text-white">{quote.title}</h3>
-            <p className="text-gray-400">{quote.description}</p>
+            <h3 className="text-xl font-bold text-white">{displayQuote.title}</h3>
+            <p className="text-gray-400">{displayQuote.description}</p>
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold text-[#ffbd59]">
-              {(() => { const eq = getEffectiveQuote(quote); const a = getQuoteAmount(eq); return a == null ? '–' : formatCurrency(a, eq.currency); })()}
+              {(() => { const eq = getEffectiveQuote(displayQuote); const a = getQuoteAmount(eq); return a == null ? '–' : formatCurrency(a, eq.currency); })()}
             </div>
-            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${getQuoteStatusColor(quote.status)}`}>
-              {quote.status === 'accepted' && <CheckCircle size={14} />}
-              {quote.status === 'rejected' && <XCircle size={14} />}
-              {quote.status === 'under_review' && <Clock size={14} />}
-              {quote.status === 'submitted' && <Send size={14} />}
-              <span>{getQuoteStatusLabel(quote.status)}</span>
+            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${getQuoteStatusColor(displayQuote.status)}`}>
+              {displayQuote.status === 'accepted' && <CheckCircle size={14} />}
+              {displayQuote.status === 'rejected' && <XCircle size={14} />}
+              {displayQuote.status === 'under_review' && <Clock size={14} />}
+              {displayQuote.status === 'submitted' && <Send size={14} />}
+              <span>{getQuoteStatusLabel(displayQuote.status)}</span>
             </div>
           </div>
         </div>
@@ -1088,38 +1206,38 @@ export default function CostEstimateDetailsModal({
                 <span className="text-sm text-gray-400">Gesamtbetrag</span>
                 <span className="text-lg font-bold text-[#ffbd59]">
                   {(() => {
-                    const amount = (quote.total_amount ?? quote.total_price ?? (
-                      (Number(quote.labor_cost) || 0) + (Number(quote.material_cost) || 0) + (Number(quote.overhead_cost) || 0)
+                    const amount = (displayQuote.total_amount ?? displayQuote.total_price ?? (
+                      (Number(displayQuote.labor_cost) || 0) + (Number(displayQuote.material_cost) || 0) + (Number(displayQuote.overhead_cost) || 0)
                     ));
                     if (amount === undefined || amount === null || Number.isNaN(amount)) return '–';
-                    return formatCurrency(amount, quote.currency);
+                    return formatCurrency(amount, displayQuote.currency);
                   })()}
                 </span>
               </div>
               
-              {quote.labor_cost && (
+              {displayQuote.labor_cost && (
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">Arbeitskosten</span>
                   <span className="text-sm font-medium text-white">
-                    {formatCurrency(quote.labor_cost, quote.currency)}
+                    {formatCurrency(displayQuote.labor_cost, displayQuote.currency)}
                   </span>
                 </div>
               )}
               
-              {quote.material_cost && (
+              {displayQuote.material_cost && (
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">Materialkosten</span>
                   <span className="text-sm font-medium text-white">
-                    {formatCurrency(quote.material_cost, quote.currency)}
+                    {formatCurrency(displayQuote.material_cost, displayQuote.currency)}
                   </span>
                 </div>
               )}
               
-              {quote.overhead_cost && (
+              {displayQuote.overhead_cost && (
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">Gemeinkosten</span>
                   <span className="text-sm font-medium text-white">
-                    {formatCurrency(quote.overhead_cost, quote.currency)}
+                    {formatCurrency(displayQuote.overhead_cost, displayQuote.currency)}
                   </span>
                 </div>
               )}
@@ -1135,33 +1253,33 @@ export default function CostEstimateDetailsModal({
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <span className="text-sm text-gray-400">Geschätzte Dauer</span>
-                <span className="text-sm font-medium text-white">{quote.estimated_duration ? `${quote.estimated_duration} Tage` : '–'}</span>
+                <span className="text-sm font-medium text-white">{displayQuote.estimated_duration ? `${displayQuote.estimated_duration} Tage` : '–'}</span>
               </div>
               
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <span className="text-sm text-gray-400">Startdatum</span>
-                <span className="text-sm font-medium text-white">{quote.start_date ? formatDate(quote.start_date) : '–'}</span>
+                <span className="text-sm font-medium text-white">{displayQuote.start_date ? formatDate(displayQuote.start_date) : '–'}</span>
               </div>
               
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <span className="text-sm text-gray-400">Fertigstellungsdatum</span>
-                <span className="text-sm font-medium text-white">{quote.completion_date ? formatDate(quote.completion_date) : '–'}</span>
+                <span className="text-sm font-medium text-white">{displayQuote.completion_date ? formatDate(displayQuote.completion_date) : '–'}</span>
               </div>
               
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <span className="text-sm text-gray-400">Gültig bis</span>
-                <span className="text-sm font-medium text-white">{quote.valid_until ? formatDate(quote.valid_until) : '–'}</span>
+                <span className="text-sm font-medium text-white">{displayQuote.valid_until ? formatDate(displayQuote.valid_until) : '–'}</span>
               </div>
               
               <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                 <span className="text-sm text-gray-400">Garantie</span>
-                <span className="text-sm font-medium text-white">{quote.warranty_period} Monate</span>
+                <span className="text-sm font-medium text-white">{displayQuote.warranty_period ? `${displayQuote.warranty_period} Monate` : '–'}</span>
               </div>
               
-              {quote.payment_terms && (
+              {displayQuote.payment_terms && (
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">Zahlungsbedingungen</span>
-                  <span className="text-sm font-medium text-white">{quote.payment_terms}</span>
+                  <span className="text-sm font-medium text-white">{displayQuote.payment_terms}</span>
                 </div>
               )}
             </div>
@@ -1177,45 +1295,45 @@ export default function CostEstimateDetailsModal({
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-3">
-              {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); return a && (a.company_name || a.service_provider_name); })() && (
+              {displayQuote && (displayQuote.company_name || displayQuote.service_provider_name) && (
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">Firma</span>
-                  <span className="text-sm font-medium text-white">{(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.company_name || (quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.service_provider_name}</span>
+                  <span className="text-sm font-medium text-white">{displayQuote.company_name || displayQuote.service_provider_name}</span>
                 </div>
               )}
               
-              {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); return a && a.contact_person; })() && (
+              {displayQuote && displayQuote.contact_person && (
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">Ansprechpartner</span>
-                  <span className="text-sm font-medium text-white">{(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.contact_person}</span>
+                  <span className="text-sm font-medium text-white">{displayQuote.contact_person}</span>
                 </div>
               )}
             </div>
             
             <div className="space-y-3">
-              {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); return a && (a.phone || a.contact_phone); })() && (
+              {displayQuote && (displayQuote.phone || displayQuote.contact_phone) && (
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">Telefon</span>
-                  <a className="text-sm font-medium text-white hover:underline" href={`tel:${(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.phone || (quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.contact_phone}`}>
-                    {(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.phone || (quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.contact_phone}
+                  <a className="text-sm font-medium text-white hover:underline" href={`tel:${displayQuote.phone || displayQuote.contact_phone}`}>
+                    {displayQuote.phone || displayQuote.contact_phone}
                   </a>
                 </div>
               )}
               
-              {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); return a && (a.email || a.contact_email); })() && (
+              {displayQuote && (displayQuote.email || displayQuote.contact_email) && (
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">E-Mail</span>
-                  <a className="text-sm font-medium text-white hover:underline" href={`mailto:${(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.email || (quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.contact_email}`}>
-                    {(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.email || (quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.contact_email}
+                  <a className="text-sm font-medium text-white hover:underline" href={`mailto:${displayQuote.email || displayQuote.contact_email}`}>
+                    {displayQuote.email || displayQuote.contact_email}
                   </a>
                 </div>
               )}
               
-              {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); return a && a.website; })() && (
+              {displayQuote && displayQuote.website && (
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">Website</span>
-                  <a className="text-sm font-medium text-white hover:underline" target="_blank" rel="noopener noreferrer" href={(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.website}>
-                    {(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.website}
+                  <a className="text-sm font-medium text-white hover:underline" target="_blank" rel="noopener noreferrer" href={displayQuote.website}>
+                    {displayQuote.website}
                   </a>
                 </div>
               )}
@@ -1232,9 +1350,9 @@ export default function CostEstimateDetailsModal({
             </h4>
             
             <div className="space-y-3">
-              {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); return a && (a.service_provider_id || a.provider_id || a.service_provider); })() && (
+              {displayQuote && (displayQuote.service_provider_id || displayQuote.provider_id || displayQuote.service_provider) && (
                 <div className="p-3 bg-white/5 rounded-lg">
-                  <ServiceProviderRating providerId={(quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.service_provider_id || (quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.provider_id || (quotes.find(q => String(q?.status).toLowerCase() === 'accepted') as any)?.service_provider} />
+                  <ServiceProviderRating serviceProviderId={displayQuote.service_provider_id || displayQuote.provider_id || displayQuote.service_provider} />
                 </div>
               )}
 
@@ -1243,19 +1361,19 @@ export default function CostEstimateDetailsModal({
                 <div className="p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">Qualifikationen</span>
                   <div className="text-sm text-white mt-1">
-                    {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); const v = (a as any)?.qualifications; return v && String(v).trim() ? v : <span className="text-gray-500">–</span>; })()}
+                    {displayQuote?.qualifications && String(displayQuote.qualifications).trim() ? displayQuote.qualifications : <span className="text-gray-500">–</span>}
                   </div>
                 </div>
                 <div className="p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">Zertifizierungen</span>
                   <div className="text-sm text-white mt-1">
-                    {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); const v = (a as any)?.certifications; return v && String(v).trim() ? v : <span className="text-gray-500">–</span>; })()}
+                    {displayQuote?.certifications && String(displayQuote.certifications).trim() ? displayQuote.certifications : <span className="text-gray-500">–</span>}
                   </div>
                 </div>
                 <div className="md:col-span-2 p-3 bg-white/5 rounded-lg">
                   <span className="text-sm text-gray-400">Referenzen</span>
                   <div className="text-sm text-white mt-1">
-                    {(() => { const a = (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted'); const v = (a as any)?.references; return v && String(v).trim() ? v : <span className="text-gray-500">–</span>; })()}
+                    {displayQuote?.references && String(displayQuote.references).trim() ? displayQuote.references : <span className="text-gray-500">–</span>}
                   </div>
                 </div>
               </div>
@@ -1266,7 +1384,7 @@ export default function CostEstimateDetailsModal({
         {/* Aktions-Buttons */}
         <div className="flex items-center justify-center gap-4 pt-6 border-t border-white/10">
           {/* Buttons für alle Benutzer mit submitted, draft oder under_review Status */}
-          {(quote.status === 'submitted' || quote.status === 'draft' || quote.status === 'under_review') && (
+          {(displayQuote.status === 'submitted' || displayQuote.status === 'draft' || displayQuote.status === 'under_review') && (
             <>
               {/* Prüfe ob Button ausgegraut werden soll */}
               {(() => {
@@ -1285,7 +1403,7 @@ export default function CostEstimateDetailsModal({
                 
                 return (
                   <button
-                    onClick={() => handleAcceptQuote(quote)}
+                    onClick={() => handleAcceptQuote(displayQuote)}
                     disabled={loading || shouldDisableAccept}
                     className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform shadow-lg ${
                       shouldDisableAccept 
@@ -1325,7 +1443,7 @@ export default function CostEstimateDetailsModal({
               <p className="text-sm text-orange-200">
                 Die Annahme von Kostenvoranschlägen ist bis zum Besichtigungstermin am{' '}
                 {inspectionStatus.appointmentDate && 
-                  new Date(inspectionStatus.appointmentDate).toLocaleDateString('de-DE', {
+                  new Date(inspectionStatus.appointmentDate!).toLocaleDateString('de-DE', {
                     day: '2-digit',
                     month: '2-digit',
                     year: 'numeric'
@@ -1336,9 +1454,9 @@ export default function CostEstimateDetailsModal({
           )}
           
           {/* Reset-Button für alle Benutzer */}
-          {quote.status === 'accepted' && (
+          {displayQuote.status === 'accepted' && (
             <button
-              onClick={() => handleResetQuote(quote)}
+              onClick={() => handleResetQuote(displayQuote)}
               disabled={loading}
               className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl font-semibold hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -1352,13 +1470,13 @@ export default function CostEstimateDetailsModal({
           )}
           
           {/* Ablehnungsgrund anzeigen */}
-          {quote.status === 'rejected' && quote.rejection_reason && (
+          {displayQuote.status === 'rejected' && displayQuote.rejection_reason && (
             <div className="w-full p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
               <div className="flex items-center gap-2 text-red-300 mb-2">
                 <XCircle size={16} />
                 <span className="font-medium">Ablehnungsgrund</span>
               </div>
-              <p className="text-sm text-red-200">{quote.rejection_reason}</p>
+              <p className="text-sm text-red-200">{displayQuote.rejection_reason}</p>
             </div>
           )}
         </div>
@@ -1395,6 +1513,11 @@ export default function CostEstimateDetailsModal({
           {/* Content */}
           <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
             <div className="p-6">
+              {/* Zeige Detail-Ansicht wenn ein Quote ausgewählt wurde */}
+              {selectedQuote ? (
+                renderQuoteDetails(selectedQuote)
+              ) : (
+                <>
               {renderAcceptedProviderHeader()}
               {/* Warten auf Rechnung Banner - nur nach finaler Abnahme (nicht bei completed_with_defects) und solange keine Rechnung da ist */}
                               {completionStatus === 'completed' && isBautraeger() && !existingInvoice && (
@@ -1416,11 +1539,257 @@ export default function CostEstimateDetailsModal({
                   </div>
                 </div>
               )}
+              {/* Angebotsliste - IMMER anzeigen wenn mehrere Angebote vorhanden und kein Angebot angenommen */}
+              {!acceptedFromList && quotes && quotes.length > 0 && (
+                <div className="mb-6 bg-gradient-to-br from-[#1a1a2e]/80 to-[#2c3539]/80 rounded-xl border border-[#ffbd59]/30 p-6">
+                  <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <FileText size={20} className="text-[#ffbd59]" />
+                    Verfügbare Angebote ({quotes.length})
+                  </h3>
+                  
+                  <div className="space-y-3">
+                    {quotes.map((quote: any) => {
+                      const isSelectable = requiresInspection && 
+                                          !inspectionStatus.hasActiveInspection && 
+                                          (quote.status === 'submitted' || quote.status === 'draft' || quote.status === 'under_review');
+                      const isSelected = selectedQuotesForInspection.includes(quote.id);
+                      
+                      // Hole Terminantwort-Status für diesen Service Provider
+                      const serviceProviderId = quote.service_provider_id || quote.user_id;
+                      const appointmentStatus = formatAppointmentStatus(
+                        serviceProviderId,
+                        inspectionStatus.appointmentDate
+                      );
+                      
+                      return (
+                        <div
+                          key={quote.id}
+                          className={`relative p-4 rounded-lg border transition-all duration-200 ${
+                            isSelectable ? 'cursor-pointer' : 'cursor-default'
+                          } ${
+                            isSelected 
+                              ? 'bg-[#ffbd59]/20 border-[#ffbd59] ring-2 ring-[#ffbd59]/30' 
+                              : 'bg-white/5 border-white/10 hover:bg-white/10'
+                          }`}
+                          onClick={() => {
+                            if (isSelectable) {
+                              handleInspectionQuoteToggle(quote.id);
+                            }
+                          }}
+                        >
+                          {/* Checkbox für Mehrfachauswahl */}
+                          {isSelectable && (
+                            <div className={`absolute top-3 right-3 w-5 h-5 rounded border-2 flex items-center justify-center ${
+                              isSelected ? 'bg-[#ffbd59] border-[#ffbd59]' : 'border-gray-400'
+                            }`}>
+                              {isSelected && <Check size={14} className="text-black" />}
+                            </div>
+                          )}
+                          
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-white mb-1">{quote.title || 'Angebot'}</h4>
+                              <p className="text-sm text-gray-400 mb-2">{quote.company_name || 'Unbekannter Anbieter'}</p>
+                              
+                              <div className="flex items-center gap-4 text-sm">
+                                <span className="text-gray-300">
+                                  <Euro size={14} className="inline mr-1" />
+                                  {formatCurrency(quote.total_amount || 0, quote.currency || 'EUR')}
+                                </span>
+                                <span className="text-gray-300">
+                                  <Clock size={14} className="inline mr-1" />
+                                  {quote.estimated_duration || '–'} Tage
+                                </span>
+                                <span className={`px-2 py-1 rounded text-xs ${
+                                  quote.status === 'accepted' ? 'bg-green-500/20 text-green-300' :
+                                  quote.status === 'rejected' ? 'bg-red-500/20 text-red-300' :
+                                  'bg-blue-500/20 text-blue-300'
+                                }`}>
+                                  {quote.status === 'accepted' ? 'Angenommen' :
+                                   quote.status === 'rejected' ? 'Abgelehnt' :
+                                   quote.status === 'submitted' ? 'Eingereicht' :
+                                   'Entwurf'}
+                                </span>
+                              </div>
+                              
+                              {/* Terminantwort-Status */}
+                              {requiresInspection && inspectionStatus.hasActiveInspection && (
+                                <div className={`mt-3 p-2 rounded-lg border ${appointmentStatus.bgColor} ${appointmentStatus.borderColor}`}>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm">{appointmentStatus.icon}</span>
+                                    <div className="flex-1">
+                                      <span className={`font-medium text-sm ${appointmentStatus.color}`}>
+                                        {appointmentStatus.text}
+                                      </span>
+                                      {appointmentStatus.detail && (
+                                        <div className="text-xs text-gray-400 mt-1">
+                                          {appointmentStatus.detail}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Angebot annehmen Button - nur wenn Termin zugesagt wurde */}
+                                  {appointmentStatus.text === 'Zugesagt' && quote.status !== 'accepted' && (
+                                    <div className="mt-3 flex gap-2">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleAcceptQuote(quote);
+                                        }}
+                                        disabled={loading}
+                                        className="flex-1 px-3 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg text-sm font-medium hover:from-green-600 hover:to-emerald-600 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        <CheckCircle size={16} className="inline mr-1" />
+                                        Angebot annehmen
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedQuote(quote);
+                                          setShowRejectModal(true);
+                                        }}
+                                        disabled={loading}
+                                        className="px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg text-sm font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        <XCircle size={16} className="inline mr-1" />
+                                        Ablehnen
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Details-Button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedQuote(quote);
+                              }}
+                              className="ml-4 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white transition-colors"
+                            >
+                              Details →
+                            </button>
+                          </div>
+                          
+                          {/* Hinweis für Mehrfachauswahl */}
+                          {isSelectable && (
+                            <div className="mt-2 text-xs text-gray-400">
+                              💡 Klicken zum {isSelected ? 'Abwählen' : 'Auswählen'} für Besichtigungstermin
+                            </div>
+                          )}
+                          
+                          {/* Hinweis wenn Besichtigung bereits geplant */}
+                          {requiresInspection && inspectionStatus.hasActiveInspection && (
+                            <div className="mt-2 text-xs text-green-400 flex items-center gap-1">
+                              <CheckCircle size={12} />
+                              Besichtigungstermin wurde bereits vorgeschlagen
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                                  {/* DEBUG: Inspection Status */}
+                <div className="mt-4 p-4 bg-yellow-500/20 border border-yellow-500/30 rounded-xl">
+                  <h4 className="text-yellow-400 font-bold mb-2">🔍 DEBUG: Inspection Status</h4>
+                  <div className="text-xs text-gray-300 space-y-1">
+                    <div>inspectionStatus.hasActiveInspection: <span className="text-yellow-400">{String(inspectionStatus.hasActiveInspection)}</span></div>
+                    <div>inspectionStatus.appointmentDate: <span className="text-yellow-400">{inspectionStatus.appointmentDate || 'undefined'}</span></div>
+                    <div>inspectionStatus.isInspectionDay: <span className="text-yellow-400">{String(inspectionStatus.isInspectionDay)}</span></div>
+                    <div>requiresInspection: <span className="text-yellow-400">{String(requiresInspection)}</span></div>
+                    <div>trade.inspection_sent: <span className="text-yellow-400">{String(trade.inspection_sent)}</span></div>
+                    <div>trade.inspection_sent_at: <span className="text-yellow-400">{trade.inspection_sent_at || 'undefined'}</span></div>
+                    <div>appointmentResponses.length: <span className="text-yellow-400">{appointmentResponses.length}</span></div>
+                    {appointmentResponses.length > 0 && (
+                      <div className="mt-2 p-2 bg-gray-800 rounded max-h-40 overflow-auto">
+                        <div className="text-yellow-400">Appointment Responses:</div>
+                        <pre className="text-xs text-gray-300">
+                          {JSON.stringify(appointmentResponses, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                  {/* Aktionsleiste für Besichtigung */}
+                  {requiresInspection && quotes.some(q => q.status === 'submitted' || q.status === 'draft' || q.status === 'under_review') && (
+                    <div className="mt-4 p-4 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-xl border border-blue-500/30">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Eye size={16} className="text-blue-400" />
+                          <div>
+                            <h4 className="text-white font-semibold">
+                              {inspectionStatus.hasActiveInspection ? 'Besichtigung geplant' : 'Besichtigung erforderlich'}
+                            </h4>
+                            <p className="text-sm text-gray-300">
+                              {inspectionStatus.hasActiveInspection ? (
+                                inspectionStatus.appointmentDate ? 
+                                  `Termin am ${new Date(inspectionStatus.appointmentDate).toLocaleDateString('de-DE')}` :
+                                  'Besichtigungstermin wurde vorgeschlagen'
+                              ) : (
+                                selectedQuotesForInspection.length > 0 
+                                  ? `${selectedQuotesForInspection.length} Angebot${selectedQuotesForInspection.length > 1 ? 'e' : ''} ausgewählt`
+                                  : 'Wählen Sie Angebote für die Besichtigung aus'
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {!inspectionStatus.hasActiveInspection && (
+                            <>
+                              {selectedQuotesForInspection.length > 0 && (
+                                <button
+                                  onClick={() => setSelectedQuotesForInspection([])}
+                                  className="px-3 py-2 text-sm bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/15"
+                                >
+                                  Auswahl löschen
+                                </button>
+                              )}
+                              <button
+                                onClick={handleCreateInspection}
+                                disabled={selectedQuotesForInspection.length === 0}
+                                className="px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-black hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                              >
+                                <Calendar size={16} />
+                                Besichtigung vereinbaren ({selectedQuotesForInspection.length})
+                              </button>
+                            </>
+                          )}
+                          {inspectionStatus.hasActiveInspection && (
+                            <div className="flex items-center gap-2 text-green-400">
+                              <CheckCircle size={16} />
+                              <span className="text-sm font-medium">Termin vorgeschlagen</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Info für Direktannahme */}
+                  {!requiresInspection && (
+                    <div className="mt-4 p-4 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/30">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle size={16} className="text-green-400" />
+                        <h4 className="text-white font-semibold">Direktannahme möglich</h4>
+                      </div>
+                      <p className="text-sm text-gray-300">
+                        Für dieses Gewerk ist keine Besichtigung erforderlich. Sie können ein Angebot direkt annehmen, 
+                        indem Sie auf "Details" klicken und dann die Annahme bestätigen.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {selectedQuote ? (
                 renderQuoteDetails(selectedQuote)
-              ) : (
+              ) : !acceptedFromList && quotes && quotes.length > 0 ? null : (
                 <div className="space-y-6">
-                  {/* Gewerk Informationen */}
+                  {/* Gewerk Informationen - nur anzeigen wenn keine Angebote vorhanden */}
                   <div className="bg-white/5 rounded-lg p-4">
                     <div className="flex items-center gap-3 mb-4">
                       {getCategoryIcon(trade.category || '')}
@@ -2011,6 +2380,8 @@ export default function CostEstimateDetailsModal({
                 />
               )}
 
+                </>
+              )}
             </div>
           </div>
         </div>

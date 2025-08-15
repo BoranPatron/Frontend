@@ -45,7 +45,6 @@ export default function AppointmentStatusCard({
   // Event-Listener für Appointment-Updates von NotificationTab
   useEffect(() => {
     const handleAppointmentUpdate = (event: CustomEvent) => {
-      console.log('📡 AppointmentStatusCard: Appointment Update empfangen:', event.detail);
       // Lade Appointments neu wenn ein Update empfangen wurde
       loadAppointments();
     };
@@ -74,15 +73,7 @@ export default function AppointmentStatusCard({
       );
       
       setAppointments(uniqueAppointments);
-      console.log('✅ AppointmentStatusCard: Sichere Termine geladen:', {
-        total: myAppointments.length,
-        filtered: filteredAppointments.length,
-        unique: uniqueAppointments.length,
-        projectId,
-        milestoneId,
-        security: 'Rollenbasierte Filterung aktiv'
-      });
-    } catch (error) {
+      } catch (error) {
       console.error('❌ AppointmentStatusCard: Fehler beim Laden der Termine:', error);
       // Setze leeres Array bei Fehler, damit die Komponente nicht crasht
       setAppointments([]);

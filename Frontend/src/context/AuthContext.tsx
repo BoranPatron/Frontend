@@ -38,8 +38,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialisiere Auth-Daten beim ersten Laden mit Verzögerung
   useEffect(() => {
-    console.log('🔧 Initialisiere AuthContext...');
-    
     const initializeAuth = async () => {
       try {
         const storedToken = localStorage.getItem('token');
@@ -47,17 +45,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const rememberMe = localStorage.getItem('rememberMe');
         const sessionExpiry = localStorage.getItem('sessionExpiry');
         
-        console.log('🔑 Token aus localStorage:', storedToken ? '✅ Vorhanden' : '❌ Fehlt');
-        console.log('👤 User aus localStorage:', storedUser ? '✅ Vorhanden' : '❌ Fehlt');
-        console.log('💾 Remember Me:', rememberMe ? '✅ Aktiv' : '❌ Inaktiv');
-        
         // Prüfe Session-Ablauf bei "Angemeldet bleiben"
         if (rememberMe === 'true' && sessionExpiry) {
           const expiryDate = new Date(sessionExpiry);
           const now = new Date();
           
           if (now > expiryDate) {
-            console.log('❌ Session abgelaufen - entferne alle Daten');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             localStorage.removeItem('rememberMe');
@@ -78,7 +71,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setToken(storedToken);
             console.log('✅ Token gesetzt (gültig)');
           } else {
-            console.log('❌ Token ist abgelaufen - entferne aus localStorage');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             setToken(null);
@@ -89,18 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (storedUser && storedToken && isTokenValid(storedToken)) {
           try {
             const userData = JSON.parse(storedUser);
-            console.log('👤 User-Daten geparst:', userData);
-            console.log('🔍 Rollen-Debug:', {
-              hasUserRole: !!userData.user_role,
-              userRole: userData.user_role,
-              hasRoleSelected: userData.role_selected !== undefined,
-              roleSelected: userData.role_selected,
-              subscriptionPlan: userData.subscription_plan
-            });
-            
             // IMMER aktuelle User-Daten vom Backend laden (verhindert veraltete localStorage-Daten)
-            console.log('🔄 Lade immer aktuelle User-Daten vom Backend');
-            console.log('🔄 Force-Reload der User-Daten für aktuelle Subscription-Status');
             try {
               const response = await fetch('http://localhost:8000/api/v1/users/me', {
                 headers: {
@@ -111,30 +92,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               
               if (response.ok) {
                 const freshUserData = await response.json();
-                console.log('✅ Aktuelle User-Daten geladen:', freshUserData);
-                console.log('🔍 Fresh Rollen-Debug:', {
-                  hasUserRole: !!freshUserData.user_role,
-                  userRole: freshUserData.user_role,
-                  hasRoleSelected: freshUserData.role_selected !== undefined,
-                  roleSelected: freshUserData.role_selected,
-                  subscriptionPlan: freshUserData.subscription_plan
-                });
-                
                 setUser(freshUserData);
                 localStorage.setItem('user', JSON.stringify(freshUserData));
                 
                 // Setze Rollen-Informationen
                 if (freshUserData.user_role) {
                   setUserRole(freshUserData.user_role);
-                  console.log('✅ User-Rolle gesetzt aus Backend:', freshUserData.user_role);
-                }
+                  }
                 if (freshUserData.role_selected !== undefined) {
                   setRoleSelected(freshUserData.role_selected);
-                  console.log('✅ Role-Selected gesetzt:', freshUserData.role_selected);
-                }
-                console.log('🔍 Vollständige User-Daten vom Backend:', freshUserData);
-              } else {
-                console.log('❌ Fehler beim Laden der User-Daten - verwende localStorage');
+                  }
+                } else {
                 setUser(userData);
                 
                 // Setze Rollen-Informationen aus localStorage
@@ -146,7 +114,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
               }
             } catch (error) {
-              console.log('❌ Netzwerk-Fehler - verwende localStorage:', error);
               setUser(userData);
               
               // Setze Rollen-Informationen aus localStorage
@@ -158,22 +125,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             }
             
-            console.log('✅ User gesetzt');
-          } catch (error) {
+            } catch (error) {
             console.error('❌ Fehler beim Parsen der User-Daten:', error);
             localStorage.removeItem('user');
             setUser(null);
           }
         } else if (storedUser && (!storedToken || !isTokenValid(storedToken))) {
           // User-Daten vorhanden aber Token ungültig - entferne alles
-          console.log('❌ Token ungültig - entferne User-Daten');
           localStorage.removeItem('user');
           setUser(null);
         }
         
         setIsInitialized(true);
         setIsInitializing(false);
-        console.log('✅ AuthContext initialisiert');
         console.log('📊 Finaler Auth-Status:', {
           hasToken: !!storedToken && isTokenValid(storedToken),
           hasUser: !!storedUser,
@@ -204,11 +168,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!isInitializing) {
       if (token) {
         localStorage.setItem('token', token);
-        console.log('💾 Token in localStorage gespeichert');
-      } else {
+        } else {
         localStorage.removeItem('token');
-        console.log('🗑️ Token aus localStorage entfernt');
-      }
+        }
     }
   }, [token, isInitializing]);
 
@@ -217,58 +179,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!isInitializing) {
       if (user) {
         localStorage.setItem('user', JSON.stringify(user));
-        console.log('💾 User in localStorage gespeichert');
-      } else {
+        } else {
         localStorage.removeItem('user');
-        console.log('🗑️ User aus localStorage entfernt');
-      }
+        }
     }
   }, [user, isInitializing]);
 
   const login = (newToken: string, newUser: any) => {
-    console.log('🔐 Login durchgeführt:', { hasToken: !!newToken, hasUser: !!newUser });
-    console.log('🔍 Vollständige User-Daten beim Login:', newUser);
-    
     try {
-      console.log('🔄 Stoppe Initialisierung...');
       // Stoppe die Initialisierung, um Race Conditions zu vermeiden
       setIsInitializing(false);
       setIsInitialized(true);
-      console.log('✅ Initialisierung gestoppt');
-      
-      console.log('🔄 Setze Token und User...');
       // Setze Token und User sofort
       setToken(newToken);
       setUser(newUser);
-      console.log('✅ Token und User gesetzt');
-      
-      console.log('🔄 Persistiere in localStorage...');
       // Persistiere sofort in localStorage (überschreibt alte Daten)
       localStorage.setItem('token', newToken);
       localStorage.setItem('user', JSON.stringify(newUser));
-      console.log('✅ Daten in localStorage persistiert');
-      
-      console.log('🔄 Setze Rollen-Informationen...');
       // Setze Rollen-Informationen sofort
       if (newUser?.user_role) {
         setUserRole(newUser.user_role);
-        console.log('✅ User-Rolle beim Login gesetzt:', newUser.user_role);
-      }
+        }
       if (newUser?.role_selected !== undefined) {
         setRoleSelected(newUser.role_selected);
-        console.log('✅ Role-Selected beim Login gesetzt:', newUser.role_selected);
-      }
+        }
       
-      console.log('✅ Login erfolgreich abgeschlossen - AuthContext aktualisiert');
-      
-    } catch (error) {
+      } catch (error) {
       console.error('❌ Fehler in login() Funktion:', error);
       throw error; // Re-throw für besseres Debugging
     }
   };
 
   const logout = () => {
-    console.log('🚪 Logout durchgeführt');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('refreshToken');
@@ -285,35 +227,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                    user?.user_type === 'service_provider' || 
                    user?.email?.includes('dienstleister');
     
-    console.log('🔍 isServiceProvider Check:', {
-      user_type: user?.user_type,
-      user_role: user?.user_role,
-      email: user?.email,
-      result: result
-    });
-    
     return result;
   };
 
   // Hilfsfunktion um zu prüfen, ob der Benutzer ein Bauträger ist
   const isBautraeger = () => {
+    // WICHTIG: Nur user_role prüfen, NICHT user_type!
+    // user_type kann 'private' oder 'professional' für BEIDE Rollen sein
     const result = user?.user_role === 'bautraeger' || 
                    user?.user_role === 'BAUTRAEGER' ||
                    user?.user_role === 'developer' ||
-                   user?.user_role === 'DEVELOPER' ||
-                   user?.user_type === 'developer' ||
-                   user?.user_type === 'bautraeger' ||
-                   user?.user_type === 'PRIVATE' ||
-                   user?.user_type === 'PROFESSIONAL' ||
-                   user?.user_type === 'private' ||
-                   user?.user_type === 'professional';
-    
-    console.log('🔍 isBautraeger Check:', {
-      user_type: user?.user_type,
-      user_role: user?.user_role,
-      email: user?.email,
-      result: result
-    });
+                   user?.user_role === 'DEVELOPER';
     
     return result;
   };
@@ -326,8 +250,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Funktion zum Auswählen der Benutzerrolle
   const selectRole = async (role: 'bautraeger' | 'dienstleister') => {
     try {
-      console.log('🔄 Sende Rollenauswahl:', { role, hasToken: !!token, userId: user?.id });
-      
       const response = await fetch('http://localhost:8000/api/v1/auth/select-role', {
         method: 'POST',
         headers: {
@@ -337,8 +259,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ role })
       });
 
-      console.log('📡 Backend Response Status:', response.status);
-      
       if (!response.ok) {
         const errorData = await response.text();
         console.error('❌ Backend Error:', errorData);
@@ -346,8 +266,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const data = await response.json();
-      console.log('✅ Backend Response Data:', data);
-      
       // Aktualisiere lokale States
       setUserRole(role);
       setRoleSelected(true);
@@ -359,8 +277,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('user', JSON.stringify(updatedUser));
       }
       
-      console.log('✅ Rolle erfolgreich ausgewählt:', role);
-    } catch (error) {
+      } catch (error) {
       console.error('❌ Fehler beim Auswählen der Rolle:', error);
       throw error;
     }

@@ -195,15 +195,10 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
     }
   };
 
-  console.log('🔍 AcceptanceModal Props:', { isOpen, trade: !!trade });
-  
   if (!isOpen) {
-    console.log('❌ AcceptanceModal: isOpen ist false, Modal wird nicht gerendert');
     return null;
   }
   
-  console.log('✅ AcceptanceModal: Modal wird gerendert');
-
   const handlePhotoAnnotationSave = (annotatedImageUrl: string, annotations: any[]) => {
     if (editingDefectId === 'current') {
       // Aktueller Mangel - Foto ersetzen

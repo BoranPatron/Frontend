@@ -169,8 +169,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ projectId }) => {
     if (!canvasId) return;
     try {
       await canvasService.saveCanvasState(canvasId, canvasState);
-      console.log('Canvas automatisch gespeichert');
-    } catch (error) {
+      } catch (error) {
       console.error('Fehler beim Auto-Save:', error);
     }
   };
@@ -194,8 +193,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ projectId }) => {
       // Sende über WebSocket
       canvasService.sendObjectAdd(canvasId, newObject);
       
-      console.log('Objekt hinzugefügt');
-    } catch (error) {
+      } catch (error) {
       console.error('Fehler beim Hinzufügen des Objekts:', error);
     }
   };
@@ -230,8 +228,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ projectId }) => {
       // Sende über WebSocket
       canvasService.sendObjectDelete(canvasId, objectId);
       
-      console.log('Objekt gelöscht');
-    } catch (error) {
+      } catch (error) {
       console.error('Fehler beim Löschen des Objekts:', error);
     }
   };
@@ -248,8 +245,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ projectId }) => {
       // Sende über WebSocket
       canvasService.sendAreaAdd(canvasId, newArea);
       
-      console.log('Kollaborationsbereich hinzugefügt');
-    } catch (error) {
+      } catch (error) {
       console.error('Fehler beim Hinzufügen des Bereichs:', error);
     }
   };
@@ -284,8 +280,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ projectId }) => {
       // Sende über WebSocket
       canvasService.sendAreaDelete(canvasId, areaId);
       
-      console.log('Kollaborationsbereich gelöscht');
-    } catch (error) {
+      } catch (error) {
       console.error('Fehler beim Löschen des Bereichs:', error);
     }
   };
@@ -307,8 +302,7 @@ const CanvasEditor: React.FC<CanvasEditorProps> = ({ projectId }) => {
           link.download = `canvas_export.${exportData.format}`;
           link.click();
         } else if (result.document_id) {
-          console.log('Canvas als Dokument gespeichert');
-        }
+          }
       } else {
         console.error('Fehler beim Export:', result.message);
       }

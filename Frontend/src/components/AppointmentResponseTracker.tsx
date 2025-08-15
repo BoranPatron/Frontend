@@ -64,17 +64,11 @@ export default function AppointmentResponseTracker({
   const loadAppointments = async () => {
     try {
       setLoading(true);
-      console.log(`🔍 [BAUTRAEGER-DEBUG] Loading appointments for project ${projectId}, milestone ${milestoneId}`);
-      
       const allAppointments = await appointmentService.getMyAppointments();
-      console.log(`📊 [BAUTRAEGER-DEBUG] Received ${allAppointments.length} total appointments:`, allAppointments);
-      
       // Filter appointments for this milestone
       const relevantAppointments = allAppointments.filter(apt => 
         apt.project_id === projectId && apt.milestone_id === milestoneId
       );
-      
-      console.log(`🎯 [BAUTRAEGER-DEBUG] Found ${relevantAppointments.length} relevant appointments:`, relevantAppointments);
       
       setAppointments(relevantAppointments);
       setError(null);
@@ -92,8 +86,6 @@ export default function AppointmentResponseTracker({
     setActionLoading(actionKey);
     
     try {
-      console.log(`🔄 Bauträger akzeptiert Neuvorschlag von Provider ${serviceProviderId} für Termin ${appointmentId}`);
-      
       // Erstelle separaten Termin für den Dienstleister
       await appointmentService.createSeparateAppointment({
         project_id: projectId,
@@ -103,8 +95,6 @@ export default function AppointmentResponseTracker({
         title: `Besichtigung - Einzeltermin`,
         description: `Separater Termin basierend auf Neuvorschlag`
       });
-      
-      console.log('✅ Separater Termin erfolgreich erstellt');
       
       // Aktualisiere die Anzeige
       await loadAppointments();
@@ -125,8 +115,6 @@ export default function AppointmentResponseTracker({
     setActionLoading(actionKey);
     
     try {
-      console.log(`🔄 Bauträger lehnt Neuvorschlag von Provider ${serviceProviderId} für Termin ${appointmentId} ab`);
-      
       // Hier könnte eine API-Funktion aufgerufen werden, um die Ablehnung zu protokollieren
       // Für jetzt loggen wir nur
       console.log('✅ Neuvorschlag abgelehnt (nur geloggt)');
@@ -147,8 +135,6 @@ export default function AppointmentResponseTracker({
     setActionLoading(actionKey);
     
     try {
-      console.log(`🔄 Bauträger erstellt separaten Termin für Provider ${serviceProviderId}`);
-      
       // Erstelle neuen Termin nur für diesen Dienstleister
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -162,8 +148,6 @@ export default function AppointmentResponseTracker({
         title: `Separater Besichtigungstermin - ${providerName}`,
         description: `Individueller Termin für ${providerName}`
       });
-      
-      console.log('✅ Separater Termin erfolgreich erstellt');
       
       // Aktualisiere die Anzeige
       await loadAppointments();
@@ -277,61 +261,40 @@ export default function AppointmentResponseTracker({
 
              <div className="space-y-3">
          {appointments.map((appointment) => {
-           console.log(`🔍 [BAUTRAEGER-DEBUG] Processing appointment ${appointment.id}:`, appointment);
-           
-                       // Parse responses with new data structure adaptation
+           // Parse responses with new data structure adaptation
             let responses: ServiceProviderResponse[] = [];
-            
-            console.log(`🔍 [BAUTRAEGER-DEBUG] Raw appointment data for ${appointment.id}:`, {
-              responses_array: appointment.responses_array,
-              responses: appointment.responses,
-              responses_type: typeof appointment.responses
-            });
             
             if (appointment.responses_array && Array.isArray(appointment.responses_array)) {
               responses = appointment.responses_array;
-              console.log(`✅ [BAUTRAEGER-DEBUG] Using new responses_array for appointment ${appointment.id}:`, responses);
-            } else if (appointment.responses) {
+              } else if (appointment.responses) {
               try {
                 if (typeof appointment.responses === 'string') {
                   responses = JSON.parse(appointment.responses);
                 } else if (Array.isArray(appointment.responses)) {
                   responses = appointment.responses;
                 }
-                console.log(`✅ [BAUTRAEGER-DEBUG] Parsed legacy responses for appointment ${appointment.id}:`, responses);
-              } catch (e) {
+                } catch (e) {
                 console.error(`❌ [BAUTRAEGER-DEBUG] Error parsing responses for appointment ${appointment.id}:`, e);
                 responses = [];
               }
             } else {
-              console.log(`⚠️ [BAUTRAEGER-DEBUG] No responses found for appointment ${appointment.id} - both responses_array and responses are empty/null`);
-            }
+              }
            
                        let invitedProviders = [];
             
-            console.log(`🔍 [BAUTRAEGER-DEBUG] Raw invited_service_providers for ${appointment.id}:`, {
-              data: appointment.invited_service_providers,
-              type: typeof appointment.invited_service_providers
-            });
-            
             if (Array.isArray(appointment.invited_service_providers)) {
               invitedProviders = appointment.invited_service_providers;
-              console.log(`✅ [BAUTRAEGER-DEBUG] Using array invited_service_providers:`, invitedProviders);
-            } else if (typeof appointment.invited_service_providers === 'string') {
+              } else if (typeof appointment.invited_service_providers === 'string') {
               try {
                 invitedProviders = JSON.parse(appointment.invited_service_providers);
-                console.log(`✅ [BAUTRAEGER-DEBUG] Parsed string invited_service_providers:`, invitedProviders);
-              } catch (e) {
+                } catch (e) {
                 console.error(`❌ [BAUTRAEGER-DEBUG] Error parsing invited_service_providers:`, e);
                 invitedProviders = [];
               }
             } else {
-              console.log(`⚠️ [BAUTRAEGER-DEBUG] No invited_service_providers found for appointment ${appointment.id}`);
-            }
+              }
            
-           console.log(`📊 [BAUTRAEGER-DEBUG] Appointment ${appointment.id} - Responses: ${responses.length}, Invited: ${invitedProviders.length}`);
-
-          const isExpanded = expandedAppointment === appointment.id;
+           const isExpanded = expandedAppointment === appointment.id;
 
           return (
             <div key={appointment.id} className="bg-[#1a1a1a] rounded-lg p-3 border border-gray-700">

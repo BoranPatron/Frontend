@@ -2,10 +2,8 @@ import api from './api';
 
 export async function getTasks(project_id?: number) {
   try {
-    console.log('📋 Fetching tasks...', { project_id });
     const params = project_id ? { project_id } : {};
     const res = await api.get('/tasks', { params });
-    console.log('✅ Tasks loaded successfully:', res.data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error fetching tasks:', error);
@@ -20,9 +18,7 @@ export async function getTasks(project_id?: number) {
 
 export async function getTask(id: number) {
   try {
-    console.log('📋 Fetching task:', id);
     const res = await api.get(`/tasks/${id}`);
-    console.log('✅ Task loaded successfully:', res.data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error fetching task:', error);
@@ -37,8 +33,6 @@ export async function getTask(id: number) {
 
 export async function createTask(data: any) {
   try {
-    console.log('🚀 Creating task with data:', data);
-    
     // Validiere erforderliche Felder
     if (!data.title) {
       throw new Error('Aufgabentitel ist erforderlich');
@@ -60,9 +54,7 @@ export async function createTask(data: any) {
       is_milestone: data.is_milestone || false
     };
     
-    console.log('📤 Sending task data to API:', taskData);
     const res = await api.post('/tasks', taskData);
-    console.log('✅ Task created successfully:', res.data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error creating task:', error);
@@ -90,9 +82,7 @@ export async function createTask(data: any) {
 
 export async function updateTask(id: number, data: any) {
   try {
-    console.log('🔄 Updating task:', id, 'with data:', data);
     const res = await api.put(`/tasks/${id}`, data);
-    console.log('✅ Task updated successfully:', res.data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error updating task:', error);
@@ -107,10 +97,8 @@ export async function updateTask(id: number, data: any) {
 
 export async function deleteTask(id: number) {
   try {
-    console.log('🗑️ Deleting task:', id);
     await api.delete(`/tasks/${id}`);
-    console.log('✅ Task deleted successfully');
-  } catch (error: any) {
+    } catch (error: any) {
     console.error('❌ Error deleting task:', error);
     console.error('Error details:', {
       status: error.response?.status,
@@ -123,9 +111,7 @@ export async function deleteTask(id: number) {
 
 export async function getTaskStatistics(project_id: number) {
   try {
-    console.log('📊 Fetching task statistics for project:', project_id);
     const res = await api.get(`/tasks/project/${project_id}/statistics`);
-    console.log('✅ Task statistics loaded successfully:', res.data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error fetching task statistics:', error);

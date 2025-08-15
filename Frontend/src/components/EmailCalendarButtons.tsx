@@ -14,13 +14,11 @@ export default function EmailCalendarButtons({ loginMethod, isProUser }: EmailCa
 
   const handleGoogleConnect = () => {
     // TODO: Implementierung in Schritt 2
-    console.log('🔗 Google Integration wird gestartet...');
     alert('Google Integration wird in Schritt 2 implementiert');
   };
 
   const handleMicrosoftConnect = () => {
     // TODO: Implementierung in Schritt 2
-    console.log('🔗 Microsoft Integration wird gestartet...');
     alert('Microsoft Integration wird in Schritt 2 implementiert');
   };
 

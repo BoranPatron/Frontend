@@ -48,9 +48,7 @@ class ExpenseService {
 
   async getExpenses(projectId: number): Promise<Expense[]> {
     try {
-      console.log('🔍 Lade Ausgaben für Projekt:', projectId);
       const response = await api.get(`${this.baseUrl}/project/${projectId}`);
-      console.log('✅ Ausgaben geladen:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('❌ Fehler beim Laden der Ausgaben:', error);
@@ -70,9 +68,7 @@ class ExpenseService {
 
   async createExpense(expenseData: ExpenseCreate): Promise<Expense> {
     try {
-      console.log('🚀 Erstelle neue Ausgabe:', expenseData);
       const response = await api.post(this.baseUrl, expenseData);
-      console.log('✅ Ausgabe erstellt:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('❌ Fehler beim Erstellen der Ausgabe:', error);
@@ -82,9 +78,7 @@ class ExpenseService {
 
   async updateExpense(expenseId: number, expenseData: ExpenseUpdate): Promise<Expense> {
     try {
-      console.log('🔄 Aktualisiere Ausgabe:', expenseId, expenseData);
       const response = await api.put(`${this.baseUrl}/${expenseId}`, expenseData);
-      console.log('✅ Ausgabe aktualisiert:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('❌ Fehler beim Aktualisieren der Ausgabe:', error);
@@ -94,10 +88,8 @@ class ExpenseService {
 
   async deleteExpense(expenseId: number): Promise<void> {
     try {
-      console.log('🗑️ Lösche Ausgabe:', expenseId);
       await api.delete(`${this.baseUrl}/${expenseId}`);
-      console.log('✅ Ausgabe gelöscht');
-    } catch (error: any) {
+      } catch (error: any) {
       console.error('❌ Fehler beim Löschen der Ausgabe:', error);
       throw this.handleError(error);
     }

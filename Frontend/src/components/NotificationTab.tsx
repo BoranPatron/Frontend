@@ -74,7 +74,6 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
 
   const loadNotifications = async () => {
     try {
-      console.log('🔍 NotificationTab: Lade Benachrichtigungen für', { userRole, userId });
       let notifications: NotificationData[] = [];
       
       const response = await fetch('http://localhost:8000/api/v1/appointments/my-appointments-simple', {
@@ -86,8 +85,6 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
       
       if (response.ok) {
         const data = await response.json();
-        console.log(`🔍 NotificationTab: ${userRole}-Termine:`, data.appointments?.length || 0, data.appointments);
-        
         const myAppointments = data.appointments || [];
         
         if (userRole === 'DIENSTLEISTER') {
@@ -192,11 +189,8 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
         console.error('❌ NotificationTab: Fehler beim Laden der Termine:', response.status);
       }
       
-      console.log('✅ NotificationTab: Verwende nur echte Appointments aus der Datenbank');
       setNotifications(notifications);
-      console.log('✅ NotificationTab: Benachrichtigungen geladen:', notifications.length);
-      
-    } catch (error) {
+      } catch (error) {
       console.error('❌ NotificationTab: Network error:', error);
     }
   };
@@ -210,12 +204,6 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
         ? `${suggestedDate}T${suggestedTime}:00.000Z`
         : undefined;
 
-      console.log('🔄 NotificationTab: Sende Antwort für Termin', selectedNotification.appointmentId, {
-        status,
-        message: responseMessage || undefined,
-        suggestedDateTime
-      });
-
       await appointmentService.respondToAppointment({
         appointment_id: selectedNotification.appointmentId,
         status,
@@ -223,8 +211,6 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
         suggested_date: suggestedDateTime
       });
 
-      console.log('✅ NotificationTab: Antwort erfolgreich gesendet');
-      
       // Mark as seen and close modal
       markAsSeen([selectedNotification.id]);
       setSelectedNotification(null);
@@ -234,7 +220,6 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
       
       // Reload notifications after response
       setTimeout(() => {
-        console.log('🔄 NotificationTab: Lade Benachrichtigungen nach Antwort neu');
         loadNotifications();
       }, 1000);
       
@@ -269,8 +254,6 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
   const newCount = notifications.filter(n => n.isNew).length;
   const hasNewNotifications = newCount > 0;
   
-  console.log(`🔔 [NOTIFICATION-TAB] Rendering for ${userRole} with ${notifications.length} notifications, ${newCount} new`);
-
   return (
     <>
       {/* Notification Tab - Fixed Position */}

@@ -630,8 +630,7 @@ export default function Canvas({ projectId, isOpen, onClose }: CanvasProps) {
             if (blob) {
               if (exportSettings.saveToDocs) {
                 // Save to Docs (implement API call)
-                console.log('Saving to Docs...');
-              } else {
+                } else {
                 // Download
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -650,8 +649,7 @@ export default function Canvas({ projectId, isOpen, onClose }: CanvasProps) {
         // PDF export
         if (exportSettings.saveToDocs) {
           // Save to Docs (implement API call)
-          console.log('Saving PDF to Docs...');
-        } else {
+          } else {
           // Download
           const url = URL.createObjectURL(svgBlob);
           const a = document.createElement('a');

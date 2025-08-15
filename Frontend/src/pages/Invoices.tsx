@@ -160,8 +160,7 @@ export default function Invoices() {
             <button
               onClick={() => {
                 // TODO: Öffne Modal zur Erstellung einer neuen Rechnung
-                console.log('Neue Rechnung erstellen');
-              }}
+                }}
               className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#1a1a2e] font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
             >
               <Plus size={20} />
@@ -264,8 +263,7 @@ export default function Invoices() {
               <button
                 onClick={() => {
                   // TODO: Öffne Modal zur Erstellung einer neuen Rechnung
-                  console.log('Erste Rechnung erstellen');
-                }}
+                  }}
                 className="px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#1a1a2e] font-semibold rounded-lg hover:shadow-lg transition-all duration-200"
               >
                 Erste Rechnung erstellen

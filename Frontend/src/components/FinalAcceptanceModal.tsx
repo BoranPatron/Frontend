@@ -48,12 +48,10 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
   // Initialisiere mit den übergebenen Mängeln
   useEffect(() => {
     if (isOpen && defects.length > 0) {
-      console.log('🔍 FinalAcceptanceModal: Initialisiere mit Mängeln:', defects);
       // Alle Mängel sind erstmal nicht als behoben markiert
       setCheckedDefects(new Set());
     } else if (isOpen && defects.length === 0) {
-      console.log('ℹ️ FinalAcceptanceModal: Keine Mängel übergeben');
-    }
+      }
   }, [isOpen, defects]);
 
   const toggleDefectCheck = (defectId: number) => {
@@ -100,7 +98,6 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
         milestone_id: milestoneId
       });
 
-      console.log('✅ Finale Abnahme erfolgreich abgeschlossen');
       onAcceptanceComplete();
       onClose();
       

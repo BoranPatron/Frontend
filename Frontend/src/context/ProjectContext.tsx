@@ -50,10 +50,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isInitialized) {
       if (isAuthenticated() && user) {
-        console.log('🔍 Benutzer authentifiziert - lade Projekte...');
         loadProjects();
       } else {
-        console.log('🔍 Benutzer nicht authentifiziert - setze Loading auf false');
         setIsLoading(false);
         setProjects([]);
         setSelectedProject(null);
@@ -68,12 +66,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     if (selectedProject) {
       localStorage.setItem('selectedProjectId', selectedProject.id.toString());
       localStorage.setItem('selectedProjectIndex', selectedProjectIndex.toString());
-      console.log('💾 Projektauswahl gespeichert:', {
-        projectId: selectedProject.id,
-        projectName: selectedProject.name,
-        index: selectedProjectIndex
-      });
-    }
+      }
   }, [selectedProject, selectedProjectIndex]);
 
   // Lade gespeicherte Projektauswahl beim Start
@@ -89,29 +82,21 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       if (savedProject) {
         setSelectedProject(savedProject);
         setSelectedProjectIndex(projectIndex);
-        console.log('📂 Gespeicherte Projektauswahl geladen:', {
-          projectId: savedProject.id,
-          projectName: savedProject.name,
-          index: projectIndex
-        });
-      } else {
+        } else {
         // Fallback: erstes Projekt auswählen
         setSelectedProject(projects[0]);
         setSelectedProjectIndex(0);
-        console.log('🔄 Fallback: Erstes Projekt ausgewählt');
-      }
+        }
     } else if (projects.length > 0) {
       // Keine gespeicherte Auswahl: erstes Projekt auswählen
       setSelectedProject(projects[0]);
       setSelectedProjectIndex(0);
-      console.log('🆕 Erstes Projekt ausgewählt:', projects[0].name);
-    }
+      }
   }, [projects]);
 
   const loadProjects = async () => {
     // Prüfe nochmal ob User authentifiziert ist
     if (!isAuthenticated() || !user) {
-      console.log('⚠️ Benutzer nicht authentifiziert - überspringe Projekt-Loading');
       setIsLoading(false);
       setProjects([]);
       setSelectedProject(null);
@@ -124,15 +109,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     setError('');
     
     try {
-      console.log('🔍 Lade Projekte...');
       const projectsData = await getProjects();
-      console.log('✅ Projekte geladen:', projectsData);
-      
       setProjects(projectsData);
       
       // Wenn keine Projekte vorhanden sind
       if (projectsData.length === 0) {
-        console.log('⚠️ Keine Projekte verfügbar');
         setSelectedProject(null);
         setSelectedProjectIndex(0);
       }
@@ -141,7 +122,6 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       
       // Spezielle Behandlung für 401-Fehler (nicht authentifiziert)
       if (err.response?.status === 401) {
-        console.log('🔐 401 Unauthorized - Benutzer nicht authentifiziert');
         setError('Bitte melden Sie sich an, um Projekte zu laden');
         setProjects([]);
         setSelectedProject(null);
@@ -171,12 +151,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       const newSelectedProject = projects[index];
       setSelectedProject(newSelectedProject);
       setSelectedProjectIndex(index);
-      console.log('🔄 Projektauswahl aktualisiert:', {
-        projectId: newSelectedProject.id,
-        projectName: newSelectedProject.name,
-        index: index
-      });
-    }
+      }
   };
 
   // Setze Projektauswahl basierend auf Index
@@ -191,17 +166,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       if (index !== -1) {
         setSelectedProject(project);
         setSelectedProjectIndex(index);
-        console.log('🎯 Projekt direkt ausgewählt:', {
-          projectId: project.id,
-          projectName: project.name,
-          index: index
-        });
-      }
+        }
     } else {
       setSelectedProject(null);
       setSelectedProjectIndex(0);
-      console.log('❌ Projektauswahl zurückgesetzt');
-    }
+      }
   };
 
   return (

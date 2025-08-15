@@ -101,13 +101,11 @@ export default function DashboardCard({
 
     // Event-Listener für localStorage-Änderungen (nur prüfen, keine Events auslösen)
     const handleStorageChange = () => {
-      console.log('🔄 DashboardCard: localStorage geändert - Status prüfen');
       checkFavoriteStatus();
     };
 
     // Event-Listener für benutzerdefinierte Events (nur prüfen, keine Events auslösen)
     const handleFavoritesChanged = () => {
-      console.log('🔄 DashboardCard: Favoriten geändert - Status prüfen');
       checkFavoriteStatus();
     };
 
@@ -171,12 +169,7 @@ export default function DashboardCard({
       detail: { favorites: favorites, changedCardId: cardId }
     }));
     
-    console.log('🔍 DashboardCard: Favorit geändert:', {
-      cardId,
-      isFavorite: !isFavorite,
-      totalFavorites: favorites.length
-    });
-  };
+    };
 
 
 

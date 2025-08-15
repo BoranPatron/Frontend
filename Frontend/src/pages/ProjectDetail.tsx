@@ -363,10 +363,7 @@ export default function ProjectDetail() {
       setQuotes(projectQuotes);
       
       // Lade echte Gewerke (Milestones) für dieses Projekt
-      console.log('🔍 Lade Milestones für Projekt ID:', projectId);
       const milestonesData = await getMilestones(projectId);
-      console.log('🔍 Geladene Milestones:', milestonesData);
-      
       // Konvertiere Milestones zu Trade-Format für die Anzeige
       const projectTrades: Trade[] = milestonesData.map((milestone: any) => ({
         id: milestone.id,
@@ -386,7 +383,6 @@ export default function ProjectDetail() {
         updated_at: milestone.updated_at
       }));
       
-      console.log('🔍 Konvertierte Trades:', projectTrades);
       setTrades(projectTrades);
       
     } catch (e: any) {
@@ -644,12 +640,7 @@ export default function ProjectDetail() {
         construction_phase: selectedPhase
       };
       
-      console.log('🔄 Aktualisiere Phase für Projekt:', project.id, 'Neue Phase:', selectedPhase);
-      console.log('📤 Sende Update-Daten:', updateData);
-      
       const result = await updateProject(project.id, updateData);
-      console.log('✅ Phase erfolgreich aktualisiert:', result);
-      
       setShowPhaseModal(false);
       setError(''); // Fehler zurücksetzen bei Erfolg
       await loadProjectData();
@@ -712,7 +703,6 @@ export default function ProjectDetail() {
     e.preventDefault();
     try {
       // Implementiere die Logik zum Hinzufügen eines neuen Gewerks
-      console.log('Neues Gewerk hinzugefügt:', tradeForm);
       setShowAddTradeModal(false);
       // Lade Projektdaten neu
       await loadProjectData();
@@ -725,8 +715,6 @@ export default function ProjectDetail() {
   // Quote-Handler für TradesCard
   const handleAcceptQuote = async (quoteId: number) => {
     try {
-      console.log('🔧 Accepting quote with ID:', quoteId);
-      
       // Bestätigungsdialog
       const confirmed = window.confirm(
         '⚠️ WICHTIG: Kostenvoranschlag verbindlich annehmen?\n\n' +
@@ -735,13 +723,10 @@ export default function ProjectDetail() {
       );
       
       if (!confirmed) {
-        console.log('❌ Quote acceptance cancelled by user');
         return;
       }
 
       await acceptQuote(quoteId);
-      console.log('✅ Quote successfully accepted');
-      
       // Lade Projektdaten neu um den Status zu aktualisieren
       await loadProjectData();
     } catch (error) {
@@ -752,8 +737,6 @@ export default function ProjectDetail() {
 
   const handleRejectQuote = async (quoteId: number, reason: string) => {
     try {
-      console.log('🔧 Rejecting quote with ID:', quoteId, 'Reason:', reason);
-      
       // Bestätigungsdialog
       const confirmed = window.confirm(
         '⚠️ WICHTIG: Angebot ablehnen?\n\n' +
@@ -762,13 +745,10 @@ export default function ProjectDetail() {
       );
       
       if (!confirmed) {
-        console.log('❌ Quote rejection cancelled by user');
         return;
       }
 
       await rejectQuote(quoteId, reason);
-      console.log('✅ Quote successfully rejected');
-      
       // Lade Projektdaten neu um den Status zu aktualisieren
       await loadProjectData();
     } catch (error) {
@@ -779,8 +759,6 @@ export default function ProjectDetail() {
 
   const handleResetQuote = async (quoteId: number) => {
     try {
-      console.log('🔧 Resetting quote with ID:', quoteId);
-      
       // Bestätigungsdialog
       const confirmed = window.confirm(
         '⚠️ WICHTIG: Kostenvoranschlag zurücksetzen?\n\n' +
@@ -790,13 +768,10 @@ export default function ProjectDetail() {
       );
       
       if (!confirmed) {
-        console.log('❌ Quote reset cancelled by user');
         return;
       }
 
       await resetQuote(quoteId);
-      console.log('✅ Quote successfully reset');
-      
       // Lade Projektdaten neu um den Status zu aktualisieren
       await loadProjectData();
     } catch (error) {

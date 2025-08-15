@@ -43,7 +43,6 @@ export default function EmailNotificationButton({
       });
 
       if (response.ok) {
-        console.log('✅ E-Mail erfolgreich versendet');
         setShowModal(false);
         onSent?.();
       } else {

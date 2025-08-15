@@ -74,8 +74,6 @@ const CreditDashboard: React.FC<CreditDashboardProps> = ({ isAdmin = false }) =>
       const purchase = await purchaseCredits(packageType);
       
       // TODO: Stripe-Integration - hier würde der User zu Stripe weitergeleitet
-      console.log('Credit-Purchase initiiert:', purchase);
-      
       // Simuliere erfolgreichen Kauf für Demo
       alert(`Credit-Kauf initiiert: ${purchase.credits_amount} Credits für ${purchase.price_chf} CHF`);
       
@@ -91,7 +89,6 @@ const CreditDashboard: React.FC<CreditDashboardProps> = ({ isAdmin = false }) =>
   const handleAdminDailyDeduction = async () => {
     try {
       // TODO: Implement processDailyDeductions API call
-      console.log('Daily deductions processing not yet implemented');
       alert(result.message);
       await loadCreditData();
     } catch (err) {

@@ -140,12 +140,9 @@ export default function Tasks() {
   const loadTasks = async () => {
     setLoading(true);
     try {
-      console.log('📋 Loading tasks for project:', selectedProject);
       // Wenn ein Projekt ausgewählt ist, lade nur dessen Aufgaben
       // Ansonsten lade alle Aufgaben des Benutzers
       const data = await getTasks(selectedProject || undefined);
-      console.log('✅ Tasks loaded:', data);
-      console.log('📊 Task count:', data.length);
       setTasks(data);
     } catch (err: any) {
       console.error('❌ Error in loadTasks:', err);
@@ -162,8 +159,6 @@ export default function Tasks() {
     setError(''); // Lösche vorherige Fehler
     
     try {
-      console.log('📝 Form submitted with data:', formData);
-      
       // Validiere erforderliche Felder
       if (!formData.title.trim()) {
         setError('Aufgabentitel ist erforderlich');
@@ -182,10 +177,8 @@ export default function Tasks() {
         estimated_hours: formData.estimated_hours ? parseInt(formData.estimated_hours) : null
       };
       
-      console.log('🚀 Sending task data to API:', taskData);
       await createTask(taskData);
       
-      console.log('✅ Task created successfully');
       setShowCreateModal(false);
       resetForm();
       await loadTasks(); // Lade Aufgaben neu

@@ -15,22 +15,15 @@ export default function OAuthCallback() {
   useEffect(() => {
     // Setze mountedRef explizit auf true beim Mount
     mountedRef.current = true;
-    console.log('🔧 Komponente gemounted - mountedRef.current:', mountedRef.current);
-    
     const handleOAuthCallback = async () => {
       // Verhindere mehrfache Verarbeitung mit robuster Prüfung
       if (processingRef.current) {
-        console.log('🔄 OAuth-Callback bereits in Verarbeitung - überspringe');
         return;
       }
       
-      console.log('🔄 Starte OAuth-Callback-Verarbeitung...');
-      console.log('🔍 mountedRef.current beim Start:', mountedRef.current);
       processingRef.current = true;
       
       try {
-        console.log('🔍 OAuth-Callback gestartet');
-        
         // URL-Parameter extrahieren
         const code = searchParams.get('code');
         const state = searchParams.get('state');
@@ -95,8 +88,6 @@ export default function OAuthCallback() {
 
           clearTimeout(timeoutId);
 
-          console.log(`📡 Backend-Response Status: ${response.status}`);
-
           if (!response.ok) {
             const errorText = await response.text();
             let errorData;
@@ -118,7 +109,6 @@ export default function OAuthCallback() {
                 errorDetail.includes('authorization code has expired') ||
                 errorDetail.includes('AADSTS70008')) {
               
-              console.log('🔄 OAuth-Code bereits verwendet oder abgelaufen');
               setStatus('error');
               setMessage('Der OAuth-Code ist bereits verwendet oder abgelaufen. Bitte starten Sie den Login-Prozess erneut.');
               return;
@@ -139,18 +129,8 @@ export default function OAuthCallback() {
           }
 
           const data = await response.json();
-          console.log(`📡 Backend-Response erfolgreich:`, { 
-            hasToken: !!data.access_token, 
-            hasUser: !!data.user,
-            userId: data.user?.id 
-          });
-
           // Login erfolgreich - ENTFERNE mountedRef Check komplett
           if (data.access_token && data.user) {
-            console.log('✅ OAuth-Login erfolgreich, setze User-Daten');
-            console.log('🔍 data.access_token:', !!data.access_token);
-            console.log('🔍 data.user:', !!data.user);
-            
             console.log('🔄 Führe Login durch (ohne mountedRef Check)');
             
             try {
@@ -159,21 +139,12 @@ export default function OAuthCallback() {
               login(data.access_token, data.user);
               console.log('✅ login() Funktion erfolgreich aufgerufen');
               
-              console.log('🔄 Setze Status auf success...');
               setStatus('success');
-              console.log('✅ Status auf success gesetzt');
-              
               setMessage(`${provider.toUpperCase()} Login erfolgreich! Weiterleitung...`);
-              console.log('✅ Message gesetzt');
-              
-              console.log('🔄 Warte auf AuthContext-Aktualisierung...');
-              
               // Verzögerte Weiterleitung für AuthContext-Aktualisierung
               setTimeout(() => {
-                console.log('⏰ Timeout für Weiterleitung erreicht');
                 const redirectPath = localStorage.getItem('redirectAfterLogin') || '/';
                 localStorage.removeItem('redirectAfterLogin');
-                console.log(`🔄 Weiterleitung zu: ${redirectPath}`);
                 navigate(redirectPath, { replace: true });
               }, 1500); // Reduziert auf 1.5 Sekunden für schnellere UX
               
@@ -214,7 +185,6 @@ export default function OAuthCallback() {
 
     // Cleanup function
     return () => {
-      console.log('🧹 Komponente wird unmounted');
       mountedRef.current = false;
     };
   }, [searchParams, navigate, login]);

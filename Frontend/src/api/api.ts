@@ -7,12 +7,10 @@ export const getApiBaseUrl = () => {
   // Ansonsten verwende die gleiche IP-Adresse wie das Frontend
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     const baseUrl = 'http://localhost:8000/api/v1';
-    console.log('🔧 API Base URL:', baseUrl);
     return baseUrl;
   }
   // Für Netzwerk-Zugriff verwende die gleiche IP wie das Frontend
   const baseUrl = `http://${hostname}:8000/api/v1`;
-  console.log('🔧 API Base URL:', baseUrl);
   return baseUrl;
 };
 
@@ -25,7 +23,6 @@ export const waitForAuth = async (maxWaitTime = 5000): Promise<boolean> => {
     const user = localStorage.getItem('user');
     
     if (token && user) {
-      console.log('✅ AuthContext bereit - Token und User verfügbar');
       return true;
     }
     
@@ -33,7 +30,6 @@ export const waitForAuth = async (maxWaitTime = 5000): Promise<boolean> => {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   
-  console.log('⚠️ Timeout: AuthContext nicht bereit nach', maxWaitTime, 'ms');
   return false;
 };
 
@@ -51,7 +47,6 @@ export const safeApiCall = async <T>(
     // Versuche den API-Call trotzdem, falls Token im localStorage vorhanden ist
     const token = localStorage.getItem('token');
     if (token) {
-      console.log('🔄 Verwende Token aus localStorage für API-Call');
       return apiCall();
     }
     
@@ -76,8 +71,6 @@ export const getAuthenticatedFileUrl = (filePath: string): string => {
   const baseUrl = getApiBaseUrl();
   const token = localStorage.getItem('token');
   
-  console.log('🔧 getAuthenticatedFileUrl called with:', { filePath, baseUrl, hasToken: !!token });
-  
   // Entferne führende Slashes und "storage/" aus dem Pfad
   const cleanPath = filePath.replace(/^\/+/, '').replace(/^storage\//, '');
   
@@ -90,13 +83,11 @@ export const getAuthenticatedFileUrl = (filePath: string): string => {
   const documentId = extractDocumentIdFromPath(cleanPath);
   if (documentId) {
     const contentUrl = `${baseUrl}/documents/${documentId}/content`;
-    console.log('🔧 Using documents/content endpoint:', contentUrl);
     return contentUrl;
   }
   
   // Fallback: Verwende files/serve mit Token als Query-Parameter
   const serveUrl = `${baseUrl}/files/serve/${cleanPath}?token=${encodeURIComponent(token)}`;
-  console.log('🔧 Using files/serve endpoint:', serveUrl);
   return serveUrl;
 };
 
@@ -150,7 +141,6 @@ api.interceptors.request.use(
     
     // Spezielle Behandlung für FormData
     if (config.data instanceof FormData) {
-      console.log('🔍 [INTERCEPTOR] FormData detected, removing Content-Type header');
       delete config.headers['Content-Type'];
       delete config.headers['content-type'];
     }
@@ -167,7 +157,6 @@ api.interceptors.request.use(
 // Response Interceptor für bessere Fehlerbehandlung und Token-Refresh
 api.interceptors.response.use(
   (response) => {
-    console.log(`✅ API Response: ${response.status} ${response.config.url}`, response.data);
     return response;
   },
   async (error) => {
@@ -207,15 +196,12 @@ api.interceptors.response.use(
         const refreshToken = localStorage.getItem('refreshToken');
         if (refreshToken) {
           try {
-            console.log('🔄 Versuche Token-Refresh...');
             const response = await axios.post(`${getApiBaseUrl()}/auth/refresh`, {
               refresh_token: refreshToken
             });
             
             const newToken = response.data.access_token;
             localStorage.setItem('token', newToken);
-            console.log('✅ Token erfolgreich erneuert');
-            
             processQueue(null, newToken);
             originalRequest.headers.Authorization = `Bearer ${newToken}`;
             
@@ -228,7 +214,6 @@ api.interceptors.response.use(
           }
         } else {
           // Kein Refresh-Token verfügbar - das ist normal bei diesem Backend
-          console.log('ℹ️ Kein Refresh-Token verfügbar - normal bei diesem Backend');
           // Behandle dies nicht als Fehler, sondern als normalen 401
           processQueue(null, null);
           return Promise.reject(error);
@@ -257,8 +242,6 @@ api.interceptors.response.use(
     
     // Andere Fehlerbehandlung
     if (error.response?.status === 401) {
-      console.log('ℹ️ 401 Unauthorized - Token abgelaufen oder ungültig');
-      
       // Token aus localStorage entfernen
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
@@ -306,10 +289,8 @@ export const apiCall = async (url: string, options?: any) => {
     }
     
     // Debug: Zeige FormData-Inhalt
-    console.log('🔍 [API] FormData detected, entries:');
     for (let [key, value] of options.data.entries()) {
-      console.log('  ', key, ':', value);
-    }
+      }
     
     // Wichtig: Bei FormData auch Accept-Header entfernen
     if (options.headers) {

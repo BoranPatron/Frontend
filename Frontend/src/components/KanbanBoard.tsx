@@ -181,11 +181,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         url += `?${params.toString()}`;
       }
 
-      console.log('🔍 Lade Tasks von:', url);
       const response = await api.get(url);
-      console.log('📊 API Response:', response);
       const data = response.data || response; // Handle both direct data and axios response
-      console.log('📊 Extrahierte Tasks:', data);
       setTasks(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Fehler beim Laden der Tasks:', err);
@@ -225,11 +222,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         milestone_id: newTask.milestone_id || null
       };
       
-      console.log('🚀 Erstelle Task mit Daten:', taskData);
-      console.log('🔍 newTask State:', newTask);
       const response = await api.post('/tasks', taskData);
-      console.log('✅ Task erstellt:', response.data || response);
-
       await loadTasks();
       setShowCreateModal(false);
       setNewTask({
@@ -251,7 +244,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     try {
       const { api } = await import('../api/api');
       const response = await api.put(`/tasks/${taskId}`, updates);
-      console.log('✅ Task aktualisiert:', response.data || response);
       await loadTasks();
     } catch (err) {
       console.error('Fehler beim Aktualisieren der Aufgabe:', err);
@@ -265,7 +257,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     try {
       const { api } = await import('../api/api');
       const response = await api.delete(`/tasks/${taskId}`);
-      console.log('✅ Task gelöscht:', response.status);
       await loadTasks();
     } catch (err) {
       console.error('Fehler beim Löschen der Aufgabe:', err);
@@ -277,7 +268,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     try {
       const { api } = await import('../api/api');
       const response = await api.post(`/tasks/${taskId}/status`, { status: newStatus });
-      console.log('✅ Task Status geändert:', response.data || response);
       await loadTasks();
     } catch (err) {
       console.error('Fehler beim Aktualisieren des Status:', err);
@@ -293,7 +283,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     try {
       const { api } = await import('../api/api');
       await api.delete(`/tasks/${taskId}`);
-      console.log('✅ Task gelöscht:', taskId);
       await loadTasks();
     } catch (err) {
       console.error('Fehler beim Löschen der Task:', err);
@@ -346,7 +335,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   const getTasksByStatus = (status: string) => {
     const filteredTasks = tasks.filter(task => task.status === status);
-    console.log(`📋 Tasks für Status '${status}':`, filteredTasks);
     return filteredTasks;
   };
 

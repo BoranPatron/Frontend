@@ -34,8 +34,6 @@ export interface CategoryStats {
 
 export async function getDocuments(project_id: number, params?: Partial<DocumentSearchParams>) {
   try {
-    console.log('📋 Fetching documents for project:', project_id, 'with params:', params);
-    
     const searchParams = {
       project_id,
       ...params
@@ -45,12 +43,10 @@ export async function getDocuments(project_id: number, params?: Partial<Document
     if (params?.service_provider_documents) {
       // Vereinfachter Endpoint ohne Parameter
       const res = await api.get('/documents/service-provider');
-      console.log('✅ Service provider documents loaded successfully:', res.data);
       return res.data;
     }
     
     const res = await api.get('/documents', { params: searchParams });
-    console.log('✅ Documents loaded successfully:', res.data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error fetching documents:', error);
@@ -65,14 +61,11 @@ export async function getDocuments(project_id: number, params?: Partial<Document
 
 export async function searchDocumentsFulltext(query: string, project_id?: number, category?: string, limit: number = 50) {
   try {
-    console.log('🔍 Full-text search for:', query, 'in project:', project_id);
-    
     const params: any = { q: query, limit };
     if (project_id) params.project_id = project_id;
     if (category) params.category = category;
     
     const res = await api.get('/documents/search/fulltext', { params });
-    console.log('✅ Full-text search completed:', res.data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error in full-text search:', error);
@@ -82,9 +75,7 @@ export async function searchDocumentsFulltext(query: string, project_id?: number
 
 export async function toggleDocumentFavorite(documentId: number) {
   try {
-    console.log('⭐ Toggling favorite for document:', documentId);
     const res = await api.post(`/documents/${documentId}/favorite`);
-    console.log('✅ Favorite toggled successfully:', res.data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error toggling favorite:', error);
@@ -94,11 +85,9 @@ export async function toggleDocumentFavorite(documentId: number) {
 
 export async function updateDocumentStatus(documentId: number, newStatus: string) {
   try {
-    console.log('📝 Updating document status:', documentId, 'to:', newStatus);
     const res = await api.put(`/documents/${documentId}/status`, null, {
       params: { new_status: newStatus }
     });
-    console.log('✅ Status updated successfully:', res.data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error updating status:', error);
@@ -108,20 +97,16 @@ export async function updateDocumentStatus(documentId: number, newStatus: string
 
 export async function getCategoryStatistics(project_id?: number, service_provider_documents?: boolean): Promise<CategoryStats> {
   try {
-    console.log('📊 Fetching category statistics for project:', project_id);
-    
     const params = project_id ? { project_id } : {};
     
     // Für Dienstleister-Dokumente: Verwende speziellen Endpunkt
     if (service_provider_documents) {
       // Vereinfachter Endpoint ohne Parameter
       const res = await api.get('/documents/categories/stats/service-provider');
-      console.log('✅ Service provider category statistics loaded:', res.data);
       return res.data;
     }
     
     const res = await api.get('/documents/categories/stats', { params });
-    console.log('✅ Category statistics loaded:', res.data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error fetching category statistics:', error);
@@ -131,9 +116,7 @@ export async function getCategoryStatistics(project_id?: number, service_provide
 
 export async function trackDocumentAccess(documentId: number) {
   try {
-    console.log('📈 Tracking access for document:', documentId);
     const res = await api.get(`/documents/${documentId}/access`);
-    console.log('✅ Access tracked successfully:', res.data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error tracking access:', error);
@@ -144,13 +127,10 @@ export async function trackDocumentAccess(documentId: number) {
 
 export async function getRecentDocuments(project_id?: number, limit: number = 10) {
   try {
-    console.log('🕒 Fetching recent documents for project:', project_id);
-    
     const params: any = { limit };
     if (project_id) params.project_id = project_id;
     
     const res = await api.get('/documents/recent', { params });
-    console.log('✅ Recent documents loaded:', res.data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error fetching recent documents:', error);
@@ -160,13 +140,11 @@ export async function getRecentDocuments(project_id?: number, limit: number = 10
 
 export async function getDocument(id: number) {
   try {
-    console.log('📋 Fetching document:', id);
     const res = await api.get(`/documents/${id}`);
     
     // Track access when viewing document
     trackDocumentAccess(id);
     
-    console.log('✅ Document loaded successfully:', res.data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error fetching document:', error);
@@ -181,8 +159,6 @@ export async function getDocument(id: number) {
 
 export async function uploadDocument(formData: FormData) {
   try {
-    console.log('🚀 Uploading document with formData:', formData);
-    
     // Validiere erforderliche Felder
     const title = formData.get('title');
     const project_id = formData.get('project_id');
@@ -261,7 +237,6 @@ export async function uploadDocument(formData: FormData) {
       } 
     });
     
-    console.log('✅ Document uploaded successfully:', res.data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error uploading document:', error);
@@ -299,9 +274,7 @@ export async function uploadDocument(formData: FormData) {
 
 export async function updateDocument(id: number, data: any) {
   try {
-    console.log('🔄 Updating document:', id, 'with data:', data);
     const res = await api.put(`/documents/${id}`, data);
-    console.log('✅ Document updated successfully:', res.data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error updating document:', error);
@@ -316,10 +289,8 @@ export async function updateDocument(id: number, data: any) {
 
 export async function deleteDocument(id: number) {
   try {
-    console.log('🗑️ Deleting document:', id);
     await api.delete(`/documents/${id}`);
-    console.log('✅ Document deleted successfully');
-  } catch (error: any) {
+    } catch (error: any) {
     console.error('❌ Error deleting document:', error);
     console.error('Error details:', {
       status: error.response?.status,
@@ -332,8 +303,6 @@ export async function deleteDocument(id: number) {
 
 export async function downloadDocument(id: number) {
   try {
-    console.log('⬇️ Downloading document:', id);
-    
     // Track access when downloading
     trackDocumentAccess(id);
     
@@ -341,7 +310,6 @@ export async function downloadDocument(id: number) {
       responseType: 'blob'
     });
     
-    console.log('✅ Document downloaded successfully');
     return res.data;
   } catch (error: any) {
     console.error('❌ Error downloading document:', error);

@@ -90,10 +90,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Reset bei User-Wechsel (Logout/Login)
     if (user?.id !== sessionUserId) {
-      console.log('🔄 User-Wechsel erkannt - Reset Onboarding-Check', {
-        previousUserId: sessionUserId,
-        currentUserId: user?.id
-      });
       setOnboardingChecked(false);
       setShowRoleModal(false);
       setSessionUserId(user?.id || null);
@@ -101,26 +97,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     
     // Prüfe ob Rollenauswahl benötigt wird - aber nur einmalig pro Login-Session
     if (user && isInitialized && !onboardingChecked) {
-      console.log('🔍 Einmalige Onboarding-Prüfung für User:', {
-        hasUser: !!user,
-        userId: user.id,
-        email: user.email,
-        userType: user.user_type,
-        userRole: user.user_role,
-        roleSelected: user.role_selected,
-        subscriptionPlan: user.subscription_plan,
-        onboardingChecked: onboardingChecked
-      });
-      
       // Intelligente Onboarding-Logik mit OnboardingManager
       import('./utils/OnboardingManager').then(({ OnboardingManager }) => {
         const onboardingState = OnboardingManager.getOnboardingState(user);
         const debugInfo = OnboardingManager.getDebugInfo(user);
         
-        console.log('🎯 Onboarding-Analyse:', debugInfo);
-        
         if (onboardingState.needsOnboarding) {
-          console.log('🚀 Onboarding erforderlich:', onboardingState.reason);
           // Onboarding kann Rolle oder Dashboard-Tour sein.
           // Rolle fehlt → Modaldialog anzeigen, Tour wird in Dashboard gestartet.
           if (!user.role_selected || !user.user_role) {
@@ -129,7 +111,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
             setShowRoleModal(false);
           }
         } else {
-          console.log('✅ Kein Onboarding erforderlich:', onboardingState.reason);
           setShowRoleModal(false);
         }
         
@@ -160,11 +141,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       {showRoleModal && (
         <RoleSelectionModal 
           onSelectRole={async (role) => {
-            console.log('🎯 Rolle ausgewählt:', role);
             try {
               await selectRole(role);
-              console.log('✅ Rolle erfolgreich gespeichert');
-              
               // Modal dauerhaft schließen
               setShowRoleModal(false);
               
@@ -177,8 +155,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
                 localStorage.setItem(`welcome_shown_${user?.id}`, 'true');
               }
               
-              console.log('✅ Modal geschlossen - wird nicht mehr angezeigt');
-            } catch (error) {
+              } catch (error) {
               console.error('❌ Fehler beim Speichern der Rolle:', error);
               // Modal bleibt offen bei Fehlern
             }
@@ -208,34 +185,22 @@ function NavbarWrapper() {
   const isLoginPage = location.pathname === '/login';
 
   // Debug-Logging für Navbar-Anzeige
-  console.log('🔍 NavbarWrapper Debug:', {
-    hasUser: !!user,
-    isInitialized,
-    isLoginPage,
-    currentPath: location.pathname,
-    shouldShowNavbar: !isLoginPage && isInitialized && !!user
-  });
-
   // Zeige Navbar nur wenn:
   // 1. Nicht auf Login-Seite
   // 2. AuthContext ist initialisiert
   // 3. Benutzer ist authentifiziert (user existiert)
   if (isLoginPage) {
-    console.log('🚫 Navbar ausgeblendet: Auf Login-Seite');
     return null;
   }
   
   if (!isInitialized) {
-    console.log('🚫 Navbar ausgeblendet: AuthContext nicht initialisiert');
     return null;
   }
   
   if (!user) {
-    console.log('🚫 Navbar ausgeblendet: Kein User vorhanden');
     return null;
   }
 
-  console.log('✅ Navbar wird angezeigt');
   return <Navbar />;
 }
 
@@ -243,19 +208,10 @@ function AppContent() {
   const { isInitialized, user } = useAuth();
   const location = useLocation();
 
-  console.log('🔍 AppContent Debug:', {
-    isInitialized,
-    hasUser: !!user,
-    currentPath: window.location.pathname
-  });
-
   // Warte auf Initialisierung
   if (!isInitialized) {
-    console.log('⏳ Warte auf AuthContext-Initialisierung...');
     return <LoadingSpinner />;
   }
-
-  console.log('✅ AppContent gerendert - AuthContext initialisiert');
 
   return (
     <>
@@ -278,7 +234,6 @@ function AppContent() {
           userRole={user.user_role as 'BAUTRAEGER' | 'DIENSTLEISTER'}
           userId={user.id}
           onResponseSent={() => {
-            console.log('Notification response sent');
             // Hier könnten weitere Aktionen ausgeführt werden
           }}
         />
@@ -289,8 +244,7 @@ function AppContent() {
         <BautraegerNotificationTab
           userId={user.id}
           onResponseHandled={() => {
-            console.log('Bauträger response handled');
-          }}
+            }}
         />
       )}
       
@@ -348,11 +302,12 @@ function AppContent() {
             <Finance />
           </ProtectedRoute>
         } />
-        <Route path="/quotes" element={
+        {/* Deaktiviert: Quotes jetzt im Dashboard unter Gewerke integriert */}
+        {/* <Route path="/quotes" element={
           <ProtectedRoute>
             <Quotes />
           </ProtectedRoute>
-        } />
+        } /> */}
         <Route path="/buildwise-fees" element={
           <ProtectedRoute>
             <BuildWiseFees />

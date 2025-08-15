@@ -54,21 +54,15 @@ export default function ServiceProviderBuildWiseFees() {
     try {
       setLoading(true);
       console.log('🔍 Lade BuildWise-Gebühren (Dienstleister)...');
-      console.log('📅 Ausgewählter Monat/Year:', selectedMonth, selectedYear);
-      
       const [feesData, statsData] = await Promise.all([
         getBuildWiseFees(selectedMonth, selectedYear),
         getBuildWiseFeeStatistics()
       ]);
       
-      console.log('📊 Geladene Gebühren:', feesData);
-      console.log('📈 Statistiken:', statsData);
-      
       setFees(feesData);
       setStatistics(statsData);
       
-      console.log('✅ BuildWise-Gebühren erfolgreich geladen');
-    } catch (error) {
+      } catch (error) {
       console.error('❌ Fehler beim Laden der BuildWise-Gebühren:', error);
     } finally {
       setLoading(false);
@@ -86,8 +80,6 @@ export default function ServiceProviderBuildWiseFees() {
 
   const handleGenerateInvoice = async (feeId: number) => {
     try {
-      console.log('📄 Generiere PDF-Rechnung für Gebühr:', feeId);
-      
       // Generiere PDF
       await generateInvoice(feeId);
       
@@ -99,7 +91,6 @@ export default function ServiceProviderBuildWiseFees() {
         try {
           await handleDownloadInvoice(feeId);
         } catch (downloadError) {
-          console.log('Automatischer Download fehlgeschlagen, aber PDF wurde generiert');
           setSuccess('PDF-Rechnung wurde generiert. Sie können sie jetzt herunterladen.');
           setTimeout(() => setSuccess(''), 5000);
         }
@@ -113,15 +104,11 @@ export default function ServiceProviderBuildWiseFees() {
 
   const handleGenerateGewerkInvoice = async (feeId: number) => {
     try {
-      console.log('📄 Generiere Gewerk-PDF-Rechnung für Gebühr:', feeId);
-      
       // Generiere PDF mit Gewerk-Daten und speichere als Dokument
       const result = await generateGewerkInvoice(feeId);
       
       if (result.success) {
         setSuccess(`✅ ${result.message}`);
-        console.log('📋 Dokument gespeichert:', result.document_id);
-        
         // Lade Daten neu
         await loadData();
       } else {
@@ -135,8 +122,6 @@ export default function ServiceProviderBuildWiseFees() {
 
   const handleDownloadInvoice = async (feeId: number) => {
     try {
-      console.log('📥 Starte PDF-Download für Gebühr:', feeId);
-      
       // Hole Token für Authorization
       const token = localStorage.getItem('token');
       if (!token) {
@@ -153,14 +138,10 @@ export default function ServiceProviderBuildWiseFees() {
         }
       });
       
-      console.log('📄 PDF-Response Status:', pdfResponse.status);
       console.log('📄 PDF-Response Headers:', Object.fromEntries(pdfResponse.headers.entries()));
       
       if (pdfResponse.ok) {
         const blob = await pdfResponse.blob();
-        console.log('📄 PDF Blob Größe:', blob.size);
-        console.log('📄 PDF Blob Type:', blob.type);
-        
         if (blob.size > 0) {
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');

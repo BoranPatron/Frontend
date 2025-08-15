@@ -260,8 +260,7 @@ export class CanvasService {
     const ws = new WebSocket(wsUrl);
     
     ws.onopen = () => {
-      console.log('WebSocket connected for canvas:', canvasId);
-    };
+      };
     
     ws.onmessage = (event) => {
       try {
@@ -277,7 +276,6 @@ export class CanvasService {
     };
     
     ws.onclose = () => {
-      console.log('WebSocket disconnected for canvas:', canvasId);
       this.wsConnections.delete(canvasId);
     };
     

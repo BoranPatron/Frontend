@@ -5,7 +5,6 @@ import { useProject } from "../context/ProjectContext";
 import { useAuth } from "../context/AuthContext";
 import { 
   Home, 
-  FileText, 
   CheckSquare, 
   Euro, 
   MessageSquare, 
@@ -24,7 +23,8 @@ import {
   Bell,
   Search,
   Star,
-  TrendingUp
+  TrendingUp,
+  FileText
 } from 'lucide-react';
 
 type RadialItem = {
@@ -52,7 +52,7 @@ type RadialMenuAdvancedProps = {
 export function RadialMenuAdvanced({
   enableGooeyEffect = true,
   showTooltips = true,
-  enableSecondRing = true,
+  enableSecondRing = false,
   customCreateActions
 }: RadialMenuAdvancedProps) {
   const [open, setOpen] = useState(false);
@@ -81,8 +81,8 @@ export function RadialMenuAdvanced({
     const projectId = selectedProject?.id;
     const items: RadialItem[] = [
       {
-        id: "docs",
-        label: "Docs",
+        id: "documents",
+        label: "Dokumente",
         icon: <FileText size={24} />,
         onSelect: () => {
           if (projectId) {
@@ -91,10 +91,10 @@ export function RadialMenuAdvanced({
             navigate('/documents');
           }
         },
-        color: "#4F46E5",
+        color: "#3B82F6",
         description: "Dokumentenmanagement",
         ring: 1,
-        tourId: "radial-menu-docs"
+        tourId: "radial-menu-documents"
       },
       {
         id: "tasks",
@@ -128,16 +128,7 @@ export function RadialMenuAdvanced({
         ring: 1,
         tourId: "radial-menu-finance"
       },
-      {
-        id: "quotes",
-        label: "Gewerke",
-        icon: <MessageSquare size={24} />,
-        onSelect: () => navigate('/quotes'),
-        color: "#8B5CF6",
-        description: "Angebote & Ausschreibungen",
-        ring: 1,
-        tourId: "radial-menu-quotes"
-      },
+      // Entfernt: Gewerke-Hauptpunkt (Seite /quotes deaktiviert)
       {
         id: "visualize",
         label: "Visualize",
@@ -174,13 +165,13 @@ export function RadialMenuAdvanced({
 
     // Filter based on user role and subscription
     if (userRole === 'dienstleister' || userRole === 'DIENSTLEISTER') {
-      return items.filter(item => ['quotes', 'docs'].includes(item.id));
+      return items;
     }
     
     if (userRole === 'bautraeger' || userRole === 'BAUTRAEGER') {
       const isProUser = user?.subscription_plan === 'PRO' && user?.subscription_status === 'ACTIVE';
       if (!isProUser) {
-        return items.filter(item => ['quotes', 'docs'].includes(item.id));
+        return items;
       }
     }
     
@@ -243,11 +234,11 @@ export function RadialMenuAdvanced({
         label: "Neues Gewerk",
         icon: <Hammer size={20} />,
         onSelect: () => {
-          // Öffnet Gewerke und triggert Gewerk-Formular via Query-Param
+          // Öffnet das aktuelle Layout und triggert Gewerk-Formular via Query-Param
           if (projectId) {
-            navigate(`/quotes?project=${projectId}&create=trade`);
+            navigate(`${window.location.pathname}?create=trade&project=${projectId}`);
           } else {
-            navigate('/quotes?create=trade');
+            navigate(`${window.location.pathname}?create=trade`);
           }
         },
         color: "#8B5CF6",
@@ -274,8 +265,9 @@ export function RadialMenuAdvanced({
   };
 
   const mainItems = getMainItems();
-  const createItems = enableSecondRing ? getCreateItems() : [];
-  const allItems = showCreateMenu ? [...mainItems, ...createItems] : mainItems;
+  // Sekundärreihe als Primärreihe integrieren
+  const createItems = getCreateItems();
+  const allItems = [...mainItems, ...createItems.map(ci => ({ ...ci, ring: 1 }))];
 
   // Calculate layout with multiple rings - doubled radius for maximum spacing
   const layout = useMemo(() => {
@@ -283,11 +275,11 @@ export function RadialMenuAdvanced({
     const radius2 = isMobile ? 330 : 420;  // Doubled from 165/210
     
     return allItems.map((item, i) => {
-      const isSecondRing = item.ring === 2;
-      const radius = isSecondRing ? radius2 : radius1;
+      const isSecondRing = false; // alles in den Primärring verschoben
+      const radius = radius1;
       
       // Calculate angle based on ring
-      const itemsInRing = allItems.filter(it => it.ring === item.ring);
+      const itemsInRing = allItems; // ein Ring
       const indexInRing = itemsInRing.indexOf(item);
       const countInRing = itemsInRing.length;
       
@@ -302,7 +294,7 @@ export function RadialMenuAdvanced({
         x: Math.cos(angle) * radius,
         y: Math.sin(angle) * radius,
         angleDeg: startAngle + t * span,
-        ring: item.ring || 1
+        ring: 1
       };
     });
   }, [allItems, isMobile]);
@@ -515,7 +507,7 @@ export function RadialMenuAdvanced({
                     y: 0, 
                     opacity: 0, 
                     scale: 0.3, 
-                    rotate: item.ring === 2 ? 360 : -180 
+                   rotate: -180 
                   }}
                   animate={{
                     x: layout[i].x,
@@ -529,7 +521,7 @@ export function RadialMenuAdvanced({
                     y: 0, 
                     opacity: 0, 
                     scale: 0.3,
-                    rotate: item.ring === 2 ? -360 : 180
+                     rotate: 180
                   }}
                   transition={{
                     type: "spring",
@@ -550,18 +542,12 @@ export function RadialMenuAdvanced({
                   onFocus={() => setActiveIndex(i)}
                   className="absolute group"
                   style={{
-                    width: hoveredIndex === i 
-                      ? (item.ring === 2 ? (isMobile ? 56 : 64) : (isMobile ? 64 : 76))
-                      : (item.ring === 2 ? (isMobile ? 48 : 56) : (isMobile ? 52 : 64)),
-                    height: hoveredIndex === i 
-                      ? (item.ring === 2 ? (isMobile ? 56 : 64) : (isMobile ? 64 : 76))
-                      : (item.ring === 2 ? (isMobile ? 48 : 56) : (isMobile ? 52 : 64)),
+                    width: hoveredIndex === i ? (isMobile ? 64 : 76) : (isMobile ? 52 : 64),
+                    height: hoveredIndex === i ? (isMobile ? 64 : 76) : (isMobile ? 52 : 64),
                     borderRadius: "50%",
                     border: "none",
                     background: hoveredIndex === i || activeIndex === i 
                       ? `linear-gradient(135deg, ${item.color}, ${item.color}dd)`
-                      : item.ring === 2
-                      ? `linear-gradient(135deg, #374151, #1f2937)`
                       : `linear-gradient(135deg, #2a2f3a, #1f2937)`,
                     color: "white",
                     boxShadow: hoveredIndex === i || activeIndex === i
@@ -573,8 +559,6 @@ export function RadialMenuAdvanced({
                          0 4px 12px rgba(0,0,0,0.3),
                          inset 0 2px 2px rgba(255,255,255,0.3),
                          inset 0 -2px 2px rgba(0,0,0,0.2)`
-                      : item.ring === 2
-                      ? "0 4px 12px rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.15)"
                       : "0 6px 16px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.2)",
                     cursor: "pointer",
                     willChange: "transform",
@@ -583,7 +567,7 @@ export function RadialMenuAdvanced({
                     justifyContent: 'center',
                     outline: 'none',
                     transition: 'background 0.3s ease, z-index 0.1s ease',
-                    opacity: item.ring === 2 ? 0.9 : 1,
+                    opacity: 1,
                     zIndex: hoveredIndex === i ? 500 : 50,
                   }}
                   whileHover={{ scale: 1.2 }}
@@ -642,41 +626,7 @@ export function RadialMenuAdvanced({
                 </motion.button>
               ))}
 
-              {/* Secondary action button (Create toggle) */}
-              {enableSecondRing && (
-                <motion.button
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0 }}
-                  transition={{ delay: 0.2 }}
-                  onClick={() => setShowCreateMenu(!showCreateMenu)}
-                  data-tour-id="radial-menu-create-ring"
-                  className="absolute"
-                  style={{
-                    width: isMobile ? 40 : 48,
-                    height: isMobile ? 40 : 48,
-                    borderRadius: "50%",
-                    border: "none",
-                    background: showCreateMenu 
-                      ? "linear-gradient(135deg, #10B981, #059669)"
-                      : "linear-gradient(135deg, #6B7280, #4B5563)",
-                    color: "white",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-                    cursor: "pointer",
-                    bottom: isMobile ? -60 : -80,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                  title="Create Actions (C)"
-                >
-                  <Plus size={isMobile ? 18 : 20} />
-                </motion.button>
-              )}
+              {/* Secondary button entfällt – alle Aktionen sind im Primärring */}
             </>
           )}
         </AnimatePresence>

@@ -175,8 +175,6 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
       const response = await api.post('/invoices/create', invoiceData);
       
-      console.log('✅ Rechnung erfolgreich erstellt:', response.data);
-      
       // Sichere Behandlung der Antwort
       if (response.data && typeof response.data === 'object') {
         console.log('✅ Rechnung-Daten:', JSON.stringify(response.data, null, 2));
@@ -232,7 +230,6 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
         }
       });
 
-      console.log('✅ Rechnung erfolgreich hochgeladen:', response.data);
       onInvoiceSubmitted();
       onClose();
       

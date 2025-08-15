@@ -81,7 +81,6 @@ export default function BuildWiseFees() {
     
     // Simuliere API-Call
     setTimeout(() => {
-      console.log('🚀 Pro-Abo wird aktiviert:', planId);
       setIsLoading(false);
       // Hier würde die echte Abo-Logik implementiert werden
     }, 2000);

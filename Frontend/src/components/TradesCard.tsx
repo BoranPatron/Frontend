@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Wrench, User, Euro, BarChart3, Calendar, Tag, CheckCircle, XCircle, AlertTriangle, Eye, FileText, ChevronDown, ChevronUp, Clock, Users, Trophy, Sparkles, MessageCircle, Edit, Trash2, MoreHorizontal } from 'lucide-react';
+import { Wrench, User, Euro, BarChart3, Calendar, Tag, CheckCircle, XCircle, AlertTriangle, Eye, FileText, ChevronDown, ChevronUp, Clock, Users, Trophy, Sparkles, MessageCircle, Edit, Trash2, MoreHorizontal, StickyNote } from 'lucide-react';
+import { updateMilestone } from '../api/milestoneService';
 import { useNavigate } from 'react-router-dom';
 import { getQuotesForMilestone } from '../api/quoteService';
 
@@ -17,6 +18,8 @@ interface Trade {
   priority: 'low' | 'medium' | 'high' | 'critical';
   category?: string;
   notes?: string;
+  planned_date?: string;
+  requires_inspection?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -51,6 +54,7 @@ interface TradesCardProps {
   onResetQuote?: (quoteId: number) => void;
   onEditTrade?: (tradeId: number) => void;
   onDeleteTrade?: (tradeId: number) => void;
+  onTradeClick?: (trade: Trade) => void;
 }
 
 interface TradeStats {
@@ -69,9 +73,11 @@ export default function TradesCard({
   onRejectQuote,
   onResetQuote,
   onEditTrade,
-  onDeleteTrade
+  onDeleteTrade,
+  onTradeClick
 }: TradesCardProps) {
   const navigate = useNavigate();
+  const [showAll, setShowAll] = useState(false);
   const [quoteData, setQuoteData] = useState<{ [tradeId: number]: QuoteData | null }>({});
   const [quoteStatus, setQuoteStatus] = useState<{ [tradeId: number]: string }>({});
   const [loading, setLoading] = useState<{ [tradeId: number]: boolean }>({});
@@ -81,6 +87,10 @@ export default function TradesCard({
   const [tradeStats, setTradeStats] = useState<{ [tradeId: number]: TradeStats }>({});
   const [showTradeActions, setShowTradeActions] = useState<{ [tradeId: number]: boolean }>({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ [tradeId: number]: boolean }>({});
+  const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
+  const [editForm, setEditForm] = useState<{ title: string; description: string; category: string; priority: string; planned_date: string; notes: string; requires_inspection: boolean }>({ title: '', description: '', category: '', priority: 'medium', planned_date: '', notes: '', requires_inspection: false });
+  const [isUpdatingTrade, setIsUpdatingTrade] = useState(false);
+  const [updatedTrades, setUpdatedTrades] = useState<{ [id: number]: Partial<Trade> }>({});
 
   console.log('🔍 TradesCard Props:', { trades, projectId, isExpanded, tradesLength: trades.length });
 
@@ -524,6 +534,32 @@ export default function TradesCard({
     }
   };
 
+  const getCategoryLabel = (category: string) => {
+    switch (category) {
+      case 'electrical': return 'Elektro';
+      case 'plumbing': return 'Sanitär';
+      case 'heating': return 'Heizung';
+      case 'flooring': return 'Bodenbelag';
+      case 'painting': return 'Malerei';
+      case 'carpentry': return 'Zimmerei';
+      case 'roofing': return 'Dachdeckerei';
+      case 'landscaping': return 'Garten- & Landschaftsbau';
+      case 'civil_engineering': return 'Tiefbau';
+      case 'structural': return 'Hochbau';
+      case 'interior': return 'Innenausbau / Interior';
+      case 'facade': return 'Fassade';
+      case 'windows_doors': return 'Fenster & Türen';
+      case 'drywall': return 'Trockenbau';
+      case 'tiling': return 'Fliesenarbeiten';
+      case 'insulation': return 'Dämmung';
+      case 'hvac': return 'Klima / Lüftung (HVAC)';
+      case 'smart_home': return 'Smart Home';
+      case 'site_preparation': return 'Erdarbeiten / Baustellenvorbereitung';
+      case 'other': return 'Sonstiges';
+      default: return category;
+    }
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
     return new Date(dateString).toLocaleDateString('de-DE');
@@ -536,9 +572,49 @@ export default function TradesCard({
     return !hasQuotes;
   };
 
+  const openEditModal = (trade: Trade) => {
+    setEditingTrade(trade);
+    setEditForm({
+      title: trade.title || '',
+      description: trade.description || '',
+      category: trade.category || '',
+      priority: trade.priority || 'medium',
+      planned_date: trade.planned_date || '',
+      notes: trade.notes || '',
+      requires_inspection: (trade as any).requires_inspection || false,
+    });
+  };
+
+  const handleUpdateTrade = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTrade) return;
+    try {
+      setIsUpdatingTrade(true);
+      const payload: any = {
+        title: editForm.title,
+        description: editForm.description,
+        category: editForm.category || undefined,
+        priority: editForm.priority,
+        planned_date: editForm.planned_date || undefined,
+        notes: editForm.notes || undefined,
+        requires_inspection: editForm.requires_inspection,
+      };
+      await updateMilestone(editingTrade.id, payload);
+      setUpdatedTrades(prev => ({ ...prev, [editingTrade.id]: { ...payload } }));
+      setEditingTrade(null);
+    } catch (error) {
+      console.error('❌ Fehler beim Aktualisieren des Gewerks:', error);
+      alert('Fehler beim Aktualisieren des Gewerks');
+    } finally {
+      setIsUpdatingTrade(false);
+    }
+  };
+
   const handleEditTrade = (tradeId: number) => {
-    if (onEditTrade && canEditOrDeleteTrade(tradeId)) {
-      onEditTrade(tradeId);
+    const trade = trades.find(t => t.id === tradeId);
+    if (!trade) return;
+    if (canEditOrDeleteTrade(tradeId)) {
+      openEditModal(trade);
     }
   };
 
@@ -574,23 +650,27 @@ export default function TradesCard({
             <div className="text-center py-8">
               <Wrench size={48} className="text-gray-400 mx-auto mb-4" />
               <p className="text-gray-400 text-sm mb-4">Keine Gewerke für dieses Projekt vorhanden</p>
-              <p className="text-gray-500 text-xs mb-4">Erstellen Sie ein neues Gewerk über die "Gewerke"-Seite</p>
-              <button
-                onClick={() => navigate('/quotes')}
-                className="px-4 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition-colors"
-              >
-                Gewerk erstellen
-              </button>
+              <p className="text-gray-500 text-xs mb-1">Erstellen Sie ein neues Gewerk in den Projekt-Details.</p>
+              {projectId && (
+                <button
+                  onClick={() => navigate(`/project/${projectId}`)}
+                  className="px-4 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition-colors"
+                >
+                  Zu den Projekt-Details
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
-              {trades.slice(0, 5).map((trade) => {
+              {(showAll ? trades : trades.slice(0, 5)).map((trade) => {
                 const currentQuoteStatus = quoteStatus[trade.id] || 'unknown';
                 const currentQuoteData = quoteData[trade.id];
                 const isLoading = loading[trade.id] || false;
                 const statusInfo = getStatusDisplay(currentQuoteStatus);
                 const showDetailsForTrade = showDetails[trade.id] || false;
                 const tradeStatsForTrade = tradeStats[trade.id];
+                const overridden = updatedTrades[trade.id] || {};
+                const effectiveTrade = { ...trade, ...overridden } as Trade;
 
                 return (
                   <div
@@ -600,6 +680,8 @@ export default function TradesCard({
                         ? 'border-2 border-green-500/40 bg-gradient-to-r from-green-500/5 to-emerald-500/5 shadow-lg shadow-green-500/10' 
                         : 'border border-white/10'
                     }`}
+                    role="button"
+                    onClick={() => onTradeClick && onTradeClick(trade)}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
@@ -607,9 +689,11 @@ export default function TradesCard({
                           <Wrench size={16} className="text-[#ffbd59]" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="text-white font-medium text-sm truncate">{trade.title}</h4>
-                          {trade.description && (
-                            <p className="text-gray-400 text-xs mt-1 line-clamp-2">{trade.description}</p>
+                          <h4 className="text-white font-medium text-sm truncate">{effectiveTrade.title}</h4>
+                          {(effectiveTrade.description || effectiveTrade.notes) && (
+                            <p className="text-gray-400 text-xs mt-1 line-clamp-2">
+                              {effectiveTrade.description || effectiveTrade.notes || 'Keine Details verfügbar'}
+                            </p>
                           )}
                           
                           {/* Angebots-Statistiken */}
@@ -628,7 +712,7 @@ export default function TradesCard({
                                 className="flex items-center gap-1 cursor-pointer hover:text-[#ffbd59] transition-colors group"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigate(`/quotes?tradeId=${trade.id}`);
+                                  setShowDetails(prev => ({ ...prev, [trade.id]: true }));
                                 }}
                               >
                                 <Users size={14} className="text-[#ffbd59] group-hover:text-[#ffa726]" />
@@ -738,96 +822,92 @@ export default function TradesCard({
                         </div>
                       </div>
                       
-                      {/* Status-Badges und Aktionen */}
+                      {/* Aktionen */}
                       <div className="flex flex-col gap-1 items-end">
                         <div className="flex items-center gap-2">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getTradeStatusColor(trade.status)}`}>
-                            {getTradeStatusLabel(trade.status)}
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(effectiveTrade.priority)}`}>
+                            {getPriorityLabel(effectiveTrade.priority)}
                           </span>
-                          
-                          {/* Bearbeiten/Löschen Aktionen für Gewerke ohne Angebote */}
-                          {canEditOrDeleteTrade(trade.id) && (onEditTrade || onDeleteTrade) && (
-                            <div className="relative">
+                          {/* Bearbeiten/Löschen Aktionen */}
+                          <div className="flex items-center gap-2">
+                            {/* Bearbeiten-Button: erlaubt nur wenn keine Angebote vorhanden */}
+                            {(() => {
+                              const hasAnyQuote = (tradeStatsForTrade?.totalQuotes || 0) > 0;
+                              const hasAccepted = !!tradeStatsForTrade?.acceptedQuote || currentQuoteStatus === 'accepted';
+                              const disabled = hasAnyQuote;
+                              const title = hasAccepted
+                                ? 'Bearbeiten nicht möglich, Angebot wurde bereits angenommen'
+                                : (hasAnyQuote ? 'Bearbeiten nicht möglich, es liegen bereits Angebote vor' : 'Gewerk bearbeiten');
+                              return (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); if (!disabled) openEditModal(effectiveTrade); }}
+                                  className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${disabled ? 'bg-white/5 text-gray-400 cursor-not-allowed opacity-50' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                                  title={title}
+                                  disabled={disabled}
+                                >
+                                  <Edit className="w-3 h-3" />
+                                  Bearbeiten
+                                </button>
+                              );
+                            })()}
+                            {/* Löschen über Menü nur wenn keine Angebote */}
+                            {canEditOrDeleteTrade(trade.id) && onDeleteTrade && (
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setShowTradeActions(prev => ({ ...prev, [trade.id]: !showTradeActions[trade.id] }));
-                                }}
-                                className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200"
-                                title="Gewerk-Aktionen"
+                                onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(prev => ({ ...prev, [trade.id]: true })); }}
+                                className="px-2 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 bg-red-500/10 text-red-300 hover:bg-red-500/20"
+                                title="Gewerk löschen"
                               >
-                                <MoreHorizontal className="w-4 h-4" />
+                                <Trash2 className="w-3 h-3" />
+                                Löschen
                               </button>
-                              
-                              {/* Dropdown-Menü */}
-                              {showTradeActions[trade.id] && (
-                                <div className="absolute right-0 top-full mt-1 bg-[#2c3539] border border-white/20 rounded-lg shadow-2xl z-50 min-w-[160px]">
-                                  <div className="py-1">
-                                    {onEditTrade && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleEditTrade(trade.id);
-                                          setShowTradeActions(prev => ({ ...prev, [trade.id]: false }));
-                                        }}
-                                        className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#ffbd59]/20 hover:text-[#ffbd59] transition-colors flex items-center gap-2"
-                                      >
-                                        <Edit className="w-4 h-4" />
-                                        Bearbeiten
-                                      </button>
-                                    )}
-                                    {onDeleteTrade && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setShowDeleteConfirm(prev => ({ ...prev, [trade.id]: true }));
-                                          setShowTradeActions(prev => ({ ...prev, [trade.id]: false }));
-                                        }}
-                                        className="w-full px-4 py-2 text-left text-sm text-red-300 hover:bg-red-500/20 hover:text-red-200 transition-colors flex items-center gap-2"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                        Löschen
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
-                        
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(trade.priority)}`}>
-                          {getPriorityLabel(trade.priority)}
-                        </span>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 text-xs text-gray-400">
-                      {trade.contractor && (
+                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-400 mt-2">
+                      {effectiveTrade.planned_date && (
                         <div className="flex items-center gap-1">
-                          <User size={12} />
-                          <span className="truncate">{trade.contractor}</span>
+                          <Calendar size={12} className="text-[#ffbd59]" />
+                          <span>Geplant: {formatDate(effectiveTrade.planned_date)}</span>
                         </div>
                       )}
                       
-                      {trade.budget && trade.budget > 0 && (
+                      {effectiveTrade.contractor && (
                         <div className="flex items-center gap-1">
-                          <Euro size={12} />
-                          <span>{trade.budget.toLocaleString('de-DE')} €</span>
+                          <User size={12} className="text-[#ffbd59]" />
+                          <span className="truncate">{effectiveTrade.contractor}</span>
                         </div>
                       )}
                       
-                      {trade.start_date && (
+                      {effectiveTrade.budget && effectiveTrade.budget > 0 && (
                         <div className="flex items-center gap-1">
-                          <Calendar size={12} />
-                          <span>Start: {formatDate(trade.start_date)}</span>
+                          <Euro size={12} className="text-[#ffbd59]" />
+                          <span>{effectiveTrade.budget.toLocaleString('de-DE')} €</span>
                         </div>
                       )}
                       
-                      {trade.progress_percentage > 0 && (
+                      {effectiveTrade.start_date && (
                         <div className="flex items-center gap-1">
-                          <BarChart3 size={12} />
-                          <span>{trade.progress_percentage}%</span>
+                          <Calendar size={12} className="text-[#ffbd59]" />
+                          <span>Start: {formatDate(effectiveTrade.start_date)}</span>
+                        </div>
+                      )}
+                      
+                      {(effectiveTrade as any).requires_inspection || (effectiveTrade as any).inspection_required ? (
+                        <div className="flex items-center gap-1">
+                          <Eye size={12} className="text-blue-400" />
+                          <span>Besichtigung erforderlich</span>
+                        </div>
+                      ) : null}
+                      
+
+                      
+                      {effectiveTrade.progress_percentage > 0 && (
+                        <div className="flex items-center gap-1">
+                          <BarChart3 size={12} className="text-green-400" />
+                          <span>{effectiveTrade.progress_percentage}% abgeschlossen</span>
                         </div>
                       )}
                     </div>
@@ -847,14 +927,37 @@ export default function TradesCard({
                       </div>
                     )}
 
-                    {trade.category && (
-                      <div className="mt-3">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-500/20 text-gray-300 border border-gray-500/30">
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {effectiveTrade.category && (
+                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-[#ffbd59]/20 text-[#ffbd59] border border-[#ffbd59]/30">
                           <Tag size={10} />
-                          {trade.category}
+                          {getCategoryLabel(effectiveTrade.category)}
                         </span>
-                      </div>
-                    )}
+                      )}
+                      
+                      {(effectiveTrade.notes || effectiveTrade.description) && (
+                        <span 
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30 cursor-help" 
+                          title={effectiveTrade.notes || effectiveTrade.description || 'Details verfügbar'}
+                        >
+                          <StickyNote size={10} />
+                          Details
+                        </span>
+                      )}
+                      
+                      {(trade.requires_inspection || trade.inspection_required) && (
+                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                          <Eye size={10} />
+                          Besichtigung erforderlich
+                        </span>
+                      )}
+                      
+                      {effectiveTrade.status && (
+                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${getTradeStatusColor(trade.status)}`}>
+                          {getTradeStatusLabel(effectiveTrade.status)}
+                        </span>
+                      )}
+                    </div>
 
                     {/* Angebot-Status und Aktionen */}
                     <div className="mt-4 pt-3 border-t border-white/10">
@@ -980,12 +1083,20 @@ export default function TradesCard({
                 );
               })}
               
-              {trades.length > 5 && (
+              {trades.length > 5 && !showAll && (
                 <button
-                  onClick={() => navigate('/quotes')}
+                  onClick={() => setShowAll(true)}
                   className="w-full text-center text-[#ffbd59] text-sm hover:underline py-3"
                 >
                   +{trades.length - 5} weitere Gewerke anzeigen
+                </button>
+              )}
+              {trades.length > 5 && showAll && (
+                <button
+                  onClick={() => setShowAll(false)}
+                  className="w-full text-center text-[#ffbd59] text-sm hover:underline py-3"
+                >
+                  Weniger anzeigen
                 </button>
               )}
             </div>
@@ -1095,6 +1206,99 @@ export default function TradesCard({
         }
         return null;
       })}
+
+      {/* Gewerk bearbeiten Modal */}
+      {editingTrade && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-2xl shadow-2xl border border-white/20 max-w-xl w-full">
+            <div className="p-6 border-b border-white/10 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">Gewerk bearbeiten</h3>
+              <button onClick={() => setEditingTrade(null)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <form onSubmit={handleUpdateTrade} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Titel</label>
+                <input
+                  type="text"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[#ffbd59]"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Beschreibung</label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                  className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[#ffbd59]"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Kategorie</label>
+                  <input
+                    type="text"
+                    value={editForm.category}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[#ffbd59]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Priorität</label>
+                  <select
+                    value={editForm.priority}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, priority: e.target.value }))}
+                    className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[#ffbd59]"
+                  >
+                    <option value="low">Niedrig</option>
+                    <option value="medium">Mittel</option>
+                    <option value="high">Hoch</option>
+                    <option value="critical">Kritisch</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Geplantes Datum</label>
+                  <input
+                    type="date"
+                    value={editForm.planned_date}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, planned_date: e.target.value }))}
+                    className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[#ffbd59]"
+                  />
+                </div>
+                <div className="flex items-center gap-2 mt-6">
+                  <input
+                    id="requires_inspection"
+                    type="checkbox"
+                    checked={editForm.requires_inspection}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, requires_inspection: e.target.checked }))}
+                    className="w-4 h-4 text-[#ffbd59] bg-[#2c3539]/50 border-gray-600 rounded focus:ring-[#ffbd59] focus:ring-2"
+                  />
+                  <label htmlFor="requires_inspection" className="text-sm text-gray-300">Besichtigung erforderlich</label>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Notizen</label>
+                <textarea
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
+                  rows={2}
+                  className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[#ffbd59]"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setEditingTrade(null)} className="px-4 py-2 text-gray-300 hover:text-white">Abbrechen</button>
+                <button type="submit" disabled={isUpdatingTrade} className="px-4 py-2 bg-[#ffbd59] text-[#2c3539] rounded-lg font-semibold hover:bg-[#ffa726] disabled:opacity-50">
+                  {isUpdatingTrade ? 'Speichern…' : 'Speichern'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

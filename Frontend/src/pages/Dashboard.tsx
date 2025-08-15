@@ -1,11 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useSwipeable } from 'react-swipeable';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
-import { getProjects, createProject } from '../api/projectService';
+import { getProjects, createProject, updateProject } from '../api/projectService';
 import { uploadDocument } from '../api/documentService';
 import ConstructionPhaseTimeline from '../components/ConstructionPhaseTimeline';
+import TradesCard from '../components/TradesCard';
+import TradeDetailsModal from '../components/TradeDetailsModal';
+import CostEstimateDetailsModal from '../components/CostEstimateDetailsModal';
+import CreateInspectionModal from '../components/CreateInspectionModal';
+import TradeCreationForm from '../components/TradeCreationForm';
+import { getMilestones } from '../api/milestoneService';
+import { acceptQuote, rejectQuote, resetQuote, getQuotesForMilestone, getQuotes } from '../api/quoteService';
+import { getTasks } from '../api/taskService';
+import { getCategoryStatistics } from '../api/documentService';
 import { RadialMenu } from '../components/RadialMenu';
 import { RadialMenuAdvanced } from '../components/RadialMenuAdvanced';
 import { 
@@ -24,10 +33,20 @@ import {
   CheckCircle,
   Info,
   CheckSquare,
-  MessageSquare
+  MessageSquare,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  CloudUpload,
+  Image,
+  Video,
+  Archive,
+  File,
+  Edit
 } from 'lucide-react';
 import GuidedTourOverlay from '../components/Onboarding/GuidedTourOverlay';
 import PageHeader from '../components/PageHeader';
+import AddressAutocomplete from '../components/AddressAutocomplete';
 
 // DMS-Kategorien (synchron mit Backend)
 const DOCUMENT_CATEGORIES = {
@@ -143,6 +162,7 @@ interface Project {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isInitialized, isAuthenticated, userRole, user, isServiceProvider } = useAuth();
   const { 
     projects, 
@@ -165,6 +185,8 @@ export default function Dashboard() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string>('');
+  const [error, setError] = useState<string>('');
   const [showTour, setShowTour] = useState(false);
   
   // State für Projekt-Erstellung
@@ -188,6 +210,10 @@ export default function Dashboard() {
     is_public: true,
     allow_quotes: true
   });
+  // Edit-Projekt Modal State
+  const [showEditProjectModal, setShowEditProjectModal] = useState(false);
+  const [isUpdatingProject, setIsUpdatingProject] = useState(false);
+  const [editProjectError, setEditProjectError] = useState<string | null>(null);
 
   // State für Dokumenten-Upload (vollständiges DMS-System)
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
@@ -346,6 +372,50 @@ export default function Dashboard() {
     swipeDuration: 500, // Maximale Swipe-Dauer
   });
 
+  // Query-Param getriebenes Öffnen von Modals (z. B. Neues Gewerk über RadialMenu)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const create = params.get('create');
+    const projectParam = params.get('project');
+    if (create === 'trade') {
+      if (projectParam && projects.length > 0) {
+        const idx = projects.findIndex(p => String(p.id) === String(projectParam));
+        if (idx >= 0) setSelectedProjectIndex(idx);
+      }
+      if (selectedProject) {
+        setShowTradeCreationForm(true);
+        // Nur 'create' entfernen, 'project' beibehalten
+        const newParams = new URLSearchParams(location.search);
+        newParams.delete('create');
+        navigate({ pathname: location.pathname, search: newParams.toString() ? `?${newParams.toString()}` : '' }, { replace: true });
+      }
+    }
+  }, [location.search, projects.length, selectedProject?.id, setSelectedProjectIndex]);
+
+  // Desktop-Projekt-Navigation: Vor/Zurück + Dropdown + Pfeiltasten
+  const canGoPrev = selectedProjectIndex > 0;
+  const canGoNext = selectedProjectIndex < Math.max(projects.length - 1, 0);
+
+  const goPrevProject = () => {
+    if (canGoPrev) setSelectedProjectIndex(selectedProjectIndex - 1);
+  };
+  const goNextProject = () => {
+    if (canGoNext) setSelectedProjectIndex(selectedProjectIndex + 1);
+  };
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isTransitioning || projects.length === 0) return;
+      if (e.key === 'ArrowLeft') {
+        goPrevProject();
+      } else if (e.key === 'ArrowRight') {
+        goNextProject();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isTransitioning, projects.length, selectedProjectIndex]);
+
   // Callback-Handler für alle Kacheln
   const onManagerClick = () => {
     if (selectedProject) {
@@ -398,6 +468,33 @@ export default function Dashboard() {
   const handleCreateProjectClick = () => {
     setShowCreateProjectModal(true);
     setCreateProjectError(null);
+  };
+  const handleOpenEditProjectModal = () => {
+    if (!selectedProject) return;
+    const p: any = selectedProject;
+    setProjectForm({
+      name: p.name || '',
+      description: p.description || '',
+      project_type: p.project_type || 'new_build',
+      address_street: p.address_street || '',
+      address_zip: p.address_zip || '',
+      address_city: p.address_city || '',
+      address_country: (p as any).address_country || 'Deutschland',
+      construction_phase: (p as any).construction_phase || '',
+      property_size: p.property_size ? String(p.property_size) : '',
+      construction_area: p.construction_area ? String(p.construction_area) : '',
+      start_date: p.start_date || '',
+      end_date: p.end_date || '',
+      budget: p.budget ? String(p.budget) : '',
+      is_public: p.is_public ?? true,
+      allow_quotes: p.allow_quotes ?? true
+    });
+    setEditProjectError(null);
+    setShowEditProjectModal(true);
+  };
+  const handleCloseEditProjectModal = () => {
+    setShowEditProjectModal(false);
+    setEditProjectError(null);
   };
 
   const handleCloseCreateProjectModal = () => {
@@ -546,6 +643,39 @@ export default function Dashboard() {
       setIsCreatingProject(false);
     }
   };
+  const handleUpdateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProject) return;
+    setIsUpdatingProject(true);
+    setEditProjectError(null);
+    try {
+      const projectData = {
+        name: projectForm.name.trim(),
+        description: projectForm.description.trim() || '',
+        project_type: projectForm.project_type,
+        address_street: projectForm.address_street?.trim() || undefined,
+        address_zip: projectForm.address_zip?.trim() || undefined,
+        address_city: projectForm.address_city?.trim() || undefined,
+        address_country: projectForm.address_country?.trim() || 'Deutschland',
+        construction_phase: projectForm.construction_phase || undefined,
+        property_size: projectForm.property_size ? parseFloat(projectForm.property_size) : undefined,
+        construction_area: projectForm.construction_area ? parseFloat(projectForm.construction_area) : undefined,
+        start_date: projectForm.start_date || undefined,
+        end_date: projectForm.end_date || undefined,
+        budget: projectForm.budget ? parseFloat(projectForm.budget) : undefined,
+        is_public: true,
+        allow_quotes: projectForm.allow_quotes
+      } as any;
+      await updateProject(selectedProject.id, projectData);
+      setShowEditProjectModal(false);
+      await loadProjects();
+    } catch (error: any) {
+      console.error('❌ Fehler beim Aktualisieren des Projekts:', error);
+      setEditProjectError(error?.message || 'Unbekannter Fehler beim Aktualisieren des Projekts');
+    } finally {
+      setIsUpdatingProject(false);
+    }
+  };
 
   // Dokumenten-Upload-Funktionen (vollständiges DMS-System)
   const getFileIcon = (file: File) => {
@@ -644,11 +774,7 @@ export default function Dashboard() {
 
   // Handler für Create-Actions (können vom RadialMenu oder anderen Komponenten genutzt werden)
   const handleCreateTrade = () => {
-    if (selectedProject) {
-      navigate(`/quotes/create?project=${selectedProject.id}`);
-    } else {
-      navigate('/quotes/create');
-    }
+    setShowTradeCreationForm(true);
   };
 
   const handleCreateTodo = () => {
@@ -721,20 +847,69 @@ export default function Dashboard() {
     return Math.round((project.current_costs / project.budget) * 100);
   };
 
-  // Mock-Daten für Dashboard-Kacheln (können später durch echte API-Daten ersetzt werden)
-  const getMockProjectStats = (project: Project) => {
-    // Berechne die Anzahl aktiver Gewerke basierend auf der Projekt-ID
-    // In einer echten Implementierung würde dies aus der Datenbank kommen
-    const activeTrades = Math.floor(Math.random() * 8) + 2; // 2-9 aktive Gewerke
-    
-    return {
-      activeTrades,
-      openTasks: Math.floor(Math.random() * 20) + 5,
-      newDocuments: Math.floor(Math.random() * 10) + 1,
-      newQuotes: Math.floor(Math.random() * 5),
-      notifications: Math.floor(Math.random() * 8) + 2,
-      lastActivity: "vor 2 Stunden"
-    };
+  // Echte Dashboard-Statistiken
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [projectStats, setProjectStats] = useState({
+    activeTrades: 0,
+    openTasks: 0,
+    documentsTotal: 0,
+    newQuotes: 0,
+    notifications: 0,
+    lastActivity: ''
+  });
+
+  const refreshProjectStats = async (project: Project | null) => {
+    if (!project || !project.id) {
+      setProjectStats({ activeTrades: 0, openTasks: 0, documentsTotal: 0, newQuotes: 0, notifications: 0, lastActivity: '' });
+      return;
+    }
+    try {
+      setStatsLoading(true);
+      // 1) Aktive Gewerke: Milestones mit Status != completed/cancelled
+      const trades = await getMilestones(project.id);
+      const activeTrades = (trades || []).filter((t: any) => {
+        const s = String(t.status || '').toLowerCase();
+        return s !== 'completed' && s !== 'cancelled' && s !== 'archived';
+      }).length;
+
+      // 2) Offene Aufgaben: Tasks mit Status != completed/cancelled
+      const tasks = await getTasks(project.id);
+      const openTasks = (tasks || []).filter((t: any) => {
+        const s = String(t.status || '').toLowerCase();
+        return s !== 'completed' && s !== 'cancelled';
+      }).length;
+
+      // 3) Dokumente: Summe aller DMS-Dokumente (über Kategorien summiert)
+      const categoryStats = await getCategoryStatistics(project.id);
+      const documentsTotal = Object.values(categoryStats || {}).reduce((sum: number, cat: any) => sum + (cat?.total_documents || 0), 0);
+
+      // 4) Neue Angebote: Angebote mit viewed === false
+      const quotes = await getQuotes(project.id);
+      const viewedLocalRaw = localStorage.getItem('viewed_quotes') || '[]';
+      let viewedLocal: number[] = [];
+      try { viewedLocal = JSON.parse(viewedLocalRaw) as number[]; } catch { viewedLocal = []; }
+      const newQuotes = (quotes || []).filter((q: any) => {
+        if (!q) return false;
+        if (typeof q.viewed !== 'undefined') {
+          return q.viewed === false || q.viewed === 0;
+        }
+        return !viewedLocal.includes(Number(q.id));
+      }).length;
+
+      setProjectStats(prev => ({
+        ...prev,
+        activeTrades,
+        openTasks,
+        documentsTotal,
+        newQuotes,
+        lastActivity: prev.lastActivity
+      }));
+    } catch (e) {
+      console.error('❌ Fehler beim Laden der Projekt-Statistiken:', e);
+      setProjectStats({ activeTrades: 0, openTasks: 0, documentsTotal: 0, newQuotes: 0, notifications: 0, lastActivity: '' });
+    } finally {
+      setStatsLoading(false);
+    }
   };
 
   // Fallback-Projekt falls keine Projekte geladen werden konnten
@@ -753,7 +928,182 @@ export default function Dashboard() {
   };
 
   const currentProject = selectedProject || fallbackProject;
-  const projectStats = getMockProjectStats(currentProject);
+
+  useEffect(() => {
+    if (selectedProject) {
+      void refreshProjectStats(selectedProject);
+    } else {
+      setProjectStats({ activeTrades: 0, openTasks: 0, documentsTotal: 0, newQuotes: 0, notifications: 0, lastActivity: '' });
+    }
+  }, [selectedProject?.id]);
+  // Gewerke unterhalb des Projekt-Abschnitts
+  const [projectTrades, setProjectTrades] = useState<any[]>([]);
+  const [isLoadingTrades, setIsLoadingTrades] = useState(false);
+  const [tradesError, setTradesError] = useState<string | null>(null);
+  
+  // Modal-States (wie in Quotes.tsx)
+  const [selectedTradeForDetails, setSelectedTradeForDetails] = useState<any | null>(null);
+  const [showTradeDetailsModal, setShowTradeDetailsModal] = useState(false);
+  const [selectedTradeForCostEstimateDetails, setSelectedTradeForCostEstimateDetails] = useState<any | null>(null);
+  const [showCostEstimateDetailsModal, setShowCostEstimateDetailsModal] = useState(false);
+  const [allTradeQuotes, setAllTradeQuotes] = useState<{[key: number]: any[]}>({});
+  
+  // State für Besichtigungs-Modal
+  const [showCreateInspectionModal, setShowCreateInspectionModal] = useState(false);
+  const [selectedTradeForInspection, setSelectedTradeForInspection] = useState<any>(null);
+  const [selectedQuotesForInspection, setSelectedQuotesForInspection] = useState<any[]>([]);
+
+  const loadQuotesForTrades = async (tradesList: any[]) => {
+    console.log('🔄 loadQuotesForTrades aufgerufen für', tradesList.length, 'Gewerke');
+    try {
+      const entries: Array<[number, any[]]> = [];
+      for (const t of tradesList) {
+        try {
+          console.log(`📋 Lade Quotes für Gewerk ${t.id} (${t.title})`);
+          const quotes = await getQuotesForMilestone(t.id);
+          console.log(`✅ Gefunden: ${quotes?.length || 0} Quotes für Gewerk ${t.id}`);
+          entries.push([t.id, quotes || []]);
+        } catch (e) {
+          console.error('❌ Fehler beim Laden der Quotes für Trade', t.id, e);
+          entries.push([t.id, []]);
+        }
+      }
+      const mapping: {[key: number]: any[]} = {};
+      for (const [id, quotes] of entries) {
+        mapping[id] = quotes;
+        if (quotes.length > 0) {
+          console.log(`📊 Gewerk ${id} hat ${quotes.length} Quotes:`, quotes.map(q => `${q.id}:${q.status}`));
+        }
+      }
+      console.log('🎯 Finales allTradeQuotes mapping:', mapping);
+      setAllTradeQuotes(mapping);
+    } catch (e) {
+      console.error('❌ Fehler beim Laden der Quotes für alle Trades:', e);
+      setAllTradeQuotes({});
+    }
+  };
+  
+  // Gewerk-Erstellung
+  const [showTradeCreationForm, setShowTradeCreationForm] = useState(false);
+
+  useEffect(() => {
+    const loadProjectTrades = async () => {
+      if (!selectedProject) {
+        setProjectTrades([]);
+        return;
+      }
+      try {
+        setIsLoadingTrades(true);
+        setTradesError(null);
+        const trades = await getMilestones(selectedProject.id);
+        console.log('🔍 Geladene Gewerke-Daten:', trades);
+        setProjectTrades(trades || []);
+        if (trades && trades.length > 0) {
+          void loadQuotesForTrades(trades);
+        } else {
+          setAllTradeQuotes({});
+        }
+      } catch (e: any) {
+        console.error('❌ Fehler beim Laden der Gewerke:', e);
+        setTradesError('Gewerke konnten nicht geladen werden');
+        setProjectTrades([]);
+        setAllTradeQuotes({});
+      } finally {
+        setIsLoadingTrades(false);
+      }
+    };
+    loadProjectTrades();
+  }, [selectedProject?.id]);
+
+  useEffect(() => {
+    console.log('🔄 useEffect projectTrades triggered:', {
+      projectTrades: projectTrades,
+      projectTradesLength: projectTrades?.length,
+      shouldLoadQuotes: projectTrades && projectTrades.length > 0
+    });
+    if (projectTrades && projectTrades.length > 0) {
+      console.log('🚀 Rufe loadQuotesForTrades auf...');
+      void loadQuotesForTrades(projectTrades);
+    } else {
+      console.log('❌ Keine Gewerke zum Laden von Quotes');
+    }
+  }, [projectTrades]);
+
+  // Window-Handler für TradeDetailsModal setzen
+  useEffect(() => {
+    const handleAccept = async (quoteId: number) => {
+      try {
+        // Angebot annehmen
+        await acceptQuote(quoteId);
+        
+        // Finde das Gewerk zu dem das Angebot gehört
+        const acceptedQuote = Object.values(allTradeQuotes)
+          .flat()
+          .find(q => q.id === quoteId);
+        
+        if (acceptedQuote?.milestone_id) {
+          // Finde alle anderen Angebote für das gleiche Gewerk
+          const otherQuotes = (allTradeQuotes[acceptedQuote.milestone_id] || [])
+            .filter(q => 
+              q.id !== quoteId && 
+              !['accepted', 'rejected'].includes(String(q.status).toLowerCase())
+            );
+          
+          // Alle anderen Angebote automatisch ablehnen
+          for (const quote of otherQuotes) {
+            try {
+              await rejectQuote(quote.id, 'Automatisch abgelehnt: Anderes Angebot wurde angenommen');
+              console.log(`✅ Angebot ${quote.id} automatisch abgelehnt`);
+            } catch (rejectError) {
+              console.warn(`⚠️ Konnte Angebot ${quote.id} nicht automatisch ablehnen:`, rejectError);
+            }
+          }
+          
+          setSuccess(`Angebot erfolgreich angenommen! ${otherQuotes.length} andere Angebote wurden automatisch abgelehnt.`);
+        } else {
+          setSuccess('Angebot erfolgreich angenommen!');
+        }
+        
+        setTimeout(() => setSuccess(''), 5000);
+        
+        // Gewerke und Angebote neu laden
+        if (selectedProject?.id) {
+          const trades = await getMilestones(selectedProject.id);
+          setProjectTrades(trades || []);
+          await loadQuotesForTrades(trades || []);
+        }
+      } catch (e: any) {
+        console.error('❌ Fehler beim Annehmen:', e);
+        setError('Fehler beim Annehmen des Angebots: ' + (e.message || 'Unbekannter Fehler'));
+      }
+    };
+
+    const handleReject = async (quoteId: number, reason: string) => {
+      try {
+        await rejectQuote(quoteId, reason);
+        setSuccess('Angebot erfolgreich abgelehnt!');
+        setTimeout(() => setSuccess(''), 3000);
+        
+        // Gewerke und Angebote neu laden
+        if (selectedProject?.id) {
+          const trades = await getMilestones(selectedProject.id);
+          setProjectTrades(trades || []);
+          await loadQuotesForTrades(trades || []);
+        }
+      } catch (e: any) {
+        console.error('❌ Fehler beim Ablehnen:', e);
+        setError('Fehler beim Ablehnen des Angebots: ' + (e.message || 'Unbekannter Fehler'));
+      }
+    };
+
+    (window as any).__onAcceptQuote = handleAccept;
+    (window as any).__onRejectQuote = handleReject;
+    
+    return () => {
+      delete (window as any).__onAcceptQuote;
+      delete (window as any).__onRejectQuote;
+    };
+  }, [selectedProject?.id, allTradeQuotes]);
 
   // Warte auf AuthContext-Initialisierung
   if (!isInitialized) {
@@ -822,6 +1172,182 @@ export default function Dashboard() {
   // Note: Die Navigation erfolgt jetzt über das RadialMenu
   // Die Handler-Funktionen bleiben für die Wiederverwendung in anderen Komponenten erhalten
 
+  // Intelligente Modal-Auswahl (aus Quotes.tsx)
+  const openExclusiveModal = (target: 'trade' | 'cost', trade: any) => {
+    console.log('🔧 openExclusiveModal aufgerufen:', { target, trade: trade?.id, title: trade?.title });
+    console.log('🔧 CURRENT STATES:', {
+      showTradeDetailsModal,
+      showCostEstimateDetailsModal,
+      selectedTradeForDetails: selectedTradeForDetails?.id,
+      selectedTradeForCostEstimateDetails: selectedTradeForCostEstimateDetails?.id
+    });
+    
+    if (target === 'trade') {
+      console.log('🔧 Öffne TradeDetailsModal...');
+      setSelectedTradeForDetails(trade);
+      setSelectedTradeForCostEstimateDetails(null);
+      setShowCostEstimateDetailsModal(false);
+      setShowTradeDetailsModal(true);
+      console.log('🔧 TradeDetailsModal States gesetzt:', { 
+        selectedTradeForDetails: trade?.id, 
+        showTradeDetailsModal: true 
+      });
+    } else {
+      console.log('🔧 Öffne CostEstimateDetailsModal...');
+      setSelectedTradeForCostEstimateDetails(trade);
+      setSelectedTradeForDetails(null);
+      setShowTradeDetailsModal(false);
+      setShowCostEstimateDetailsModal(true);
+      console.log('🔧 CostEstimateDetailsModal States gesetzt:', { 
+        selectedTradeForCostEstimateDetails: trade?.id, 
+        showCostEstimateDetailsModal: true 
+      });
+    }
+  };
+
+  // Besichtigung erstellen Handler
+  const handleCreateInspection = (tradeId: number, selectedQuoteIds: number[]) => {
+    console.log('🗓️ handleCreateInspection aufgerufen:', { tradeId, selectedQuoteIds });
+    
+    const trade = projectTrades.find(t => t.id === tradeId);
+    if (!trade) {
+      console.error('❌ Gewerk nicht gefunden:', tradeId);
+      return;
+    }
+    
+    const quotes = allTradeQuotes[tradeId] || [];
+    const selectedQuotes = quotes.filter(q => selectedQuoteIds.includes(q.id));
+    
+    console.log('🗓️ Ausgewählte Angebote für Besichtigung:', selectedQuotes);
+    
+    setSelectedTradeForInspection(trade);
+    setSelectedQuotesForInspection(selectedQuotes);
+    
+    // Schließe andere Modals
+    setShowTradeDetailsModal(false);
+    setShowCostEstimateDetailsModal(false);
+    
+    // Öffne Besichtigungs-Modal nach kurzer Verzögerung
+    setTimeout(() => {
+      setShowCreateInspectionModal(true);
+    }, 150);
+  };
+
+  const handleInspectionCreated = async (inspectionResult: any) => {
+    try {
+      // Erfolgsmeldung mit Details anzeigen
+      const invitationsCount = inspectionResult.invitations_count || 0;
+      setSuccess(`Besichtigung erfolgreich erstellt! ${invitationsCount} Dienstleister wurden benachrichtigt.`);
+      setTimeout(() => setSuccess(''), 5000);
+      
+      // Modal schließen
+      setShowCreateInspectionModal(false);
+      setSelectedTradeForInspection(null);
+      setSelectedQuotesForInspection([]);
+      
+      // Gewerke neu laden um aktuelle Termine zu reflektieren
+      if (selectedProject?.id) {
+        const trades = await getMilestones(selectedProject.id);
+        setProjectTrades(trades || []);
+        await loadQuotesForTrades(trades || []);
+      }
+      
+    } catch (err: any) {
+      console.error('❌ Fehler beim Verarbeiten der Besichtigung:', err);
+      setError('Fehler beim Erstellen der Besichtigung: ' + (err.message || 'Unbekannter Fehler'));
+    }
+  };
+
+
+
+  const handleTradeClick = async (trade: any) => {
+    console.log('🔍 handleTradeClick aufgerufen:', {
+      trade: trade,
+      tradeId: trade.id,
+      quotes: allTradeQuotes[trade.id] || [],
+      quotesLength: (allTradeQuotes[trade.id] || []).length,
+      userType: user?.user_type,
+      allTradeQuotes: allTradeQuotes,
+      allTradeQuotesKeys: Object.keys(allTradeQuotes),
+      tradeIdType: typeof trade.id
+    });
+
+    // 🚀 WORKAROUND: Lade Quotes direkt beim Klick, falls sie nicht vorhanden sind
+    let currentQuotes = allTradeQuotes[trade.id] || [];
+    if (currentQuotes.length === 0) {
+      console.log('🔄 Keine Quotes im Cache, lade direkt für Trade', trade.id);
+      try {
+        const freshQuotes = await getQuotesForMilestone(trade.id);
+        console.log('✅ Fresh Quotes geladen:', freshQuotes?.length || 0);
+        currentQuotes = freshQuotes || [];
+        
+        // Aktualisiere den Cache
+        setAllTradeQuotes(prev => ({
+          ...prev,
+          [trade.id]: currentQuotes
+        }));
+      } catch (e) {
+        console.error('❌ Fehler beim Laden der Fresh Quotes:', e);
+      }
+    }
+
+    console.log('🔍 MODAL STATES BEFORE CLICK:', {
+      showCostEstimateDetailsModal,
+      showTradeDetailsModal,
+      selectedTradeForCostEstimateDetails: selectedTradeForCostEstimateDetails?.id,
+      selectedTradeForDetails: selectedTradeForDetails?.id
+    });
+
+    // Robuste Bauträger-Erkennung (Role oder Type)
+    const isBautraegerUser = (user?.user_role?.toUpperCase?.() === 'BAUTRAEGER') || (user?.user_type === 'bautraeger') || (user?.user_type === 'developer');
+
+    console.log('🔍 Benutzer-Erkennung:', {
+      'user?.user_role': user?.user_role,
+      'user?.user_type': user?.user_type,
+      'isBautraegerUser': isBautraegerUser,
+      'user object': user
+    });
+
+  // Für Bauträger: Sobald Angebote vorhanden sind → Kostenvoranschlag-Details; sonst Trade-Details
+    if (isBautraegerUser) {
+      const quotes = currentQuotes; // Verwende die aktuell geladenen Quotes
+    const hasAccepted = quotes.some(q => String(q.status).toLowerCase() === 'accepted');
+      
+      console.log('🔍 Bauträger Klick Debug:', {
+        tradeId: trade.id,
+        quotesCount: quotes.length,
+        quotesStatus: quotes.map(q => q.status),
+        hasAccepted,
+        userRole: user?.user_role,
+        userType: user?.user_type
+      });
+      
+    if (quotes.length > 0) {
+      console.log('📋 (Bauträger) Angebote vorhanden → CostEstimateDetailsModal', { tradeId: trade.id, quotes });
+      console.log('🔧 CALLING openExclusiveModal with cost...');
+      openExclusiveModal('cost', trade);
+      console.log('🔍 MODAL STATES AFTER openExclusiveModal:', {
+        showCostEstimateDetailsModal,
+        selectedTradeForCostEstimateDetails: selectedTradeForCostEstimateDetails?.id
+      });
+    } else {
+      console.log('📋 (Bauträger) Keine Angebote → TradeDetailsModal', { tradeId: trade.id, quotes });
+      openExclusiveModal('trade', trade);
+    }
+      return;
+    }
+
+    // Für Dienstleister: Öffne Trade-Details oder CostEstimateDetailsModal
+    const quotes = currentQuotes; // Verwende die aktuell geladenen Quotes
+    if (quotes.length > 0) {
+      console.log('📋 Öffne CostEstimateDetailsModal für Dienstleister - Trade', trade.id);
+      openExclusiveModal('cost', trade);
+    } else {
+      console.log('📋 Öffne TradeDetailsModal für Dienstleister - Trade', trade.id);
+      openExclusiveModal('trade', trade);
+    }
+  };
+
   const handleResetRoleForTesting = async () => {
     try {
       console.log('🔧 Debug: Setze Rolle zurück...');
@@ -868,6 +1394,48 @@ export default function Dashboard() {
           )}
         />
 
+        {/* Desktop/All: Hervorgehobene Projektnavigation (zentriert) */}
+        {projects.length > 0 && (
+          <div className="mb-4">
+            <div className="flex justify-center">
+              <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/10 border border-[#ffbd59]/50 shadow-lg shadow-[#ffbd59]/10 backdrop-blur-sm">
+                <button
+                  onClick={goPrevProject}
+                  disabled={!canGoPrev}
+                  className={`p-2 rounded-full hover:bg-white/10 transition-colors ${!canGoPrev ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  title="Vorheriges Projekt (Pfeil links)"
+                >
+                  <ChevronLeft size={18} className="text-[#ffbd59]" />
+                </button>
+                <div className="text-sm font-medium text-[#ffbd59]">
+                  {selectedProjectIndex + 1} von {projects.length}
+                </div>
+                <button
+                  onClick={goNextProject}
+                  disabled={!canGoNext}
+                  className={`p-2 rounded-full hover:bg-white/10 transition-colors ${!canGoNext ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  title="Nächstes Projekt (Pfeil rechts)"
+                >
+                  <ChevronRight size={18} className="text-[#ffbd59]" />
+                </button>
+                <div className="w-px h-5 bg-white/20 mx-1" />
+                <select
+                  value={selectedProjectIndex}
+                  onChange={(e) => setSelectedProjectIndex(parseInt(e.target.value, 10))}
+                  className="px-3 py-1.5 pr-8 bg-[#3d4952] border border-white/20 rounded-full text-sm text-white hover:bg-[#46535c] focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-colors appearance-none"
+                  title="Projekt direkt auswählen"
+                >
+                  {projects.map((p, idx) => (
+                    <option key={p.id} value={idx}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Projekt-Auswahl mit Swipe-Funktionalität */}
         {projects.length > 0 && (
           <div 
@@ -879,24 +1447,31 @@ export default function Dashboard() {
                 <div className="w-3 h-3 bg-[#ffbd59] rounded-full"></div>
                 <span className="text-sm text-gray-400">Aktuelles Projekt</span>
               </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-400">
-                  {selectedProjectIndex + 1} von {projects.length}
-                </span>
-              </div>
+              {/* Navigationsleiste über dem Abschnitt, daher hier entfernt */}
+              <div />
             </div>
 
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-2xl font-bold text-white">{currentProject.name}</h2>
-                <button
-                  onClick={handleProjectDetailsClick}
-                  className="bg-[#ffbd59] text-[#2c3539] px-4 py-2 rounded-lg font-medium hover:bg-[#ffa726] transition-colors flex items-center gap-2"
-                  data-tour-id="project-details"
-                >
-                  <Eye size={16} />
-                  Details
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleOpenEditProjectModal}
+                    className="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white"
+                    title="Projekt bearbeiten"
+                  >
+                    <Edit size={16} />
+                    Bearbeiten
+                  </button>
+                  <button
+                    onClick={handleProjectDetailsClick}
+                    className="bg-[#ffbd59] text-[#2c3539] px-4 py-2 rounded-lg font-medium hover:bg-[#ffa726] transition-colors flex items-center gap-2"
+                    data-tour-id="project-details"
+                  >
+                    <Eye size={16} />
+                    Details
+                  </button>
+                </div>
               </div>
               <p className="text-gray-300 mb-3">{currentProject.description}</p>
               
@@ -1037,7 +1612,23 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Erfolgs-Anzeige */}
+        {success && (
+          <div className="bg-green-500/20 border border-green-500/30 text-green-300 px-4 py-3 rounded-xl mb-4 flex items-center gap-3">
+            <CheckCircle size={20} />
+            <span>{success}</span>
+          </div>
+        )}
+
         {/* Fehler-Anzeige */}
+        {error && (
+          <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-4 py-3 rounded-xl mb-4 flex items-center gap-3">
+            <AlertTriangle size={20} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Projekt-Fehler-Anzeige */}
         {projectsError && (
           <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-4 py-3 rounded-xl mb-4 flex items-center gap-3">
             <AlertTriangle size={20} />
@@ -1054,21 +1645,21 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Projekt-Statistiken */}
+        {/* Projekt-Statistiken */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" data-tour-id="dashboard-projects">
         {/* Quick Stats */}
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
           <div className="flex items-center justify-between mb-2">
             <Users size={20} className="text-[#ffbd59]" />
-            <span className="text-2xl font-bold text-white">{projectStats.activeTrades}</span>
+              <span className="text-2xl font-bold text-white">{projectStats.activeTrades}</span>
           </div>
-          <p className="text-sm text-gray-300">Aktive Gewerke</p>
+            <p className="text-sm text-gray-300">Aktive Gewerke</p>
         </div>
         
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
           <div className="flex items-center justify-between mb-2">
             <CheckSquare size={20} className="text-green-400" />
-            <span className="text-2xl font-bold text-white">{projectStats.openTasks}</span>
+              <span className="text-2xl font-bold text-white">{projectStats.openTasks}</span>
           </div>
           <p className="text-sm text-gray-300">Offene Aufgaben</p>
         </div>
@@ -1076,19 +1667,171 @@ export default function Dashboard() {
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
           <div className="flex items-center justify-between mb-2">
             <FileText size={20} className="text-blue-400" />
-            <span className="text-2xl font-bold text-white">{projectStats.newDocuments}</span>
+              <span className="text-2xl font-bold text-white">{projectStats.documentsTotal}</span>
           </div>
-          <p className="text-sm text-gray-300">Neue Dokumente</p>
+            <p className="text-sm text-gray-300">Dokumente</p>
         </div>
         
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
           <div className="flex items-center justify-between mb-2">
             <MessageSquare size={20} className="text-purple-400" />
-            <span className="text-2xl font-bold text-white">{projectStats.newQuotes}</span>
+              <span className="text-2xl font-bold text-white">{projectStats.newQuotes}</span>
           </div>
-          <p className="text-sm text-gray-300">Neue Angebote</p>
+            <p className="text-sm text-gray-300">Neue Angebote</p>
         </div>
       </div>
+
+      {/* Gewerke für aktuelles Projekt */}
+      {selectedProject && (
+        <div className="mb-8">
+          {/* Header mit Gewerk-erstellen Button */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-3 h-3 bg-[#ffbd59] rounded-full"></div>
+              <span className="text-lg font-semibold text-white">Gewerke</span>
+            </div>
+            <button
+              onClick={handleCreateTrade}
+              className="px-4 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition-colors flex items-center gap-2"
+            >
+              <Plus size={18} />
+              Neues Gewerk
+            </button>
+          </div>
+          
+          <TradesCard
+            trades={projectTrades}
+            projectId={selectedProject.id}
+            isExpanded={true}
+            onToggle={() => {}}
+            onTradeClick={handleTradeClick}
+            onAcceptQuote={async (quoteId: number) => {
+              try {
+                await acceptQuote(quoteId);
+                // Nach Annahme Gewerke neu laden, damit Status synchron ist
+                const trades = await getMilestones(selectedProject.id);
+                setProjectTrades(trades || []);
+              } catch (e) {
+                console.error('❌ Fehler beim Annehmen:', e);
+              }
+            }}
+            onRejectQuote={async (quoteId: number, reason: string) => {
+              try {
+                await rejectQuote(quoteId, reason);
+                const trades = await getMilestones(selectedProject.id);
+                setProjectTrades(trades || []);
+              } catch (e) {
+                console.error('❌ Fehler beim Ablehnen:', e);
+              }
+            }}
+            onResetQuote={async (quoteId: number) => {
+              try {
+                await resetQuote(quoteId);
+                const trades = await getMilestones(selectedProject.id);
+                setProjectTrades(trades || []);
+              } catch (e) {
+                console.error('❌ Fehler beim Zurücksetzen:', e);
+              }
+            }}
+          />
+          {/* Intelligente Modal-Auswahl wie in Quotes.tsx */}
+          {(() => {
+            console.log('🔧 Modal Render Check:', {
+              showTradeDetailsModal,
+              selectedTradeForDetails: selectedTradeForDetails?.id,
+              showCostEstimateDetailsModal,
+              selectedTradeForCostEstimateDetails: selectedTradeForCostEstimateDetails?.id
+            });
+            return null;
+          })()}
+          
+          {showTradeDetailsModal && selectedTradeForDetails && selectedProject && (
+            <TradeDetailsModal
+              trade={selectedTradeForDetails}
+              project={selectedProject}
+              isOpen={showTradeDetailsModal}
+              onClose={() => {
+                console.log('🔧 TradeDetailsModal wird geschlossen');
+                setShowTradeDetailsModal(false);
+                setSelectedTradeForDetails(null);
+              }}
+              onCreateQuote={() => {}}
+              existingQuotes={allTradeQuotes[selectedTradeForDetails.id] || []}
+              onCreateInspection={handleCreateInspection}
+            />
+          )}
+          
+          {showCostEstimateDetailsModal && selectedTradeForCostEstimateDetails && (() => {
+            const quotesForTrade = allTradeQuotes[selectedTradeForCostEstimateDetails.id] || [];
+            console.log('🔍 MODAL PROPS DEBUG:', {
+              isOpen: showCostEstimateDetailsModal,
+              tradeId: selectedTradeForCostEstimateDetails.id,
+              quotesLength: quotesForTrade.length,
+              quotes: quotesForTrade,
+              allTradeQuotes: Object.keys(allTradeQuotes).length
+            });
+            return (
+              <CostEstimateDetailsModal
+                isOpen={showCostEstimateDetailsModal}
+                trade={selectedTradeForCostEstimateDetails}
+                quotes={quotesForTrade}
+                project={selectedProject}
+              onAcceptQuote={async (quoteId: number) => {
+                try {
+                  await acceptQuote(quoteId);
+                  const trades = await getMilestones(selectedProject.id);
+                  setProjectTrades(trades || []);
+                  await loadQuotesForTrades(trades || []);
+                } catch (e) {
+                  console.error('❌ Fehler beim Annehmen:', e);
+                }
+              }}
+              onRejectQuote={async (quoteId: number, reason: string) => {
+                try {
+                  await rejectQuote(quoteId, reason);
+                  const trades = await getMilestones(selectedProject.id);
+                  setProjectTrades(trades || []);
+                  await loadQuotesForTrades(trades || []);
+                } catch (e) {
+                  console.error('❌ Fehler beim Ablehnen:', e);
+                }
+              }}
+              onResetQuote={async (quoteId: number) => {
+                try {
+                  await resetQuote(quoteId);
+                  const trades = await getMilestones(selectedProject.id);
+                  setProjectTrades(trades || []);
+                  await loadQuotesForTrades(trades || []);
+                } catch (e) {
+                  console.error('❌ Fehler beim Zurücksetzen:', e);
+                }
+              }}
+              onCreateInspection={handleCreateInspection}
+                onClose={() => {
+                  console.log('🔧 CostEstimateDetailsModal wird geschlossen');
+                  setShowCostEstimateDetailsModal(false);
+                  setSelectedTradeForCostEstimateDetails(null);
+                }}
+              />
+            );
+          })()}
+          
+          {/* Gewerk-Erstellung */}
+          {showTradeCreationForm && selectedProject && (
+            <TradeCreationForm
+              isOpen={showTradeCreationForm}
+              onClose={() => setShowTradeCreationForm(false)}
+              onSubmit={async (tradeData: any) => {
+                setShowTradeCreationForm(false);
+                // Lade Gewerke neu nach Erstellung
+                const trades = await getMilestones(selectedProject.id);
+                setProjectTrades(trades || []);
+              }}
+              projectId={selectedProject.id}
+            />
+          )}
+        </div>
+      )}
 
       {/* Debug-Info */}
       <div className="mt-8 text-xs text-gray-400 text-center">
@@ -1224,49 +1967,22 @@ export default function Dashboard() {
 
                 {/* Adresse */}
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-200 mb-3">
-                        Straße & Hausnummer
-                      </label>
-                      <input
-                        type="text"
-                        name="address_street"
-                        value={projectForm.address_street}
-                        onChange={handleProjectFormChange}
-                        className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
-                        placeholder="z.B. Musterstraße 123"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-200 mb-3">
-                        PLZ
-                      </label>
-                      <input
-                        type="text"
-                        name="address_zip"
-                        value={projectForm.address_zip}
-                        onChange={handleProjectFormChange}
-                        className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
-                        placeholder="z.B. 80331"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-200 mb-3">
-                        Ort
-                      </label>
-                      <input
-                        type="text"
-                        name="address_city"
-                        value={projectForm.address_city}
-                        onChange={handleProjectFormChange}
-                        className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
-                        placeholder="z.B. München"
-                      />
-                    </div>
-                  </div>
+                  <AddressAutocomplete
+                    label="Adresse"
+                    value={{
+                      address_street: projectForm.address_street,
+                      address_zip: projectForm.address_zip,
+                      address_city: projectForm.address_city,
+                      address_country: projectForm.address_country,
+                    }}
+                    onChange={(addr) => setProjectForm(prev => ({
+                      ...prev,
+                      address_street: addr.address_street,
+                      address_zip: addr.address_zip,
+                      address_city: addr.address_city,
+                      address_country: addr.address_country || prev.address_country,
+                    }))}
+                  />
                 </div>
 
                 {/* Projektdetails */}
@@ -1592,6 +2308,297 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Projekt-Bearbeitungs-Modal */}
+      {showEditProjectModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] text-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-[#3d4952]/95 to-[#51646f]/95 backdrop-blur-lg text-white px-6 py-4 rounded-t-2xl border-b border-[#ffbd59]/20">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-[#ffbd59] bg-clip-text text-transparent">
+                  Projekt bearbeiten
+                </h2>
+                <button
+                  onClick={handleCloseEditProjectModal}
+                  className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <form onSubmit={handleUpdateProject} className="space-y-6">
+                {/* Grundinformationen */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
+                      Projektname *
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={projectForm.name}
+                      onChange={handleProjectFormChange}
+                      required
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
+                      placeholder="z.B. Einfamilienhaus München"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
+                      Land
+                    </label>
+                    <select
+                      name="address_country"
+                      value={projectForm.address_country}
+                      onChange={handleProjectFormChange}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
+                    >
+                      <option value="Deutschland">Deutschland</option>
+                      <option value="Schweiz">Schweiz</option>
+                      <option value="Österreich">Österreich</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Projekttyp */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-200 mb-3">
+                    Projekttyp *
+                  </label>
+                  <select
+                    name="project_type"
+                    value={projectForm.project_type}
+                    onChange={handleProjectFormChange}
+                    required
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
+                  >
+                    <option value="new_build">Neubau</option>
+                    <option value="renovation">Renovierung</option>
+                    <option value="extension">Anbau</option>
+                    <option value="refurbishment">Sanierung</option>
+                  </select>
+                </div>
+
+                {/* Bauphase (optional) */}
+                {projectForm.project_type === 'new_build' && (
+                  <div className="bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 border border-[#ffbd59]/30 rounded-xl p-4">
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
+                      🏗️ Aktuelle Bauphase (optional)
+                    </label>
+                    <select
+                      name="construction_phase"
+                      value={projectForm.construction_phase}
+                      onChange={handleProjectFormChange}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
+                    >
+                      <option value="">Keine Phase ausgewählt</option>
+                      {getConstructionPhases(projectForm.address_country).map((phase) => (
+                        <option key={phase.value} value={phase.value}>
+                          {phase.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Beschreibung */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-200 mb-3">
+                    Beschreibung
+                  </label>
+                  <textarea
+                    name="description"
+                    value={projectForm.description}
+                    onChange={handleProjectFormChange}
+                    rows={3}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
+                    placeholder="Beschreiben Sie Ihr Projekt..."
+                  />
+                </div>
+
+                {/* Adresse */}
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-200 mb-3">
+                        Straße & Hausnummer
+                      </label>
+                      <input
+                        type="text"
+                        name="address_street"
+                        value={projectForm.address_street}
+                        onChange={handleProjectFormChange}
+                        className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
+                        placeholder="z.B. Musterstraße 123"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-200 mb-3">
+                        PLZ
+                      </label>
+                      <input
+                        type="text"
+                        name="address_zip"
+                        value={projectForm.address_zip}
+                        onChange={handleProjectFormChange}
+                        className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
+                        placeholder="z.B. 80331"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-200 mb-3">
+                        Ort
+                      </label>
+                      <input
+                        type="text"
+                        name="address_city"
+                        value={projectForm.address_city}
+                        onChange={handleProjectFormChange}
+                        className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
+                        placeholder="z.B. München"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Projektdetails */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
+                      Grundstücksgröße (m²)
+                    </label>
+                    <input
+                      type="number"
+                      name="property_size"
+                      value={projectForm.property_size}
+                      onChange={handleProjectFormChange}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
+                      placeholder="z.B. 500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
+                      Wohnfläche (m²)
+                    </label>
+                    <input
+                      type="number"
+                      name="construction_area"
+                      value={projectForm.construction_area}
+                      onChange={handleProjectFormChange}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
+                      placeholder="z.B. 150"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
+                      Budget (€)
+                    </label>
+                    <input
+                      type="number"
+                      name="budget"
+                      value={projectForm.budget}
+                      onChange={handleProjectFormChange}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
+                      placeholder="z.B. 500000"
+                    />
+                  </div>
+                </div>
+
+                {/* Zeitplan */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
+                      Startdatum
+                    </label>
+                    <input
+                      type="date"
+                      name="start_date"
+                      value={projectForm.start_date}
+                      onChange={handleProjectFormChange}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-200 mb-3">
+                      Enddatum
+                    </label>
+                    <input
+                      type="date"
+                      name="end_date"
+                      value={projectForm.end_date}
+                      onChange={handleProjectFormChange}
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
+                    />
+                  </div>
+                </div>
+
+                {/* Einstellungen */}
+                <div className="space-y-4 bg-gradient-to-r from-gray-800/50 to-gray-700/50 rounded-xl p-6 border border-gray-600">
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      name="allow_quotes"
+                      checked={projectForm.allow_quotes}
+                      onChange={handleProjectFormChange}
+                      className="w-5 h-5 text-[#ffbd59] border-gray-500 rounded focus:ring-[#ffbd59] transition-all duration-200"
+                    />
+                    <label className="text-sm font-medium text-gray-200">
+                      Angebote für dieses Projekt erlauben
+                    </label>
+                  </div>
+                </div>
+
+                {/* Fehler-Anzeige */}
+                {editProjectError && (
+                  <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-4 py-3 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <AlertTriangle size={16} />
+                      <span>{editProjectError}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Buttons */}
+                <div className="flex items-center justify-end space-x-4 pt-6">
+                  <button
+                    type="button"
+                    onClick={handleCloseEditProjectModal}
+                    className="px-6 py-3 text-gray-300 hover:text-white transition-colors"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingProject}
+                    className="flex items-center space-x-2 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] hover:from-[#ffa726] hover:to-[#ff9800] disabled:from-gray-300 disabled:to-gray-400 text-[#2c3539] px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
+                  >
+                    {isUpdatingProject ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#2c3539]"></div>
+                        <span>Speichere...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Star size={16} />
+                        <span>Änderungen speichern</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Debug-Button für Rollenauswahl-Tests (nur im Entwicklungsmodus) */}
       {import.meta.env.DEV && (
@@ -1788,6 +2795,22 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Besichtigungs-Erstellungs-Modal */}
+      {showCreateInspectionModal && selectedTradeForInspection && (
+        <CreateInspectionModal
+          isOpen={showCreateInspectionModal}
+          onClose={() => {
+            setShowCreateInspectionModal(false);
+            setSelectedTradeForInspection(null);
+            setSelectedQuotesForInspection([]);
+          }}
+          trade={selectedTradeForInspection}
+          selectedQuotes={selectedQuotesForInspection}
+          project={selectedProject}
+          onCreateInspection={handleInspectionCreated}
+        />
       )}
     </div>
   );

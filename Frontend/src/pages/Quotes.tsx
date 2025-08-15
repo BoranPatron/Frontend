@@ -562,7 +562,6 @@ export default function Trades() {
   
   // Handler für Upgrade Modal
   const handleUpgrade = async (planType: 'monthly' | 'yearly') => {
-    console.log('🚀 Upgrade zu Pro-Version:', planType);
     // Hier würde die Upgrade-Logik implementiert werden
     setShowUpgradeModal(false);
     alert('Upgrade-Funktionalität wird implementiert. Kontaktieren Sie uns für Details.');
@@ -571,8 +570,6 @@ export default function Trades() {
   // Handler für Auftragsbestätigung-Generierung
   const handleGenerateOrderConfirmation = async (documentData: any) => {
     try {
-      console.log('📋 Erstelle Auftragsbestätigung-Dokument:', documentData);
-      
       // Erstelle FormData für Dokument-Upload
       const formData = new FormData();
       
@@ -589,8 +586,6 @@ export default function Trades() {
       
       // Upload Dokument
       const uploadedDocument = await uploadDocument(formData);
-      console.log('✅ Auftragsbestätigung erfolgreich erstellt:', uploadedDocument);
-      
       // Schließe Modal
       setShowOrderConfirmationGenerator(false);
       setOrderConfirmationData(null);
@@ -623,24 +618,17 @@ export default function Trades() {
       let tradesData: Trade[] = [];
       if (isServiceProvider()) {
         // Dienstleister: alle Milestones (Ausschreibungen) global laden
-        console.log('👷 Service provider detected, loading all milestones...');
         tradesData = await getAllMilestones();
-        console.log('✅ Service provider milestones loaded:', tradesData);
-      } else {
-        // Bauträger: Trades projektbasiert laden (wie bisher)
-        console.log('🏗️ Professional detected, loading project-based milestones...');
-        if (selectedProject) {
-          console.log('📋 Loading milestones for project:', selectedProject);
-          tradesData = await getMilestones(selectedProject.id);
-          console.log('✅ Project milestones loaded:', tradesData);
         } else {
-          console.log('⚠️ No selected project, skipping milestone load');
+        // Bauträger: Trades projektbasiert laden (wie bisher)
+        if (selectedProject) {
+          tradesData = await getMilestones(selectedProject.id);
+          } else {
           setTrades([]);
           setIsLoadingTrades(false);
           return;
         }
       }
-      console.log('📊 Setting trades state with:', tradesData);
       setTrades(tradesData);
       
       // Lade Angebote für alle Gewerke
@@ -656,10 +644,8 @@ export default function Trades() {
   // Lade Angebote für ein Gewerk
   const loadTradeQuotes = async (tradeId: number) => {
     try {
-      console.log(`🔍 Loading quotes for trade ${tradeId}...`);
       const data = await getQuotesForMilestone(tradeId);
-      console.log(`📊 Found ${data.length} quotes for trade ${tradeId}:`, data);
-        setTradeQuotes(data);
+      setTradeQuotes(data);
     } catch (err: any) {
       console.error('Error loading quotes:', err);
           setTradeQuotes([]);
@@ -669,20 +655,17 @@ export default function Trades() {
   // Lade Angebote für alle Gewerke
   const loadAllTradeQuotes = async (tradesData: Trade[]) => {
     try {
-      console.log('🔍 Loading quotes for all trades...');
       const quotesMap: { [tradeId: number]: Quote[] } = {};
       const quotePromises = tradesData.map(async (trade) => {
         try {
           const quotes = await getQuotesForMilestone(trade.id);
-          console.log(`📊 Found ${quotes.length} quotes for trade ${trade.id}`);
-            quotesMap[trade.id] = quotes;
+          quotesMap[trade.id] = quotes;
         } catch (e: any) {
           console.error('❌ Error loading quotes for trade:', trade.id, e);
               quotesMap[trade.id] = [];
         }
       });
       await Promise.all(quotePromises);
-      console.log('✅ All trade quotes loaded:', quotesMap);
       setAllTradeQuotes(quotesMap);
       
       // Lade auch die Besichtigungsstatus für alle Gewerke
@@ -696,7 +679,6 @@ export default function Trades() {
   // Lade Besichtigungsstatus für alle Gewerke
   const loadAllTradeInspectionStatus = async (tradesData: Trade[]) => {
     try {
-      console.log('🔍 Loading inspection status for all trades...');
       const statusMap: { [tradeId: number]: {
         hasActiveInspection: boolean;
         appointmentDate?: string;
@@ -707,7 +689,6 @@ export default function Trades() {
       const statusPromises = tradesData.map(async (trade) => {
         try {
           const status = await appointmentService.checkActiveInspectionForTrade(trade.id);
-          console.log(`📊 Inspection status for trade ${trade.id}:`, status);
           statusMap[trade.id] = status;
         } catch (e: any) {
           console.error('❌ Error loading inspection status for trade:', trade.id, e);
@@ -716,7 +697,6 @@ export default function Trades() {
       });
       
       await Promise.all(statusPromises);
-      console.log('✅ All trade inspection status loaded:', statusMap);
       setTradeInspectionStatus(statusMap);
     } catch (e: any) {
       console.error('❌ Error loading all trade inspection status:', e);
@@ -777,30 +757,18 @@ export default function Trades() {
     }
     
     try {
-      console.log('🔧 Accepting quote with ID:', quoteId);
       // Prüfe ob Token vorhanden ist
       const token = localStorage.getItem('token');
       if (!token) {
         setError('Nicht angemeldet. Bitte melden Sie sich erneut an.');
         return;
       }
-      console.log('🔐 Token vorhanden, sende Anfrage...');
       await acceptQuote(quoteId);
-      console.log('✅ Kostenvoranschlag erfolgreich akzeptiert');
-      
       // Finde das angenommene Angebot und das zugehörige Gewerk
       const acceptedQuote = allTradeQuotes[selectedTradeForCostEstimateDetails?.id || 0]?.find(q => q.id === quoteId);
       if (acceptedQuote && selectedTradeForCostEstimateDetails && currentProject) {
-        console.log('📋 Erstelle Auftragsbestätigung für:', {
-          project: currentProject,
-          trade: selectedTradeForCostEstimateDetails,
-          quote: acceptedQuote,
-          user: user
-        });
-        
         // Erstelle automatisch BuildWise-Gebühr
         try {
-          console.log('💰 Erstelle BuildWise-Gebühr für akzeptiertes Angebot...');
           // Verwende die Trade-ID als cost_position_id, da diese die Kostenposition repräsentiert
           const costPositionId = selectedTradeForCostEstimateDetails?.id || quoteId;
           const buildwiseFee = await createFeeFromQuote(
@@ -808,8 +776,7 @@ export default function Trades() {
             costPositionId, // Verwende Trade-ID als cost_position_id
             1.0 // 1% Gebühr
           );
-          console.log('✅ BuildWise-Gebühr erfolgreich erstellt:', buildwiseFee);
-        } catch (feeError: any) {
+          } catch (feeError: any) {
           console.error('❌ Fehler beim Erstellen der BuildWise-Gebühr:', feeError);
           // Gebühren-Fehler nicht kritisch behandeln, da Angebot bereits akzeptiert wurde
         }
@@ -830,11 +797,9 @@ export default function Trades() {
       
       // Lade die Angebote neu, um den Status zu aktualisieren
       if (selectedTrade) {
-        console.log('🔄 Lade Angebote neu...');
         await loadTradeQuotes(selectedTrade.id);
       }
       // Lade alle Gewerke neu, um die Details in den Kacheln zu aktualisieren
-      console.log('🔄 Lade alle Gewerke neu...');
       await loadTrades();
       // Zeige Erfolgsmeldung
       setSuccess('Kostenvoranschlag erfolgreich angenommen! Auftragsbestätigung wird erstellt...');
@@ -872,7 +837,6 @@ export default function Trades() {
     }
     
     try {
-      console.log('🔧 Resetting quote with ID:', quoteId);
       // Prüfe ob Token vorhanden ist
       const token = localStorage.getItem('token');
       if (!token) {
@@ -880,21 +844,15 @@ export default function Trades() {
         return;
       }
       
-      console.log('🔄 Setze Angebot zurück auf "submitted"...');
-      
       // Rufe die Reset-API auf
       await resetQuote(quoteId);
       
-      console.log('✅ Angebot erfolgreich zurückgesetzt');
-      
       // Lade die Angebote neu, um den Status zu aktualisieren
       if (selectedTrade) {
-        console.log('🔄 Lade Angebote neu...');
         await loadTradeQuotes(selectedTrade.id);
       }
       
       // Lade alle Gewerke neu, um die Details in den Kacheln zu aktualisieren
-      console.log('🔄 Lade alle Gewerke neu...');
       await loadTrades();
       
       // Zeige Erfolgsmeldung
@@ -1044,11 +1002,7 @@ export default function Trades() {
       if (offerForm.phone) quoteData.phone = offerForm.phone;
       if (offerForm.website) quoteData.website = offerForm.website;
       
-      console.log('📤 Sending offer data:', quoteData);
-      
       const res = await createQuote(quoteData);
-      console.log('✅ Offer submitted successfully:', res);
-      
       setOfferSuccess('Angebot erfolgreich eingereicht!');
       setShowOfferModal(false);
       
@@ -1107,23 +1061,18 @@ export default function Trades() {
     }
     
     try {
-      console.log('🔧 Rejecting quote with ID:', quoteId, 'Reason:', reason);
       // Prüfe ob Token vorhanden ist
       const token = localStorage.getItem('token');
       if (!token) {
         setError('Nicht angemeldet. Bitte melden Sie sich erneut an.');
         return;
       }
-      console.log('🔐 Token vorhanden, sende Anfrage...');
       await rejectQuote(quoteId, reason);
-      console.log('✅ Angebot erfolgreich abgelehnt');
       // Lade die Angebote neu, um den Status zu aktualisieren
       if (selectedTrade) {
-        console.log('🔄 Lade Angebote neu...');
         await loadTradeQuotes(selectedTrade.id);
       }
       // Lade alle Gewerke neu, um die Details in den Kacheln zu aktualisieren
-      console.log('🔄 Lade alle Gewerke neu...');
       await loadTrades();
       // Zeige Erfolgsmeldung
       setSuccess('Angebot erfolgreich abgelehnt! Der Dienstleister wurde informiert.');
@@ -1169,23 +1118,18 @@ export default function Trades() {
     }
     
     try {
-      console.log('🔧 Withdrawing quote with ID:', quoteId);
       // Prüfe ob Token vorhanden ist
       const token = localStorage.getItem('token');
       if (!token) {
         setError('Nicht angemeldet. Bitte melden Sie sich erneut an.');
         return;
       }
-      console.log('🔐 Token vorhanden, sende Anfrage...');
       await withdrawQuote(quoteId);
-      console.log('✅ Angebot erfolgreich zurückgezogen');
       // Lade die Angebote neu, um den Status zu aktualisieren
       if (selectedTrade) {
-        console.log('🔄 Lade Angebote neu...');
         await loadTradeQuotes(selectedTrade.id);
       }
       // Lade alle Gewerke neu, um die Details in den Kacheln zu aktualisieren
-      console.log('🔄 Lade alle Gewerke neu...');
       await loadTrades();
       // Zeige Erfolgsmeldung
       setSuccess('Angebot erfolgreich zurückgezogen!');
@@ -1330,23 +1274,17 @@ export default function Trades() {
   useEffect(() => {
     const loadProjectsIfNeeded = async () => {
       try {
-        console.log('🔄 Loading projects...');
         const projects = await getProjects();
-        console.log('📋 Projects loaded:', projects);
         setProjects(projects);
         
         // Für Bauträger: Verwende das aktuell ausgewählte Projekt
         if (!isServiceProviderUser && currentProject) {
-          console.log('🔧 Using current project from context:', currentProject.id);
           setSelectedProject(currentProject);
         } else if (isServiceProviderUser && projects.length > 0 && !selectedProject) {
-          console.log('🔧 Setting selectedProject to first project:', projects[0].id);
           setSelectedProject(projects[0]);
         } else if (projects.length === 0) {
-          console.log('⚠️ No projects found');
-        } else {
-          console.log('ℹ️ selectedProject already set or no projects available');
-        }
+          } else {
+          }
       } catch (error) {
         console.error('❌ Error loading projects:', error);
       }
@@ -1384,9 +1322,6 @@ export default function Trades() {
   // Neue Funktion für TradeCreationForm - DEAKTIVIERT um Duplizierung zu vermeiden
   const handleCreateTradeWithForm = async (tradeData: any) => {
     try {
-      console.log('🔧 TradeCreationForm wird verwendet - handleCreateTradeWithForm wird übersprungen');
-      console.log('🔧 Gewerk wird bereits durch TradeCreationForm erstellt:', tradeData);
-      
       // Modal schließen und Daten neu laden
       setShowTradeCreationForm(false);
       await loadTrades();
@@ -1399,10 +1334,6 @@ export default function Trades() {
 
   // Kostenvoranschlag-Funktionen
   const openCostEstimateModal = (trade: Trade | CombinedTrade) => {
-    console.log('🔧 openCostEstimateModal aufgerufen für Trade:', trade);
-    console.log('🔧 currentProject:', currentProject);
-    console.log('🔧 user:', user);
-    
     // Bei Geo-Gewerken das korrekte Projekt-Objekt erstellen
     if ('isGeoResult' in trade && trade.isGeoResult) {
       const geoProject = {
@@ -1410,7 +1341,6 @@ export default function Trades() {
         name: (trade as CombinedTrade).project_name || 'Unbekanntes Projekt',
         description: `Projekt vom Typ: ${(trade as CombinedTrade).project_type || 'Unbekannt'}`
       };
-      console.log('🔧 Geo-Projekt erstellt:', geoProject);
       setSelectedProject(geoProject);
     }
     
@@ -1419,20 +1349,12 @@ export default function Trades() {
   };
 
   const openTradeDetailsModal = (trade: Trade) => {
-    console.log('🔍 openTradeDetailsModal aufgerufen:', {
-      trade: trade,
-      tradeId: trade.id,
-      tradeTitle: trade.title
-    });
     setSelectedTradeForDetails(trade);
     setShowTradeDetailsModal(true);
-    console.log('✅ TradeDetailsModal State gesetzt');
-  };
+    };
 
   const handleCostEstimateSubmit = async (costEstimateData: any) => {
     try {
-      console.log('🔧 Erstelle Kostenvoranschlag:', costEstimateData);
-      
       // API-Call für die Kostenvoranschlag-Erstellung
       const quoteData = {
         title: costEstimateData.title,
@@ -1459,19 +1381,15 @@ export default function Trades() {
         website: costEstimateData.website
       };
       
-      console.log('📡 Sende Kostenvoranschlag-Daten:', quoteData);
       // Falls der Dienstleister bereits ein Angebot für dieses Gewerk hat: ersetze statt neu anzulegen
       const existing = (allTradeQuotes[costEstimateData.trade_id] || []).find((q: any) => q.service_provider_id === user?.id);
       if (existing) {
-        console.log('✏️ Aktualisiere bestehendes Angebot:', existing.id);
         await updateQuote(existing.id, quoteData);
       } else {
         await createQuote(quoteData);
       }
       
       // Erfolgreich erstellt
-      console.log('✅ Kostenvoranschlag erfolgreich erstellt');
-      
       // Modal schließen und Daten neu laden
       setShowCostEstimateForm(false);
       setSelectedTradeForEstimate(null);
@@ -1557,8 +1475,6 @@ export default function Trades() {
 
     try {
       setDeletingTrade(tradeId);
-      console.log('🗑️ Lösche Gewerk:', tradeId);
-      
       // Prüfe ob bereits Angebote angenommen wurden
       const quotes = allTradeQuotes[tradeId] || [];
       const acceptedQuotes = quotes.filter(q => q.status === 'accepted');
@@ -1572,7 +1488,6 @@ export default function Trades() {
       // Lösche das Gewerk
       await api.delete(`/milestones/${tradeId}`);
       
-      console.log('✅ Gewerk erfolgreich gelöscht');
       setSuccess('Gewerk erfolgreich gelöscht');
       
       // Aktualisiere die lokale Liste
@@ -1624,41 +1539,30 @@ export default function Trades() {
     if (!window.confirm('Wirklich ALLE Gewerke samt ALLEN Abhängigkeiten löschen?\n\nDies löscht:\n• Alle Gewerke (Milestones)\n• Alle Angebote (Quotes)\n• Alle Kostenpositionen (Cost Positions)\n• Alle Rechnungen (Invoices)\n• Alle Abnahmen (Acceptances)\n• Alle Bewertungen (Ratings)\n• Alle Termine (Appointments)\n• Alle Dokumente (Documents)\n\n⚠️ WARNUNG: Diese Aktion kann nicht rückgängig gemacht werden!')) return;
     
     try {
-      console.log('🗑️ Starte umfassendes Löschen aller Gewerke und Abhängigkeiten...');
-      
       // 1. Lösche alle Rechnungen zuerst (abhängig von Gewerken)
-      console.log('📄 Lösche alle Rechnungen...');
       await api.delete('/invoices/debug/delete-all-invoices');
       
       // 2. Lösche alle Abnahmen (abhängig von Gewerken)
-      console.log('✅ Lösche alle Abnahmen...');
       await api.delete('/acceptance/debug/delete-all-acceptances');
       
       // 3. Lösche alle Bewertungen (abhängig von Gewerken)
-      console.log('⭐ Lösche alle Bewertungen...');
       await api.delete('/ratings/debug/delete-all-ratings');
       
       // 4. Lösche alle Termine (abhängig von Gewerken)
-      console.log('📅 Lösche alle Termine...');
       await api.delete('/appointments/debug/delete-all-appointments');
       
       // 5. Lösche alle Dokumente (abhängig von Gewerken)
-      console.log('📁 Lösche alle Dokumente...');
       await api.delete('/documents/debug/delete-all-documents');
       
       // 6. Lösche alle Kostenpositionen (abhängig von Gewerken)
-      console.log('💰 Lösche alle Kostenpositionen...');
       await api.delete('/cost-positions/debug/delete-all-cost-positions');
       
       // 7. Lösche alle Angebote (abhängig von Gewerken)
-      console.log('📋 Lösche alle Angebote...');
       await api.delete('/quotes/debug/delete-all-quotes');
       
       // 8. Lösche alle Gewerke (Milestones) - zuletzt
-      console.log('🏗️ Lösche alle Gewerke...');
       await api.delete('/milestones/debug/delete-all-milestones');
       
-      console.log('✅ Alle Gewerke und Abhängigkeiten erfolgreich gelöscht!');
       alert('✅ Alle Gewerke samt ALLEN Abhängigkeiten wurden erfolgreich gelöscht!\n\nGelöscht wurden:\n• Alle Gewerke (Milestones)\n• Alle Angebote (Quotes)\n• Alle Kostenpositionen (Cost Positions)\n• Alle Rechnungen (Invoices)\n• Alle Abnahmen (Acceptances)\n• Alle Bewertungen (Ratings)\n• Alle Termine (Appointments)\n• Alle Dokumente (Documents)');
       
       // Seite neu laden
@@ -1695,8 +1599,7 @@ export default function Trades() {
       };
       
       setCurrentLocation(location);
-      console.log('📍 Browser-Standort abgerufen:', location);
-    } catch (error: any) {
+      } catch (error: any) {
       console.error('❌ Browser-Standort fehlgeschlagen:', error);
       setGeoError(`Standort konnte nicht ermittelt werden: ${error.message}`);
     } finally {
@@ -1715,10 +1618,8 @@ export default function Trades() {
         const location = JSON.parse(userLocation);
         setCurrentLocation(location);
         setManualAddress(''); // Reset address input when using own location
-        console.log('✅ Eigenen Standort übernommen:', location);
-      } else {
+        } else {
         // Fallback: Verwende Browser-Standort
-        console.log('ℹ️ Kein eigener Standort gespeichert, verwende Browser-Standort');
         await getCurrentBrowserLocation();
       }
     } catch (error: any) {
@@ -1759,8 +1660,7 @@ export default function Trades() {
         setGeoTrades(tradeResults);
         setGeoProjects([]);
         setGeoServiceProviders([]);
-        console.log('✅ Geo-Gewerke geladen:', tradeResults.length);
-      } else if (geoSearchMode === 'projects') {
+        } else if (geoSearchMode === 'projects') {
         // Projekte-Suche
         const searchRequest: ProjectSearchRequest = {
           latitude: currentLocation.latitude,
@@ -1777,8 +1677,7 @@ export default function Trades() {
         setGeoProjects(projectResults);
         setGeoTrades([]);
         setGeoServiceProviders([]);
-        console.log('✅ Geo-Projekte geladen:', projectResults.length);
-      } else {
+        } else {
         // Dienstleister-Suche
         const searchRequest: ServiceProviderSearchRequest = {
           latitude: currentLocation.latitude,
@@ -1792,8 +1691,7 @@ export default function Trades() {
         setGeoServiceProviders(providerResults);
         setGeoProjects([]);
         setGeoTrades([]);
-        console.log('✅ Geo-Dienstleister geladen:', providerResults.length);
-      }
+        }
     } catch (error: any) {
       console.error('❌ Geo-Suche fehlgeschlagen:', error);
       setGeoError(`Suche fehlgeschlagen: ${error.message}`);
@@ -1848,7 +1746,6 @@ export default function Trades() {
       modalGuardRef.current.timestamp &&
       now - modalGuardRef.current.timestamp < 500
     ) {
-      console.log('⏳ Modal guard active, ignoring repeated click');
       return;
     }
     modalGuardRef.current = { lastTradeId: trade.id, timestamp: now };
@@ -1893,10 +1790,8 @@ export default function Trades() {
     // Für Dienstleister: Öffne Trade-Details oder CostEstimateDetailsModal
     const quotes = allTradeQuotes[trade.id] || [];
     if (quotes.length > 0) {
-      console.log('📋 Öffne CostEstimateDetailsModal für Dienstleister - Trade', trade.id);
       openExclusiveModal('cost', trade);
     } else {
-      console.log('📋 Öffne TradeDetailsModal für Dienstleister - Trade', trade.id);
       openExclusiveModal('trade', trade);
     }
   };
@@ -2805,7 +2700,6 @@ export default function Trades() {
             onResetQuote={handleResetQuote}
             onCreateInspection={handleCreateInspection}
             onTradeUpdate={(updatedTrade) => {
-              console.log('📋 Quotes - Trade Update erhalten:', updatedTrade);
               // Update das selectedTradeForCostEstimateDetails
               setSelectedTradeForCostEstimateDetails(updatedTrade);
               // Update auch die trades Liste

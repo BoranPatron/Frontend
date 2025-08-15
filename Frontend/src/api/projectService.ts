@@ -8,7 +8,6 @@ export async function getProjects() {
     } catch (error: any) {
       // Spezielle Behandlung für Authentifizierungsfehler
       if (error.name === 'AuthenticationError' || error.response?.status === 401) {
-        console.log('🔐 Authentifizierung erforderlich für Projekte');
         throw new Error('Bitte melden Sie sich an, um Projekte zu laden');
       }
       throw error;
@@ -23,7 +22,6 @@ export async function getProject(id: number) {
   } catch (error: any) {
     // Spezielle Behandlung für Authentifizierungsfehler
     if (error.name === 'AuthenticationError' || error.response?.status === 401) {
-      console.log('🔐 Authentifizierung erforderlich für Projekt-Details');
       throw new Error('Bitte melden Sie sich an, um Projekt-Details zu laden');
     }
     throw error;
@@ -56,7 +54,6 @@ export async function createProject(data: ProjectData) {
   } catch (error: any) {
     // Spezielle Behandlung für Authentifizierungsfehler
     if (error.name === 'AuthenticationError' || error.response?.status === 401) {
-      console.log('🔐 Authentifizierung erforderlich für Projekt-Erstellung');
       throw new Error('Bitte melden Sie sich an, um Projekte zu erstellen');
     }
     throw error;
@@ -70,7 +67,6 @@ export async function updateProject(id: number, data: Partial<ProjectData>) {
   } catch (error: any) {
     // Spezielle Behandlung für Authentifizierungsfehler
     if (error.name === 'AuthenticationError' || error.response?.status === 401) {
-      console.log('🔐 Authentifizierung erforderlich für Projekt-Updates');
       throw new Error('Bitte melden Sie sich an, um Projekte zu bearbeiten');
     }
     throw error;
@@ -83,7 +79,6 @@ export async function deleteProject(id: number) {
   } catch (error: any) {
     // Spezielle Behandlung für Authentifizierungsfehler
     if (error.name === 'AuthenticationError' || error.response?.status === 401) {
-      console.log('🔐 Authentifizierung erforderlich für Projekt-Löschung');
       throw new Error('Bitte melden Sie sich an, um Projekte zu löschen');
     }
     throw error;
@@ -97,7 +92,6 @@ export async function getProjectDashboard(id: number) {
   } catch (error: any) {
     // Spezielle Behandlung für Authentifizierungsfehler
     if (error.name === 'AuthenticationError' || error.response?.status === 401) {
-      console.log('🔐 Authentifizierung erforderlich für Projekt-Dashboard');
       throw new Error('Bitte melden Sie sich an, um das Projekt-Dashboard zu laden');
     }
     throw error;

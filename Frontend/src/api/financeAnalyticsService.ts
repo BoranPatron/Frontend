@@ -259,9 +259,7 @@ class FinanceAnalyticsService {
 
   async getExpenseAnalyticsByPhase(projectId: number): Promise<ExpenseAnalyticsByPhase> {
     try {
-      console.log('🔍 Lade Ausgaben-Analytics nach Bauphasen für Projekt:', projectId);
       const response = await api.get(`${this.baseUrl}/project/${projectId}/expense-analytics`);
-      console.log('✅ Ausgaben-Analytics geladen:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('❌ Fehler beim Laden der Ausgaben-Analytics:', error);
@@ -271,9 +269,7 @@ class FinanceAnalyticsService {
 
   async getComprehensiveFinanceAnalytics(projectId: number): Promise<ComprehensiveFinanceAnalytics> {
     try {
-      console.log('🔍 Lade umfassende Finanz-Analytics für Projekt:', projectId);
       const response = await api.get(`${this.baseUrl}/project/${projectId}/comprehensive`);
-      console.log('✅ Umfassende Finanz-Analytics geladen:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('❌ Fehler beim Laden der umfassenden Finanz-Analytics:', error);
@@ -283,9 +279,7 @@ class FinanceAnalyticsService {
 
   async getExpenseTrendsByPhase(projectId: number, months: number = 6): Promise<ExpenseTrendsByPhase> {
     try {
-      console.log('🔍 Lade Ausgaben-Trends nach Bauphasen für Projekt:', projectId);
       const response = await api.get(`${this.baseUrl}/project/${projectId}/expense-trends?months=${months}`);
-      console.log('✅ Ausgaben-Trends geladen:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('❌ Fehler beim Laden der Ausgaben-Trends:', error);
@@ -295,9 +289,7 @@ class FinanceAnalyticsService {
 
   async getPhaseComparisonAnalytics(projectId: number): Promise<PhaseComparisonAnalytics> {
     try {
-      console.log('🔍 Lade Phasen-Vergleichs-Analytics für Projekt:', projectId);
       const response = await api.get(`${this.baseUrl}/project/${projectId}/phase-comparison`);
-      console.log('✅ Phasen-Vergleichs-Analytics geladen:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('❌ Fehler beim Laden der Phasen-Vergleichs-Analytics:', error);

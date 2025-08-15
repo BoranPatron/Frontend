@@ -69,83 +69,72 @@ export default function CreateInspectionModal({
     }
 
     setLoading(true);
-    let retryCount = 0;
-    const maxRetries = 2;
+    
+    try {
+      // Erstelle Appointment über neues API
+      const appointmentCreateData: AppointmentCreate = {
+        project_id: project.id,
+        milestone_id: trade.id,
+        title: formData.title,
+        description: formData.description,
+        appointment_type: 'INSPECTION',
+        scheduled_date: formatAppointmentDateTime(formData.scheduled_date, formData.scheduled_time_start),
+        duration_minutes: formData.duration_minutes,
+        location: formData.location_address,
+        location_details: formData.location_notes,
+        invited_service_provider_ids: selectedQuotes.map(q => q.service_provider_id || q.user_id).filter(id => id)
+      };
 
-    while (retryCount <= maxRetries) {
+      // Erstelle Appointment - OHNE RETRY!
+      console.log('📅 Erstelle Appointment (OHNE RETRY)...');
+      const createdAppointment = await appointmentService.createAppointment(appointmentCreateData);
+      
+      // Prüfe explizit auf erfolgreiche Antwort
+      if (!createdAppointment || !createdAppointment.id) {
+        throw new Error('Keine gültige Antwort vom Server erhalten');
+      }
+      
+      console.log('✅ Appointment erfolgreich erstellt:', createdAppointment);
+      
+      // Rufe Parent-Handler auf - aber fange Fehler ab
       try {
-        console.log(`🔄 Versuch ${retryCount + 1} von ${maxRetries + 1} - Erstelle Appointment`);
-        
-        // Erstelle Appointment über neues API
-        const appointmentCreateData: AppointmentCreate = {
-          project_id: project.id,
-          milestone_id: trade.id,
-          title: formData.title,
-          description: formData.description,
-          appointment_type: 'INSPECTION',
-          scheduled_date: formatAppointmentDateTime(formData.scheduled_date, formData.scheduled_time_start),
-          duration_minutes: formData.duration_minutes,
-          location: formData.location_address,
-          location_details: formData.location_notes,
-          invited_service_provider_ids: selectedQuotes.map(q => q.service_provider_id || q.user_id).filter(id => id)
-        };
-
-        console.log('📋 Erstelle Appointment:', appointmentCreateData);
-        
-        // Erstelle Appointment mit erhöhtem Timeout
-        const createdAppointment = await appointmentService.createAppointment(appointmentCreateData);
-        console.log('✅ Appointment erstellt:', createdAppointment);
-        
-        // Rufe Parent-Handler auf
         const selectedQuoteIds = selectedQuotes.map(q => q.id);
         await onCreateInspection({
           ...createdAppointment,
           selectedQuoteIds,
           invitations_count: selectedQuotes.length
         });
-        
-        // Erfolgreich - Modal schließen
-        onClose();
-        return;
-        
-      } catch (error: any) {
-        retryCount++;
-        console.error(`❌ Fehler beim Erstellen des Termins (Versuch ${retryCount}):`, error);
-        
-        // Bestimme Fehlertyp
-        let errorMessage = 'Unbekannter Fehler';
-        let isRetryable = false;
-        
-        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-          errorMessage = 'Zeitüberschreitung - Die Anfrage dauert zu lange.';
-          isRetryable = true;
-        } else if (error.response?.status === 422) {
-          errorMessage = 'Ungültige Daten - Bitte überprüfen Sie Ihre Eingaben.';
-          isRetryable = false;
-        } else if (error.response?.status === 400) {
-          errorMessage = error.response?.data?.detail || 'Ungültige Anfrage.';
-          isRetryable = false;
-        } else if (error.response?.status === 500) {
-          errorMessage = 'Server-Fehler - Bitte versuchen Sie es später erneut.';
-          isRetryable = true;
-        } else {
-          errorMessage = error.response?.data?.detail || error.message || 'Unbekannter Fehler';
-          isRetryable = true;
-        }
-        
-        // Wenn es der letzte Versuch ist oder nicht wiederholbar
-        if (retryCount > maxRetries || !isRetryable) {
-          alert(`Fehler beim Erstellen des Termins: ${errorMessage}`);
-          break;
-        } else {
-          // Warte vor dem nächsten Versuch
-          console.log(`⏳ Warte 2 Sekunden vor Versuch ${retryCount + 1}...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
+        console.log('✅ Parent-Handler erfolgreich aufgerufen');
+      } catch (parentError) {
+        console.warn('⚠️ Parent-Handler Fehler (Appointment wurde trotzdem erstellt):', parentError);
+        // Appointment wurde erfolgreich erstellt, auch wenn Parent-Handler fehlschlägt
       }
+      
+      // Erfolgreich - Modal schließen
+      setLoading(false);
+      onClose();
+        
+    } catch (error: any) {
+      console.error('❌ Fehler beim Erstellen des Termins:', error);
+      
+      // Bestimme Fehlertyp
+      let errorMessage = 'Unbekannter Fehler';
+      
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        errorMessage = 'Zeitüberschreitung - Die Anfrage dauert zu lange.';
+      } else if (error.response?.status === 422) {
+        errorMessage = 'Ungültige Daten - Bitte überprüfen Sie Ihre Eingaben.';
+      } else if (error.response?.status === 400) {
+        errorMessage = error.response?.data?.detail || 'Ungültige Anfrage.';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server-Fehler - Bitte versuchen Sie es später erneut.';
+      } else {
+        errorMessage = error.response?.data?.detail || error.message || 'Unbekannter Fehler';
+      }
+      
+      alert(`Fehler beim Erstellen des Termins: ${errorMessage}`);
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   const formatCurrency = (amount: number, currency: string = 'EUR') => {

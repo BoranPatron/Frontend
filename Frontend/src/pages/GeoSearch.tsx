@@ -101,8 +101,7 @@ export default function GeoSearch() {
         const location = JSON.parse(userLocation);
         setCurrentLocation(location);
         setAddressInput(''); // Reset address input when using own location
-        console.log('✅ Eigenen Standort übernommen:', location);
-      } else {
+        } else {
         // Fallback: Verwende Browser-Standort
         await getCurrentBrowserLocation();
       }
@@ -200,7 +199,6 @@ export default function GeoSearch() {
       });
 
       if (response.ok) {
-        console.log('✅ Abschluss-Antrag erfolgreich eingereicht');
         // Refresh trades to show updated status
         if (currentLocation) {
           await performSearch();

@@ -28,22 +28,15 @@ export default function NavbarDebug({ showDebug = false }: NavbarDebugProps) {
 
   // Logge Debug-Informationen
   React.useEffect(() => {
-    console.log('🔍 NavbarDebug Status:', debugInfo);
-    
     // Zusätzliche Debug-Informationen
     if (debugInfo.shouldShowNavbar) {
-      console.log('✅ Navbar sollte angezeigt werden');
-    } else {
-      console.log('❌ Navbar sollte NICHT angezeigt werden');
+      } else {
       if (debugInfo.isLoginPage) {
-        console.log('   - Grund: Auf Login-Seite');
-      }
+        }
       if (!debugInfo.isInitialized) {
-        console.log('   - Grund: AuthContext nicht initialisiert');
-      }
+        }
       if (!debugInfo.hasUser) {
-        console.log('   - Grund: Kein User vorhanden');
-      }
+        }
     }
   }, [debugInfo]);
 

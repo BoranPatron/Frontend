@@ -97,12 +97,10 @@ export default function TradeQuoteDetailsModal({
   const statusInfo = getStatusInfo();
 
   const handleDownloadPDF = () => {
-    console.log('📄 PDF-Download für Angebot:', quote?.id);
-  };
+    };
 
   const handleShareQuote = () => {
-    console.log('📤 Angebot teilen:', quote?.id);
-  };
+    };
 
   const handleViewDashboard = () => {
     onClose();

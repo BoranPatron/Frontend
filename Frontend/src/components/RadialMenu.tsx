@@ -4,15 +4,15 @@ import { useNavigate } from "react-router-dom";
 import { useProject } from "../context/ProjectContext";
 import { 
   Home, 
-  FileText, 
   CheckSquare, 
   Euro, 
-  MessageSquare, 
   BarChart3, 
   Palette,
   Plus,
   X,
-  Info
+  Info,
+  Hammer,
+  FileText
 } from 'lucide-react';
 
 type RadialItem = {
@@ -78,20 +78,6 @@ export function RadialMenu({
         description: "Projekt- und Gewerkverwaltung"
       },
       {
-        id: "docs",
-        label: "Docs",
-        icon: <FileText size={24} />,
-        onSelect: () => {
-          if (projectId) {
-            navigate(`/documents?project=${projectId}`);
-          } else {
-            navigate('/documents');
-          }
-        },
-        color: "#4F46E5",
-        description: "Dokumentenmanagement"
-      },
-      {
         id: "tasks",
         label: "To-Do",
         icon: <CheckSquare size={24} />,
@@ -120,12 +106,34 @@ export function RadialMenu({
         description: "Budget & Ausgaben"
       },
       {
-        id: "quotes",
-        label: "Gewerke",
-        icon: <MessageSquare size={24} />,
-        onSelect: () => navigate('/quotes'),
+        id: "documents",
+        label: "Dokumente",
+        icon: <FileText size={24} />,
+        onSelect: () => {
+          if (projectId) {
+            navigate(`/documents?project=${projectId}`);
+          } else {
+            navigate('/documents');
+          }
+        },
+        color: "#3B82F6",
+        description: "Dokumentenmanagement"
+      },
+      // Entfernt: Gewerke-Hauptpunkt (Seite /quotes ist deaktiviert)
+      {
+        id: "create-trade",
+        label: "Neues Gewerk",
+        icon: <Hammer size={24} />,
+        onSelect: () => {
+          const projectId = selectedProject?.id;
+          if (projectId) {
+            navigate(`${window.location.pathname}?create=trade&project=${projectId}`);
+          } else {
+            navigate(`${window.location.pathname}?create=trade`);
+          }
+        },
         color: "#8B5CF6",
-        description: "Angebote & Ausschreibungen"
+        description: "Gewerk erstellen"
       },
       {
         id: "visualize",

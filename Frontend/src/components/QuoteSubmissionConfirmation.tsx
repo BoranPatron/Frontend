@@ -47,13 +47,11 @@ export default function QuoteSubmissionConfirmation({
 
   const handleDownloadPDF = () => {
     // PDF-Download Funktionalität hier implementieren
-    console.log('📄 PDF-Download für Angebot:', quote.id);
-  };
+    };
 
   const handleShareQuote = () => {
     // Teilen-Funktionalität hier implementieren
-    console.log('📤 Angebot teilen:', quote.id);
-  };
+    };
 
   const handleViewDashboard = () => {
     // Zurück zum Dashboard

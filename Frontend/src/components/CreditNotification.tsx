@@ -15,10 +15,8 @@ export default function CreditNotification({ onClose }: CreditNotificationProps)
   useEffect(() => {
     // Lade Credits erst, wenn AuthContext initialisiert und User authentifiziert ist
     if (isInitialized && isAuthenticated() && user) {
-      console.log('🔄 AuthContext bereit - lade Credit-Daten');
       loadCreditBalance();
     } else if (isInitialized && !isAuthenticated()) {
-      console.log('ℹ️ User nicht authentifiziert - überspringe Credit-Laden');
       setLoading(false);
     }
   }, [isInitialized, user]);

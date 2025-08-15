@@ -41,8 +41,6 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
 
   const loadBautraegerNotifications = async () => {
     try {
-      console.log('🏗️ BautraegerNotificationTab: Lade Bauträger-Benachrichtigungen für User:', userId);
-      
       // Nutze den sicheren Endpunkt - Bauträger sehen nur eigene Termine
       const myAppointments = await appointmentService.getMyAppointments(8); // Demo: Projekt 8
       
@@ -50,22 +48,18 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
       
       // Verarbeite jede Antwort von Service Providern
       myAppointments.forEach(appointment => {
-        console.log(`🔍 BautraegerNotificationTab: Processing appointment ${appointment.id}:`, appointment);
-        
         // Parse responses robustly - handle both array and JSON string
         let responses = [];
         if (appointment.responses_array && Array.isArray(appointment.responses_array)) {
           responses = appointment.responses_array;
-          console.log(`✅ Using new responses_array for appointment ${appointment.id}:`, responses);
-        } else if (appointment.responses) {
+          } else if (appointment.responses) {
           try {
             if (typeof appointment.responses === 'string') {
               responses = JSON.parse(appointment.responses);
             } else if (Array.isArray(appointment.responses)) {
               responses = appointment.responses;
             }
-            console.log(`✅ Parsed legacy responses for appointment ${appointment.id}:`, responses);
-          } catch (e) {
+            } catch (e) {
             console.error(`❌ Error parsing responses for appointment ${appointment.id}:`, e);
             responses = [];
           }
@@ -84,14 +78,9 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
         }
       });
 
-      console.log('🔒 Sichere Abfrage: Bauträger sieht nur eigene Termine mit Antworten:', notifications.length);
-
       // Keine Demo-Benachrichtigungen mehr - nur echte Daten
-      console.log('✅ BautraegerNotificationTab: Keine Demo-Benachrichtigungen - nur echte Daten');
-
       setNotifications(notifications);
-      console.log('✅ BautraegerNotificationTab: Benachrichtigungen geladen:', notifications.length);
-    } catch (error) {
+      } catch (error) {
       console.error('❌ BautraegerNotificationTab: Fehler beim Laden:', error);
       // Bei Fehlern Demo-Daten als Fallback
       setNotifications([]);
@@ -126,8 +115,7 @@ Ihr BuildWise Team
     const mailtoLink = `mailto:service-provider-${response.service_provider_id}@demo.com?subject=${subject}&body=${body}`;
     window.open(mailtoLink, '_blank');
     
-    console.log('📧 E-Mail generiert für Service Provider:', response.service_provider_id);
-  };
+    };
 
   const handleMarkAsHandled = (notificationIndex: number) => {
     setNotifications(prev => 
@@ -161,8 +149,6 @@ Ihr BuildWise Team
   const unhandledCount = notifications.filter(n => !n.isHandled).length;
   const hasUnhandled = unhandledCount > 0;
   
-  console.log(`🏗️ [BAUTRAEGER-NOTIFICATION] Rendering with ${notifications.length} notifications, ${unhandledCount} unhandled`);
-
   // Zeige immer die Tab, auch wenn keine Notifications da sind
   // if (notifications.length === 0) {
   //   return null;

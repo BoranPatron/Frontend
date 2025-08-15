@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   FileText, 
@@ -59,9 +59,11 @@ import { createQuote, getQuotesForMilestone, acceptQuote, rejectQuote, withdrawQ
 import { getMilestones, getAllMilestones } from '../api/milestoneService';
 import { getProjects } from '../api/projectService';
 import logo from '../logo_trans_big.png';
+import TradeCreationForm from '../components/TradeCreationForm';
 
 export default function ServiceProviderDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, userRole, isAuthenticated } = useAuth();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -113,6 +115,26 @@ export default function ServiceProviderDashboard() {
   const [selectedTradeForCostEstimateDetails, setSelectedTradeForCostEstimateDetails] = useState<any | null>(null);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+  // Gewerk-Erstellung
+  const [showTradeCreationForm, setShowTradeCreationForm] = useState(false);
+  const [selectedProjectIdForCreation, setSelectedProjectIdForCreation] = useState<number | null>(null);
+
+  // Query-Param getrieben: Neues Gewerk erstellen
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const create = params.get('create');
+    const projectParam = params.get('project');
+    if (create === 'trade') {
+      if (projectParam) {
+        setSelectedProjectIdForCreation(parseInt(projectParam, 10));
+      }
+      setShowTradeCreationForm(true);
+      // 'create' aus URL entfernen, 'project' belassen
+      const newParams = new URLSearchParams(location.search);
+      newParams.delete('create');
+      navigate({ pathname: location.pathname, search: newParams.toString() ? `?${newParams.toString()}` : '' }, { replace: true });
+    }
+  }, [location.search, navigate]);
 
   // Online/Offline-Status überwachen
   useEffect(() => {
@@ -154,8 +176,7 @@ export default function ServiceProviderDashboard() {
           setCurrentLocation(location);
           localStorage.setItem('buildwise_geo_location', JSON.stringify(location));
           setGeoLoading(false);
-          console.log('✅ Standort ermittelt:', location);
-        },
+          },
         (error) => {
           console.error('❌ Standort-Fehler:', error);
           setGeoError('Standort konnte nicht ermittelt werden');
@@ -180,8 +201,7 @@ export default function ServiceProviderDashboard() {
       };
       setCurrentLocation(location);
       localStorage.setItem('buildwise_geo_location', JSON.stringify(location));
-      console.log('✅ Adresse geocodiert:', manualAddress, location);
-    } catch (error) {
+      } catch (error) {
       console.error('❌ Geocoding-Fehler:', error);
       setGeoError('Adresse konnte nicht gefunden werden');
     } finally {
@@ -213,8 +233,7 @@ export default function ServiceProviderDashboard() {
       
       const tradeResults = await searchTradesInRadius(searchRequest);
       setGeoTrades(tradeResults);
-      console.log('✅ Geo-Gewerke geladen:', tradeResults.length);
-    } catch (error) {
+      } catch (error) {
       console.error('❌ Geo-Search Fehler:', error);
       setGeoError('Fehler bei der Gewerke-Suche');
     } finally {
@@ -277,16 +296,11 @@ export default function ServiceProviderDashboard() {
   // Prüfe ob der aktuelle Dienstleister bereits ein Angebot für ein Gewerk abgegeben hat
   const hasServiceProviderQuote = (tradeId: number): boolean => {
     if (!user || (user.user_type !== 'service_provider' && user.user_role !== 'DIENSTLEISTER')) {
-      console.log('🔍 hasServiceProviderQuote: User ist kein Dienstleister oder nicht vorhanden', {
-        user_type: user?.user_type,
-        user_role: user?.user_role
-      });
       return false;
     }
     
     const quotes = allTradeQuotes[tradeId] || [];
     const hasQuote = quotes.some(quote => quote.service_provider_id === user.id);
-    console.log(`🔍 hasServiceProviderQuote: Trade ${tradeId}, User ${user.id}, hasQuote: ${hasQuote}`);
     return hasQuote;
   };
 
@@ -309,7 +323,6 @@ export default function ServiceProviderDashboard() {
     
     const quotes = allTradeQuotes[tradeId] || [];
     const userQuote = quotes.find(quote => quote.service_provider_id === user.id);
-    console.log(`🔍 getServiceProviderQuote: Trade ${tradeId}, User ${user.id}, Quote:`, userQuote);
     return userQuote || null;
   };
 
@@ -406,7 +419,6 @@ export default function ServiceProviderDashboard() {
   };
 
   const handleTradeDetails = (trade: TradeSearchResult) => {
-    console.log('👁️ Zeige Details für:', trade);
     setDetailTrade(trade);
     setShowTradeDetails(true);
   };
@@ -418,8 +430,6 @@ export default function ServiceProviderDashboard() {
     }
 
     try {
-      console.log('🚀 Erstelle Angebot:', costEstimateData);
-      
       // Angebot über API erstellen
       const quoteData = {
         title: costEstimateData.title || `Angebot für ${selectedTradeForQuote.title}`,
@@ -446,8 +456,6 @@ export default function ServiceProviderDashboard() {
       };
 
       const newQuote = await createQuote(quoteData);
-      console.log('✅ Angebot erfolgreich erstellt:', newQuote);
-      
       // Form schließen und Erfolgsmeldung
       setShowCostEstimateForm(false);
       setSelectedTradeForQuote(null);
@@ -466,9 +474,7 @@ export default function ServiceProviderDashboard() {
       // Beide Updates parallel ausführen
       await Promise.all(updatePromises);
       
-      console.log('✅ Alle Daten aktualisiert nach Angebotserstellung');
-      
-    } catch (error) {
+      } catch (error) {
       console.error('❌ Fehler beim Erstellen des Angebots:', error);
     }
   };
@@ -660,6 +666,27 @@ export default function ServiceProviderDashboard() {
           </DashboardCard>
         ))}
       </div>
+
+      {/* Neues Gewerk erstellen Modal */}
+      {showTradeCreationForm && (
+        <TradeCreationForm
+          isOpen={showTradeCreationForm}
+          onClose={() => setShowTradeCreationForm(false)}
+          onSubmit={async () => {
+            setShowTradeCreationForm(false);
+            try {
+              setIsLoadingTrades(true);
+              const all = await getAllMilestones();
+              setTrades(all || []);
+            } catch (e) {
+              console.error('Fehler beim Neuladen der Gewerke:', e);
+            } finally {
+              setIsLoadingTrades(false);
+            }
+          }}
+          projectId={selectedProjectIdForCreation || 0}
+        />
+      )}
 
       {/* Gewerke in Ihrer Nähe - Moderne Geo-Suche */}
       {showGeoSearch && (
@@ -871,12 +898,22 @@ export default function ServiceProviderDashboard() {
                 <option value="electrical">⚡ Elektro</option>
                 <option value="plumbing">🚿 Sanitär</option>
                 <option value="heating">🔥 Heizung</option>
-                <option value="roofing">🏠 Dach</option>
-                <option value="windows">🪟 Fenster/Türen</option>
-                <option value="flooring">🏗️ Boden</option>
-                <option value="walls">🧱 Wände</option>
-                <option value="foundation">🏗️ Fundament</option>
-                <option value="landscaping">🌳 Garten</option>
+                <option value="flooring">🏗️ Bodenbelag</option>
+                <option value="painting">🎨 Malerei</option>
+                <option value="carpentry">🪚 Zimmerei</option>
+                <option value="roofing">🏠 Dachdeckerei</option>
+                <option value="landscaping">🌳 Garten- & Landschaftsbau</option>
+                <option value="civil_engineering">🚧 Tiefbau</option>
+                <option value="structural">🏗️ Hochbau</option>
+                <option value="interior">🛋️ Innenausbau / Interior</option>
+                <option value="facade">🏢 Fassade</option>
+                <option value="windows_doors">🪟 Fenster & Türen</option>
+                <option value="drywall">🧱 Trockenbau</option>
+                <option value="tiling">🧩 Fliesenarbeiten</option>
+                <option value="insulation">🧊 Dämmung</option>
+                <option value="hvac">🌬️ Klima / Lüftung (HVAC)</option>
+                <option value="smart_home">📡 Smart Home</option>
+                <option value="site_preparation">🚜 Erdarbeiten / Baustellenvorbereitung</option>
               </select>
             </div>
           </div>
@@ -964,31 +1001,34 @@ export default function ServiceProviderDashboard() {
                           trade.isGeoResult ? 'border-blue-500/30' : ''
                         }`}
                         onClick={() => {
-                          console.log('🔍 Trade-Kachel geklickt:', trade);
-                          console.log('🔍 Verfügbare Quotes:', quotes);
-                          console.log('🔍 AllTradeQuotes:', allTradeQuotes);
-                          console.log('🔍 User:', user);
+                          console.log('🔍 CLICK DEBUG: Trade clicked', {
+                            tradeId: trade.id,
+                            tradeTitle: trade.title,
+                            userId: user?.id,
+                            userRole: user?.user_role
+                          });
                           
                           // Prüfe ob der AKTUELLE USER ein Quote für dieses Trade hat
                           const userHasQuote = hasServiceProviderQuote(trade.id);
                           const userQuote = (allTradeQuotes[trade.id] || []).find((q: any) => q.service_provider_id === user?.id);
                           
-                          console.log('🔍 User hat Quote:', userHasQuote);
-                          console.log('🔍 Eigenes Quote:', userQuote);
+                          console.log('🔍 OPENING TradeDetailsModal', {
+                            userHasQuote,
+                            userQuote: userQuote?.id,
+                            settingDetailTrade: trade.id,
+                            settingShowTradeDetails: true
+                          });
                           
                           // TEMPORÄR: Immer TradeDetailsModal öffnen für neue Baufortschrittsfunktionalität
-                          console.log('🔧 Öffne TradeDetailsModal mit Baufortschrittsfunktionalität');
                           setDetailTrade(trade);
                           setShowTradeDetails(true);
                           
                           // ORIGINAL LOGIK (auskommentiert):
                           // if (userHasQuote && userQuote) {
-                          //   console.log('✅ User hat eigenes Quote - öffne ServiceProviderQuoteModal');
-                          //   setSelectedTradeForCostEstimateDetails(trade);
+                          //   //   setSelectedTradeForCostEstimateDetails(trade);
                           //   setShowCostEstimateDetailsModal(true);
                           // } else {
-                          //   console.log('⚠️ User hat kein Quote - öffne TradeDetailsModal zum Erstellen');
-                          //   setDetailTrade(trade);
+                          //   //   setDetailTrade(trade);
                           //   setShowTradeDetails(true);
                           // }
                         }}
@@ -1139,7 +1179,6 @@ export default function ServiceProviderDashboard() {
                     trades={geoTrades}
                     radiusKm={radiusKm}
                     onTradeClick={(trade) => {
-                      console.log('📍 Karten-Marker geklickt:', trade);
                       handleTradeDetails(trade);
                     }}
                   />

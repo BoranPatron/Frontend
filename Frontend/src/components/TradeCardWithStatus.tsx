@@ -44,32 +44,25 @@ export default function TradeCardWithStatus({ trade, onTradeClick, onViewQuoteDe
       // Robuste Token-Validierung und -Wiederherstellung
       const token = await getValidToken();
       if (!token) {
-        console.log('❌ Kein gültiger Token verfügbar');
         setQuoteStatus('unknown');
         return;
       }
 
-      console.log(`🔍 Prüfe Quote-Status für Gewerk ${trade.id}...`);
       console.log(`🔑 Token verfügbar: ${token.substring(0, 10)}...`);
       
       // Robuste API-Prüfung mit mehreren Fallback-Optionen
       const quoteData = await findUserQuote(trade.id, token);
       
       if (quoteData) {
-        console.log(`✅ Angebot gefunden: Status = ${quoteData.status}`);
         setQuoteStatus(quoteData.status || 'submitted');
         setQuoteData(quoteData);
       } else {
-        console.log('❌ Kein Angebot gefunden');
-        
         // Fallback: Prüfe Backend-Status und versuche alternative Methoden
         const backendStatus = await checkBackendStatus(token);
         if (backendStatus.working) {
-          console.log('✅ Backend funktioniert, aber kein Angebot gefunden');
           setQuoteStatus('none');
           setQuoteData(null);
         } else {
-          console.log('⚠️ Backend-Probleme erkannt, verwende Fallback-Modus');
           // Fallback: Zeige "Unbekannt" Status bei Backend-Problemen
           setQuoteStatus('unknown');
           setQuoteData(null);
@@ -94,41 +87,32 @@ export default function TradeCardWithStatus({ trade, onTradeClick, onViewQuoteDe
       // Token-Validität prüfen
       const isValid = await validateToken(token);
       if (isValid) {
-        console.log('✅ Token ist gültig');
         return token;
       } else {
-        console.log('❌ Token ist ungültig, versuche Token-Refresh');
-      }
+        }
     }
 
     // Versuche 2: Token-Refresh
     try {
-      console.log('🔄 Versuche Token-Refresh...');
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
         const newToken = await refreshAccessToken(refreshToken);
         if (newToken) {
-          console.log('✅ Token erfolgreich erneuert');
           return newToken;
         }
       }
     } catch (error) {
-      console.log('❌ Token-Refresh fehlgeschlagen:', error);
-    }
+      }
 
     // Versuche 3: Automatische Re-Authentifizierung
     try {
-      console.log('🔄 Versuche automatische Re-Authentifizierung...');
       const newToken = await reAuthenticate();
       if (newToken) {
-        console.log('✅ Re-Authentifizierung erfolgreich');
         return newToken;
       }
     } catch (error) {
-      console.log('❌ Re-Authentifizierung fehlgeschlagen:', error);
-    }
+      }
 
-    console.log('❌ Kein gültiger Token verfügbar');
     return null;
   };
 
@@ -143,7 +127,6 @@ export default function TradeCardWithStatus({ trade, onTradeClick, onViewQuoteDe
       });
       return response.ok;
     } catch (error) {
-      console.log('❌ Token-Validierung fehlgeschlagen:', error);
       return false;
     }
   };
@@ -169,7 +152,6 @@ export default function TradeCardWithStatus({ trade, onTradeClick, onViewQuoteDe
       }
       return null;
     } catch (error) {
-      console.log('❌ Token-Refresh fehlgeschlagen:', error);
       return null;
     }
   };
@@ -200,7 +182,6 @@ export default function TradeCardWithStatus({ trade, onTradeClick, onViewQuoteDe
       }
       return null;
     } catch (error) {
-      console.log('❌ Re-Authentifizierung fehlgeschlagen:', error);
       return null;
     }
   };
@@ -265,8 +246,6 @@ export default function TradeCardWithStatus({ trade, onTradeClick, onViewQuoteDe
 
     for (const endpoint of endpoints) {
       try {
-        console.log(`🔄 Teste Endpoint: ${endpoint.name}`);
-        
         const response = await fetch(endpoint.url, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -274,24 +253,17 @@ export default function TradeCardWithStatus({ trade, onTradeClick, onViewQuoteDe
           }
         });
 
-        console.log(`📡 ${endpoint.name} Status: ${response.status}`);
-
         if (response.ok) {
           // Robuste Response-Validierung
           let data;
           try {
             const responseText = await response.text();
-            console.log(`📄 ${endpoint.name} Raw Response:`, responseText);
-            
             if (!responseText || responseText.trim() === '') {
-              console.log(`⚠️ ${endpoint.name}: Leere Response`);
               continue;
             }
             
             data = JSON.parse(responseText);
-            console.log(`📊 ${endpoint.name} Parsed Response:`, data);
-          } catch (parseError) {
-            console.log(`❌ ${endpoint.name} JSON Parse Error:`, parseError);
+            } catch (parseError) {
             console.log(`📄 ${endpoint.name} Invalid Response:`, await response.text());
             continue;
           }
@@ -299,7 +271,6 @@ export default function TradeCardWithStatus({ trade, onTradeClick, onViewQuoteDe
           // Endpoint 1: check-user-quote
           if (endpoint.name === 'check-user-quote') {
             if (data && data.has_quote && data.quote) {
-              console.log(`✅ Angebot über ${endpoint.name} gefunden`);
               return data.quote;
             }
           }
@@ -317,31 +288,24 @@ export default function TradeCardWithStatus({ trade, onTradeClick, onViewQuoteDe
             });
             
             if (userQuote) {
-              console.log(`✅ Angebot über ${endpoint.name} gefunden:`, userQuote);
               return userQuote;
             }
           }
           
           // Endpoint mit direktem Quote-Objekt
           else if (data && data.id && (data.milestone_id === tradeId || data.trade_id === tradeId)) {
-            console.log(`✅ Angebot über ${endpoint.name} gefunden:`, data);
             return data;
           }
         } else {
-          console.log(`❌ ${endpoint.name} Error: ${response.status} ${response.statusText}`);
           try {
             const errorText = await response.text();
-            console.log(`📄 ${endpoint.name} Error Response:`, errorText);
-          } catch (error) {
-            console.log(`❌ ${endpoint.name} Error Response nicht lesbar`);
-          }
+            } catch (error) {
+            }
         }
       } catch (error) {
-        console.log(`❌ ${endpoint.name} Exception:`, error);
-      }
+        }
     }
 
-    console.log('❌ Kein Angebot in allen Endpoints gefunden');
     return null;
   };
 
@@ -587,7 +551,6 @@ export default function TradeCardWithStatus({ trade, onTradeClick, onViewQuoteDe
             tradeId={trade.id}
             onDebugComplete={(hasQuote, quoteData) => {
               if (hasQuote && quoteData) {
-                console.log('🔧 Debug gefunden: Angebot existiert!', quoteData);
                 setQuoteStatus(quoteData.status || 'submitted');
                 setQuoteData(quoteData);
               }

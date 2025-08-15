@@ -86,8 +86,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       onTaskUpdate(updatedTask);
       setIsEditing(false);
       
-      console.log('✅ Task erfolgreich aktualisiert');
-    } catch (error: any) {
+      } catch (error: any) {
       console.error('❌ Fehler beim Aktualisieren der Task:', error);
       setError('Fehler beim Speichern der Änderungen');
     } finally {
@@ -110,8 +109,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       onTaskDelete(task.id);
       onClose();
       
-      console.log('✅ Task erfolgreich gelöscht');
-    } catch (error: any) {
+      } catch (error: any) {
       console.error('❌ Fehler beim Löschen der Task:', error);
       setError('Fehler beim Löschen der Aufgabe');
     } finally {
