@@ -326,6 +326,12 @@ const Documents: React.FC = () => {
   // Dokumentenviewer State
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [showViewer, setShowViewer] = useState(false);
+  
+  // Dokument-Bearbeitung State
+  const [editingDocument, setEditingDocument] = useState<Document | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editCategory, setEditCategory] = useState<string>('');
+  const [editSubcategory, setEditSubcategory] = useState<string>('');
 
   // Gefilterte und sortierte Dokumente
   const filteredDocuments = React.useMemo(() => {
@@ -739,6 +745,47 @@ const Documents: React.FC = () => {
       await deleteDocument(docId);
       setDocuments(prev => prev.filter(doc => doc.id !== docId));
       setSuccess('Dokument erfolgreich gelöscht');
+    } catch (error: any) {
+      setError(error.message);
+    }
+  };
+
+  const handleEditDocument = (doc: Document) => {
+    setEditingDocument(doc);
+    setEditCategory(doc.category || '');
+    setEditSubcategory(doc.subcategory || '');
+    setShowEditModal(true);
+  };
+
+  const handleUpdateDocument = async () => {
+    if (!editingDocument || !editCategory) {
+      alert('Bitte wählen Sie eine Kategorie aus');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('category', editCategory.toUpperCase());
+      if (editSubcategory) {
+        formData.append('subcategory', editSubcategory);
+      }
+
+      await updateDocument(editingDocument.id, formData);
+      
+      // Update local state
+      setDocuments(prev => prev.map(doc => 
+        doc.id === editingDocument.id 
+          ? { ...doc, category: editCategory, subcategory: editSubcategory }
+          : doc
+      ));
+      
+      // Close modal
+      setShowEditModal(false);
+      setEditingDocument(null);
+      setEditCategory('');
+      setEditSubcategory('');
+      
+      setSuccess('Dokument erfolgreich aktualisiert');
     } catch (error: any) {
       setError(error.message);
     }
@@ -1189,6 +1236,13 @@ const Documents: React.FC = () => {
                               Öffnen
                             </button>
                             <button
+                              onClick={() => handleEditDocument(doc)}
+                              className="p-2 rounded-lg bg-[#2c3539]/50 text-gray-400 hover:text-blue-400 transition-colors"
+                              title="Kategorien bearbeiten"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
                               onClick={() => handleToggleFavorite(doc.id)}
                               className={`p-2 rounded-lg transition-colors ${
                                 doc.is_favorite 
@@ -1260,6 +1314,13 @@ const Documents: React.FC = () => {
                                 className="p-2 rounded-lg bg-[#ffbd59]/20 text-[#ffbd59] hover:bg-[#ffbd59]/30 transition-colors"
                               >
                                 <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleEditDocument(doc)}
+                                className="p-2 rounded-lg bg-[#2c3539]/50 text-gray-400 hover:text-blue-400 transition-colors"
+                                title="Kategorien bearbeiten"
+                              >
+                                <Edit className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleToggleFavorite(doc.id)}
@@ -1444,6 +1505,104 @@ const Documents: React.FC = () => {
                   Alle hochladen
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Document Modal */}
+      {showEditModal && editingDocument && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-2xl shadow-2xl w-full max-w-md border border-gray-700">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white">Dokument bearbeiten</h2>
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingDocument(null);
+                    setEditCategory('');
+                    setEditSubcategory('');
+                  }}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <File className="w-5 h-5 text-blue-400" />
+                  <span className="font-medium text-white">{editingDocument.title}</span>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Category Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Kategorie
+                  </label>
+                  <select
+                    value={editCategory}
+                    onChange={(e) => {
+                      setEditCategory(e.target.value);
+                      setEditSubcategory(''); // Reset subcategory when category changes
+                    }}
+                    className="w-full bg-[#2c3539] border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                  >
+                    <option value="">Kategorie wählen...</option>
+                    {Object.entries(DOCUMENT_CATEGORIES).map(([key, category]) => (
+                      <option key={key} value={key}>{category.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Subcategory Selection */}
+                {editCategory && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Unterkategorie
+                    </label>
+                    <select
+                      value={editSubcategory}
+                      onChange={(e) => setEditSubcategory(e.target.value)}
+                      className="w-full bg-[#2c3539] border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                    >
+                      <option value="">Unterkategorie wählen...</option>
+                      {DOCUMENT_CATEGORIES[editCategory as keyof typeof DOCUMENT_CATEGORIES]?.subcategories.map(sub => (
+                        <option key={sub} value={sub}>{sub}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-700 flex items-center justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingDocument(null);
+                  setEditCategory('');
+                  setEditSubcategory('');
+                }}
+                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleUpdateDocument}
+                disabled={!editCategory}
+                className="bg-[#ffbd59] hover:bg-[#ffa726] disabled:bg-[#2c3539] disabled:cursor-not-allowed text-[#1a1a2e] disabled:text-gray-400 px-6 py-2 rounded-lg font-medium transition-colors"
+              >
+                Speichern
+              </button>
             </div>
           </div>
         </div>

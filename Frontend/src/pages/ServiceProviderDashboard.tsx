@@ -40,7 +40,8 @@ import {
   Shield,
   Star,
   Wrench,
-  Archive
+  Archive,
+  ExternalLink
 } from 'lucide-react';
 import DashboardCard from '../components/DashboardCard';
 import CostEstimateForm from '../components/CostEstimateForm';
@@ -119,7 +120,7 @@ export default function ServiceProviderDashboard() {
   const [showTradeCreationForm, setShowTradeCreationForm] = useState(false);
   const [selectedProjectIdForCreation, setSelectedProjectIdForCreation] = useState<number | null>(null);
 
-  // Query-Param getrieben: Neues Gewerk erstellen
+        // Query-Param getrieben: Neue Ausschreibung
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const create = params.get('create');
@@ -250,15 +251,20 @@ export default function ServiceProviderDashboard() {
 
   // Lade Trades und Quotes für Dienstleister
   const loadTrades = async () => {
+    console.log('🔍 loadTrades: Funktion gestartet');
     setIsLoadingTrades(true);
     setError('');
     try {
+      console.log('🔍 loadTrades: Lade alle Milestones...');
       // Dienstleister: alle Milestones (Ausschreibungen) global laden
       const tradesData = await getAllMilestones();
+      console.log('🔍 loadTrades: Milestones geladen:', tradesData.length, 'Trades');
       setTrades(tradesData);
       
+      console.log('🔍 loadTrades: Starte loadAllTradeQuotes...');
       // Lade Angebote für alle Gewerke
       await loadAllTradeQuotes(tradesData);
+      console.log('🔍 loadTrades: Erfolgreich abgeschlossen');
     } catch (err: any) {
       console.error('❌ Error in loadTrades:', err);
       setError('Fehler beim Laden der Gewerke');
@@ -270,10 +276,13 @@ export default function ServiceProviderDashboard() {
   // Lade Angebote für alle Gewerke
   const loadAllTradeQuotes = async (tradesData: any[]) => {
     try {
+      console.log('🔍 loadAllTradeQuotes: Starte Laden für', tradesData.length, 'Trades');
       const quotesMap: { [tradeId: number]: any[] } = {};
       const quotePromises = tradesData.map(async (trade) => {
         try {
+          console.log('🔍 Lade Quotes für Trade ID:', trade.id);
           const quotes = await getQuotesForMilestone(trade.id);
+          console.log('🔍 Quotes für Trade', trade.id, ':', quotes.length, 'gefunden', quotes);
           quotesMap[trade.id] = quotes;
         } catch (e: any) {
           console.error('❌ Error loading quotes for trade:', trade.id, e);
@@ -281,6 +290,7 @@ export default function ServiceProviderDashboard() {
         }
       });
       await Promise.all(quotePromises);
+      console.log('🔍 Finale quotesMap:', quotesMap);
       setAllTradeQuotes(quotesMap);
     } catch (e: any) {
       console.error('❌ Error loading all trade quotes:', e);
@@ -290,8 +300,40 @@ export default function ServiceProviderDashboard() {
 
   // Lade Trades beim Komponenten-Mount
   useEffect(() => {
-    loadTrades();
+    console.log('🔍 useEffect: Komponente gemountet, starte loadTrades()');
+    loadTrades().catch(error => {
+      console.error('❌ useEffect: Fehler in loadTrades():', error);
+    });
   }, []);
+
+  // Hilfsfunktion: Prüft ob ein Quote dem aktuellen User gehört
+  const isUserQuote = (quote: any, user: any): boolean => {
+    if (!quote || !user) return false;
+    
+    console.log('🔍 ServiceProvider isUserQuote Vergleich:', {
+      quoteServiceProviderId: quote.service_provider_id,
+      quoteServiceProviderIdType: typeof quote.service_provider_id,
+      userId: user.id,
+      userIdType: typeof user.id,
+      directMatch: quote.service_provider_id === user.id,
+      looseMatch: quote.service_provider_id == user.id,
+      stringMatch: String(quote.service_provider_id) === String(user.id)
+    });
+    
+    // Robuste ID-Vergleiche (number vs string handling)
+    const isMatch = quote.service_provider_id === user.id || 
+                   quote.service_provider_id == user.id ||
+                   String(quote.service_provider_id) === String(user.id) ||
+                   Number(quote.service_provider_id) === Number(user.id);
+    
+    if (isMatch) {
+      console.log('✅ ServiceProvider Quote-User-Match gefunden über ID-Vergleich!');
+    } else {
+      console.log('❌ ServiceProvider Kein Quote-User-Match über ID-Vergleich');
+    }
+    
+    return isMatch;
+  };
 
   // Prüfe ob der aktuelle Dienstleister bereits ein Angebot für ein Gewerk abgegeben hat
   const hasServiceProviderQuote = (tradeId: number): boolean => {
@@ -300,7 +342,38 @@ export default function ServiceProviderDashboard() {
     }
     
     const quotes = allTradeQuotes[tradeId] || [];
-    const hasQuote = quotes.some(quote => quote.service_provider_id === user.id);
+    
+    // DEBUG: Ausgabe für Analyse
+    console.log('🔍 hasServiceProviderQuote DEBUG:', {
+      tradeId,
+      userId: user.id,
+      userIdType: typeof user.id,
+      quotesCount: quotes.length,
+      quotes: quotes.map(q => ({
+        id: q.id,
+        service_provider_id: q.service_provider_id,
+        service_provider_id_type: typeof q.service_provider_id,
+        status: q.status,
+        email: q.email,
+        company_name: q.company_name,
+        contact_person: q.contact_person
+      })),
+      userObject: {
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        user_role: user.user_role,
+        company_name: user.company_name
+      },
+      userObjectFull: user
+    });
+    
+    // Verwende die erweiterte isUserQuote Funktion für robuste Erkennung
+    const hasQuote = quotes.some(quote => isUserQuote(quote, user));
+    
+    console.log('🔍 hasServiceProviderQuote RESULT:', { tradeId, hasQuote });
+    
     return hasQuote;
   };
 
@@ -311,7 +384,11 @@ export default function ServiceProviderDashboard() {
     }
     
     const quotes = allTradeQuotes[tradeId] || [];
-    const userQuote = quotes.find(quote => quote.service_provider_id === user.id);
+    // Verwende die erweiterte isUserQuote Funktion für robuste Erkennung
+    const userQuote = quotes.find(quote => isUserQuote(quote, user));
+    
+
+    
     return userQuote ? userQuote.status : null;
   };
 
@@ -322,7 +399,11 @@ export default function ServiceProviderDashboard() {
     }
     
     const quotes = allTradeQuotes[tradeId] || [];
-    const userQuote = quotes.find(quote => quote.service_provider_id === user.id);
+    // Verwende die erweiterte isUserQuote Funktion für robuste Erkennung
+    const userQuote = quotes.find(quote => isUserQuote(quote, user));
+    
+
+    
     return userQuote || null;
   };
 
@@ -431,14 +512,15 @@ export default function ServiceProviderDashboard() {
 
     try {
       // Angebot über API erstellen
+      // WICHTIG: Verwende IMMER die aktuellen User-Daten für Kontaktinformationen
       const quoteData = {
         title: costEstimateData.title || `Angebot für ${selectedTradeForQuote.title}`,
         description: costEstimateData.description || '',
         project_id: selectedTradeForQuote.project_id,
         milestone_id: selectedTradeForQuote.id,
-        service_provider_id: user.id,
+        service_provider_id: user.id, // KRITISCH: Muss user.id sein
         total_amount: parseFloat(costEstimateData.total_amount) || 0,
-        currency: costEstimateData.currency || 'EUR',
+        currency: costEstimateData.currency || 'CHF', // Standard CHF
         valid_until: costEstimateData.valid_until || '',
         labor_cost: parseFloat(costEstimateData.labor_cost) || 0,
         material_cost: parseFloat(costEstimateData.material_cost) || 0,
@@ -446,14 +528,25 @@ export default function ServiceProviderDashboard() {
         estimated_duration: parseInt(costEstimateData.estimated_duration) || 0,
         start_date: costEstimateData.start_date || '',
         completion_date: costEstimateData.completion_date || '',
-        payment_terms: costEstimateData.payment_terms || '',
+        payment_terms: costEstimateData.payment_terms || '30_days',
         warranty_period: parseInt(costEstimateData.warranty_period) || 12,
-        company_name: costEstimateData.company_name || user.company_name || '',
-        contact_person: costEstimateData.contact_person || `${user.first_name} ${user.last_name}`,
-        phone: costEstimateData.phone || user.phone || '',
-        email: costEstimateData.email || user.email || '',
-        website: costEstimateData.website || ''
+        // KRITISCH: Verwende IMMER aktuelle User-Daten, nicht Form-Daten
+        company_name: user.company_name || costEstimateData.company_name || '',
+        contact_person: `${user.first_name} ${user.last_name}`,
+        phone: user.phone || costEstimateData.phone || '',
+        email: user.email, // IMMER user.email verwenden
+        website: user.company_website || costEstimateData.website || ''
       };
+
+      console.log('🔍 Quote-Erstellung mit Daten:', {
+        service_provider_id: quoteData.service_provider_id,
+        service_provider_id_type: typeof quoteData.service_provider_id,
+        email: quoteData.email,
+        contact_person: quoteData.contact_person,
+        company_name: quoteData.company_name,
+        userId: user.id,
+        userEmail: user.email
+      });
 
       const newQuote = await createQuote(quoteData);
       // Form schließen und Erfolgsmeldung
@@ -667,7 +760,7 @@ export default function ServiceProviderDashboard() {
         ))}
       </div>
 
-      {/* Neues Gewerk erstellen Modal */}
+              {/* Neue Ausschreibung Modal */}
       {showTradeCreationForm && (
         <TradeCreationForm
           isOpen={showTradeCreationForm}
@@ -687,6 +780,213 @@ export default function ServiceProviderDashboard() {
           projectId={selectedProjectIdForCreation || 0}
         />
       )}
+
+      {/* Angebotsverfahren - Gewerke mit eigenen Angeboten */}
+      <div className="mb-8 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 backdrop-blur-xl rounded-2xl p-6 border border-blue-500/30 shadow-2xl">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl shadow-lg">
+              <FileText size={24} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">Angebotsverfahren</h2>
+              <p className="text-gray-400 text-sm mt-1">
+                Gewerke für die Sie bereits Angebote abgegeben haben
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold text-blue-400">
+              {geoTrades.filter(trade => hasServiceProviderQuote(trade.id)).length}
+            </div>
+            <div className="text-xs text-gray-400">Laufende Angebote</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {geoTrades
+            .filter(trade => hasServiceProviderQuote(trade.id))
+            .map((trade) => {
+              const quoteStatus = getServiceProviderQuoteStatus(trade.id);
+              const quote = getServiceProviderQuote(trade.id);
+              
+              return (
+                <div key={trade.id} className="bg-white/5 rounded-xl p-4 border border-blue-500/20 hover:border-blue-400/40 transition-all duration-300">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-500/20 rounded-lg">
+                        {getCategoryIcon(trade.category)}
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-white text-sm">{trade.title}</h3>
+                        <p className="text-gray-400 text-xs">Projekt ID: {trade.project_id}</p>
+                      </div>
+                    </div>
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      quoteStatus === 'accepted' ? 'bg-green-500/20 text-green-400' :
+                      quoteStatus === 'under_review' ? 'bg-yellow-500/20 text-yellow-400' :
+                      quoteStatus === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                      'bg-blue-500/20 text-blue-400'
+                    }`}>
+                      {getQuoteStatusLabel(quoteStatus || 'draft')}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 text-xs text-gray-300">
+                    <div className="flex justify-between">
+                      <span>Angebotssumme:</span>
+                      <span className="font-semibold text-white">
+                        {quote?.total_amount ? `${Number(quote.total_amount).toLocaleString('de-DE')} ${quote.currency || 'CHF'}` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Eingereicht:</span>
+                      <span>{quote?.created_at ? new Date(quote.created_at).toLocaleDateString('de-DE') : 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Entfernung:</span>
+                      <span>{trade.distance_km ? `${trade.distance_km.toFixed(1)} km` : 'N/A'}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      onClick={() => {
+                        setDetailTrade(trade);
+                        setShowTradeDetails(true);
+                      }}
+                      className="flex-1 px-3 py-2 bg-blue-500/20 text-blue-300 rounded-lg hover:bg-blue-500/30 transition-colors text-xs font-medium"
+                    >
+                      Details
+                    </button>
+                    {quoteStatus === 'draft' && (
+                      <button
+                        onClick={() => {
+                          setSelectedTradeForQuote(trade);
+                          setShowCostEstimateForm(true);
+                        }}
+                        className="flex-1 px-3 py-2 bg-yellow-500/20 text-yellow-300 rounded-lg hover:bg-yellow-500/30 transition-colors text-xs font-medium"
+                      >
+                        Bearbeiten
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+        
+        {geoTrades.filter(trade => hasServiceProviderQuote(trade.id)).length === 0 && (
+          <div className="text-center py-8">
+            <FileText size={48} className="mx-auto mb-4 text-gray-500" />
+            <h3 className="text-lg font-semibold text-gray-300 mb-2">Keine laufenden Angebote</h3>
+            <p className="text-gray-400 text-sm">
+              Sie haben noch keine Angebote für Gewerke abgegeben. Nutzen Sie die Geo-Search unten, um passende Ausschreibungen zu finden.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Gewonnene Ausschreibungen - Angenommene Angebote */}
+      <div className="mb-8 bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl rounded-2xl p-6 border border-green-500/30 shadow-2xl">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg">
+              <Award size={24} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">Gewonnene Ausschreibungen</h2>
+              <p className="text-gray-400 text-sm mt-1">
+                Angenommene Angebote und aktive Projekte
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold text-green-400">
+              {geoTrades.filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted').length}
+            </div>
+            <div className="text-xs text-gray-400">Gewonnene Projekte</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {geoTrades
+            .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted')
+            .map((trade) => {
+              const quote = getServiceProviderQuote(trade.id);
+              
+              return (
+                <div key={trade.id} className="bg-white/5 rounded-xl p-4 border border-green-500/20 hover:border-green-400/40 transition-all duration-300">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-500/20 rounded-lg">
+                        {getCategoryIcon(trade.category)}
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-white text-sm">{trade.title}</h3>
+                        <p className="text-gray-400 text-xs">Projekt ID: {trade.project_id}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                      <span className="text-green-400 text-xs font-medium">Aktiv</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 text-xs text-gray-300">
+                    <div className="flex justify-between">
+                      <span>Auftragswert:</span>
+                      <span className="font-semibold text-green-400">
+                        {quote?.total_amount ? `${Number(quote.total_amount).toLocaleString('de-DE')} ${quote.currency || 'CHF'}` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Angenommen:</span>
+                      <span>{quote?.updated_at ? new Date(quote.updated_at).toLocaleDateString('de-DE') : 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Status:</span>
+                      <span className="text-green-400">
+                        {getStatusLabel(trade.status)}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      onClick={() => {
+                        setDetailTrade(trade);
+                        setShowTradeDetails(true);
+                      }}
+                      className="flex-1 px-3 py-2 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition-colors text-xs font-medium"
+                    >
+                      Projekt öffnen
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Navigation zu Projektdetails oder Fortschritt
+                        window.location.href = `/projects/${trade.project_id}`;
+                      }}
+                      className="px-3 py-2 bg-blue-500/20 text-blue-300 rounded-lg hover:bg-blue-500/30 transition-colors text-xs font-medium"
+                    >
+                      <ExternalLink size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+        
+        {geoTrades.filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted').length === 0 && (
+          <div className="text-center py-8">
+            <Award size={48} className="mx-auto mb-4 text-gray-500" />
+            <h3 className="text-lg font-semibold text-gray-300 mb-2">Noch keine gewonnenen Ausschreibungen</h3>
+            <p className="text-gray-400 text-sm">
+              Sobald Ihre Angebote angenommen werden, erscheinen sie hier als aktive Projekte.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Gewerke in Ihrer Nähe - Moderne Geo-Suche */}
       {showGeoSearch && (
@@ -984,7 +1284,8 @@ export default function ServiceProviderDashboard() {
                     return Object.values(tradeMap);
                   })().map((trade: any, index: number) => {
                     const quotes = allTradeQuotes[trade.id] || [];
-                    const userQuote = quotes.find(quote => quote.service_provider_id === user?.id);
+                    // Verwende die erweiterte isUserQuote Funktion für robuste Erkennung
+                    const userQuote = quotes.find(quote => isUserQuote(quote, user));
                     const hasQuote = !!userQuote;
                     const quoteStatus = userQuote?.status || null;
 
@@ -996,6 +1297,10 @@ export default function ServiceProviderDashboard() {
                         } ${
                           quoteStatus === 'accepted' 
                             ? 'border-2 border-green-500/40 bg-gradient-to-r from-green-500/5 to-emerald-500/5 shadow-xl shadow-green-500/20' 
+                            : quoteStatus === 'under_review'
+                            ? 'border-2 border-yellow-500/40 bg-gradient-to-r from-yellow-500/5 to-orange-500/5 shadow-xl shadow-yellow-500/20'
+                            : quoteStatus === 'rejected'
+                            ? 'border-2 border-red-500/40 bg-gradient-to-r from-red-500/5 to-pink-500/5 shadow-xl shadow-red-500/20'
                             : ''
                         } ${
                           trade.isGeoResult ? 'border-blue-500/30' : ''
@@ -1010,7 +1315,8 @@ export default function ServiceProviderDashboard() {
                           
                           // Prüfe ob der AKTUELLE USER ein Quote für dieses Trade hat
                           const userHasQuote = hasServiceProviderQuote(trade.id);
-                          const userQuote = (allTradeQuotes[trade.id] || []).find((q: any) => q.service_provider_id === user?.id);
+                          // Verwende die erweiterte isUserQuote Funktion für robuste Erkennung
+                          const userQuote = (allTradeQuotes[trade.id] || []).find((q: any) => isUserQuote(q, user));
                           
                           console.log('🔍 OPENING TradeDetailsModal', {
                             userHasQuote,
@@ -1035,6 +1341,34 @@ export default function ServiceProviderDashboard() {
                       >
                         {/* Hover Glow Effect */}
                         <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/0 to-[#ffa726]/0 group-hover:from-[#ffbd59]/5 group-hover:to-[#ffa726]/5 transition-all duration-500 pointer-events-none"></div>
+                        
+                        {/* Status Badge Overlay - Top Right */}
+                        {hasQuote && (
+                          <div className="absolute top-3 right-3 z-20">
+                            <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border backdrop-blur-sm ${
+                              quoteStatus === 'accepted' 
+                                ? 'bg-green-500/20 text-green-300 border-green-500/40 shadow-lg shadow-green-500/20' 
+                                : quoteStatus === 'under_review'
+                                ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40 shadow-lg shadow-yellow-500/20'
+                                : quoteStatus === 'rejected'
+                                ? 'bg-red-500/20 text-red-300 border-red-500/40 shadow-lg shadow-red-500/20'
+                                : 'bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-lg shadow-blue-500/20'
+                            }`}>
+                              <div className={`w-2 h-2 rounded-full ${
+                                quoteStatus === 'accepted' ? 'bg-green-400 animate-pulse' :
+                                quoteStatus === 'under_review' ? 'bg-yellow-400 animate-pulse' :
+                                quoteStatus === 'rejected' ? 'bg-red-400' :
+                                'bg-blue-400'
+                              }`}></div>
+                              <span>
+                                {quoteStatus === 'accepted' ? 'Gewonnen' :
+                                 quoteStatus === 'under_review' ? 'In Prüfung' :
+                                 quoteStatus === 'rejected' ? 'Abgelehnt' :
+                                 'Angebot'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                         
                         {/* Modern Geo-Badge with Glow */}
                         {trade.isGeoResult && (
@@ -1298,7 +1632,22 @@ export default function ServiceProviderDashboard() {
           setDetailTrade(null);
         }}
         onCreateQuote={handleCreateQuote}
-        existingQuotes={detailTrade ? (allTradeQuotes[detailTrade.id] || []) : []}
+        existingQuotes={(() => {
+          const quotes = detailTrade ? (allTradeQuotes[detailTrade.id] || []) : [];
+          console.log('🔍 DEBUG: Übergabe an TradeDetailsModal', {
+            tradeId: detailTrade?.id,
+            quotesLength: quotes.length,
+            quotes: quotes.map(q => ({
+              id: q.id,
+              service_provider_id: q.service_provider_id,
+              service_provider_id_type: typeof q.service_provider_id,
+              status: q.status
+            })),
+            userId: user?.id,
+            userIdType: typeof user?.id
+          });
+          return quotes;
+        })()}
       />
 
       {/* ServiceProviderQuoteModal für Dienstleister - zeigt nur das eigene Angebot */}

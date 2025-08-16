@@ -2095,7 +2095,7 @@ export default function Trades() {
                       }`}
                     >
                       <Plus size={20} />
-                      Gewerk erstellen
+                      Ausschreibung erstellen
                     </button>
                     
                     {userRole === 'bautraeger' && subscriptionPlan === 'basis' && (
@@ -2688,12 +2688,13 @@ export default function Trades() {
           </>
         )}
 
-        {showCostEstimateDetailsModal && !showTradeDetailsModal && selectedTradeForCostEstimateDetails && (
+        {/* TEMPORÄR DEAKTIVIERT - Modal wird nur in Dashboard.tsx gerendert */}
+        {false && showCostEstimateDetailsModal && !showTradeDetailsModal && selectedTradeForCostEstimateDetails && (
           <CostEstimateDetailsModal
             isOpen={showCostEstimateDetailsModal}
             onClose={() => setShowCostEstimateDetailsModal(false)}
             trade={selectedTradeForCostEstimateDetails}
-            quotes={allTradeQuotes[selectedTradeForCostEstimateDetails.id] || []}
+            quotes={selectedTradeForCostEstimateDetails && selectedTradeForCostEstimateDetails.id ? allTradeQuotes[selectedTradeForCostEstimateDetails.id] || [] : []}
             project={selectedProject}
             onAcceptQuote={handleAcceptQuote}
             onRejectQuote={handleRejectQuote}
@@ -2710,7 +2711,7 @@ export default function Trades() {
               );
               // Keine sofortigen Reloads hier, um Flackern/Loops zu verhindern
             }}
-            inspectionStatus={tradeInspectionStatus[selectedTradeForCostEstimateDetails.id]}
+            inspectionStatus={selectedTradeForCostEstimateDetails && selectedTradeForCostEstimateDetails.id ? tradeInspectionStatus[selectedTradeForCostEstimateDetails.id] : undefined}
           />
         )}
 

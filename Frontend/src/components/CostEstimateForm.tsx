@@ -62,11 +62,9 @@ interface CostEstimateFormData {
   labor_cost: string;
   material_cost: string;
   overhead_cost: string;
-  profit_margin: string;
   
   // Zahlungsbedingungen
   payment_terms: string;
-  warranty_period: string;
   
   // Dienstleister-Informationen
   company_name: string;
@@ -102,7 +100,7 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
     title: '',
     description: '',
     total_amount: '',
-    currency: 'EUR',
+    currency: 'CHF',
     valid_until: '',
     estimated_duration: '',
     start_date: '',
@@ -110,9 +108,7 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
     labor_cost: '',
     material_cost: '',
     overhead_cost: '',
-    profit_margin: '',
     payment_terms: '',
-    warranty_period: '',
     company_name: '',
     contact_person: '',
     phone: '',
@@ -134,7 +130,6 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [activeTab, setActiveTab] = useState('overview');
 
   // Formular-Handler
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -192,7 +187,7 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
     
     if (!formData.total_amount) errors.push('Gesamtbetrag');
     if (!formData.valid_until) errors.push('Gültig bis');
-    if (!formData.estimated_duration) errors.push('Geschätzte Dauer');
+
     if (!formData.start_date) errors.push('Startdatum');
     if (!formData.completion_date) errors.push('Fertigstellungsdatum');
     if (!formData.company_name) errors.push('Firmenname');
@@ -216,15 +211,61 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
     setSuccess('');
 
     try {
+      // Bereite die Kostenvoranschlag-Daten vor
       const costEstimateData = {
         ...formData,
         trade_id: trade.id,
         project_id: project.id,
-        status: 'submitted'
+        status: 'submitted',
+        // Konvertiere numerische Werte
+        total_amount: parseFloat(formData.total_amount) || 0,
+        labor_cost: parseFloat(formData.labor_cost) || 0,
+        material_cost: parseFloat(formData.material_cost) || 0,
+        overhead_cost: parseFloat(formData.overhead_cost) || 0,
+        estimated_duration: formData.estimated_duration ? parseInt(formData.estimated_duration) : null,
+        // Entferne das documents Array für die Quote API
+        documents: undefined
       };
 
-      await onSubmit(costEstimateData);
-      setSuccess('Kostenvoranschlag erfolgreich eingereicht!');
+      // Erstelle den Kostenvoranschlag
+      const createdQuote = await onSubmit(costEstimateData);
+      
+      // Lade Dokumente hoch, falls vorhanden
+      if (formData.documents.length > 0 && createdQuote?.id) {
+        setSuccess('Kostenvoranschlag erstellt, lade Dokumente hoch...');
+        
+        const uploadPromises = formData.documents.map(async (file, index) => {
+          try {
+            const uploadFormData = new FormData();
+            uploadFormData.append('file', file);
+            uploadFormData.append('title', file.name.replace(/\.[^/.]+$/, ""));
+            uploadFormData.append('description', `Dokument für Kostenvoranschlag: ${formData.title}`);
+            uploadFormData.append('project_id', project.id.toString());
+            uploadFormData.append('category', 'quotes');
+            uploadFormData.append('subcategory', 'cost_estimate');
+            uploadFormData.append('document_type', getFileDocumentType(file.name));
+            uploadFormData.append('is_public', 'false');
+            uploadFormData.append('quote_id', createdQuote.id.toString());
+            
+            // Import uploadDocument function
+            const { uploadDocument } = await import('../api/documentService');
+            return await uploadDocument(uploadFormData);
+          } catch (uploadError) {
+            console.error(`Fehler beim Upload von ${file.name}:`, uploadError);
+            throw uploadError;
+          }
+        });
+
+        try {
+          await Promise.all(uploadPromises);
+          setSuccess('Kostenvoranschlag und alle Dokumente erfolgreich hochgeladen!');
+        } catch (uploadError) {
+          setSuccess('Kostenvoranschlag erstellt, aber einige Dokumente konnten nicht hochgeladen werden.');
+          console.error('Dokument-Upload-Fehler:', uploadError);
+        }
+      } else {
+        setSuccess('Kostenvoranschlag erfolgreich eingereicht!');
+      }
       
       // Modal nach kurzer Verzögerung schließen
       setTimeout(() => {
@@ -238,12 +279,35 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
     }
   };
 
+  const getFileDocumentType = (filename: string): string => {
+    const extension = filename.toLowerCase().split('.').pop();
+    switch (extension) {
+      case 'pdf': return 'pdf';
+      case 'doc':
+      case 'docx': return 'document';
+      case 'xls':
+      case 'xlsx': return 'spreadsheet';
+      case 'ppt':
+      case 'pptx': return 'presentation';
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif': return 'image';
+      case 'mp4':
+      case 'avi':
+      case 'mov': return 'video';
+      case 'zip':
+      case 'rar': return 'archive';
+      default: return 'other';
+    }
+  };
+
   const handleClose = () => {
     setFormData({
       title: '',
       description: '',
       total_amount: '',
-      currency: 'EUR',
+      currency: 'CHF',
       valid_until: '',
       estimated_duration: '',
       start_date: '',
@@ -251,9 +315,7 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
       labor_cost: '',
       material_cost: '',
       overhead_cost: '',
-      profit_margin: '',
       payment_terms: '',
-      warranty_period: '',
       company_name: '',
       contact_person: '',
       phone: '',
@@ -428,35 +490,14 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
           {/* Hauptbereich - Formular */}
           <div className="flex-1 overflow-y-auto">
             <div className="p-6">
-              {/* Tabs */}
-              <div className="flex space-x-1 mb-6 bg-[#2c3539]/50 rounded-xl p-1">
-                {[
-                  { id: 'overview', label: 'Übersicht', icon: Eye },
-                  { id: 'costs', label: 'Kosten', icon: Euro },
-                  { id: 'schedule', label: 'Zeitplan', icon: Calendar },
-                  { id: 'qualifications', label: 'Qualifikationen', icon: Award },
-                  { id: 'technical', label: 'Technisch', icon: Wrench },
-                  { id: 'documents', label: 'Dokumente', icon: FileText }
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      activeTab === tab.id
-                        ? 'bg-[#ffbd59] text-[#2c3539]'
-                        : 'text-gray-400 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    <tab.icon size={16} />
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
               {/* Formular-Inhalt */}
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Übersicht Tab */}
-                {activeTab === 'overview' && (
+              <form onSubmit={handleSubmit} className="space-y-8">
+                {/* Übersicht */}
+                <div className="bg-[#2c3539]/30 rounded-xl p-6 border border-[#ffbd59]/20">
+                  <h3 className="text-lg font-semibold text-[#ffbd59] mb-6 flex items-center gap-2">
+                    <Eye size={20} />
+                    Übersicht
+                  </h3>
                   <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-6">
                       <div>
@@ -483,9 +524,9 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
                           onChange={handleInputChange}
                           className="w-full px-4 py-3 bg-[#2c3539] border border-[#ffbd59]/30 rounded-xl text-white focus:border-[#ffbd59] focus:outline-none transition-colors"
                         >
+                          <option value="CHF">CHF (CHF)</option>
                           <option value="EUR">EUR (€)</option>
                           <option value="USD">USD ($)</option>
-                          <option value="CHF">CHF (CHF)</option>
                         </select>
                       </div>
                     </div>
@@ -534,10 +575,14 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
                       </div>
                     </div>
                   </div>
-                )}
+                </div>
 
-                {/* Kosten Tab */}
-                {activeTab === 'costs' && (
+                {/* Kosten */}
+                <div className="bg-[#2c3539]/30 rounded-xl p-6 border border-[#ffbd59]/20">
+                  <h3 className="text-lg font-semibold text-[#ffbd59] mb-6 flex items-center gap-2">
+                    <Euro size={20} />
+                    Kosten
+                  </h3>
                   <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-6">
                       <div>
@@ -571,82 +616,53 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium text-white mb-2">
-                          Gemeinkosten
-                        </label>
-                        <input
-                          type="number"
-                          name="overhead_cost"
-                          value={formData.overhead_cost}
-                          onChange={handleInputChange}
-                          placeholder="0.00"
-                          step="0.01"
-                          className="w-full px-4 py-3 bg-[#2c3539] border border-[#ffbd59]/30 rounded-xl text-white placeholder-gray-400 focus:border-[#ffbd59] focus:outline-none transition-colors"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-white mb-2">
-                          Gewinnmarge (%)
-                        </label>
-                        <input
-                          type="number"
-                          name="profit_margin"
-                          value={formData.profit_margin}
-                          onChange={handleInputChange}
-                          placeholder="15"
-                          step="0.1"
-                          className="w-full px-4 py-3 bg-[#2c3539] border border-[#ffbd59]/30 rounded-xl text-white placeholder-gray-400 focus:border-[#ffbd59] focus:outline-none transition-colors"
-                        />
-                      </div>
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Gemeinkosten
+                      </label>
+                      <input
+                        type="number"
+                        name="overhead_cost"
+                        value={formData.overhead_cost}
+                        onChange={handleInputChange}
+                        placeholder="0.00"
+                        step="0.01"
+                        className="w-full px-4 py-3 bg-[#2c3539] border border-[#ffbd59]/30 rounded-xl text-white placeholder-gray-400 focus:border-[#ffbd59] focus:outline-none transition-colors"
+                      />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium text-white mb-2">
-                          Zahlungsbedingungen
-                        </label>
-                        <select
-                          name="payment_terms"
-                          value={formData.payment_terms}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-3 bg-[#2c3539] border border-[#ffbd59]/30 rounded-xl text-white focus:border-[#ffbd59] focus:outline-none transition-colors"
-                        >
-                          <option value="">Bitte wählen...</option>
-                          <option value="30_days">30 Tage netto</option>
-                          <option value="14_days">14 Tage netto</option>
-                          <option value="immediate">Sofort</option>
-                          <option value="50_50">50% bei Auftrag, 50% bei Fertigstellung</option>
-                          <option value="milestone">Nach Meilensteinen</option>
-                        </select>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-white mb-2">
-                          Garantie (Monate)
-                        </label>
-                        <input
-                          type="number"
-                          name="warranty_period"
-                          value={formData.warranty_period}
-                          onChange={handleInputChange}
-                          placeholder="24"
-                          className="w-full px-4 py-3 bg-[#2c3539] border border-[#ffbd59]/30 rounded-xl text-white placeholder-gray-400 focus:border-[#ffbd59] focus:outline-none transition-colors"
-                        />
-                      </div>
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Zahlungsbedingungen
+                      </label>
+                      <select
+                        name="payment_terms"
+                        value={formData.payment_terms}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 bg-[#2c3539] border border-[#ffbd59]/30 rounded-xl text-white focus:border-[#ffbd59] focus:outline-none transition-colors"
+                      >
+                        <option value="">Bitte wählen...</option>
+                        <option value="30_days">30 Tage netto</option>
+                        <option value="14_days">14 Tage netto</option>
+                        <option value="immediate">Sofort</option>
+                        <option value="50_50">50% bei Auftrag, 50% bei Fertigstellung</option>
+                        <option value="milestone">Nach Meilensteinen</option>
+                      </select>
                     </div>
                   </div>
-                )}
+                </div>
 
-                {/* Zeitplan Tab */}
-                {activeTab === 'schedule' && (
+                {/* Zeitplan */}
+                <div className="bg-[#2c3539]/30 rounded-xl p-6 border border-[#ffbd59]/20">
+                  <h3 className="text-lg font-semibold text-[#ffbd59] mb-6 flex items-center gap-2">
+                    <Calendar size={20} />
+                    Zeitplan
+                  </h3>
                   <div className="space-y-6">
                     <div className="grid grid-cols-3 gap-6">
                       <div>
                         <label className="block text-sm font-medium text-white mb-2">
-                          Geschätzte Dauer (Tage) *
+                          Geschätzte Dauer (Tage)
                         </label>
                         <input
                           type="number"
@@ -685,10 +701,14 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
                       </div>
                     </div>
                   </div>
-                )}
+                </div>
 
-                {/* Qualifikationen Tab */}
-                {activeTab === 'qualifications' && (
+                {/* Qualifikationen */}
+                <div className="bg-[#2c3539]/30 rounded-xl p-6 border border-[#ffbd59]/20">
+                  <h3 className="text-lg font-semibold text-[#ffbd59] mb-6 flex items-center gap-2">
+                    <Award size={20} />
+                    Qualifikationen
+                  </h3>
                   <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-6">
                       <div>
@@ -792,10 +812,14 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
                       />
                     </div>
                   </div>
-                )}
+                </div>
 
-                {/* Technisch Tab */}
-                {activeTab === 'technical' && (
+                {/* Technisch */}
+                <div className="bg-[#2c3539]/30 rounded-xl p-6 border border-[#ffbd59]/20">
+                  <h3 className="text-lg font-semibold text-[#ffbd59] mb-6 flex items-center gap-2">
+                    <Wrench size={20} />
+                    Technische Details
+                  </h3>
                   <div className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-white mb-2">
@@ -883,16 +907,41 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
                       </div>
                     </div>
                   </div>
-                )}
+                </div>
 
-                {/* Dokumente Tab */}
-                {activeTab === 'documents' && (
+                {/* Dokumente */}
+                <div className="bg-[#2c3539]/30 rounded-xl p-6 border border-[#ffbd59]/20">
+                  <h3 className="text-lg font-semibold text-[#ffbd59] mb-6 flex items-center gap-2">
+                    <FileText size={20} />
+                    Dokumente
+                  </h3>
                   <div className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-white mb-2">
                         Dokumente hochladen
                       </label>
-                      <div className="border-2 border-dashed border-[#ffbd59]/30 rounded-xl p-6 text-center">
+                      <div 
+                        className="border-2 border-dashed border-[#ffbd59]/30 rounded-xl p-6 text-center hover:border-[#ffbd59]/50 transition-colors"
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.currentTarget.classList.add('border-[#ffbd59]', 'bg-[#ffbd59]/10');
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          e.currentTarget.classList.remove('border-[#ffbd59]', 'bg-[#ffbd59]/10');
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.currentTarget.classList.remove('border-[#ffbd59]', 'bg-[#ffbd59]/10');
+                          const files = Array.from(e.dataTransfer.files);
+                          if (files.length > 0) {
+                            setFormData(prev => ({
+                              ...prev,
+                              documents: [...prev.documents, ...files]
+                            }));
+                          }
+                        }}
+                      >
                         <Upload size={32} className="text-[#ffbd59] mx-auto mb-4" />
                         <p className="text-white mb-2">Dateien hier hineinziehen oder klicken zum Auswählen</p>
                         <p className="text-gray-400 text-sm mb-4">
@@ -956,7 +1005,7 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
                       />
                     </div>
                   </div>
-                )}
+                </div>
               </form>
             </div>
           </div>

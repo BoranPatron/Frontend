@@ -8,7 +8,8 @@ import { uploadDocument } from '../api/documentService';
 import ConstructionPhaseTimeline from '../components/ConstructionPhaseTimeline';
 import TradesCard from '../components/TradesCard';
 import TradeDetailsModal from '../components/TradeDetailsModal';
-import CostEstimateDetailsModal from '../components/CostEstimateDetailsModal';
+
+import SimpleCostEstimateModal from '../components/SimpleCostEstimateModal';
 import CreateInspectionModal from '../components/CreateInspectionModal';
 import TradeCreationForm from '../components/TradeCreationForm';
 import { getMilestones } from '../api/milestoneService';
@@ -200,7 +201,7 @@ export default function Dashboard() {
     address_street: '',
     address_zip: '',
     address_city: '',
-    address_country: 'Deutschland',
+    address_country: 'Schweiz',
     construction_phase: '', // Neues Feld für Bauphase
     property_size: '',
     construction_area: '',
@@ -479,7 +480,7 @@ export default function Dashboard() {
       address_street: p.address_street || '',
       address_zip: p.address_zip || '',
       address_city: p.address_city || '',
-      address_country: (p as any).address_country || 'Deutschland',
+      address_country: (p as any).address_country || 'Schweiz',
       construction_phase: (p as any).construction_phase || '',
       property_size: p.property_size ? String(p.property_size) : '',
       construction_area: p.construction_area ? String(p.construction_area) : '',
@@ -506,7 +507,7 @@ export default function Dashboard() {
       address_street: '',
       address_zip: '',
       address_city: '',
-      address_country: 'Deutschland',
+      address_country: 'Schweiz',
       construction_phase: '',
       property_size: '',
       construction_area: '',
@@ -576,7 +577,7 @@ export default function Dashboard() {
           address_street: projectForm.address_street?.trim() || undefined,
           address_zip: projectForm.address_zip?.trim() || undefined,
           address_city: projectForm.address_city?.trim() || undefined,
-          address_country: projectForm.address_country?.trim() || 'Deutschland',
+          address_country: projectForm.address_country?.trim() || 'Schweiz',
           construction_phase: projectForm.construction_phase || undefined,
           property_size: projectForm.property_size ? parseFloat(projectForm.property_size) : undefined,
           construction_area: projectForm.construction_area ? parseFloat(projectForm.construction_area) : undefined,
@@ -944,24 +945,49 @@ export default function Dashboard() {
   // Modal-States (wie in Quotes.tsx)
   const [selectedTradeForDetails, setSelectedTradeForDetails] = useState<any | null>(null);
   const [showTradeDetailsModal, setShowTradeDetailsModal] = useState(false);
-  const [selectedTradeForCostEstimateDetails, setSelectedTradeForCostEstimateDetails] = useState<any | null>(null);
-  const [showCostEstimateDetailsModal, setShowCostEstimateDetailsModal] = useState(false);
+
+  const [selectedTradeForSimpleCostEstimate, setSelectedTradeForSimpleCostEstimate] = useState<any | null>(null);
+  const [showSimpleCostEstimateModal, setShowSimpleCostEstimateModal] = useState(false);
   const [allTradeQuotes, setAllTradeQuotes] = useState<{[key: number]: any[]}>({});
   
   // State für Besichtigungs-Modal
   const [showCreateInspectionModal, setShowCreateInspectionModal] = useState(false);
   const [selectedTradeForInspection, setSelectedTradeForInspection] = useState<any>(null);
   const [selectedQuotesForInspection, setSelectedQuotesForInspection] = useState<any[]>([]);
+  const [tradeInspectionStatus, setTradeInspectionStatus] = useState<{[key: number]: any}>({});
 
   const loadQuotesForTrades = async (tradesList: any[]) => {
     console.log('🔄 loadQuotesForTrades aufgerufen für', tradesList.length, 'Gewerke');
     try {
+      console.log('🚀 loadAllTradeQuotes: Starte Laden für', tradesList.length, 'Trades');
+      console.log('🚀 loadAllTradeQuotes: Trades:', tradesList.map(t => `${t.id}:${t.title}`));
+      
       const entries: Array<[number, any[]]> = [];
       for (const t of tradesList) {
         try {
           console.log(`📋 Lade Quotes für Gewerk ${t.id} (${t.title})`);
           const quotes = await getQuotesForMilestone(t.id);
           console.log(`✅ Gefunden: ${quotes?.length || 0} Quotes für Gewerk ${t.id}`);
+          
+          // SPEZIELLE DEBUG-AUSGABE FÜR MILESTONE_ID=1
+          if (t.id === 1) {
+            console.log('🎯 SPEZIAL DEBUG für milestone_id=1:');
+            console.log('   Quotes erhalten:', quotes);
+            console.log('   Quotes Typ:', typeof quotes);
+            console.log('   Quotes Array?:', Array.isArray(quotes));
+            console.log('   Quotes Länge:', quotes?.length);
+            if (quotes && quotes.length > 0) {
+              quotes.forEach((q: any, idx: number) => {
+                console.log(`   Quote ${idx + 1}:`, {
+                  id: q.id,
+                  status: q.status,
+                  total_amount: q.total_amount,
+                  company_name: q.company_name
+                });
+              });
+            }
+          }
+          
           entries.push([t.id, quotes || []]);
         } catch (e) {
           console.error('❌ Fehler beim Laden der Quotes für Trade', t.id, e);
@@ -976,6 +1002,15 @@ export default function Dashboard() {
         }
       }
       console.log('🎯 Finales allTradeQuotes mapping:', mapping);
+      
+      // SPEZIELLE DEBUG-AUSGABE FÜR MILESTONE_ID=1 IM MAPPING
+      if (mapping[1]) {
+        console.log('🎯 MAPPING DEBUG für milestone_id=1:', mapping[1]);
+        console.log('🎯 MAPPING DEBUG Anzahl:', mapping[1].length);
+      } else {
+        console.log('❌ MAPPING DEBUG: Keine Quotes für milestone_id=1 im finalen Mapping!');
+      }
+      
       setAllTradeQuotes(mapping);
     } catch (e) {
       console.error('❌ Fehler beim Laden der Quotes für alle Trades:', e);
@@ -1173,35 +1208,25 @@ export default function Dashboard() {
   // Die Handler-Funktionen bleiben für die Wiederverwendung in anderen Komponenten erhalten
 
   // Intelligente Modal-Auswahl (aus Quotes.tsx)
-  const openExclusiveModal = (target: 'trade' | 'cost', trade: any) => {
+  const openExclusiveModal = (target: 'trade' | 'cost' | 'simple', trade: any) => {
     console.log('🔧 openExclusiveModal aufgerufen:', { target, trade: trade?.id, title: trade?.title });
-    console.log('🔧 CURRENT STATES:', {
-      showTradeDetailsModal,
-      showCostEstimateDetailsModal,
-      selectedTradeForDetails: selectedTradeForDetails?.id,
-      selectedTradeForCostEstimateDetails: selectedTradeForCostEstimateDetails?.id
-    });
     
+    // Schließe ALLE Modals
+    setShowTradeDetailsModal(false);
+    setSelectedTradeForDetails(null);
+    setShowSimpleCostEstimateModal(false);
+    setSelectedTradeForSimpleCostEstimate(null);
+    
+    // Öffne die gewünschte Modal
     if (target === 'trade') {
-      console.log('🔧 Öffne TradeDetailsModal...');
+      console.log('🟥 ÖFFNE: TradeDetailsModal (Bauträger)');
       setSelectedTradeForDetails(trade);
-      setSelectedTradeForCostEstimateDetails(null);
-      setShowCostEstimateDetailsModal(false);
       setShowTradeDetailsModal(true);
-      console.log('🔧 TradeDetailsModal States gesetzt:', { 
-        selectedTradeForDetails: trade?.id, 
-        showTradeDetailsModal: true 
-      });
-    } else {
-      console.log('🔧 Öffne CostEstimateDetailsModal...');
-      setSelectedTradeForCostEstimateDetails(trade);
-      setSelectedTradeForDetails(null);
-      setShowTradeDetailsModal(false);
-      setShowCostEstimateDetailsModal(true);
-      console.log('🔧 CostEstimateDetailsModal States gesetzt:', { 
-        selectedTradeForCostEstimateDetails: trade?.id, 
-        showCostEstimateDetailsModal: true 
-      });
+    } else if (target === 'simple' || target === 'cost') {
+      // 'cost' wird zu 'simple' umgeleitet für Rückwärtskompatibilität
+      console.log('🟦 ÖFFNE: SimpleCostEstimateModal (Dienstleister)');
+      setSelectedTradeForSimpleCostEstimate(trade);
+      setShowSimpleCostEstimateModal(true);
     }
   };
 
@@ -1272,6 +1297,16 @@ export default function Dashboard() {
       tradeIdType: typeof trade.id
     });
 
+    // DEBUG: Welches Modal wird geöffnet?
+    console.log('🎯 MODAL ENTSCHEIDUNG:', {
+      isBautraeger: user?.user_type === 'project_owner',
+      userType: user?.user_type,
+      userRole: user?.user_role,
+      quotesAvailable: (allTradeQuotes[trade.id] || []).length > 0,
+      willOpenTradeDetails: user?.user_type === 'project_owner',
+      willOpenSimpleCostEstimate: user?.user_type !== 'project_owner'
+    });
+
     // 🚀 WORKAROUND: Lade Quotes direkt beim Klick, falls sie nicht vorhanden sind
     let currentQuotes = allTradeQuotes[trade.id] || [];
     if (currentQuotes.length === 0) {
@@ -1292,9 +1327,9 @@ export default function Dashboard() {
     }
 
     console.log('🔍 MODAL STATES BEFORE CLICK:', {
-      showCostEstimateDetailsModal,
+      showSimpleCostEstimateModal,
       showTradeDetailsModal,
-      selectedTradeForCostEstimateDetails: selectedTradeForCostEstimateDetails?.id,
+      selectedTradeForSimpleCostEstimate: selectedTradeForSimpleCostEstimate?.id,
       selectedTradeForDetails: selectedTradeForDetails?.id
     });
 
@@ -1308,44 +1343,41 @@ export default function Dashboard() {
       'user object': user
     });
 
-  // Für Bauträger: Sobald Angebote vorhanden sind → Kostenvoranschlag-Details; sonst Trade-Details
+  // Für Bauträger: Intelligente Modal-Auswahl basierend auf Angebotsstatus
     if (isBautraegerUser) {
       const quotes = currentQuotes; // Verwende die aktuell geladenen Quotes
-    const hasAccepted = quotes.some(q => String(q.status).toLowerCase() === 'accepted');
+      const hasAccepted = quotes.some(q => String(q.status).toLowerCase() === 'accepted');
       
       console.log('🔍 Bauträger Klick Debug:', {
         tradeId: trade.id,
         quotesCount: quotes.length,
         quotesStatus: quotes.map(q => q.status),
+        quotesDetails: quotes.map(q => ({ id: q.id, status: q.status, company: q.company_name })),
         hasAccepted,
         userRole: user?.user_role,
-        userType: user?.user_type
+        userType: user?.user_type,
+        willOpenModal: hasAccepted ? 'SimpleCostEstimateModal' : 'TradeDetailsModal'
       });
       
-    if (quotes.length > 0) {
-      console.log('📋 (Bauträger) Angebote vorhanden → CostEstimateDetailsModal', { tradeId: trade.id, quotes });
-      console.log('🔧 CALLING openExclusiveModal with cost...');
-      openExclusiveModal('cost', trade);
-      console.log('🔍 MODAL STATES AFTER openExclusiveModal:', {
-        showCostEstimateDetailsModal,
-        selectedTradeForCostEstimateDetails: selectedTradeForCostEstimateDetails?.id
-      });
-    } else {
-      console.log('📋 (Bauträger) Keine Angebote → TradeDetailsModal', { tradeId: trade.id, quotes });
-      openExclusiveModal('trade', trade);
-    }
+      if (hasAccepted) {
+        // Ein Angebot wurde angenommen → SimpleCostEstimateModal mit Dienstleister-Infos
+        console.log('✅ (Bauträger) Angebot angenommen → SimpleCostEstimateModal', { tradeId: trade.id, quotes });
+        openExclusiveModal('simple', trade);
+      } else {
+        // Noch kein Angebot angenommen → TradeDetailsModal (egal ob Angebote vorhanden oder nicht)
+        console.log('📋 (Bauträger) Kein Angebot angenommen → TradeDetailsModal', { 
+          tradeId: trade.id, 
+          quotesCount: quotes.length,
+          hasQuotes: quotes.length > 0 
+        });
+        openExclusiveModal('trade', trade);
+      }
       return;
     }
 
-    // Für Dienstleister: Öffne Trade-Details oder CostEstimateDetailsModal
-    const quotes = currentQuotes; // Verwende die aktuell geladenen Quotes
-    if (quotes.length > 0) {
-      console.log('📋 Öffne CostEstimateDetailsModal für Dienstleister - Trade', trade.id);
-      openExclusiveModal('cost', trade);
-    } else {
-      console.log('📋 Öffne TradeDetailsModal für Dienstleister - Trade', trade.id);
-      openExclusiveModal('trade', trade);
-    }
+    // Für Dienstleister: Immer TradeDetailsModal öffnen (enthält "Mein Angebot" Abschnitt)
+    console.log('📋 Öffne TradeDetailsModal für Dienstleister - Trade', trade.id);
+    openExclusiveModal('trade', trade);
   };
 
   const handleResetRoleForTesting = async () => {
@@ -1739,8 +1771,8 @@ export default function Dashboard() {
             console.log('🔧 Modal Render Check:', {
               showTradeDetailsModal,
               selectedTradeForDetails: selectedTradeForDetails?.id,
-              showCostEstimateDetailsModal,
-              selectedTradeForCostEstimateDetails: selectedTradeForCostEstimateDetails?.id
+              showSimpleCostEstimateModal,
+              selectedTradeForSimpleCostEstimate: selectedTradeForSimpleCostEstimate?.id
             });
             return null;
           })()}
@@ -1761,21 +1793,18 @@ export default function Dashboard() {
             />
           )}
           
-          {showCostEstimateDetailsModal && selectedTradeForCostEstimateDetails && (() => {
-            const quotesForTrade = allTradeQuotes[selectedTradeForCostEstimateDetails.id] || [];
-            console.log('🔍 MODAL PROPS DEBUG:', {
-              isOpen: showCostEstimateDetailsModal,
-              tradeId: selectedTradeForCostEstimateDetails.id,
-              quotesLength: quotesForTrade.length,
-              quotes: quotesForTrade,
-              allTradeQuotes: Object.keys(allTradeQuotes).length
-            });
-            return (
-              <CostEstimateDetailsModal
-                isOpen={showCostEstimateDetailsModal}
-                trade={selectedTradeForCostEstimateDetails}
-                quotes={quotesForTrade}
-                project={selectedProject}
+          {/* SimpleCostEstimateModal für Bauträger-Ansicht */}
+          {showSimpleCostEstimateModal && selectedTradeForSimpleCostEstimate && (
+            <SimpleCostEstimateModal
+              key={`simple-cost-estimate-${selectedTradeForSimpleCostEstimate.id}`}
+              isOpen={showSimpleCostEstimateModal}
+              onClose={() => {
+                setShowSimpleCostEstimateModal(false);
+                setSelectedTradeForSimpleCostEstimate(null);
+              }}
+              trade={selectedTradeForSimpleCostEstimate}
+              quotes={allTradeQuotes[selectedTradeForSimpleCostEstimate.id] || []}
+              project={selectedProject}
               onAcceptQuote={async (quoteId: number) => {
                 try {
                   await acceptQuote(quoteId);
@@ -1807,14 +1836,16 @@ export default function Dashboard() {
                 }
               }}
               onCreateInspection={handleCreateInspection}
-                onClose={() => {
-                  console.log('🔧 CostEstimateDetailsModal wird geschlossen');
-                  setShowCostEstimateDetailsModal(false);
-                  setSelectedTradeForCostEstimateDetails(null);
-                }}
-              />
-            );
-          })()}
+              inspectionStatus={tradeInspectionStatus[selectedTradeForSimpleCostEstimate.id]}
+              onTradeUpdate={async (updatedTrade: any) => {
+                // Aktualisiere den Trade im State
+                const trades = await getMilestones(selectedProject.id);
+                setProjectTrades(trades || []);
+                await loadQuotesForTrades(trades || []);
+                console.log('✅ Trade aktualisiert');
+              }}
+            />
+          )}
           
           {/* Gewerk-Erstellung */}
           {showTradeCreationForm && selectedProject && (

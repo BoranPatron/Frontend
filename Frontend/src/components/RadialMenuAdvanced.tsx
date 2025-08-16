@@ -24,7 +24,10 @@ import {
   Search,
   Star,
   TrendingUp,
-  FileText
+  FileText,
+  Edit3,
+  Save,
+  RotateCcw
 } from 'lucide-react';
 
 type RadialItem = {
@@ -40,6 +43,8 @@ type RadialItem = {
   };
   ring?: number; // 1 = inner ring, 2 = outer ring
   tourId?: string; // data-tour-id for guided tour
+  disabled?: boolean; // New property to disable items
+  disabledReason?: string; // Reason why item is disabled
 };
 
 type RadialMenuAdvancedProps = {
@@ -60,11 +65,30 @@ export function RadialMenuAdvanced({
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [showCreateMenu, setShowCreateMenu] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [draggedItem, setDraggedItem] = useState<number | null>(null);
+  const [customOrder, setCustomOrder] = useState<string[]>([]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const navigate = useNavigate();
-  const { selectedProject } = useProject();
+  const { selectedProject, projects } = useProject();
   const { user, userRole } = useAuth();
+
+  // Check if any projects exist
+  const hasProjects = projects.length > 0;
+
+  // Load custom order from localStorage
+  useEffect(() => {
+    const savedOrder = localStorage.getItem('radial-menu-custom-order');
+    if (savedOrder) {
+      try {
+        setCustomOrder(JSON.parse(savedOrder));
+      } catch (error) {
+        console.error('Error loading custom order:', error);
+        setCustomOrder([]);
+      }
+    }
+  }, []);
 
   // Responsive Detection
   useEffect(() => {
@@ -94,7 +118,9 @@ export function RadialMenuAdvanced({
         color: "#3B82F6",
         description: "Dokumentenmanagement",
         ring: 1,
-        tourId: "radial-menu-documents"
+        tourId: "radial-menu-documents",
+        disabled: !hasProjects,
+        disabledReason: "Erstellen Sie zuerst ein Projekt"
       },
       {
         id: "tasks",
@@ -110,7 +136,9 @@ export function RadialMenuAdvanced({
         color: "#10B981",
         description: "Aufgabenmanagement",
         ring: 1,
-        tourId: "radial-menu-tasks"
+        tourId: "radial-menu-tasks",
+        disabled: !hasProjects,
+        disabledReason: "Erstellen Sie zuerst ein Projekt"
       },
       {
         id: "finance",
@@ -126,7 +154,9 @@ export function RadialMenuAdvanced({
         color: "#F59E0B",
         description: "Budget & Ausgaben",
         ring: 1,
-        tourId: "radial-menu-finance"
+        tourId: "radial-menu-finance",
+        disabled: !hasProjects,
+        disabledReason: "Erstellen Sie zuerst ein Projekt"
       },
       // Entfernt: Gewerke-Hauptpunkt (Seite /quotes deaktiviert)
       {
@@ -143,7 +173,9 @@ export function RadialMenuAdvanced({
         color: "#06B6D4",
         description: "Analytics & Berichte",
         ring: 1,
-        tourId: "radial-menu-visualize"
+        tourId: "radial-menu-visualize",
+        disabled: !hasProjects,
+        disabledReason: "Erstellen Sie zuerst ein Projekt"
       },
       {
         id: "canvas",
@@ -159,7 +191,9 @@ export function RadialMenuAdvanced({
         color: "#EC4899",
         description: "Kollaboration & Zeichnungen",
         ring: 1,
-        tourId: "radial-menu-canvas"
+        tourId: "radial-menu-canvas",
+        disabled: !hasProjects,
+        disabledReason: "Erstellen Sie zuerst ein Projekt"
       }
     ];
 
@@ -196,6 +230,7 @@ export function RadialMenuAdvanced({
         description: "Projekt erstellen",
         ring: 2,
         tourId: "radial-menu-create-project"
+        // Never disabled - always available
       },
       {
         id: "create-task",
@@ -211,7 +246,9 @@ export function RadialMenuAdvanced({
         },
         color: "#10B981",
         description: "Aufgabe hinzufügen",
-        ring: 2
+        ring: 2,
+        disabled: !hasProjects,
+        disabledReason: "Erstellen Sie zuerst ein Projekt"
       },
       {
         id: "create-expense",
@@ -227,7 +264,9 @@ export function RadialMenuAdvanced({
         },
         color: "#F59E0B",
         description: "Ausgabe erfassen",
-        ring: 2
+        ring: 2,
+        disabled: !hasProjects,
+        disabledReason: "Erstellen Sie zuerst ein Projekt"
       },
       {
         id: "create-trade",
@@ -242,8 +281,10 @@ export function RadialMenuAdvanced({
           }
         },
         color: "#8B5CF6",
-        description: "Gewerk erstellen",
-        ring: 2
+        description: "Ausschreibung erstellen",
+        ring: 2,
+        disabled: !hasProjects,
+        disabledReason: "Erstellen Sie zuerst ein Projekt"
       },
       {
         id: "upload-doc",
@@ -259,7 +300,9 @@ export function RadialMenuAdvanced({
         },
         color: "#4F46E5",
         description: "Dokument hochladen",
-        ring: 2
+        ring: 2,
+        disabled: !hasProjects,
+        disabledReason: "Erstellen Sie zuerst ein Projekt"
       }
     ];
   };
@@ -267,7 +310,90 @@ export function RadialMenuAdvanced({
   const mainItems = getMainItems();
   // Sekundärreihe als Primärreihe integrieren
   const createItems = getCreateItems();
-  const allItems = [...mainItems, ...createItems.map(ci => ({ ...ci, ring: 1 }))];
+  const defaultItems = [...mainItems, ...createItems.map(ci => ({ ...ci, ring: 1 }))];
+
+  // Apply custom order if available
+  const allItems = useMemo(() => {
+    if (customOrder.length === 0) {
+      return defaultItems;
+    }
+
+    // Create a map of items by ID for quick lookup
+    const itemsMap = new Map(defaultItems.map(item => [item.id, item]));
+    
+    // Build ordered array based on custom order
+    const orderedItems: RadialItem[] = [];
+    
+    // Add items in custom order
+    for (const id of customOrder) {
+      const item = itemsMap.get(id);
+      if (item) {
+        orderedItems.push(item);
+        itemsMap.delete(id);
+      }
+    }
+    
+    // Add any remaining items that weren't in custom order
+    itemsMap.forEach(item => {
+      orderedItems.push(item);
+    });
+    
+    return orderedItems;
+  }, [defaultItems, customOrder]);
+
+  // Set initial activeIndex to first enabled item
+  useEffect(() => {
+    const firstEnabledIndex = allItems.findIndex(item => !item.disabled);
+    if (firstEnabledIndex !== -1 && activeIndex !== firstEnabledIndex) {
+      setActiveIndex(firstEnabledIndex);
+    }
+  }, [allItems, activeIndex]);
+
+  // Save custom order to localStorage
+  const saveCustomOrder = useCallback((newOrder: string[]) => {
+    setCustomOrder(newOrder);
+    localStorage.setItem('radial-menu-custom-order', JSON.stringify(newOrder));
+  }, []);
+
+  // Reset to default order
+  const resetToDefault = useCallback(() => {
+    setCustomOrder([]);
+    localStorage.removeItem('radial-menu-custom-order');
+  }, []);
+
+  // Drag and drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
+    if (!isEditMode) return;
+    setDraggedItem(index);
+    e.dataTransfer.effectAllowed = 'move';
+  }, [isEditMode]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!isEditMode) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }, [isEditMode]);
+
+  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number) => {
+    if (!isEditMode || draggedItem === null) return;
+    e.preventDefault();
+    
+    const newOrder = [...allItems.map(item => item.id)];
+    const draggedId = newOrder[draggedItem];
+    
+    // Remove dragged item from its current position
+    newOrder.splice(draggedItem, 1);
+    
+    // Insert at new position
+    newOrder.splice(dropIndex, 0, draggedId);
+    
+    saveCustomOrder(newOrder);
+    setDraggedItem(null);
+  }, [isEditMode, draggedItem, allItems, saveCustomOrder]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedItem(null);
+  }, []);
 
   // Calculate layout with multiple rings - doubled radius for maximum spacing
   const layout = useMemo(() => {
@@ -306,6 +432,10 @@ export function RadialMenuAdvanced({
         setOpen(false);
         setShowCreateMenu(false);
         setHoveredIndex(null);
+        // Exit edit mode when closing menu
+        if (isEditMode) {
+          setIsEditMode(false);
+        }
       }
     };
     
@@ -313,7 +443,7 @@ export function RadialMenuAdvanced({
       document.addEventListener("pointerdown", handleOutsideClick);
       return () => document.removeEventListener("pointerdown", handleOutsideClick);
     }
-  }, [open]);
+  }, [open, isEditMode]);
 
   // Keyboard navigation
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -340,26 +470,56 @@ export function RadialMenuAdvanced({
       case "ArrowLeft":
       case "ArrowUp":
         e.preventDefault();
-        setActiveIndex((i) => (i - 1 + allItems.length) % allItems.length);
+        setActiveIndex((i) => {
+          let newIndex = (i - 1 + allItems.length) % allItems.length;
+          // Skip disabled items
+          while (allItems[newIndex]?.disabled && newIndex !== i) {
+            newIndex = (newIndex - 1 + allItems.length) % allItems.length;
+          }
+          return newIndex;
+        });
         break;
       case "ArrowRight":
       case "ArrowDown":
         e.preventDefault();
-        setActiveIndex((i) => (i + 1) % allItems.length);
+        setActiveIndex((i) => {
+          let newIndex = (i + 1) % allItems.length;
+          // Skip disabled items
+          while (allItems[newIndex]?.disabled && newIndex !== i) {
+            newIndex = (newIndex + 1) % allItems.length;
+          }
+          return newIndex;
+        });
         break;
       case "Enter":
       case " ":
         e.preventDefault();
-        allItems[activeIndex]?.onSelect();
-        setOpen(false);
-        setShowCreateMenu(false);
+        if (!allItems[activeIndex]?.disabled) {
+          allItems[activeIndex]?.onSelect();
+          setOpen(false);
+          setShowCreateMenu(false);
+        }
         break;
       case "Tab":
         e.preventDefault();
         if (e.shiftKey) {
-          setActiveIndex((i) => (i - 1 + allItems.length) % allItems.length);
+          setActiveIndex((i) => {
+            let newIndex = (i - 1 + allItems.length) % allItems.length;
+            // Skip disabled items
+            while (allItems[newIndex]?.disabled && newIndex !== i) {
+              newIndex = (newIndex - 1 + allItems.length) % allItems.length;
+            }
+            return newIndex;
+          });
         } else {
-          setActiveIndex((i) => (i + 1) % allItems.length);
+          setActiveIndex((i) => {
+            let newIndex = (i + 1) % allItems.length;
+            // Skip disabled items
+            while (allItems[newIndex]?.disabled && newIndex !== i) {
+              newIndex = (newIndex + 1) % allItems.length;
+            }
+            return newIndex;
+          });
         }
         break;
       case "c":
@@ -367,6 +527,22 @@ export function RadialMenuAdvanced({
         // Toggle create menu with 'C' key
         if (enableSecondRing) {
           setShowCreateMenu(!showCreateMenu);
+        }
+        break;
+      case "e":
+      case "E":
+        // Toggle edit mode with 'E' key
+        if (open) {
+          e.preventDefault();
+          setIsEditMode(!isEditMode);
+        }
+        break;
+      case "r":
+      case "R":
+        // Reset order with 'R' key
+        if (open && customOrder.length > 0) {
+          e.preventDefault();
+          resetToDefault();
         }
         break;
     }
@@ -502,6 +678,11 @@ export function RadialMenuAdvanced({
                   aria-label={item.label}
                   data-radial-item={item.id}
                   data-tour-id={item.tourId}
+                  draggable={isEditMode && !item.disabled}
+                  onDragStart={(e) => handleDragStart(e, i)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, i)}
+                  onDragEnd={handleDragEnd}
                   initial={{ 
                     x: 0, 
                     y: 0, 
@@ -512,8 +693,8 @@ export function RadialMenuAdvanced({
                   animate={{
                     x: layout[i].x,
                     y: layout[i].y,
-                    opacity: 1,
-                    scale: hoveredIndex === i ? 1.25 : activeIndex === i ? 1.1 : 1,
+                    opacity: item.disabled ? 0.6 : draggedItem === i ? 0.8 : 1,
+                    scale: item.disabled ? 1 : hoveredIndex === i ? 1.25 : activeIndex === i ? 1.1 : 1,
                     rotate: 0,
                   }}
                   exit={{ 
@@ -530,53 +711,66 @@ export function RadialMenuAdvanced({
                     delay: item.ring === 2 ? 0.06 * i : 0.04 * i,
                   }}
                   onClick={() => {
-                    item.onSelect();
-                    setOpen(false);
-                    setShowCreateMenu(false);
+                    if (!item.disabled && !isEditMode) {
+                      item.onSelect();
+                      setOpen(false);
+                      setShowCreateMenu(false);
+                    }
                   }}
                   onMouseEnter={() => {
-                    setHoveredIndex(i);
-                    setActiveIndex(i);
+                    if (!item.disabled) {
+                      setHoveredIndex(i);
+                      setActiveIndex(i);
+                    }
                   }}
                   onMouseLeave={() => setHoveredIndex(null)}
-                  onFocus={() => setActiveIndex(i)}
-                  className="absolute group"
+                  onFocus={() => {
+                    if (!item.disabled) {
+                      setActiveIndex(i);
+                    }
+                  }}
+                  className={`absolute group ${item.disabled ? 'cursor-not-allowed' : isEditMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
                   style={{
                     width: hoveredIndex === i ? (isMobile ? 64 : 76) : (isMobile ? 52 : 64),
                     height: hoveredIndex === i ? (isMobile ? 64 : 76) : (isMobile ? 52 : 64),
                     borderRadius: "50%",
                     border: "none",
-                    background: hoveredIndex === i || activeIndex === i 
-                      ? `linear-gradient(135deg, ${item.color}, ${item.color}dd)`
-                      : `linear-gradient(135deg, #2a2f3a, #1f2937)`,
-                    color: "white",
-                    boxShadow: hoveredIndex === i || activeIndex === i
-                      ? `0 0 60px ${item.color}aa,
-                         0 0 40px ${item.color}88,
-                         0 0 25px ${item.color}66,
-                         0 12px 32px ${item.color}60,
-                         0 8px 20px rgba(0,0,0,0.4),
-                         0 4px 12px rgba(0,0,0,0.3),
-                         inset 0 2px 2px rgba(255,255,255,0.3),
-                         inset 0 -2px 2px rgba(0,0,0,0.2)`
-                      : "0 6px 16px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.2)",
-                    cursor: "pointer",
+                    background: item.disabled 
+                      ? "linear-gradient(135deg, #6b7280, #4b5563)"
+                      : hoveredIndex === i || activeIndex === i 
+                        ? `linear-gradient(135deg, ${item.color}, ${item.color}dd)`
+                        : `linear-gradient(135deg, #2a2f3a, #1f2937)`,
+                    color: item.disabled ? "#9ca3af" : "white",
+                    boxShadow: item.disabled
+                      ? "0 4px 12px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1)"
+                      : hoveredIndex === i || activeIndex === i
+                        ? `0 0 60px ${item.color}aa,
+                           0 0 40px ${item.color}88,
+                           0 0 25px ${item.color}66,
+                           0 12px 32px ${item.color}60,
+                           0 8px 20px rgba(0,0,0,0.4),
+                           0 4px 12px rgba(0,0,0,0.3),
+                           inset 0 2px 2px rgba(255,255,255,0.3),
+                           inset 0 -2px 2px rgba(0,0,0,0.2)`
+                        : "0 6px 16px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.2)",
+                    cursor: item.disabled ? "not-allowed" : "pointer",
                     willChange: "transform",
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     outline: 'none',
                     transition: 'background 0.3s ease, z-index 0.1s ease',
-                    opacity: 1,
+                    opacity: item.disabled ? 0.6 : 1,
                     zIndex: hoveredIndex === i ? 500 : 50,
                   }}
-                  whileHover={{ scale: 1.2 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={item.disabled ? {} : { scale: 1.2 }}
+                  whileTap={item.disabled ? {} : { scale: 0.95 }}
                 >
                   {/* Icon */}
                   <div className="relative" style={{
-                    transform: hoveredIndex === i ? 'scale(1.15)' : 'scale(1)',
-                    transition: 'transform 0.2s ease'
+                    transform: item.disabled ? 'scale(1)' : hoveredIndex === i ? 'scale(1.15)' : 'scale(1)',
+                    transition: 'transform 0.2s ease',
+                    opacity: item.disabled ? 0.7 : 1
                   }}>
                     {item.icon}
                     
@@ -610,6 +804,12 @@ export function RadialMenuAdvanced({
                       <div className="text-sm font-bold text-white">{item.label}</div>
                       {item.description && (
                         <div className="text-xs text-gray-300 mt-1">{item.description}</div>
+                      )}
+                      {item.disabled && (
+                        <div className="text-xs text-red-300 mt-1">{item.disabledReason}</div>
+                      )}
+                      {isEditMode && !item.disabled && (
+                        <div className="text-xs text-blue-300 mt-1">Zum Verschieben ziehen</div>
                       )}
                       <div 
                         className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px"
@@ -709,6 +909,52 @@ export function RadialMenuAdvanced({
           )}
         </motion.button>
 
+        {/* Edit Mode Controls */}
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="absolute bottom-20 right-0 flex flex-col gap-2"
+          >
+            {/* Edit Mode Toggle */}
+            <button
+              onClick={() => setIsEditMode(!isEditMode)}
+              className={`p-3 rounded-full shadow-lg transition-all duration-200 transform hover:scale-110 ${
+                isEditMode 
+                  ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' 
+                  : 'bg-gradient-to-r from-gray-600 to-gray-700 text-gray-300 hover:text-white'
+              }`}
+              title={isEditMode ? "Bearbeitungsmodus beenden" : "Reihenfolge bearbeiten"}
+            >
+              <Edit3 size={20} />
+            </button>
+
+            {/* Reset Order Button */}
+            {customOrder.length > 0 && (
+              <button
+                onClick={resetToDefault}
+                className="p-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full shadow-lg transition-all duration-200 transform hover:scale-110"
+                title="Standardreihenfolge wiederherstellen"
+              >
+                <RotateCcw size={20} />
+              </button>
+            )}
+          </motion.div>
+        )}
+
+        {/* Edit Mode Indicator */}
+        {isEditMode && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="absolute top-4 right-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2"
+          >
+            <Edit3 size={16} />
+            <span className="text-sm font-medium">Bearbeitungsmodus</span>
+          </motion.div>
+        )}
+
         {/* Hint for keyboard shortcuts */}
         {open && !isMobile && (
           <motion.div
@@ -720,6 +966,8 @@ export function RadialMenuAdvanced({
               <span>←→ Navigate</span>
               <span>Enter Select</span>
               {enableSecondRing && <span>C Create Menu</span>}
+              <span>E Edit Mode</span>
+              {customOrder.length > 0 && <span>R Reset</span>}
               <span>ESC Close</span>
             </div>
           </motion.div>

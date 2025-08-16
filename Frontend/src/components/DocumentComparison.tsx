@@ -17,7 +17,7 @@ import {
 
 interface Document {
   id: number;
-  title: string;
+  title?: string;
   plan_url?: string;
   result_url?: string;
   created_at?: string;
@@ -452,6 +452,7 @@ export default function DocumentComparison({
     </div>
   );
 }
+
 
 
 

@@ -216,7 +216,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
     };
 
     const handleDrop = (e: DragEvent) => {
-      e.preventDefault();
+      e.preventDefault();Component: CostEstimateDetailsModal.tsx
       setDragOver(false);
       
       const files = Array.from(e.dataTransfer?.files || []);
@@ -539,7 +539,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
           <div className="p-6 border-b border-[#ffbd59]/20">
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <h2 className="text-2xl font-bold text-white">Neues Gewerk erstellen</h2>
+                <h2 className="text-2xl font-bold text-white">Neue Ausschreibung</h2>
                 {projectInfo && (
                   <p className="text-gray-300 mt-1 text-sm">
                     Projekt: <span className="text-[#ffbd59] font-medium">{projectInfo.name}</span>
@@ -1044,7 +1044,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
-                      <span>Gewerk erstellen</span>
+                      <span>Ausschreibung erstellen</span>
                     </>
                   )}
                 </button>

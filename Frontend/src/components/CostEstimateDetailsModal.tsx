@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { appointmentService } from '../api/appointmentService';
 // import InspectionStatusTracker from './InspectionStatusTracker'; // DEPRECATED: Ersetzt durch AppointmentStatusCard
@@ -141,6 +141,8 @@ export default function CostEstimateDetailsModal({
   const [isDocumentsExpanded, setIsDocumentsExpanded] = useState(false);
   const [acceptedQuoteFull, setAcceptedQuoteFull] = useState<any | null>(null);
   const acceptedFromList = React.useMemo(() => (quotes || []).find(q => String(q?.status).toLowerCase() === 'accepted') || null, [quotes]);
+
+
 
   // Lade vollständige Daten für akzeptierten Quote nach
   useEffect(() => {
@@ -1484,24 +1486,61 @@ export default function CostEstimateDetailsModal({
     );
   };
 
+  // Early returns NACH allen Hooks
+  if (!isOpen) return null;
+  
+  // Verhindere Re-Rendering während Backend-Aufrufen
+  const stableTradeId = trade?.id;
+  const stableQuotes = useMemo(() => quotes, [quotes?.length, quotes?.map(q => q.id).join(',')]);
+  
+  // Eindeutige ID für diese Modal-Instanz zur Debug-Zwecken
+  const modalInstanceId = useRef(Math.random().toString(36).substr(2, 9));
+  
+  // Verhindere doppeltes Rendering
+  useEffect(() => {
+    if (isOpen) {
+      console.log('🎯 MODAL MOUNT - Instance:', modalInstanceId.current, 'Trade:', stableTradeId);
+      // Prüfe ob bereits eine andere Modal-Instanz existiert
+      const existingModals = document.querySelectorAll('[data-modal-instance]');
+      if (existingModals.length > 0) {
+        console.warn('⚠️ WARNUNG: Es existieren bereits', existingModals.length, 'Modal-Instanzen im DOM!');
+        existingModals.forEach((modal, index) => {
+          console.warn(`  - Modal ${index + 1}: Instance ID = ${modal.getAttribute('data-modal-instance')}`);
+        });
+      }
+    }
+    return () => {
+      if (isOpen) {
+        console.log('🔴 MODAL UNMOUNT - Instance:', modalInstanceId.current);
+      }
+    };
+  }, [isOpen, stableTradeId]);
+  
+  console.log('🎯 MODAL RENDER - Instance:', modalInstanceId.current, 'Trade:', stableTradeId, 'Quotes:', stableQuotes?.length);
+
+
+  
   return (
-    <>
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-        <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-[0_0_40px_rgba(255,189,89,0.08)] border border-gray-600/30 max-w-6xl w-full max-h-[90vh] overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-600/30">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
-                <FileText size={24} />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-white">Kostenvoranschlag Details</h2>
-                <p className="text-sm text-gray-400">{trade.title}</p>
-              </div>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4" data-modal-instance={modalInstanceId.current}>
+      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-[0_0_40px_rgba(255,189,89,0.08)] border border-gray-600/30 max-w-6xl w-full max-h-[90vh] overflow-hidden relative">
+        {/* DEBUG HINWEIS */}
+        <div className="absolute top-2 right-2 bg-green-500/90 text-white px-3 py-1 rounded-lg text-sm font-bold z-50 shadow-lg">
+          🔍 DEBUG: CostEstimateDetailsModal
+        </div>
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-600/30">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+              <FileText size={24} />
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            <div>
+              <h2 className="text-xl font-bold text-white">Kostenvoranschlag Details</h2>
+              <p className="text-sm text-gray-400">{trade.title}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             >
               <X size={24} className="text-gray-400" />
             </button>
@@ -2385,11 +2424,10 @@ export default function CostEstimateDetailsModal({
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Terminvereinbarungs-Modal */}
-      {showScheduleModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-60 p-4">
+        
+        {/* Terminvereinbarungs-Modal - DEAKTIVIERT */}
+        {false && showScheduleModal && (
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-10 p-4">
           <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-md w-full">
             <div className="p-6">
               <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -2465,12 +2503,12 @@ export default function CostEstimateDetailsModal({
               </div>
             </div>
           </div>
-        </div>
-      )}
+          </div>
+        )}
 
-      {/* Ablehnungs-Modal */}
-      {showRejectModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-60 p-4">
+        {/* Ablehnungs-Modal - DEAKTIVIERT */}
+        {false && showRejectModal && (
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-10 p-4">
           <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-md w-full">
             <div className="p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Kostenvoranschlag ablehnen</h3>
@@ -2515,15 +2553,17 @@ export default function CostEstimateDetailsModal({
 
       {/* Abnahme-Modal */}
       {console.log('🔍 AcceptanceModal Render-Check:', { showAcceptanceModal, trade: !!trade })}
-      <AcceptanceModal
-        isOpen={showAcceptanceModal}
-        onClose={() => {
-          console.log('🔴 AcceptanceModal wird geschlossen');
-          setShowAcceptanceModal(false);
-        }}
-        trade={trade}
-        onComplete={handleCompleteAcceptance}
-      />
+      {showAcceptanceModal && (
+        <AcceptanceModal
+          isOpen={showAcceptanceModal}
+          onClose={() => {
+            console.log('🔴 AcceptanceModal wird geschlossen');
+            setShowAcceptanceModal(false);
+          }}
+          trade={trade}
+          onComplete={handleCompleteAcceptance}
+        />
+      )}
 
 
 
@@ -2563,7 +2603,7 @@ export default function CostEstimateDetailsModal({
           }}
         />
       )}
-    </>
+    </div>
   );
 }
 

@@ -5,7 +5,7 @@ export interface DocumentCategory {
   id: string;
   name: string;
   description: string;
-  patterns: string[];
+  patterns: RegExp[];
   fileExtensions: string[];
   keywords: string[];
   priority: number; // Höhere Zahl = höhere Priorität
@@ -332,6 +332,7 @@ export class DocumentCategorizer {
     return Math.min(100, confidence);
   }
 }
+
 
 
 

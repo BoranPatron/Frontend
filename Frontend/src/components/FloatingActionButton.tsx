@@ -47,7 +47,7 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
             </div>
           </button>
 
-          {/* Gewerk erstellen */}
+                        {/* Ausschreibung erstellen */}
           <button
             onClick={() => handleOptionClick(onCreateTrade)}
             className="flex items-center gap-3 bg-gradient-to-r from-[#1a1a2e] to-[#16213e] text-white px-4 py-3 rounded-lg shadow-lg border border-gray-600 hover:border-[#ffbd59] transition-all duration-200 transform hover:scale-105"
@@ -56,7 +56,7 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
               <Users size={20} className="text-[#1a1a2e]" />
             </div>
             <div className="text-left">
-              <div className="font-medium">Gewerk erstellen</div>
+                              <div className="font-medium">Ausschreibung erstellen</div>
               <div className="text-sm text-gray-300">Neuen Dienstleister hinzufügen</div>
             </div>
           </button>

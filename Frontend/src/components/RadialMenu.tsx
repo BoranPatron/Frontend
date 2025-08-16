@@ -133,7 +133,7 @@ export function RadialMenu({
           }
         },
         color: "#8B5CF6",
-        description: "Gewerk erstellen"
+        description: "Ausschreibung erstellen"
       },
       {
         id: "visualize",

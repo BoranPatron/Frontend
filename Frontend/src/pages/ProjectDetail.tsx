@@ -1999,7 +1999,7 @@ export default function ProjectDetail() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                 >
                   <option value="">Phase auswählen</option>
-                  {getConstructionPhases((project as any)?.address_country || 'Deutschland').map((phase) => (
+                  {getConstructionPhases((project as any)?.address_country || 'Schweiz').map((phase) => (
                     <option key={phase.value} value={phase.value}>
                       {phase.label}
                     </option>

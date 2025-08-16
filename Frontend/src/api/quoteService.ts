@@ -7,8 +7,30 @@ export async function getQuotes(project_id?: number) {
 }
 
 export async function getQuotesForMilestone(milestone_id: number) {
-  const response = await api.get(`/quotes/milestone/${milestone_id}`);
-  return response.data;
+  console.log('🔍 getQuotesForMilestone: API-Aufruf für milestone_id:', milestone_id);
+  try {
+    const response = await api.get(`/quotes/milestone/${milestone_id}`);
+    console.log('🔍 getQuotesForMilestone: Response für milestone_id', milestone_id, ':', response.data);
+    console.log('🔍 getQuotesForMilestone: Response Status:', response.status);
+    console.log('🔍 getQuotesForMilestone: Response Headers:', response.headers);
+    
+    // Zusätzliche Debug-Info
+    if (response.data && Array.isArray(response.data)) {
+      console.log(`✅ getQuotesForMilestone: ${response.data.length} Angebote erhalten`);
+      response.data.forEach((quote: any, index: number) => {
+        console.log(`   Quote ${index + 1}: ID=${quote.id}, Status=${quote.status}, Amount=${quote.total_amount}`);
+      });
+    } else {
+      console.warn('⚠️ getQuotesForMilestone: Keine oder ungültige Daten erhalten');
+    }
+    
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ getQuotesForMilestone: Fehler beim API-Aufruf:', error);
+    console.error('   Error Response:', error.response?.data);
+    console.error('   Error Status:', error.response?.status);
+    throw error;
+  }
 }
 
 export async function createMockQuotesForMilestone(milestone_id: number, project_id: number) {

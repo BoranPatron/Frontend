@@ -12,7 +12,7 @@ export default defineConfig({
     cors: true, // Aktiviert CORS für Cross-Origin Requests
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://192.168.1.65:8000', // Verwende lokale IP für Backend
         changeOrigin: true,
         secure: false,
       }
