@@ -26,7 +26,8 @@ import {
   User,
   Phone,
   Mail,
-  Globe
+  Globe,
+  Package
 } from 'lucide-react';
 import type { TradeSearchResult } from '../api/geoService';
 import { useAuth } from '../context/AuthContext';
@@ -36,6 +37,7 @@ import QuoteDetailsModal from './QuoteDetailsModal';
 import { appointmentService, type AppointmentResponse } from '../api/appointmentService';
 import ServiceProviderRating from './ServiceProviderRating';
 import InvoiceModal from './InvoiceModal';
+import FinalAcceptanceModal from './FinalAcceptanceModal';
 // import FullDocumentViewer from './DocumentViewer';
 import { updateMilestone } from '../api/milestoneService';
 
@@ -147,6 +149,8 @@ interface TradeDetailsModalProps {
   onCreateQuote: (trade: TradeSearchResult) => void;
   existingQuotes?: Quote[];
   onCreateInspection?: (tradeId: number, selectedQuoteIds: number[]) => void;
+  onAcceptQuote?: (quoteId: number) => void;
+  onRejectQuote?: (quoteId: number, reason: string) => void;
 }
 
 interface Quote {
@@ -532,7 +536,9 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   onClose, 
   onCreateQuote, 
   existingQuotes = [],
-  onCreateInspection
+  onCreateInspection,
+  onAcceptQuote,
+  onRejectQuote
 }: TradeDetailsModalProps) {
   
 
@@ -571,6 +577,38 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   const [userQuote, setUserQuote] = useState<Quote | null>(null);
   const [userQuoteLoading, setUserQuoteLoading] = useState(false);
   const [showMyQuoteDetails, setShowMyQuoteDetails] = useState(false);
+  
+  // States für Annehmen/Ablehnen
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectingQuoteId, setRejectingQuoteId] = useState<number | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  
+  // States für Abnahme-Workflow
+  const [showFinalAcceptanceModal, setShowFinalAcceptanceModal] = useState(false);
+  const [acceptanceDefects, setAcceptanceDefects] = useState<any[]>([]);
+
+  // Handler für Angebot annehmen
+  const handleAcceptQuote = async (quoteId: number) => {
+    try {
+      await onAcceptQuote?.(quoteId);
+      console.log('✅ Angebot angenommen:', quoteId);
+    } catch (error) {
+      console.error('❌ Fehler beim Annehmen des Angebots:', error);
+    }
+  };
+
+  // Handler für Angebot ablehnen
+  const handleRejectQuote = async (quoteId: number, reason: string) => {
+    try {
+      await onRejectQuote?.(quoteId, reason);
+      setShowRejectModal(false);
+      setRejectingQuoteId(null);
+      setRejectionReason('');
+      console.log('✅ Angebot abgelehnt:', quoteId, 'Grund:', reason);
+    } catch (error) {
+      console.error('❌ Fehler beim Ablehnen des Angebots:', error);
+    }
+  };
 
   // Hilfsfunktion: Prüft ob ein Quote dem aktuellen User gehört
   const isUserQuote = (quote: Quote, user: any): boolean => {
@@ -684,7 +722,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       loadAppointments();
     }
     return () => { cancelled = true; };
-  }, [isOpen, trade?.id]);
+  }, [isOpen, trade?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Hilfsfunktion: Ist aktueller Nutzer (Dienstleister) zur Besichtigung eingeladen?
   const isUserInvitedForInspection = React.useMemo(() => {
@@ -700,6 +738,12 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
 
   // Funktion zum dynamischen Laden der Dokumente und completion_status
   const loadTradeDocuments = async (tradeId: number) => {
+    // Verhindere doppelte Aufrufe für dieselbe tradeId
+    if (lastLoadedTradeIdRef.current === tradeId) {
+      console.log('ðŸ"„ TradeDetailsModal - Dokumente bereits geladen für Trade:', tradeId);
+      return;
+    }
+    lastLoadedTradeIdRef.current = tradeId;
     if (!tradeId) return;
     
     setDocumentsLoading(true);
@@ -957,6 +1001,9 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     }
   }, [isOpen, trade?.id]);
 
+  // Verwende useRef um doppelte API-Aufrufe zu vermeiden
+  const lastLoadedTradeIdRef = React.useRef<number | null>(null);
+
   // Funktion zum Laden des completion_status vom Backend
   const loadCompletionStatus = async (tradeId: number) => {
     try {
@@ -986,12 +1033,13 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   };
 
   // Fallback: Setze ursprÃ¼ngliche Dokumente falls vorhanden und noch keine geladen wurden
-  useEffect(() => {
-    if (isOpen && trade?.documents && Array.isArray(trade.documents) && loadedDocuments.length === 0 && !documentsLoading) {
-      console.log('ðŸ”„ TradeDetailsModal - Setze ursprÃ¼ngliche trade.documents als Fallback:', trade.documents);
-      setLoadedDocuments(trade.documents);
-    }
-  }, [isOpen, trade?.documents, loadedDocuments.length, documentsLoading]);
+  // Entfernt: Dieser useEffect verursachte endlose Re-Renders
+  // useEffect(() => {
+  //   if (isOpen && trade?.documents && Array.isArray(trade.documents) && loadedDocuments.length === 0 && !documentsLoading) {
+  //     console.log('ðŸ"„ TradeDetailsModal - Setze ursprÃ¼ngliche trade.documents als Fallback:', trade.documents);
+  //     setLoadedDocuments(trade.documents);
+  //   }
+  // }, [isOpen, trade?.documents, loadedDocuments.length, documentsLoading]);
 
     // useEffect(() => {
   //   if (isOpen && trade) {
@@ -1136,6 +1184,31 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     };
     
     return iconMap[category] || { color: '#6b7280', icon: <span className="text-lg">ðŸ”§</span> };
+  };
+
+  // Handler für finale Abnahme
+  const loadAcceptanceDefects = async () => {
+    if (!trade?.id) return;
+    
+    try {
+      const { api } = await import('../api/api');
+      const response = await api.get(`/acceptance/milestone/${trade.id}/defects`);
+      setAcceptanceDefects(response.data || []);
+      console.log('✅ Abnahme-Mängel geladen:', response.data);
+    } catch (error) {
+      console.error('❌ Fehler beim Laden der Abnahme-Mängel:', error);
+      setAcceptanceDefects([]);
+    }
+  };
+
+  const handleStartFinalAcceptance = async () => {
+    console.log('🏁 Starte finale Abnahme für Milestone:', trade?.id);
+    
+    // Lade Mängel
+    await loadAcceptanceDefects();
+    
+    // Öffne FinalAcceptanceModal
+    setShowFinalAcceptanceModal(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -1296,13 +1369,13 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-2xl border border-gray-600/30 max-w-6xl w-full max-h-[95vh] overflow-hidden relative">
+      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-2xl border border-gray-600/30 max-w-6xl w-full max-h-[95vh] overflow-hidden relative flex flex-col">
         {/* DEBUG HINWEIS */}
         <div className="absolute top-2 right-2 bg-red-500/90 text-white px-3 py-1 rounded-lg text-sm font-bold z-50 shadow-lg">
           🔍 DEBUG: TradeDetailsModal
         </div>
         
-        <div className="flex items-center justify-between p-6 border-b border-gray-600/30">
+        <div className="flex items-center justify-between p-6 border-b border-gray-600/30 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
               {getCategoryIcon(trade.category || '').icon}
@@ -1345,22 +1418,6 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               
               {/* Gewerk-Details */}
               <div className="mt-3 space-y-3">
-                {/* Beschreibung */}
-                {trade.description && (
-                  <div className="bg-black/20 rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Info size={14} className="text-blue-400" />
-                      <span className="text-sm font-medium text-blue-300">Beschreibung</span>
-                    </div>
-                    <div className="text-sm text-gray-300 leading-relaxed">
-                      {trade.description.length > 150 
-                        ? `${trade.description.substring(0, 150)}...` 
-                        : trade.description
-                      }
-                    </div>
-                  </div>
-                )}
-
                 {/* ZusÃ¤tzliche Informationen Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {/* Erstellungsdatum */}
@@ -1465,15 +1522,76 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               )}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10"
-          >
-            <X size={24} />
-          </button>
+          
+          <div className="flex items-center gap-3">
+            {/* Angebot abgeben Button für Dienstleister */}
+            {!isBautraeger() && (() => {
+              const userQuote = (existingQuotes || []).find(quote => quote.service_provider_id === user?.id);
+              const hasUserQuote = !!userQuote;
+              
+              if (!hasUserQuote) {
+                return (
+                  <button
+                    onClick={() => {
+                      // Navigiere zum ServiceProviderDashboard mit Quote-Parameter
+                      window.location.href = `/service-provider?quote=${trade.id}`;
+                    }}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2 shadow-lg"
+                  >
+                    <Package size={16} />
+                    Angebot abgeben
+                  </button>
+                );
+              }
+              return null;
+            })()}
+            
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10"
+            >
+              <X size={24} />
+            </button>
+          </div>
         </div>
+        
+        {/* Besichtigungstermin-Anzeige */}
+        {appointmentsForTrade && appointmentsForTrade.length > 0 && (
+          <div className="px-6 py-4 bg-gradient-to-r from-blue-600/20 to-cyan-500/20 border-b border-blue-400/30 flex-shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-blue-500/20 rounded-lg">
+                  <Calendar size={20} className="text-blue-300" />
+                </div>
+                <div>
+                  <h3 className="text-white font-semibold">Besichtigungstermin vereinbart</h3>
+                  <p className="text-blue-200 text-sm">
+                    {appointmentsForTrade[0]?.scheduled_date ? 
+                      new Date(appointmentsForTrade[0].scheduled_date).toLocaleDateString('de-DE', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) : 'Termin geplant'
+                    }
+                  </p>
+                </div>
+              </div>
+              <div className="flex-1"></div>
+              <div className="text-right">
+                <div className="text-blue-200 text-sm">
+                  {appointmentsForTrade[0]?.invited_service_providers?.length || 0} Dienstleister eingeladen
+                </div>
+                <div className="text-blue-300 text-xs">
+                  {appointmentsForTrade[0]?.location || 'Standort nicht angegeben'}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
-        <div className="h-[calc(95vh-120px)] overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6">
           {/* Angenommenes Angebot - Dienstleister-Informationen */}
           {isBautraeger() && acceptedQuote && (
             <div className="mb-6 p-6 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 rounded-xl border border-emerald-500/20">
@@ -2143,15 +2261,20 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                         }
                         onCreateInspection?.(trade.id, selectedQuoteIds);
                       }}
-                      disabled={selectedQuoteIds.length === 0}
+                      disabled={selectedQuoteIds.length === 0 || (appointmentsForTrade && appointmentsForTrade.length > 0)}
                       className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${
-                        selectedQuoteIds.length > 0
-                          ? 'bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 border border-orange-500/40'
-                          : 'bg-gray-500/20 text-gray-400 cursor-not-allowed border border-gray-500/40'
+                        (appointmentsForTrade && appointmentsForTrade.length > 0)
+                          ? 'bg-gray-500/20 text-gray-400 cursor-not-allowed border border-gray-500/40'
+                          : selectedQuoteIds.length > 0
+                            ? 'bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 border border-orange-500/40'
+                            : 'bg-gray-500/20 text-gray-400 cursor-not-allowed border border-gray-500/40'
                       }`}
                     >
                       <Calendar size={16} />
-                      Besichtigung vereinbaren ({selectedQuoteIds.length})
+                      {(appointmentsForTrade && appointmentsForTrade.length > 0) 
+                        ? 'Termin bereits vereinbart' 
+                        : `Besichtigung vereinbaren (${selectedQuoteIds.length})`
+                      }
                     </button>
                   )}
                 </div>
@@ -2265,6 +2388,33 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                           )}
                         </div>
                       </div>
+                      
+                      {/* Annehmen/Ablehnen Buttons rechts oben auf der Kachel */}
+                      {isBautraeger() && (quote.status === 'submitted' || quote.status === 'draft') && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAcceptQuote(quote.id);
+                            }}
+                            className="px-3 py-1.5 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition-colors text-sm font-medium flex items-center gap-1"
+                          >
+                            <CheckCircle size={14} />
+                            Annehmen
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRejectingQuoteId(quote.id);
+                              setShowRejectModal(true);
+                            }}
+                            className="px-3 py-1.5 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors text-sm font-medium flex items-center gap-1"
+                          >
+                            <X size={14} />
+                            Ablehnen
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -2291,41 +2441,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                           Details
                         </button>
                         
-                        {quote.status === 'submitted' && (
-                          <>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation(); // Verhindere Container-Klick
-                                setQuoteIdToAccept(quote.id);
-                                setShowAcceptConfirm(true);
-                              }}
-                              className="px-3 py-1.5 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition-colors text-sm font-medium flex items-center gap-1"
-                            >
-                              <CheckCircle size={14} />
-                              Annehmen
-                            </button>
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation(); // Verhindere Container-Klick
-                                if (confirm('Möchten Sie dieses Angebot wirklich ablehnen?')) {
-                                  try {
-                                    await apiCall(`/quotes/${quote.id}/reject`, 'POST', {
-                                      rejection_reason: 'Angebot entspricht nicht den Anforderungen'
-                                    });
-                                    window.location.reload();
-                                  } catch (error) {
-                                    console.error('Fehler beim Ablehnen:', error);
-                                    alert('Fehler beim Ablehnen des Angebots');
-                                  }
-                                }
-                              }}
-                              className="px-3 py-1.5 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors text-sm font-medium flex items-center gap-1"
-                            >
-                              <X size={14} />
-                              Ablehnen
-                            </button>
-                          </>
-                        )}
+
                       </div>
                     </div>
                   </div>
@@ -2403,6 +2519,127 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                 onCompletionResponse={handleCompletionResponse}
               />
             )}
+
+            {/* Abnahme-Workflow für Dienstleister */}
+            {!isBautraeger() && completionStatus === 'completed_with_defects' && (
+              <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-orange-300 mb-3 flex items-center gap-2">
+                  <Settings size={20} />
+                  Abnahme-Workflow
+                </h3>
+                
+                {/* Status-Banner */}
+                <div className="mb-4 p-3 rounded-lg border bg-yellow-500/10 border-yellow-500/30">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle size={20} className="text-yellow-400" />
+                    <div>
+                      <h4 className="text-yellow-300 font-medium">Abnahme unter Vorbehalt</h4>
+                      <p className="text-yellow-200 text-sm">
+                        Mängel wurden dokumentiert. Finale Abnahme durch Bauträger steht noch aus.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mängel-Übersicht */}
+                <div className="space-y-3">
+                  <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-3">
+                    <h4 className="text-yellow-300 font-medium mb-2">Dokumentierte Mängel</h4>
+                    <p className="text-gray-400 text-sm">
+                      Der Bauträger hat Mängel dokumentiert. Beheben Sie diese und starten Sie die finale Abnahme.
+                    </p>
+                  </div>
+                  
+                  <button
+                    onClick={handleStartFinalAcceptance}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
+                  >
+                    <CheckCircle size={16} />
+                    Finale Abnahme starten
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Rechnungsstellung für Dienstleister */}
+            {!isBautraeger() && completionStatus === 'completed' && (
+              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-green-300 mb-3 flex items-center gap-2">
+                  <Receipt size={20} />
+                  Rechnungsstellung
+                </h3>
+                
+                {existingInvoice ? (
+                  // Bestehende Rechnung anzeigen
+                  <div className="space-y-3">
+                    <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-green-300 font-medium">Rechnung erstellt</h4>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          existingInvoice.status === 'paid' 
+                            ? 'bg-green-500/20 text-green-300'
+                            : existingInvoice.status === 'sent'
+                            ? 'bg-blue-500/20 text-blue-300'
+                            : 'bg-yellow-500/20 text-yellow-300'
+                        }`}>
+                          {existingInvoice.status === 'paid' ? 'Bezahlt' : 
+                           existingInvoice.status === 'sent' ? 'Versendet' : 'Entwurf'}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-300 space-y-1">
+                        <div className="flex justify-between">
+                          <span>Rechnungsnummer:</span>
+                          <span className="text-white font-medium">{existingInvoice.invoice_number}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Betrag:</span>
+                          <span className="text-white font-medium">
+                            {new Intl.NumberFormat('de-DE', {
+                              style: 'currency',
+                              currency: existingInvoice.currency || 'EUR'
+                            }).format(existingInvoice.total_amount || 0)}
+                          </span>
+                        </div>
+                        {existingInvoice.created_at && (
+                          <div className="flex justify-between">
+                            <span>Erstellt:</span>
+                            <span className="text-white font-medium">
+                              {new Date(existingInvoice.created_at).toLocaleDateString('de-DE')}
+                            </span>
+                          </div>
+                        )}
+                        {existingInvoice.status === 'paid' && existingInvoice.paid_at && (
+                          <div className="flex justify-between">
+                            <span>Bezahlt am:</span>
+                            <span className="text-green-300 font-medium">
+                              {new Date(existingInvoice.paid_at).toLocaleDateString('de-DE')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  // Rechnung erstellen
+                  <div className="space-y-3">
+                    <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
+                      <h4 className="text-green-300 font-medium mb-2">Gewerk erfolgreich abgenommen</h4>
+                      <p className="text-gray-300 text-sm">
+                        Das Gewerk wurde vollständig abgenommen. Sie können jetzt Ihre Rechnung erstellen.
+                      </p>
+                    </div>
+                    
+                    <button
+                      onClick={() => setShowInvoiceModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
+                    >
+                      <FileText size={16} />
+                      Rechnung stellen
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -2421,13 +2658,13 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       )}
 
       {/* Rechnungs-Modal */}
-      {showInvoiceModal && acceptedQuote && (
+      {showInvoiceModal && (acceptedQuote || userQuote) && (
         <InvoiceModal
           isOpen={showInvoiceModal}
           onClose={() => setShowInvoiceModal(false)}
           milestoneId={trade.id}
           milestoneTitle={trade.title}
-          contractValue={acceptedQuote.total_price || 0}
+          contractValue={(acceptedQuote?.total_price || userQuote?.total_amount || 0)}
           onInvoiceSubmitted={() => {
             setShowInvoiceModal(false);
             // Lade die Rechnung neu
@@ -2526,6 +2763,83 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             </div>
           </div>
         </div>
+      )}
+
+      {/* Ablehnungs-Modal */}
+      {showRejectModal && rejectingQuoteId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-2xl shadow-2xl border border-red-500/30 max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-red-500/20 rounded-full">
+                  <X className="w-6 h-6 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Angebot ablehnen</h3>
+                  <p className="text-sm text-gray-400">Bitte geben Sie einen Grund für die Ablehnung an</p>
+                </div>
+              </div>
+              
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Ablehnungsgrund eingeben..."
+                className="w-full p-3 bg-white/10 border border-gray-600/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 resize-none h-24"
+                autoFocus
+              />
+              
+              <div className="flex items-center gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowRejectModal(false);
+                    setRejectingQuoteId(null);
+                    setRejectionReason('');
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-500/20 text-gray-300 rounded-lg hover:bg-gray-500/30 transition-colors"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  onClick={() => {
+                    if (!rejectionReason.trim()) {
+                      alert('Bitte geben Sie einen Ablehnungsgrund an.');
+                      return;
+                    }
+                    handleRejectQuote(rejectingQuoteId, rejectionReason);
+                  }}
+                  disabled={!rejectionReason.trim()}
+                  className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
+                    rejectionReason.trim()
+                      ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
+                      : 'bg-gray-500/20 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  Ablehnen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FinalAcceptanceModal für finale Abnahme */}
+      {showFinalAcceptanceModal && (
+        <FinalAcceptanceModal
+          isOpen={showFinalAcceptanceModal}
+          onClose={() => setShowFinalAcceptanceModal(false)}
+          acceptanceId={1} // Wird vom Backend automatisch ermittelt
+          milestoneId={trade?.id || 0}
+          milestoneTitle={trade?.title || 'Gewerk'}
+          defects={acceptanceDefects}
+          onAcceptanceComplete={() => {
+            setShowFinalAcceptanceModal(false);
+            // Reload der Daten nach finaler Abnahme
+            if (trade?.id) {
+              loadTradeDocuments(trade.id);
+              loadCompletionStatus(trade.id);
+            }
+          }}
+        />
       )}
     </div>
   );

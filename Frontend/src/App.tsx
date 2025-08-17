@@ -27,8 +27,11 @@ import Canvas from './pages/Canvas';
 import GeoSearch from './pages/GeoSearch';
 import Invoices from './pages/Invoices';
 import Credits from './pages/Credits';
+import Archive from './pages/Archive';
+import Profile from './pages/Profile';
 import OAuthCallback from './pages/OAuthCallback';
 import RoleSelectionModal from './components/RoleSelectionModal';
+import CompanyAddressModal from './components/CompanyAddressModal';
 import NotificationTab from './components/NotificationTab';
 import BautraegerNotificationTab from './components/BautraegerNotificationTab';
 import { RadialMenuAdvanced } from './components/RadialMenuAdvanced';
@@ -83,6 +86,7 @@ function LoadingSpinner() {
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isInitialized, roleSelected, selectRole } = useAuth();
   const [showRoleModal, setShowRoleModal] = useState(false);
+  const [showCompanyAddressModal, setShowCompanyAddressModal] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [sessionUserId, setSessionUserId] = useState<number | null>(null);
   const [showWelcomeNotification, setShowWelcomeNotification] = useState(false);
@@ -92,6 +96,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     if (user?.id !== sessionUserId) {
       setOnboardingChecked(false);
       setShowRoleModal(false);
+      setShowCompanyAddressModal(false);
       setSessionUserId(user?.id || null);
     }
     
@@ -107,11 +112,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
           // Rolle fehlt → Modaldialog anzeigen, Tour wird in Dashboard gestartet.
           if (!user.role_selected || !user.user_role) {
             setShowRoleModal(true);
+          } else if (user.role_selected && user.user_role && !user.company_name) {
+            // Rolle ist gewählt, aber Firmenadresse fehlt noch → Firmenadresse-Modal zeigen
+            setShowCompanyAddressModal(true);
+            setShowRoleModal(false);
           } else {
             setShowRoleModal(false);
+            setShowCompanyAddressModal(false);
           }
         } else {
           setShowRoleModal(false);
+          setShowCompanyAddressModal(false);
         }
         
         setOnboardingChecked(true);
@@ -120,6 +131,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
         // Fallback: Zeige Rollenauswahl falls nötig
         if (!user.role_selected || !user.user_role) {
           setShowRoleModal(true);
+        } else if (user.role_selected && user.user_role && !user.company_name) {
+          setShowCompanyAddressModal(true);
         }
         setOnboardingChecked(true);
       });
@@ -143,11 +156,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
           onSelectRole={async (role) => {
             try {
               await selectRole(role);
-              // Modal dauerhaft schließen
+              // Rollenauswahl-Modal schließen
               setShowRoleModal(false);
               
-              // Onboarding als abgeschlossen markieren (verhindert erneutes Erscheinen)
-              setOnboardingChecked(true);
+              // Nach Rollenauswahl: Zeige Firmenadresse-Modal
+              setShowCompanyAddressModal(true);
               
               // Zeige Willkommens-Notification für Bauträger bei Erstanmeldung
               if (role === 'BAUTRAEGER' && !localStorage.getItem(`welcome_shown_${user?.id}`)) {
@@ -159,6 +172,46 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
               console.error('❌ Fehler beim Speichern der Rolle:', error);
               // Modal bleibt offen bei Fehlern
             }
+          }}
+        />
+      )}
+      
+      {/* Firmenadresse-Modal */}
+      {showCompanyAddressModal && user && (
+        <CompanyAddressModal
+          userRole={user.user_role === 'BAUTRAEGER' ? 'bautraeger' : 'dienstleister'}
+          onComplete={async (companyData) => {
+            try {
+              // API-Call zum Speichern der Firmenadresse
+              const { updateCompanyInfo } = await import('./api/userService');
+              await updateCompanyInfo(companyData);
+              
+              // Modal schließen und Onboarding abschließen
+              setShowCompanyAddressModal(false);
+              setOnboardingChecked(true);
+              
+              // Trigger Dashboard-Tour nach kurzer Verzögerung
+              setTimeout(() => {
+                const tourEvent = new CustomEvent('startDashboardTour');
+                window.dispatchEvent(tourEvent);
+              }, 1000);
+              
+              // User-Context aktualisieren (falls nötig)
+              window.location.reload(); // Einfache Lösung für User-Update
+            } catch (error) {
+              console.error('❌ Fehler beim Speichern der Firmeninformationen:', error);
+            }
+          }}
+          onSkip={async () => {
+            // Modal schließen und Onboarding abschließen (ohne Daten zu speichern)
+            setShowCompanyAddressModal(false);
+            setOnboardingChecked(true);
+            
+            // Trigger Dashboard-Tour nach kurzer Verzögerung
+            setTimeout(() => {
+              const tourEvent = new CustomEvent('startDashboardTour');
+              window.dispatchEvent(tourEvent);
+            }, 1000);
           }}
         />
       )}
@@ -356,6 +409,16 @@ function AppContent() {
         <Route path="/credits" element={
           <ProtectedRoute>
             <Credits />
+          </ProtectedRoute>
+        } />
+        <Route path="/archive" element={
+          <ProtectedRoute>
+            <Archive />
+          </ProtectedRoute>
+        } />
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <Profile />
           </ProtectedRoute>
         } />
         {/* Fallback für unbekannte Routen */}

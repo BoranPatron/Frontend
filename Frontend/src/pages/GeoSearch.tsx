@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Search, Filter, Map, List, Eye, EyeOff, Target, Navigation, Globe, User, Users, Trophy, Clock, AlertTriangle, CheckCircle, XCircle, Sparkles, MessageCircle, Award, TrendingUp, Star, Wrench, Tag, Euro, Package } from 'lucide-react';
+import { MapPin, Search, Filter, Map, List, Eye, EyeOff, Target, Navigation, Globe, User, Users, Trophy, Clock, AlertTriangle, CheckCircle, XCircle, Sparkles, MessageCircle, Award, TrendingUp, Star, Wrench, Tag, Euro, Package, X } from 'lucide-react';
 import { 
   searchTradesInRadius, 
   getCurrentLocation, 
@@ -31,13 +31,15 @@ export default function GeoSearch() {
   const [selectedTrade, setSelectedTrade] = useState<TradeSearchResult | null>(null);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [completionTrade, setCompletionTrade] = useState<TradeSearchResult | null>(null);
+  const [selectedMapTrade, setSelectedMapTrade] = useState<TradeSearchResult | null>(null);
   const [filters, setFilters] = useState({
-    category: '',
+    categories: [] as string[], // Mehrfachauswahl für Kategorien
     status: '',
     priority: '',
     minBudget: '',
     maxBudget: ''
   });
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   // Lade gespeicherte Einstellungen beim Start
   useEffect(() => {
@@ -179,6 +181,33 @@ export default function GeoSearch() {
     }
   };
 
+  // Keyboard-Support für Map-Popups
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedMapTrade) {
+        setSelectedMapTrade(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedMapTrade]);
+
+  // Click-Outside-Handler für Category-Dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.category-dropdown-container')) {
+        setShowCategoryDropdown(false);
+      }
+    };
+
+    if (showCategoryDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showCategoryDropdown]);
+
   const handleTradeClick = (trade: TradeSearchResult) => {
     setSelectedTrade(trade);
   };
@@ -224,9 +253,11 @@ export default function GeoSearch() {
       );
     }
 
-    if (filters.category) {
+    if (filters.categories.length > 0) {
       filtered = filtered.filter(trade => 
-        trade.category?.toLowerCase().includes(filters.category.toLowerCase())
+        filters.categories.some(category => 
+          trade.category?.toLowerCase().includes(category.toLowerCase())
+        )
       );
     }
 
@@ -421,7 +452,7 @@ export default function GeoSearch() {
               <select
                 value={searchMode}
                 onChange={(e) => setSearchMode(e.target.value as 'trades' | 'projects')}
-                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
               >
                 <option value="trades">Gewerke</option>
                 <option value="projects">Projekte</option>
@@ -457,24 +488,59 @@ export default function GeoSearch() {
 
           {/* Filter */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Kategorie</label>
-              <select
-                value={filters.category}
-                onChange={(e) => setFilters({...filters, category: e.target.value})}
-                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+            <div className="relative category-dropdown-container">
+              <label className="block text-sm font-medium text-gray-300 mb-2">Kategorien</label>
+              <button
+                onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] flex items-center justify-between"
               >
-                <option value="">Alle Kategorien</option>
-                <option value="elektro">Elektro</option>
-                <option value="sanitaer">Sanitär</option>
-                <option value="heizung">Heizung</option>
-                <option value="dach">Dach</option>
-                <option value="fenster">Fenster/Türen</option>
-                <option value="boden">Boden</option>
-                <option value="waende">Wände</option>
-                <option value="fundament">Fundament</option>
-                <option value="garten">Garten/Landschaft</option>
-              </select>
+                <span className="text-left">
+                  {filters.categories.length === 0 
+                    ? 'Alle Kategorien' 
+                    : filters.categories.length === 1 
+                    ? getCategoryLabel(filters.categories[0])
+                    : `${filters.categories.length} Kategorien`
+                  }
+                </span>
+                <Filter size={16} className="text-gray-400" />
+              </button>
+              
+              {showCategoryDropdown && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-30 max-h-60 overflow-y-auto">
+                  {[
+                    { value: 'site_preparation', label: 'Baustellenvorbereitung' },
+                    { value: 'foundation', label: 'Fundament' },
+                    { value: 'structural', label: 'Rohbau' },
+                    { value: 'roofing', label: 'Dach' },
+                    { value: 'electrical', label: 'Elektro' },
+                    { value: 'plumbing', label: 'Sanitär' },
+                    { value: 'heating', label: 'Heizung' },
+                    { value: 'flooring', label: 'Boden' },
+                    { value: 'windows', label: 'Fenster/Türen' },
+                    { value: 'insulation', label: 'Dämmung' },
+                    { value: 'interior', label: 'Innenausbau' },
+                    { value: 'landscaping', label: 'Garten/Landschaft' }
+                  ].map((category) => (
+                    <label
+                      key={category.value}
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-gray-700 cursor-pointer text-white"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={filters.categories.includes(category.value)}
+                        onChange={(e) => {
+                          const newCategories = e.target.checked
+                            ? [...filters.categories, category.value]
+                            : filters.categories.filter(c => c !== category.value);
+                          setFilters({...filters, categories: newCategories});
+                        }}
+                        className="w-4 h-4 text-[#ffbd59] bg-gray-700 border-gray-600 rounded focus:ring-[#ffbd59] focus:ring-2"
+                      />
+                      <span className="text-sm">{category.label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
@@ -482,7 +548,7 @@ export default function GeoSearch() {
               <select
                 value={filters.status}
                 onChange={(e) => setFilters({...filters, status: e.target.value})}
-                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
               >
                 <option value="">Alle Status</option>
                 <option value="planning">Planung</option>
@@ -501,7 +567,7 @@ export default function GeoSearch() {
               <select
                 value={filters.priority}
                 onChange={(e) => setFilters({...filters, priority: e.target.value})}
-                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
               >
                 <option value="">Alle Prioritäten</option>
                 <option value="low">Niedrig</option>
@@ -581,124 +647,237 @@ export default function GeoSearch() {
             </div>
 
             {viewMode === 'map' ? (
-              <div className="h-[50vh] min-h-[400px] rounded-lg overflow-hidden">
+              <div className="h-[50vh] min-h-[400px] rounded-lg overflow-hidden relative">
                 <TradeMap
                   trades={filteredTrades}
                   currentLocation={currentLocation}
                   radiusKm={radiusKm}
-                  onTradeClick={handleTradeClick}
+                  onTradeClick={(trade) => setSelectedMapTrade(trade)}
                   showAcceptedTrades={showAcceptedTrades}
                 />
+
+                {/* Modernes Trade-Popup auf der Karte */}
+                {selectedMapTrade && (
+                  <div className="absolute inset-x-4 bottom-4 z-20">
+                    <div className="bg-white/95 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20 max-w-2xl mx-auto">
+                      {/* Header */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-[#ffbd59]/20 rounded-lg">
+                            <Wrench size={24} className="text-[#ffbd59]" />
+                          </div>
+                          <div>
+                            <h3 className="text-xl font-bold text-gray-900">{selectedMapTrade.title}</h3>
+                            <p className="text-gray-600">{selectedMapTrade.project_name}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setSelectedMapTrade(null)}
+                          className="text-gray-400 hover:text-gray-600 p-1"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+
+                      {/* Badges */}
+                      <div className="flex items-center gap-2 flex-wrap mb-4">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-600 text-white">
+                          <Tag size={12} className="mr-1" />
+                          {getCategoryLabel(selectedMapTrade.category)}
+                        </span>
+                        
+                        {selectedMapTrade.requires_inspection && (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-600 text-white">
+                            <Eye size={12} className="mr-1" />
+                            Besichtigung erforderlich
+                          </span>
+                        )}
+                        
+                        {selectedMapTrade.quote_stats && (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-600 text-white">
+                            <Users size={12} className="mr-1" />
+                            {selectedMapTrade.quote_stats.total_quotes || 0} Bewerber
+                          </span>
+                        )}
+                        
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedMapTrade.status)} text-white`}>
+                          {getStatusLabel(selectedMapTrade.status)}
+                        </span>
+                      </div>
+
+                      {/* Informationen */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div className="text-center">
+                          <div className="text-gray-500 text-sm">Startdatum</div>
+                          <div className="font-semibold text-gray-900">
+                            {selectedMapTrade.start_date ? new Date(selectedMapTrade.start_date).toLocaleDateString('de-DE') : 'Flexibel'}
+                          </div>
+                        </div>
+                        
+                        {selectedMapTrade.budget && (
+                          <div className="text-center">
+                            <div className="text-gray-500 text-sm">Budget</div>
+                            <div className="font-bold text-[#ffbd59]">
+                              {new Intl.NumberFormat('de-DE', { 
+                                style: 'currency', 
+                                currency: 'EUR',
+                                maximumFractionDigits: 0
+                              }).format(selectedMapTrade.budget)}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {selectedMapTrade.distance_km && (
+                          <div className="text-center">
+                            <div className="text-gray-500 text-sm">Entfernung</div>
+                            <div className="font-semibold text-gray-900">
+                              {selectedMapTrade.distance_km.toFixed(1)} km
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Beschreibung */}
+                      {selectedMapTrade.description && (
+                        <div className="mb-4">
+                          <div className="text-gray-500 text-sm mb-2">Beschreibung</div>
+                          <div className="text-gray-700 text-sm line-clamp-3">
+                            {selectedMapTrade.description}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => {
+                            setSelectedMapTrade(null);
+                            // Navigiere zum ServiceProviderDashboard mit dem gewählten Trade
+                            window.location.href = `/service-provider?quote=${selectedMapTrade.id}`;
+                          }}
+                          className="flex-1 bg-green-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Package size={16} />
+                          Angebot abgeben
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            setSelectedMapTrade(null);
+                            handleTradeClick(selectedMapTrade);
+                          }}
+                          className="flex-1 bg-[#ffbd59] text-[#2c3539] px-4 py-3 rounded-lg font-semibold hover:bg-[#ffa726] transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Eye size={16} />
+                          Details
+                        </button>
+                        
+                        <button
+                          onClick={() => setSelectedMapTrade(null)}
+                          className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+              <div className="space-y-3">
                 {filteredTrades.map((trade) => (
                   <div
                     key={trade.id}
-                    className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-all duration-300 cursor-pointer border border-white/10 flex flex-col h-full"
+                    className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-all duration-300 cursor-pointer border border-white/10"
                     onClick={() => handleTradeClick(trade)}
                   >
-                    {/* Header mit Titel und Icon */}
-                    <div className="flex items-start gap-3 mb-4">
-                      <div className="p-2 bg-[#ffbd59]/20 rounded-lg flex-shrink-0">
-                        <Wrench size={20} className="text-[#ffbd59]" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-white text-base leading-tight line-clamp-2">{trade.title}</h3>
-                        <p className="text-gray-400 text-sm mt-1">{trade.project_name}</p>
-                      </div>
-                    </div>
-
-                    {/* Prominente Badge-Sektion */}
-                    <div className="space-y-3 mb-4">
-                      {/* Erste Reihe: Kategorie und Besichtigung */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-blue-600 text-white">
-                          <Tag size={12} className="mr-1.5" />
-                          {getCategoryLabel(trade.category)}
-                        </span>
-                        
-                        {trade.requires_inspection && (
-                          <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-orange-600 text-white">
-                            <Eye size={12} className="mr-1.5" />
-                            Besichtigung
-                          </span>
-                        )}
+                    {/* Zeilen-Layout: Horizontal angeordnet */}
+                    <div className="flex items-center gap-4">
+                      {/* Icon */}
+                      <div className="p-3 bg-[#ffbd59]/20 rounded-lg flex-shrink-0">
+                        <Wrench size={24} className="text-[#ffbd59]" />
                       </div>
 
-                      {/* Zweite Reihe: Bewerber und Status */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {trade.quote_stats && (
-                          <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-purple-600 text-white">
-                            <Users size={12} className="mr-1.5" />
-                            {trade.quote_stats.total_quotes || 0} Bewerber
-                          </span>
-                        )}
-                        
-                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${getStatusColor(trade.status)}`}>
-                          {getStatusLabel(trade.status)}
-                        </span>
-                      </div>
-
-                      {/* Dritte Reihe: Start und Budget */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-green-600 text-white">
-                          <Clock size={12} className="mr-1.5" />
-                          {trade.start_date ? new Date(trade.start_date).toLocaleDateString('de-DE', { 
-                            day: '2-digit', 
-                            month: '2-digit' 
-                          }) : 'Flexibel'}
-                        </span>
-                        
-                        {trade.budget && (
-                          <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-600 text-white">
-                            <Euro size={12} className="mr-1.5" />
-                            {(trade.budget / 1000).toFixed(0)}k€
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Kompakte Details */}
-                    <div className="space-y-2 text-sm flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-400">Entfernung:</span>
-                        <span className="text-white font-medium">{trade.distance_km ? trade.distance_km.toFixed(1) : 'N/A'} km</span>
-                      </div>
-                      
-                      {trade.description && (
-                        <div className="text-gray-300 text-xs line-clamp-2 mt-2">
-                          {trade.description}
+                        {/* Titel und Projekt */}
+                        <div className="flex-1">
+                          <h3 className="font-bold text-white text-lg leading-tight mb-1">{trade.title}</h3>
+                          <p className="text-gray-300 text-sm mb-3">{trade.project_name}</p>
+                          
+                          {/* Kompakte Badge-Reihe */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-600 text-white">
+                              <Tag size={10} className="mr-1" />
+                              {getCategoryLabel(trade.category)}
+                            </span>
+                            
+                            {trade.requires_inspection && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-600 text-white">
+                                <Eye size={10} className="mr-1" />
+                                Besichtigung
+                              </span>
+                            )}
+                            
+                            {trade.quote_stats && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-600 text-white">
+                                <Users size={10} className="mr-1" />
+                                {trade.quote_stats.total_quotes || 0} Bewerber
+                              </span>
+                            )}
+                            
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(trade.status)}`}>
+                              {getStatusLabel(trade.status)}
+                            </span>
+                          </div>
+                          
+                          {/* Beschreibung (gekürzt) */}
+                          {trade.description && (
+                            <div className="text-gray-300 text-sm mt-2 line-clamp-2">
+                              {trade.description}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
 
-                    {/* Action Buttons */}
-                    <div className="mt-4 pt-3 border-t border-white/10 space-y-2">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleTradeClick(trade);
-                        }}
-                        className="w-full bg-[#ffbd59] text-[#2c3539] px-3 py-2 rounded-lg text-sm font-medium hover:bg-[#ffa726] transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Eye size={14} />
-                        Details anzeigen
-                      </button>
-                      
-                      {/* Gewerk abschließen Button - nur für angenommene Gewerke */}
-                      {trade.status === 'in_progress' && (
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCompleteTrade(trade);
-                          }}
-                          className="w-full bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Package size={14} />
-                          Gewerk abschließen
-                        </button>
-                      )}
+                        {/* Rechte Seite: Datum, Budget und Entfernung */}
+                        <div className="text-right flex-shrink-0 space-y-2">
+                          <div className="text-white font-semibold text-sm">
+                            <Clock size={14} className="inline mr-1" />
+                            {trade.start_date ? new Date(trade.start_date).toLocaleDateString('de-DE', { 
+                              day: '2-digit', 
+                              month: '2-digit',
+                              year: '2-digit'
+                            }) : 'Termin offen'}
+                          </div>
+                          
+                          {trade.budget && (
+                            <div className="text-[#ffbd59] font-bold text-sm">
+                              <Euro size={14} className="inline mr-1" />
+                              {new Intl.NumberFormat('de-DE', { 
+                                style: 'currency', 
+                                currency: 'EUR',
+                                maximumFractionDigits: 0
+                              }).format(trade.budget)}
+                            </div>
+                          )}
+                          
+                          {trade.distance_km && (
+                            <div className="text-gray-400 text-xs">
+                              <MapPin size={12} className="inline mr-1" />
+                              {trade.distance_km.toFixed(1)} km
+                            </div>
+                          )}
+                          
+                          {/* Action Button */}
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTradeClick(trade);
+                            }}
+                            className="bg-[#ffbd59] text-[#2c3539] px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#ffa726] transition-colors flex items-center gap-2 mt-3"
+                          >
+                            <Eye size={14} />
+                            Details
+                          </button>
+                        </div>
                     </div>
                   </div>
                 ))}

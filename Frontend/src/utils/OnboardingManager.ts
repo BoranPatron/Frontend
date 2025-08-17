@@ -33,6 +33,8 @@ export interface User {
   user_type?: string;
   created_at?: string; // Hinzugefügt für neue User-Erkennung
   consent_fields?: Record<string, any> | null;
+  company_name?: string | null; // Firmenname
+  company_address?: string | null; // Firmenadresse
 }
 
 export class OnboardingManager {
@@ -228,6 +230,32 @@ export class OnboardingManager {
       (!user.role_selected && !user.user_role) ||
       !user.onboarding_completed
     );
+  }
+
+  /**
+   * Prüft ob die Dashboard-Tour gestartet werden kann
+   * Die Tour wird nur gestartet, wenn alle vorherigen Onboarding-Schritte abgeschlossen sind
+   */
+  static canStartDashboardTour(user: User): boolean {
+    // Grundvoraussetzungen prüfen
+    if (!user.role_selected || !user.user_role) {
+      return false; // Rolle muss ausgewählt sein
+    }
+
+    // Prüfe ob noch andere Onboarding-Modals aktiv sind
+    const state = this.getOnboardingState(user);
+    if (state.needsOnboarding && state.currentStep !== OnboardingStep.COMPLETED) {
+      return false; // Andere Onboarding-Schritte haben Vorrang
+    }
+
+    // Prüfe ob Tour bereits abgeschlossen wurde
+    const tourCompleted = !!(user.consent_fields && user.consent_fields.dashboard_tour && user.consent_fields.dashboard_tour.completed);
+    if (tourCompleted) {
+      return false; // Tour bereits abgeschlossen
+    }
+
+    // Tour kann gestartet werden
+    return true;
   }
 
   /**

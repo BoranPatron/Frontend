@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, FileText, Euro, Calendar, User, Check, XCircle, RotateCcw, Eye, AlertTriangle, Phone, Mail, Star, MessageCircle, ExternalLink, Clock, CheckCircle, PlayCircle, Settings, MapPin, Building, Briefcase, Flag, TrendingUp, AlertCircle, Download, ChevronDown, Square, CheckSquare, Info } from 'lucide-react';
+import { X, FileText, Euro, Calendar, User, Check, XCircle, RotateCcw, Eye, AlertTriangle, Phone, Mail, Star, MessageCircle, ExternalLink, Clock, CheckCircle, PlayCircle, Settings, MapPin, Building, Briefcase, Flag, TrendingUp, AlertCircle, Download, ChevronDown, Square, CheckSquare, Info, Receipt, CreditCard, Archive } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getAuthenticatedFileUrl, getApiBaseUrl, apiCall } from '../api/api';
 import TradeProgress from './TradeProgress';
+import AcceptanceModal from './AcceptanceModalNew';
+import FinalAcceptanceModal from './FinalAcceptanceModal';
 
 // TradeDocumentViewer Komponente aus TradeDetailsModal
 interface DocumentViewerProps {
@@ -24,7 +26,18 @@ interface DocumentViewerProps {
 function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps) {
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
   const [viewerError, setViewerError] = useState<string | null>(null);
+  const [documentBlobs, setDocumentBlobs] = useState<{[key: string]: string}>({});
+  const [loadingDocs, setLoadingDocs] = useState<{[key: string]: boolean}>({});
   const { isBautraeger } = useAuth();
+
+  // Cleanup Blob-URLs beim Unmount
+  useEffect(() => {
+    return () => {
+      Object.values(documentBlobs).forEach(url => {
+        if (url) URL.revokeObjectURL(url);
+      });
+    };
+  }, [documentBlobs]);
 
   // Robuste Dokumentenverarbeitung
   const safeDocuments = useMemo(() => {
@@ -125,6 +138,45 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     return null;
   };
 
+  // Funktion zum Laden von Dokumenten mit Token-Authentifizierung
+  const loadDocumentBlob = async (doc: any) => {
+    const docKey = String(doc.id);
+    if (documentBlobs[docKey] || loadingDocs[docKey]) return;
+    
+    setLoadingDocs(prev => ({ ...prev, [docKey]: true }));
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Kein Authentifizierungstoken verfügbar');
+      }
+      
+      const documentId = extractDocumentIdFromUrl(doc.url || doc.file_path || '') || doc.id;
+      const baseUrl = getApiBaseUrl();
+      
+      const response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      setDocumentBlobs(prev => ({ ...prev, [docKey]: blobUrl }));
+      console.log('✅ Dokument-Blob geladen für:', doc.name);
+    } catch (error) {
+      console.error('❌ Fehler beim Laden des Dokument-Blobs:', error);
+      setViewerError(`Fehler beim Laden: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`);
+    } finally {
+      setLoadingDocs(prev => ({ ...prev, [docKey]: false }));
+    }
+  };
+
   return (
     <div className="bg-gradient-to-br from-[#2c3539]/30 to-[#1a1a2e]/30 rounded-xl p-6 border border-gray-600/30 backdrop-blur-sm">
       <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
@@ -164,27 +216,20 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               <div className="flex items-center gap-2">
                   {canPreview(doc) && (
                   <button
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                        
-                        if (doc.type && doc.type.includes('pdf')) {
-                          const token = localStorage.getItem('token');
-                          if (!token) {
-                            setViewerError('Kein Authentifizierungstoken verfügbar');
-                            return;
-                          }
-                          
-                          const documentId = extractDocumentIdFromUrl(doc.url || doc.file_path || '');
-                          if (documentId) {
-                            setSelectedDoc(selectedDoc === String(doc.id) ? null : String(doc.id));
-                            setViewerError(null);
-                            return;
-                          }
-                        }
-                        
-                        setSelectedDoc(selectedDoc === String(doc.id) ? null : String(doc.id));
-                      setViewerError(null);
+                      
+                      if (selectedDoc === String(doc.id)) {
+                        // Schließen
+                        setSelectedDoc(null);
+                        setViewerError(null);
+                      } else {
+                        // Öffnen und Dokument laden
+                        setSelectedDoc(String(doc.id));
+                        setViewerError(null);
+                        await loadDocumentBlob(doc);
+                      }
                     }}
                     className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
                         selectedDoc === String(doc.id)
@@ -192,22 +237,66 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                         : 'bg-[#ffbd59]/20 text-[#ffbd59] hover:bg-[#ffbd59]/30'
                     }`}
                     title="Dokument anzeigen"
+                    disabled={loadingDocs[String(doc.id)]}
                   >
                     <Eye size={14} />
-                      {selectedDoc === String(doc.id) ? 'Schließen' : 'Ansehen'}
+                    {loadingDocs[String(doc.id)] ? 'Lädt...' : 
+                     selectedDoc === String(doc.id) ? 'Schließen' : 'Ansehen'}
                   </button>
                 )}
                   
                   {(isBautraeger() || existingQuotes.some((quote: any) => quote.status === 'accepted')) && (
-                <a
-                      href={getAuthenticatedFileUrl(doc.url || doc.file_path || '')}
-                      download={doc.name || doc.title || doc.file_name || 'document'}
-                  className="flex items-center gap-1 px-3 py-2 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-all duration-200 text-sm font-medium"
+                    <button
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        try {
+                          const token = localStorage.getItem('token');
+                          if (!token) {
+                            alert('Kein Authentifizierungstoken verfügbar');
+                            return;
+                          }
+                          
+                          const documentId = extractDocumentIdFromUrl(doc.url || doc.file_path || '') || doc.id;
+                          const baseUrl = getApiBaseUrl();
+                          
+                          const response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
+                            headers: {
+                              'Authorization': `Bearer ${token}`
+                            }
+                          });
+                          
+                          if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                          }
+                          
+                          const blob = await response.blob();
+                          const url = URL.createObjectURL(blob);
+                          
+                          // Download auslösen
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = doc.name || doc.title || doc.file_name || 'document';
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          
+                          // Cleanup
+                          setTimeout(() => URL.revokeObjectURL(url), 1000);
+                          
+                          console.log('✅ Dokument-Download erfolgreich:', doc.name);
+                        } catch (error) {
+                          console.error('❌ Fehler beim Download:', error);
+                          alert('Dokument konnte nicht heruntergeladen werden');
+                        }
+                      }}
+                      className="flex items-center gap-1 px-3 py-2 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-all duration-200 text-sm font-medium"
                       title={isBautraeger() ? "Dokument herunterladen" : "Dokument herunterladen (nur nach Angebotsannahme)"}
-                >
-                  <Download size={14} />
-                  Download
-                </a>
+                    >
+                      <Download size={14} />
+                      Download
+                    </button>
                   )}
                   
                   <button
@@ -222,37 +311,35 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                           return;
                         }
                         
-                        const documentId = extractDocumentIdFromUrl(doc.url || doc.file_path || '');
-                        if (documentId) {
-                          const baseUrl = getApiBaseUrl();
-                          const response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
-                            headers: {
-                              'Authorization': `Bearer ${token}`
-                            }
-                          });
-                          
-                          if (response.ok) {
-                            const blob = await response.blob();
-                            const url = URL.createObjectURL(blob);
-                            window.open(url, '_blank');
-                            setTimeout(() => URL.revokeObjectURL(url), 1000);
-                          } else {
-                            throw new Error('Dokument konnte nicht geladen werden');
+                        const documentId = extractDocumentIdFromUrl(doc.url || doc.file_path || '') || doc.id;
+                        const baseUrl = getApiBaseUrl();
+                        
+                        const response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
+                          headers: {
+                            'Authorization': `Bearer ${token}`
                           }
-                        } else {
-                          const authenticatedUrl = getAuthenticatedFileUrl(doc.url || doc.file_path || '');
-                          window.open(authenticatedUrl, '_blank');
+                        });
+                        
+                        if (!response.ok) {
+                          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                         }
+                        
+                        const blob = await response.blob();
+                        const url = URL.createObjectURL(blob);
+                        window.open(url, '_blank');
+                        setTimeout(() => URL.revokeObjectURL(url), 1000);
+                        
+                        console.log('✅ Dokument extern geöffnet:', doc.name);
                       } catch (error) {
                         console.error('❌ Fehler beim Öffnen des Dokuments:', error);
                         alert('Dokument konnte nicht geöffnet werden');
                       }
                     }}
-                  className="flex items-center gap-1 px-3 py-2 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-all duration-200 text-sm font-medium"
-                  title="In neuem Tab öffnen"
-                >
-                  <ExternalLink size={14} />
-                  Öffnen
+                    className="flex items-center gap-1 px-3 py-2 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-all duration-200 text-sm font-medium"
+                    title="In neuem Tab öffnen"
+                  >
+                    <ExternalLink size={14} />
+                    Öffnen
                   </button>
               </div>
             </div>
@@ -275,20 +362,27 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       </div>
                       
                       <div className="h-96 bg-white/5">
-                        {doc.type && doc.type.includes('pdf') ? (
+                        {loadingDocs[String(doc.id)] ? (
+                          <div className="flex items-center justify-center h-full">
+                            <div className="text-center">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#ffbd59] mx-auto mb-2"></div>
+                              <p className="text-gray-400 text-sm">Dokument wird geladen...</p>
+                            </div>
+                          </div>
+                        ) : documentBlobs[String(doc.id)] ? (
                           <iframe
-                            src={getViewerUrl(doc)}
+                            src={documentBlobs[String(doc.id)]}
                             className="w-full h-full border-0"
                             title={doc.name || doc.title || doc.file_name || 'Dokument'}
-                            onError={() => setViewerError('PDF konnte nicht geladen werden')}
+                            onError={() => setViewerError('Dokument konnte nicht angezeigt werden')}
                           />
                         ) : (
-                          <iframe
-                            src={getViewerUrl(doc)}
-                            className="w-full h-full border-0"
-                            title={doc.name || doc.title || doc.file_name || 'Dokument'}
-                            onError={() => setViewerError('Dokument konnte nicht geladen werden')}
-                          />
+                          <div className="flex items-center justify-center h-full">
+                            <div className="text-center">
+                              <FileText size={48} className="text-gray-500 mx-auto mb-2" />
+                              <p className="text-gray-400 text-sm">Dokument nicht verfügbar</p>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -339,6 +433,9 @@ export default function SimpleCostEstimateModal({
   const [selectedQuoteForAction, setSelectedQuoteForAction] = useState<any>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [selectedQuotesForInspection, setSelectedQuotesForInspection] = useState<number[]>([]);
+  
+  // State für einklappbare Abschnitte
+  const [isContractorExpanded, setIsContractorExpanded] = useState(true);
   const [loading, setLoading] = useState(false);
   const [showServiceProviderRating, setShowServiceProviderRating] = useState(false);
   
@@ -353,6 +450,11 @@ export default function SimpleCostEstimateModal({
   const [showFinalAcceptanceModal, setShowFinalAcceptanceModal] = useState(false);
   const [completionStatus, setCompletionStatus] = useState(trade?.completion_status || 'in_progress');
   const [acceptanceDefects, setAcceptanceDefects] = useState<any[]>([]);
+  
+  // Rechnungs-States
+  const [existingInvoice, setExistingInvoice] = useState<any>(null);
+  const [showInvoiceViewer, setShowInvoiceViewer] = useState(false);
+  const [isMarkingAsPaid, setIsMarkingAsPaid] = useState(false);
   const [proposedDate, setProposedDate] = useState('');
   const [proposedTime, setProposedTime] = useState('');
   const [scheduleNotes, setScheduleNotes] = useState('');
@@ -382,6 +484,8 @@ export default function SimpleCostEstimateModal({
   useEffect(() => {
     if (isOpen && trade?.id) {
       console.log('🔍 SimpleCostEstimateModal geöffnet für Trade:', trade.id);
+      console.log('🔍 SimpleCostEstimateModal - User Rolle:', user?.user_role);
+      console.log('🔍 SimpleCostEstimateModal - isBautraeger:', isBautraeger());
       loadTradeDocuments(trade.id);
     }
   }, [isOpen, trade?.id]);
@@ -498,7 +602,7 @@ export default function SimpleCostEstimateModal({
         accepted: acceptanceData.accepted,
         acceptanceNotes: acceptanceData.acceptanceNotes,
         defects: acceptanceData.defects || [],
-        trade_id: trade.id,
+        milestone_id: trade.id,
         project_id: trade.project_id,
         quote_id: acceptedQuote?.id,
         completion_date: new Date().toISOString(),
@@ -588,6 +692,217 @@ export default function SimpleCostEstimateModal({
   const handleProgressChange = (newProgress: number) => {
     setCurrentProgress(newProgress);
   };
+
+  // Lade dokumentierte Mängel
+  const loadAcceptanceDefects = async () => {
+    if (!trade?.id) return;
+    
+    try {
+      const { api } = await import('../api/api');
+      const response = await api.get(`/acceptance/milestone/${trade.id}/defects`);
+      setAcceptanceDefects(response.data || []);
+      console.log('✅ Abnahme-Mängel geladen:', response.data);
+    } catch (error) {
+      console.error('❌ Fehler beim Laden der Abnahme-Mängel:', error);
+      setAcceptanceDefects([]);
+    }
+  };
+
+  // Lade bestehende Rechnung
+  const loadExistingInvoice = async () => {
+    if (!trade?.id) return;
+    
+    console.log('🔍 SimpleCostEstimateModal - loadExistingInvoice gestartet für Trade:', trade.id);
+    
+    try {
+      const { api } = await import('../api/api');
+      const response = await api.get(`/invoices/milestone/${trade.id}`);
+      
+      if (response.data) {
+        setExistingInvoice(response.data);
+        console.log('✅ Bestehende Rechnung geladen:', response.data);
+      } else {
+        console.log('ℹ️ Keine Rechnung in Response gefunden');
+        setExistingInvoice(null);
+      }
+    } catch (error: any) {
+      if (error.response?.status !== 404) {
+        console.error('❌ Fehler beim Laden der bestehenden Rechnung:', error);
+      } else {
+        console.log('ℹ️ Keine Rechnung vorhanden (404)');
+      }
+      // 404 ist OK - bedeutet nur dass noch keine Rechnung existiert
+      setExistingInvoice(null);
+    }
+  };
+
+  // Handler für Rechnung anzeigen
+  const handleViewInvoice = async () => {
+    if (!existingInvoice) return;
+    
+    try {
+      const { api } = await import('../api/api');
+      
+      // Mark as viewed (löst automatische DMS-Integration im Backend aus)
+      await api.post(`/invoices/${existingInvoice.id}/mark-viewed`);
+      
+      // Open PDF in new window
+      const token = localStorage.getItem('token');
+      const baseUrl = window.location.hostname === 'localhost' 
+        ? 'http://localhost:8000' 
+        : '';
+      
+      // Erstelle einen Blob-URL mit Authorization Header
+      const response = await fetch(`${baseUrl}/api/v1/invoices/${existingInvoice.id}/download`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        
+        // Cleanup nach kurzer Zeit
+        setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      } else {
+        throw new Error('Fehler beim Laden der Rechnung');
+      }
+      
+    } catch (error) {
+      console.error('❌ Fehler beim Anzeigen der Rechnung:', error);
+      alert('Fehler beim Öffnen der Rechnung. Bitte versuchen Sie es erneut.');
+    }
+  };
+
+  // Handler für Rechnung als bezahlt markieren
+  const handleMarkAsPaid = async () => {
+    if (!existingInvoice) return;
+    
+    if (!confirm('Möchten Sie diese Rechnung wirklich als bezahlt markieren?')) {
+      return;
+    }
+    
+    setIsMarkingAsPaid(true);
+    
+    try {
+      const { api } = await import('../api/api');
+      
+      const response = await api.post(`/invoices/${existingInvoice.id}/mark-paid`, {
+        paid_at: new Date().toISOString(),
+        payment_reference: `Bauträger-Zahlung-${Date.now()}`
+      });
+      
+      if (response.data) {
+        // Aktualisiere die lokale Rechnung
+        setExistingInvoice((prev: any) => ({
+          ...prev,
+          status: 'paid',
+          paid_at: new Date().toISOString()
+        }));
+        
+        // Erfolgreiche Benachrichtigung mit DMS-Hinweis
+        const message = `✅ Rechnung wurde erfolgreich als bezahlt markiert!
+        
+📁 Die Rechnung wurde automatisch im DMS kategorisiert:
+• Kategorie: Finanzen & Abrechnung
+• Unterkategorie: Bezahlte Rechnungen
+• Status: Automatisch archiviert
+• Tags: Rechnung, Bezahlt, ${trade?.title || 'Gewerk'}
+
+Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen werden.`;
+        
+        alert(message);
+      }
+      
+    } catch (error) {
+      console.error('❌ Fehler beim Markieren als bezahlt:', error);
+      alert('Fehler beim Markieren der Rechnung als bezahlt. Bitte versuchen Sie es erneut.');
+    } finally {
+      setIsMarkingAsPaid(false);
+    }
+  };
+
+  // Handler für Rechnung herunterladen
+  const handleDownloadInvoice = async () => {
+    if (!existingInvoice) return;
+    
+    try {
+      const { api } = await import('../api/api');
+      
+      // Zuerst mark-viewed aufrufen, damit DMS-Dokument erstellt wird falls noch nicht vorhanden
+      await api.post(`/invoices/${existingInvoice.id}/mark-viewed`);
+      
+      const response = await api.get(`/invoices/${existingInvoice.id}/download`, { 
+        responseType: 'blob' 
+      });
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Rechnung_${existingInvoice.invoice_number}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error('❌ Fehler beim Herunterladen der Rechnung:', error);
+      alert('Fehler beim Herunterladen der Rechnung. Bitte versuchen Sie es erneut.');
+    }
+  };
+  
+  // Handler für Archivierung
+  const handleArchiveTrade = async () => {
+    if (!trade?.id) return;
+    
+    const confirmed = window.confirm(
+      `Möchten Sie das Gewerk "${trade.title}" wirklich ins Archiv verschieben?\n\n` +
+      'Das Gewerk wird mit allen Informationen (Dienstleister, Angebot, Rechnung) archiviert ' +
+      'und kann im Archiv-Bereich eingesehen werden.'
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      setLoading(true);
+      
+      // API-Call zum Archivieren des Gewerks
+      const { apiCall } = await import('../api/api');
+      const response = await apiCall(`/milestones/${trade.id}/archive`, {
+        method: 'POST',
+        body: JSON.stringify({
+          archived_at: new Date().toISOString(),
+          archived_by: 'bautraeger',
+          archive_reason: 'Gewerk abgeschlossen und Rechnung bezahlt'
+        })
+      });
+      
+      if (response) {
+        alert('✅ Gewerk wurde erfolgreich ins Archiv verschoben!');
+        
+        // Aktualisiere das Trade-Objekt
+        if (onTradeUpdate) {
+          onTradeUpdate({ 
+            ...trade, 
+            completion_status: 'archived',
+            archived_at: new Date().toISOString()
+          });
+        }
+        
+        // Schließe das Modal
+        onClose();
+      }
+      
+    } catch (error) {
+      console.error('❌ Fehler beim Archivieren:', error);
+      alert('Fehler beim Archivieren des Gewerks. Bitte versuchen Sie es erneut.');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Handler für Fertigstellungsanfrage
   const handleCompletionRequest = async () => {
@@ -656,9 +971,7 @@ export default function SimpleCostEstimateModal({
         throw new Error('Kein Authentifizierungs-Token gefunden');
       }
       
-      const baseUrl = process.env.NODE_ENV === 'development' 
-        ? 'http://localhost:8000/api/v1' 
-        : '/api/v1';
+      const baseUrl = getApiBaseUrl();
       
       // Lade das vollständige Milestone mit Dokumenten vom Backend
       const response = await fetch(`${baseUrl}/milestones/${tradeId}`, {
@@ -672,8 +985,17 @@ export default function SimpleCostEstimateModal({
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const milestoneData = await response.json();
-      console.log('✅ SimpleCostEstimateModal - Milestone-Daten geladen:', milestoneData);
+              const milestoneData = await response.json();
+        console.log('✅ SimpleCostEstimateModal - Milestone-Daten geladen:', milestoneData);
+        console.log('🔍 SimpleCostEstimateModal - shared_document_ids:', milestoneData.shared_document_ids);
+        console.log('🔍 SimpleCostEstimateModal - documents:', milestoneData.documents);
+        console.log('🔍 SimpleCostEstimateModal - completion_status:', milestoneData.completion_status);
+        
+        // Aktualisiere completion_status vom Backend
+        if (milestoneData.completion_status) {
+          setCompletionStatus(milestoneData.completion_status);
+          console.log('✅ SimpleCostEstimateModal - completion_status aktualisiert:', milestoneData.completion_status);
+        }
       
       let documents = [];
       
@@ -726,9 +1048,19 @@ export default function SimpleCostEstimateModal({
                   const docData = await docResponse.json();
                   console.log(`✅ Dokument ${docId} geladen:`, docData);
                   return {
-                    ...docData,
-                    isShared: true,
-                    category: 'shared'
+                    id: docData.id,
+                    name: docData.filename || docData.name,
+                    title: docData.title || docData.filename || docData.name,
+                    file_name: docData.filename || docData.name,
+                    url: docData.file_path,
+                    file_path: docData.file_path,
+                    type: docData.mime_type,
+                    mime_type: docData.mime_type,
+                    size: docData.file_size,
+                    file_size: docData.file_size,
+                    category: docData.category,
+                    subcategory: docData.subcategory,
+                    created_at: docData.created_at
                   };
                 } else {
                   console.error(`❌ Fehler beim Laden von Dokument ${docId}: HTTP ${docResponse.status}`);
@@ -752,7 +1084,14 @@ export default function SimpleCostEstimateModal({
       }
 
       console.log('📄 SimpleCostEstimateModal - Finale Dokumentenliste (nur geteilte):', documents);
-      setLoadedDocuments(documents);
+      // Setze die Dokumente direkt aus der Backend-Response
+      if (milestoneData.documents && Array.isArray(milestoneData.documents)) {
+        console.log('✅ SimpleCostEstimateModal - Setze Dokumente direkt aus Backend:', milestoneData.documents);
+        setLoadedDocuments(milestoneData.documents);
+      } else {
+        console.log('❌ SimpleCostEstimateModal - Keine Dokumente im Backend-Response gefunden');
+        setLoadedDocuments([]);
+      }
       
     } catch (error) {
       console.error('❌ SimpleCostEstimateModal - Fehler beim Laden der Dokumente:', error);
@@ -847,8 +1186,8 @@ export default function SimpleCostEstimateModal({
   useEffect(() => {
     if (isOpen && trade?.id) {
       loadTradeDocuments(trade.id);
-      loadAppointmentResponses();
-      loadMessages();
+      // loadAppointmentResponses(); // Deaktiviert wegen 404-Fehler
+      // loadMessages(); // Deaktiviert wegen 404-Fehler
       
       // Prüfe Besichtigungs-Status
       if (propInspectionStatus && trade) {
@@ -861,6 +1200,27 @@ export default function SimpleCostEstimateModal({
       }
     }
   }, [isOpen, trade?.id]);
+
+  // Lade Mängel wenn Status 'completed_with_defects' ist
+  useEffect(() => {
+    if (isOpen && completionStatus === 'completed_with_defects' && trade?.id) {
+      console.log('🔍 SimpleCostEstimateModal - Lade Mängel für completed_with_defects Status');
+      loadAcceptanceDefects();
+    }
+  }, [isOpen, completionStatus, trade?.id]);
+
+  // Lade bestehende Rechnung wenn Gewerk abgeschlossen ist
+  useEffect(() => {
+    if (isOpen && (completionStatus === 'completed' || completionStatus === 'completed_with_defects') && trade?.id && isBautraeger()) {
+      console.log('🔍 SimpleCostEstimateModal - Lade bestehende Rechnung für Bauträger', {
+        isOpen,
+        completionStatus,
+        tradeId: trade?.id,
+        isBautraeger: isBautraeger()
+      });
+      loadExistingInvoice();
+    }
+  }, [isOpen, completionStatus, trade?.id, isBautraeger]);
 
   // Render Comprehensive Trade Header
   const renderTradeHeader = () => {
@@ -1272,157 +1632,347 @@ export default function SimpleCostEstimateModal({
               <p className="text-sm text-gray-400">Umfassende Übersicht und Verwaltung</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-          >
-            <X size={24} className="text-gray-400" />
-          </button>
+          
+          <div className="flex items-center gap-3">
+            {/* Archiv-Button - prominent im Header platziert */}
+            {existingInvoice?.status === 'paid' && 
+             (completionStatus === 'completed' || trade?.completion_status === 'completed') && (
+              <button
+                onClick={handleArchiveTrade}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl border border-orange-500/30"
+                title="Gewerk ins Archiv verschieben"
+              >
+                <Archive size={18} />
+                <span>Ins Archiv verschieben</span>
+              </button>
+            )}
+            
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <X size={24} className="text-gray-400" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-          {/* Ausschreibungsdetails - Professioneller Header */}
+
+          
+          {/* Ausschreibungsdetails */}
           <div className="bg-gradient-to-br from-[#2c3539]/50 to-[#1a1a2e]/50 rounded-xl border border-gray-600/30 p-6 mb-6">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <Info size={20} className="text-[#ffbd59]" />
               Ausschreibungsdetails
             </h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Linke Spalte */}
-              <div className="space-y-4">
-                <div>
-                  <div className="text-sm text-gray-400 mb-1">Gewerk</div>
-                  <div className="text-white font-medium">{trade?.title}</div>
-                </div>
-                
-                <div>
-                  <div className="text-sm text-gray-400 mb-1">Beschreibung</div>
-                  <div className="text-gray-300 text-sm">{trade?.description || 'Keine Beschreibung verfügbar'}</div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-sm text-gray-400 mb-1">Status</div>
-                    <div className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${
-                      trade?.status === 'completed' ? 'bg-green-500/20 text-green-300' :
-                      trade?.status === 'in_progress' ? 'bg-yellow-500/20 text-yellow-300' :
-                      trade?.status === 'planned' ? 'bg-blue-500/20 text-blue-300' :
-                      'bg-gray-500/20 text-gray-300'
-                    }`}>
-                      {trade?.status === 'completed' ? 'Abgeschlossen' :
-                       trade?.status === 'in_progress' ? 'In Bearbeitung' :
-                       trade?.status === 'planned' ? 'Geplant' :
-                       trade?.status || 'Unbekannt'}
-                    </div>
+            <div className="space-y-4">
+              {/* Titel und Kategorie */}
+              <div>
+                <div className="text-sm text-gray-400 mb-1">Gewerk</div>
+                <div className="text-white font-medium text-lg">{trade?.title}</div>
+                <div className="text-gray-400 text-sm mt-1">{trade?.category}</div>
+              </div>
+              
+              {/* Beschreibung */}
+              {trade?.description && (
+                <div className="bg-black/20 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Info size={14} className="text-blue-400" />
+                    <span className="text-sm font-medium text-blue-300">Beschreibung</span>
                   </div>
-                  
-                  <div>
-                    <div className="text-sm text-gray-400 mb-1">Priorität</div>
-                    <div className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${
-                      trade?.priority === 'high' ? 'bg-red-500/20 text-red-300' :
-                      trade?.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
-                      'bg-green-500/20 text-green-300'
-                    }`}>
-                      {trade?.priority === 'high' ? 'Hoch' :
-                       trade?.priority === 'medium' ? 'Mittel' :
-                       'Niedrig'}
-                    </div>
+                  <div className="text-sm text-gray-300 leading-relaxed">
+                    {trade.description}
+                  </div>
+                </div>
+              )}
+
+              {/* Grid mit weiteren Informationen */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Erstellungsdatum */}
+                {trade?.created_at && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Calendar size={14} className="text-green-400" />
+                    <span className="text-gray-400">Erstellt:</span>
+                    <span className="font-medium text-white">
+                      {new Date(trade.created_at).toLocaleDateString('de-DE', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                )}
+
+                {/* Budget */}
+                {trade?.budget && String(trade.budget) !== '0' && String(trade.budget) !== '0.0' && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Euro size={14} className="text-green-400" />
+                    <span className="text-gray-400">Budget:</span>
+                    <span className="font-medium text-white">
+                      CHF {parseFloat(String(trade.budget)).toLocaleString('de-DE')}
+                    </span>
+                  </div>
+                )}
+
+                {/* Status */}
+                <div className="flex items-center gap-2 text-sm">
+                  <Flag size={14} className="text-purple-400" />
+                  <span className="text-gray-400">Status:</span>
+                  <span className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${
+                    trade?.status === 'completed' ? 'bg-green-500/20 text-green-300' :
+                    trade?.status === 'in_progress' ? 'bg-yellow-500/20 text-yellow-300' :
+                    trade?.status === 'planned' ? 'bg-blue-500/20 text-blue-300' :
+                    'bg-gray-500/20 text-gray-300'
+                  }`}>
+                    {trade?.status === 'completed' ? 'Abgeschlossen' :
+                     trade?.status === 'in_progress' ? 'In Bearbeitung' :
+                     trade?.status === 'planned' ? 'Geplant' :
+                     trade?.status || 'Unbekannt'}
+                  </span>
+                </div>
+
+                {/* Bauphase */}
+                {(trade as any)?.construction_phase && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Settings size={14} className="text-orange-400" />
+                    <span className="text-gray-400">Bauphase:</span>
+                    <span className="font-medium text-white capitalize">
+                      {(trade as any).construction_phase === 'ausschreibung' ? 'Ausschreibung' :
+                       (trade as any).construction_phase === 'planung' ? 'Planung' :
+                       (trade as any).construction_phase === 'rohbau' ? 'Rohbau' :
+                       (trade as any).construction_phase === 'ausbau' ? 'Ausbau' :
+                       (trade as any).construction_phase === 'fertigstellung' ? 'Fertigstellung' :
+                       (trade as any).construction_phase === 'abnahme' ? 'Abnahme' : (trade as any).construction_phase}
+                    </span>
+                  </div>
+                )}
+
+                {/* Besichtigung erforderlich */}
+                {(trade as any)?.requires_inspection && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Eye size={14} className="text-purple-400" />
+                    <span className="text-gray-400">Besichtigung:</span>
+                    <span className="font-medium text-purple-300">Erforderlich</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Notizen */}
+              {(trade as any)?.notes && (
+                <div className="bg-black/20 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText size={14} className="text-yellow-400" />
+                    <span className="text-sm font-medium text-yellow-300">Notizen</span>
+                  </div>
+                  <div className="text-sm text-gray-300 leading-relaxed">
+                    {(trade as any).notes.length > 200 
+                      ? `${(trade as any).notes.substring(0, 200)}...` 
+                      : (trade as any).notes
+                    }
+                  </div>
+                </div>
+              )}
+
+              {/* Zusätzliche Informationen aus notify_on_completion */}
+              {(trade as any)?.notify_on_completion && (
+                <div className="bg-black/20 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Info size={14} className="text-cyan-400" />
+                    <span className="text-sm font-medium text-cyan-300">Zusätzliche Informationen</span>
+                  </div>
+                  <div className="text-sm text-gray-300 leading-relaxed">
+                    {(trade as any).notify_on_completion.length > 200 
+                      ? `${(trade as any).notify_on_completion.substring(0, 200)}...` 
+                      : (trade as any).notify_on_completion
+                    }
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Projektinformationen */}
+            {project && (
+              <div className="mt-4 pt-3 border-t border-gray-600/30">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                  <div className="flex items-center gap-2 text-gray-300">
+                    <Building size={14} className="text-[#ffbd59]" />
+                    <span className="text-gray-400">Projekt:</span>
+                    <span className="font-medium text-white">{project.name || 'Nicht angegeben'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-300">
+                    <Settings size={14} className="text-[#ffbd59]" />
+                    <span className="text-gray-400">Typ:</span>
+                    <span className="font-medium text-white">
+                      {project.project_type === 'new_build' ? 'Neubau' :
+                       project.project_type === 'renovation' ? 'Renovierung' :
+                       project.project_type === 'extension' ? 'Erweiterung' :
+                       project.project_type === 'modernization' ? 'Modernisierung' :
+                       project.project_type || 'Nicht angegeben'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-300">
+                    <MapPin size={14} className="text-[#ffbd59]" />
+                    <span className="text-gray-400">Standort:</span>
+                    <span className="font-medium text-white">{project.address || project.location || project.city || 'Projektadresse nicht verfügbar'}</span>
                   </div>
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* Angenommenes Angebot - Dienstleister-Informationen */}
+          {acceptedQuote && (
+            <div className="mb-6 p-6 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 rounded-xl border border-emerald-500/20">
+              <button
+                onClick={() => setIsContractorExpanded(!isContractorExpanded)}
+                className="w-full flex items-center justify-between mb-4 hover:bg-emerald-500/5 p-2 rounded-lg transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-500/20 rounded-lg">
+                    <CheckCircle size={20} className="text-emerald-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white">Beauftragter Dienstleister</h3>
+                </div>
+                <div className={`transform transition-transform ${isContractorExpanded ? 'rotate-180' : ''}`}>
+                  <ChevronDown size={20} className="text-gray-400" />
+                </div>
+              </button>
               
-              {/* Rechte Spalte */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              {isContractorExpanded && (
+                <div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Firma und Kontaktperson */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Building size={16} className="text-gray-400" />
+                    <div>
+                      <div className="text-xs text-gray-400">Firma</div>
+                      <div className="text-white font-medium">{acceptedQuote.company_name || 'Nicht angegeben'}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <User size={16} className="text-gray-400" />
+                    <div>
+                      <div className="text-xs text-gray-400">Ansprechpartner</div>
+                      <div className="text-white font-medium">{acceptedQuote.contact_person || 'Nicht angegeben'}</div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Kontaktdaten */}
+                <div className="space-y-3">
+                  {acceptedQuote.email && (
+                    <div className="flex items-center gap-3">
+                      <Mail size={16} className="text-gray-400" />
+                      <div>
+                        <div className="text-xs text-gray-400">E-Mail</div>
+                        <a href={`mailto:${acceptedQuote.email}`} className="text-[#ffbd59] hover:underline">
+                          {acceptedQuote.email}
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {acceptedQuote.phone && (
+                    <div className="flex items-center gap-3">
+                      <Phone size={16} className="text-gray-400" />
+                      <div>
+                        <div className="text-xs text-gray-400">Telefon</div>
+                        <a href={`tel:${acceptedQuote.phone}`} className="text-[#ffbd59] hover:underline">
+                          {acceptedQuote.phone}
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Angebotssumme und Zeitraum */}
+              <div className="mt-4 pt-4 border-t border-emerald-500/20 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <div className="text-xs text-gray-400 mb-1">Angebotssumme</div>
+                  <div className="text-xl font-bold text-[#ffbd59]">
+                    {new Intl.NumberFormat('de-DE', { 
+                      style: 'currency', 
+                      currency: acceptedQuote.currency || 'CHF' 
+                    }).format(acceptedQuote.total_amount || 0)}
+                  </div>
+                </div>
+                
+                {acceptedQuote.start_date && (
                   <div>
-                    <div className="text-sm text-gray-400 mb-1">Budget</div>
+                    <div className="text-xs text-gray-400 mb-1">Startdatum</div>
                     <div className="text-white font-medium">
-                      {trade?.budget ? `CHF ${Number(trade.budget).toLocaleString('de-DE')}` : 'Nicht festgelegt'}
+                      {new Date(acceptedQuote.start_date).toLocaleDateString('de-DE')}
                     </div>
                   </div>
-                  
-                  <div>
-                    <div className="text-sm text-gray-400 mb-1">Geplantes Datum</div>
-                    <div className="text-white">
-                      {trade?.planned_date ? new Date(trade.planned_date).toLocaleDateString('de-DE') : 'Nicht festgelegt'}
-                    </div>
-                  </div>
-                </div>
+                )}
                 
-                <div className="grid grid-cols-2 gap-4">
+                {acceptedQuote.completion_date && (
                   <div>
-                    <div className="text-sm text-gray-400 mb-1">Startdatum</div>
-                    <div className="text-white">
-                      {trade?.start_date ? new Date(trade.start_date).toLocaleDateString('de-DE') : 'Nicht festgelegt'}
+                    <div className="text-xs text-gray-400 mb-1">Fertigstellung</div>
+                    <div className="text-white font-medium">
+                      {new Date(acceptedQuote.completion_date).toLocaleDateString('de-DE')}
                     </div>
                   </div>
-                  
-                  <div>
-                    <div className="text-sm text-gray-400 mb-1">Enddatum</div>
-                    <div className="text-white">
-                      {trade?.end_date ? new Date(trade.end_date).toLocaleDateString('de-DE') : 'Nicht festgelegt'}
-                    </div>
-                  </div>
-                </div>
+                )}
                 
-                {trade?.requires_inspection === '1' && (
-                  <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Eye size={16} className="text-purple-400" />
-                      <span className="text-purple-300 text-sm font-medium">Besichtigung erforderlich</span>
+                {acceptedQuote.estimated_duration && (
+                  <div>
+                    <div className="text-xs text-gray-400 mb-1">Geschätzte Dauer</div>
+                    <div className="text-white font-medium">
+                      {acceptedQuote.estimated_duration} Tage
                     </div>
                   </div>
                 )}
               </div>
+              
+              {/* Beschreibung */}
+              {acceptedQuote.description && (
+                <div className="mt-4 pt-4 border-t border-emerald-500/20">
+                  <div className="text-xs text-gray-400 mb-2">Angebotsbeschreibung</div>
+                  <div className="text-gray-300 text-sm leading-relaxed">
+                    {acceptedQuote.description}
+                  </div>
+                </div>
+              )}
+              
+              {/* Aktionen */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {acceptedQuote.email && (
+                  <button
+                    onClick={() => window.open(`mailto:${acceptedQuote.email}`, '_blank')}
+                    className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors flex items-center gap-2"
+                  >
+                    <Mail size={16} />
+                    E-Mail senden
+                  </button>
+                )}
+                
+                {acceptedQuote.phone && (
+                  <button
+                    onClick={() => window.open(`tel:${acceptedQuote.phone}`, '_blank')}
+                    className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors flex items-center gap-2"
+                  >
+                    <Phone size={16} />
+                    Anrufen
+                  </button>
+                )}
+              </div>
+                </div>
+              )}
             </div>
-          </div>
-          
-          {/* Comprehensive Trade Header - zeigt alle wichtigen Gewerk-Informationen */}
-          {renderTradeHeader()}
-          
-          {/* Accepted Provider Header - zusätzlich anzeigen wenn Angebot angenommen */}
-          {renderAcceptedProviderHeader()}
-          
+          )}
+
           {/* HAUPTANSICHT: Unterschiedlich je nach Angebotsstatus */}
           {acceptedQuote ? (
             // ANSICHT 1: Nach Annahme eines Angebots
             <div className="space-y-6">
-              {/* Accepted Quote Info - vereinfacht da Header bereits Details zeigt */}
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-green-300 mb-3 flex items-center gap-2">
-                  <FileText size={20} />
-                  Angenommenes Angebot
-                </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2">
-                    <Euro size={16} className="text-green-400" />
-                    <span className="text-white font-medium">
-                      {acceptedQuote.total_amount?.toLocaleString('de-DE')} {acceptedQuote.currency || 'EUR'}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <User size={16} className="text-blue-400" />
-                    <span className="text-gray-300">{acceptedQuote.company_name}</span>
-                  </div>
-                  
-                  {acceptedQuote.estimated_duration && (
-                    <div className="flex items-center gap-2">
-                      <Calendar size={16} className="text-purple-400" />
-                      <span className="text-gray-300">{acceptedQuote.estimated_duration} Tage</span>
-                    </div>
-                  )}
-                </div>
-                
-                {acceptedQuote.description && (
-                  <div className="mt-4">
-                    <p className="text-gray-300 text-sm">{acceptedQuote.description}</p>
-                  </div>
-                )}
-              </div>
+
 
               {/* Project Info */}
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
@@ -1573,6 +2123,7 @@ export default function SimpleCostEstimateModal({
                   completionStatus={completionStatus}
                   onCompletionRequest={handleCompletionRequest}
                   onCompletionResponse={handleCompletionResponse}
+                  hideCompletionResponseControls={true}
                 />
               </div>
               
@@ -1589,6 +2140,8 @@ export default function SimpleCostEstimateModal({
                     ? 'bg-green-500/10 border-green-500/30' 
                     : completionStatus === 'completed_with_defects'
                     ? 'bg-yellow-500/10 border-yellow-500/30'
+                    : completionStatus === 'completion_requested'
+                    ? 'bg-orange-500/10 border-orange-500/30'
                     : 'bg-blue-500/10 border-blue-500/30'
                 }`}>
                   <div className="flex items-center gap-3">
@@ -1610,12 +2163,22 @@ export default function SimpleCostEstimateModal({
                           </p>
                         </div>
                       </>
+                    ) : completionStatus === 'completion_requested' ? (
+                      <>
+                        <AlertTriangle size={20} className="text-orange-400" />
+                        <div>
+                          <h4 className="text-orange-300 font-medium">Fertigstellung gemeldet</h4>
+                          <p className="text-orange-200 text-sm">
+                            Der Dienstleister hat die Fertigstellung gemeldet. Abnahme kann gestartet werden.
+                          </p>
+                        </div>
+                      </>
                     ) : (
                       <>
                         <Clock size={20} className="text-blue-400" />
                         <div>
                           <h4 className="text-blue-300 font-medium">Gewerk in Bearbeitung</h4>
-                          <p className="text-blue-200 text-sm">Das Gewerk kann zur Abnahme freigegeben werden.</p>
+                          <p className="text-blue-200 text-sm">Das Gewerk ist noch nicht zur Abnahme bereit.</p>
                         </div>
                       </>
                     )}
@@ -1624,7 +2187,7 @@ export default function SimpleCostEstimateModal({
 
                 {/* Abnahme-Aktionen */}
                 <div className="space-y-3">
-                  {completionStatus === 'in_progress' && (
+                  {completionStatus === 'completion_requested' && isBautraeger() && (
                     <div className="flex gap-3 flex-wrap">
                       <button
                         onClick={handleStartAcceptance}
@@ -1641,7 +2204,7 @@ export default function SimpleCostEstimateModal({
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
                       >
                         <Calendar size={16} />
-                        Termin vereinbaren
+                        Abnahme-Termin vereinbaren
                       </button>
                     </div>
                   )}
@@ -1680,13 +2243,94 @@ export default function SimpleCostEstimateModal({
                   )}
                   
                   {completionStatus === 'completed' && (
-                    <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
-                      <div className="flex items-center gap-2 text-green-300">
-                        <CheckCircle size={16} />
-                        <span className="text-sm font-medium">
-                          Gewerk vollständig abgeschlossen - Rechnung kann gestellt werden
-                        </span>
+                    <div className="space-y-3">
+                      <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-green-300">
+                          <CheckCircle size={16} />
+                          <span className="text-sm font-medium">
+                            Gewerk vollständig abgeschlossen
+                          </span>
+                        </div>
                       </div>
+                      
+                      {/* Rechnungsanzeige */}
+                      {(() => {
+                        console.log('🔍 SimpleCostEstimateModal - Rechnungsanzeige Check:', {
+                          existingInvoice,
+                          isBautraeger: isBautraeger(),
+                          completionStatus
+                        });
+                        return null;
+                      })()}
+                      {existingInvoice ? (
+                        <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <h4 className="text-blue-300 font-medium">Rechnung erhalten</h4>
+                              <p className="text-gray-400 text-sm">Der Dienstleister hat eine Rechnung erstellt</p>
+                            </div>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              existingInvoice.status === 'paid' 
+                                ? 'bg-green-500/20 text-green-300'
+                                : existingInvoice.status === 'sent'
+                                ? 'bg-blue-500/20 text-blue-300'
+                                : 'bg-yellow-500/20 text-yellow-300'
+                            }`}>
+                              {existingInvoice.status === 'paid' ? 'Bezahlt' : 
+                               existingInvoice.status === 'sent' ? 'Versendet' : 'Neu'}
+                            </span>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4 mb-3 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Rechnungsnummer:</span>
+                              <span className="text-white font-medium">{existingInvoice.invoice_number}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Betrag:</span>
+                              <span className="text-white font-medium">
+                                {new Intl.NumberFormat('de-DE', {
+                                  style: 'currency',
+                                  currency: existingInvoice.currency || 'EUR'
+                                }).format(existingInvoice.total_amount || 0)}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-2 flex-wrap">
+                            <button
+                              onClick={handleViewInvoice}
+                              className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                            >
+                              <Eye size={14} />
+                              Öffnen
+                            </button>
+                            <button
+                              onClick={handleDownloadInvoice}
+                              className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                            >
+                              <Download size={14} />
+                              Download
+                            </button>
+                            {existingInvoice.status !== 'paid' && (
+                              <button
+                                onClick={handleMarkAsPaid}
+                                className="flex items-center gap-2 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-colors"
+                                disabled={isMarkingAsPaid}
+                              >
+                                <CreditCard size={14} />
+                                {isMarkingAsPaid ? 'Wird markiert...' : 'Als bezahlt markieren'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3">
+                          <p className="text-blue-300 text-sm">
+                            Warten auf Rechnung vom Dienstleister...
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1780,123 +2424,7 @@ export default function SimpleCostEstimateModal({
                 </div>
               )}
 
-              {/* Abnahme-Workflow-Bereich */}
-              {acceptedQuote && (
-                <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-orange-300 mb-3 flex items-center gap-2">
-                    <Settings size={20} />
-                    Abnahme-Workflow
-                  </h3>
-                  
-                  {/* Status-Banner */}
-                  <div className={`mb-4 p-3 rounded-lg border ${
-                    completionStatus === 'completed' 
-                      ? 'bg-green-500/10 border-green-500/30' 
-                      : completionStatus === 'completed_with_defects'
-                      ? 'bg-yellow-500/10 border-yellow-500/30'
-                      : 'bg-blue-500/10 border-blue-500/30'
-                  }`}>
-                    <div className="flex items-center gap-3">
-                      {completionStatus === 'completed' ? (
-                        <>
-                          <CheckCircle size={20} className="text-green-400" />
-                          <div>
-                            <h4 className="text-green-300 font-medium">Gewerk vollständig abgenommen</h4>
-                            <p className="text-green-200 text-sm">Das Gewerk wurde erfolgreich und ohne Mängel abgenommen.</p>
-                          </div>
-                        </>
-                      ) : completionStatus === 'completed_with_defects' ? (
-                        <>
-                          <AlertTriangle size={20} className="text-yellow-400" />
-                          <div>
-                            <h4 className="text-yellow-300 font-medium">Abnahme unter Vorbehalt</h4>
-                            <p className="text-yellow-200 text-sm">
-                              Mängel wurden dokumentiert. Finale Abnahme steht noch aus.
-                            </p>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <Clock size={20} className="text-blue-400" />
-                          <div>
-                            <h4 className="text-blue-300 font-medium">Gewerk in Bearbeitung</h4>
-                            <p className="text-blue-200 text-sm">Das Gewerk kann zur Abnahme freigegeben werden.</p>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
 
-                  {/* Abnahme-Aktionen */}
-                  <div className="space-y-3">
-                    {completionStatus === 'in_progress' && (
-                      <div className="flex gap-3 flex-wrap">
-                        <button
-                          onClick={handleStartAcceptance}
-                          disabled={loading}
-                          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-                        >
-                          <PlayCircle size={16} />
-                          Abnahme starten
-                        </button>
-                        
-                        <button
-                          onClick={() => setShowScheduleModal(true)}
-                          disabled={loading}
-                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-                        >
-                          <Calendar size={16} />
-                          Termin vereinbaren
-                        </button>
-                      </div>
-                    )}
-                    
-                    {completionStatus === 'completed_with_defects' && (
-                      <div className="space-y-3">
-                        <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-3">
-                          <h4 className="text-yellow-300 font-medium mb-2">Dokumentierte Mängel ({acceptanceDefects.length})</h4>
-                          {acceptanceDefects.length > 0 ? (
-                            <div className="space-y-2">
-                              {acceptanceDefects.slice(0, 3).map((defect, index) => (
-                                <div key={index} className="text-sm text-gray-300">
-                                  • {defect.description || defect.title || `Mangel ${index + 1}`}
-                                </div>
-                              ))}
-                              {acceptanceDefects.length > 3 && (
-                                <div className="text-sm text-gray-400">
-                                  ... und {acceptanceDefects.length - 3} weitere Mängel
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <p className="text-gray-400 text-sm">Keine Mängel-Details verfügbar</p>
-                          )}
-                        </div>
-                        
-                        <button
-                          onClick={() => setShowFinalAcceptanceModal(true)}
-                          disabled={loading}
-                          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-                        >
-                          <CheckCircle size={16} />
-                          Finale Abnahme durchführen
-                        </button>
-                      </div>
-                    )}
-                    
-                    {completionStatus === 'completed' && (
-                      <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
-                        <div className="flex items-center gap-2 text-green-300">
-                          <CheckCircle size={16} />
-                          <span className="text-sm font-medium">
-                            Gewerk vollständig abgeschlossen - Rechnung kann gestellt werden
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* Fortschritts-Tracking */}
               {acceptedQuote && (
@@ -2319,6 +2847,8 @@ export default function SimpleCostEstimateModal({
               />
             </div>
           )}
+
+
         </div>
       </div>
 
@@ -2584,310 +3114,35 @@ export default function SimpleCostEstimateModal({
           </div>
         </div>
       )}
-    </div>
-  );
-}
 
-// Abnahme-Modal-Komponente
-interface AcceptanceModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  trade: any;
-  onComplete: (data: any) => void;
-  loading: boolean;
-}
+      {/* AcceptanceModal für Abnahme-Workflow */}
+      {showAcceptanceModal && (
+        <AcceptanceModal
+          isOpen={showAcceptanceModal}
+          onClose={() => setShowAcceptanceModal(false)}
+          trade={trade}
+          onComplete={handleCompleteAcceptance}
+        />
+      )}
 
-function AcceptanceModal({ isOpen, onClose, trade, onComplete, loading }: AcceptanceModalProps) {
-  const [accepted, setAccepted] = useState(true);
-  const [acceptanceNotes, setAcceptanceNotes] = useState('');
-  const [defects, setDefects] = useState<any[]>([]);
-  const [newDefect, setNewDefect] = useState({ description: '', severity: 'medium', location: '' });
-
-  if (!isOpen) return null;
-
-  const addDefect = () => {
-    if (!newDefect.description.trim()) return;
-    
-    setDefects(prev => [...prev, { ...newDefect, id: Date.now() }]);
-    setNewDefect({ description: '', severity: 'medium', location: '' });
-  };
-
-  const removeDefect = (id: number) => {
-    setDefects(prev => prev.filter(d => d.id !== id));
-  };
-
-  const handleSubmit = () => {
-    onComplete({
-      accepted: accepted && defects.length === 0,
-      acceptanceNotes,
-      defects,
-      inspectorName: 'Bauträger'
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-70 p-4">
-      <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-2xl w-full max-h-[90vh] overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b border-gray-600/30">
-          <h3 className="text-xl font-semibold text-white">Abnahme durchführen</h3>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-            <X size={20} className="text-gray-400" />
-          </button>
-        </div>
-        
-        <div className="p-6 max-h-[calc(90vh-140px)] overflow-y-auto space-y-6">
-          {/* Gewerk-Info */}
-          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-            <h4 className="text-blue-300 font-medium mb-2">Gewerk: {trade?.title}</h4>
-            <p className="text-gray-300 text-sm">Führen Sie die Abnahme des Gewerks durch und dokumentieren Sie eventuelle Mängel.</p>
-          </div>
-
-          {/* Abnahme-Ergebnis */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">Abnahme-Ergebnis</label>
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  checked={accepted && defects.length === 0}
-                  onChange={() => setAccepted(true)}
-                  className="w-4 h-4 text-green-600"
-                />
-                <span className="text-white">Gewerk ohne Mängel abgenommen</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  checked={!accepted || defects.length > 0}
-                  onChange={() => setAccepted(false)}
-                  className="w-4 h-4 text-yellow-600"
-                />
-                <span className="text-white">Abnahme unter Vorbehalt (mit Mängeln)</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Mängel-Dokumentation */}
-          <div>
-            <h4 className="text-lg font-medium text-white mb-3">Mängel dokumentieren</h4>
-            
-            {/* Bestehende Mängel */}
-            {defects.length > 0 && (
-              <div className="mb-4 space-y-2">
-                {defects.map((defect) => (
-                  <div key={defect.id} className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <p className="text-white font-medium">{defect.description}</p>
-                        <div className="flex gap-4 mt-1 text-sm text-gray-400">
-                          <span>Schwere: {defect.severity}</span>
-                          {defect.location && <span>Ort: {defect.location}</span>}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => removeDefect(defect.id)}
-                        className="p-1 hover:bg-red-500/20 rounded transition-colors"
-                      >
-                        <X size={16} className="text-red-400" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Neuen Mangel hinzufügen */}
-            <div className="bg-gray-700/30 rounded-lg p-4 space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Mangel-Beschreibung</label>
-                <textarea
-                  value={newDefect.description}
-                  onChange={(e) => setNewDefect(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Beschreiben Sie den Mangel..."
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
-                  rows={2}
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Schweregrad</label>
-                  <select
-                    value={newDefect.severity}
-                    onChange={(e) => setNewDefect(prev => ({ ...prev, severity: e.target.value }))}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  >
-                    <option value="low">Gering</option>
-                    <option value="medium">Mittel</option>
-                    <option value="high">Hoch</option>
-                    <option value="critical">Kritisch</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Ort (optional)</label>
-                  <input
-                    type="text"
-                    value={newDefect.location}
-                    onChange={(e) => setNewDefect(prev => ({ ...prev, location: e.target.value }))}
-                    placeholder="z.B. Badezimmer, Küche..."
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-              
-              <button
-                onClick={addDefect}
-                disabled={!newDefect.description.trim()}
-                className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-              >
-                Mangel hinzufügen
-              </button>
-            </div>
-          </div>
-
-          {/* Abnahme-Notizen */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Abnahme-Notizen</label>
-            <textarea
-              value={acceptanceNotes}
-              onChange={(e) => setAcceptanceNotes(e.target.value)}
-              placeholder="Zusätzliche Notizen zur Abnahme..."
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-              rows={3}
-            />
-          </div>
-        </div>
-        
-        <div className="flex gap-3 p-6 border-t border-gray-600/30">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
-          >
-            Abbrechen
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-          >
-            {loading ? 'Wird abgeschlossen...' : 'Abnahme abschließen'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Finale Abnahme-Modal-Komponente
-interface FinalAcceptanceModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  trade: any;
-  defects: any[];
-  onComplete: (accepted: boolean, notes: string) => void;
-  loading: boolean;
-}
-
-function FinalAcceptanceModal({ isOpen, onClose, trade, defects, onComplete, loading }: FinalAcceptanceModalProps) {
-  const [finalAccepted, setFinalAccepted] = useState(true);
-  const [finalNotes, setFinalNotes] = useState('');
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-70 p-4">
-      <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-2xl w-full max-h-[90vh] overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b border-gray-600/30">
-          <h3 className="text-xl font-semibold text-white">Finale Abnahme</h3>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-            <X size={20} className="text-gray-400" />
-          </button>
-        </div>
-        
-        <div className="p-6 max-h-[calc(90vh-140px)] overflow-y-auto space-y-6">
-          {/* Info */}
-          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-            <h4 className="text-yellow-300 font-medium mb-2">Finale Abnahme für: {trade?.title}</h4>
-            <p className="text-gray-300 text-sm">
-              Prüfen Sie, ob die dokumentierten Mängel behoben wurden und führen Sie die finale Abnahme durch.
-            </p>
-          </div>
-
-          {/* Dokumentierte Mängel */}
-          <div>
-            <h4 className="text-lg font-medium text-white mb-3">Ursprünglich dokumentierte Mängel ({defects.length})</h4>
-            <div className="space-y-2">
-              {defects.map((defect, index) => (
-                <div key={index} className="bg-gray-700/30 rounded-lg p-3">
-                  <p className="text-white font-medium">{defect.description || defect.title || `Mangel ${index + 1}`}</p>
-                  <div className="flex gap-4 mt-1 text-sm text-gray-400">
-                    {defect.severity && <span>Schwere: {defect.severity}</span>}
-                    {defect.location && <span>Ort: {defect.location}</span>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Finale Bewertung */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">Finale Bewertung</label>
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  checked={finalAccepted}
-                  onChange={() => setFinalAccepted(true)}
-                  className="w-4 h-4 text-green-600"
-                />
-                <span className="text-white">Alle Mängel behoben - Gewerk vollständig abgenommen</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  checked={!finalAccepted}
-                  onChange={() => setFinalAccepted(false)}
-                  className="w-4 h-4 text-red-600"
-                />
-                <span className="text-white">Mängel noch nicht vollständig behoben</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Finale Notizen */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Finale Abnahme-Notizen</label>
-            <textarea
-              value={finalNotes}
-              onChange={(e) => setFinalNotes(e.target.value)}
-              placeholder="Notizen zur finalen Abnahme..."
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-              rows={3}
-            />
-          </div>
-        </div>
-        
-        <div className="flex gap-3 p-6 border-t border-gray-600/30">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
-          >
-            Abbrechen
-          </button>
-          <button
-            onClick={() => onComplete(finalAccepted, finalNotes)}
-            disabled={loading}
-            className={`flex-1 px-4 py-2 text-white rounded-lg font-medium transition-colors disabled:opacity-50 ${
-              finalAccepted 
-                ? 'bg-green-600 hover:bg-green-700' 
-                : 'bg-yellow-600 hover:bg-yellow-700'
-            }`}
-          >
-            {loading ? 'Wird abgeschlossen...' : finalAccepted ? 'Finale Abnahme' : 'Mit Vorbehalt abschließen'}
-          </button>
-        </div>
-      </div>
+      {/* FinalAcceptanceModal für finale Abnahme */}
+      {showFinalAcceptanceModal && (
+        <FinalAcceptanceModal
+          isOpen={showFinalAcceptanceModal}
+          onClose={() => setShowFinalAcceptanceModal(false)}
+          acceptanceId={1}
+          milestoneId={trade?.id}
+          milestoneTitle={trade?.title}
+          defects={acceptanceDefects}
+          onAcceptanceComplete={() => {
+            setShowFinalAcceptanceModal(false);
+            // Reload der Daten nach finaler Abnahme
+            if (trade?.id) {
+              loadTradeDocuments(trade.id);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

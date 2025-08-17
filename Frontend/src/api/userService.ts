@@ -19,6 +19,11 @@ export async function getUserProfile(user_id: number) {
   return res.data;
 }
 
+export async function updateCompanyInfo(companyData: { company_name: string; company_address: string }) {
+  const res = await api.post('/auth/update-company-info', companyData);
+  return res.data;
+}
+
 export async function searchUsers(q: string, user_type?: string) {
   const params = user_type ? { q, user_type } : { q };
   const res = await api.get('/users/search', { params });

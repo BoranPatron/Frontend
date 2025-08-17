@@ -16,6 +16,7 @@ import { getMilestones } from '../api/milestoneService';
 import { acceptQuote, rejectQuote, resetQuote, getQuotesForMilestone, getQuotes } from '../api/quoteService';
 import { getTasks } from '../api/taskService';
 import { getCategoryStatistics } from '../api/documentService';
+import { appointmentService } from '../api/appointmentService';
 import { RadialMenu } from '../components/RadialMenu';
 import { RadialMenuAdvanced } from '../components/RadialMenuAdvanced';
 import { 
@@ -338,16 +339,43 @@ export default function Dashboard() {
     }
   }, [isInitialized, isAuthenticated, navigate]);
 
-  // Zeige geführte Tour für Erstbenutzer (nach Rollenauswahl) einmalig
+  // Zeige geführte Tour für Erstbenutzer (nach Rollenauswahl und Firmeninformationen) einmalig
   useEffect(() => {
-    if (isInitialized && user && (user as any).role_selected) {
-      const cf = (user as any).consent_fields || {};
-      const tourCompleted = cf?.dashboard_tour?.completed === true;
-      if (!tourCompleted) {
-        setShowTour(true);
-      }
+    if (isInitialized && user) {
+      // Verwende OnboardingManager um zu prüfen ob Tour gestartet werden kann
+      import('../utils/OnboardingManager').then(({ OnboardingManager }) => {
+        const canStartTour = OnboardingManager.canStartDashboardTour(user as any);
+        if (canStartTour) {
+          setShowTour(true);
+        }
+      }).catch(error => {
+        console.error('❌ Fehler beim Laden des OnboardingManagers für Tour:', error);
+        // Fallback zur alten Logik
+        const cf = (user as any).consent_fields || {};
+        const tourCompleted = cf?.dashboard_tour?.completed === true;
+        if (!tourCompleted && (user as any).role_selected) {
+          setShowTour(true);
+        }
+      });
     }
   }, [isInitialized, user]);
+
+  // Event-Listener für manuellen Tour-Start nach CompanyAddressModal
+  useEffect(() => {
+    const handleStartTour = () => {
+      if (user) {
+        import('../utils/OnboardingManager').then(({ OnboardingManager }) => {
+          const canStartTour = OnboardingManager.canStartDashboardTour(user as any);
+          if (canStartTour) {
+            setShowTour(true);
+          }
+        });
+      }
+    };
+
+    window.addEventListener('startDashboardTour', handleStartTour);
+    return () => window.removeEventListener('startDashboardTour', handleStartTour);
+  }, [user]);
 
   // Swipe-Handler für Projekt-Navigation
   const handleSwipe = (direction: 'left' | 'right') => {
@@ -634,8 +662,8 @@ export default function Dashboard() {
       handleCloseCreateProjectModal();
       await loadProjects();
 
-      // Navigiere zum neuen Projekt
-      navigate(`/project/${newProject.id}`);
+      // Navigiere zur Startseite (Dashboard)
+      navigate('/');
 
     } catch (error) {
       console.error('❌ Fehler beim Erstellen des Projekts:', error);
@@ -942,6 +970,25 @@ export default function Dashboard() {
   const [isLoadingTrades, setIsLoadingTrades] = useState(false);
   const [tradesError, setTradesError] = useState<string | null>(null);
   
+  // Hilfsfunktion zum Filtern archivierter Gewerke
+  const filterActiveTradesOnly = (trades: any[]) => {
+    return (trades || []).filter((trade: any) => {
+      const completionStatus = trade.completion_status;
+      const isArchived = trade.archived;
+      
+      // Gewerk ist archiviert wenn completion_status = "archived" oder archived = true
+      return completionStatus !== 'archived' && !isArchived;
+    });
+  };
+  
+  // Hilfsfunktion zum Laden und Filtern von Gewerken
+  const loadAndFilterTrades = async (projectId: number) => {
+    const allTrades = await getMilestones(projectId);
+    const activeTrades = filterActiveTradesOnly(allTrades);
+    console.log('🔍 Aktive Gewerke (ohne archivierte):', activeTrades.length, 'von', allTrades?.length || 0);
+    return activeTrades;
+  };
+  
   // Modal-States (wie in Quotes.tsx)
   const [selectedTradeForDetails, setSelectedTradeForDetails] = useState<any | null>(null);
   const [showTradeDetailsModal, setShowTradeDetailsModal] = useState(false);
@@ -955,6 +1002,27 @@ export default function Dashboard() {
   const [selectedTradeForInspection, setSelectedTradeForInspection] = useState<any>(null);
   const [selectedQuotesForInspection, setSelectedQuotesForInspection] = useState<any[]>([]);
   const [tradeInspectionStatus, setTradeInspectionStatus] = useState<{[key: number]: any}>({});
+  const [tradeAppointments, setTradeAppointments] = useState<{[key: number]: any[]}>({});
+
+  const loadAppointmentsForTrades = async (tradesList: any[]) => {
+    console.log('🔄 loadAppointmentsForTrades aufgerufen für', tradesList.length, 'Gewerke');
+    try {
+      const appointments = await appointmentService.getMyAppointments();
+      const tradeAppointmentsMap: {[key: number]: any[]} = {};
+      
+      tradesList.forEach(trade => {
+        const relevantAppointments = appointments.filter(apt => 
+          apt.milestone_id === trade.id && apt.appointment_type === 'INSPECTION'
+        );
+        tradeAppointmentsMap[trade.id] = relevantAppointments;
+      });
+      
+      setTradeAppointments(tradeAppointmentsMap);
+      console.log('✅ Trade Appointments geladen:', tradeAppointmentsMap);
+    } catch (error) {
+      console.error('❌ Fehler beim Laden der Besichtigungstermine:', error);
+    }
+  };
 
   const loadQuotesForTrades = async (tradesList: any[]) => {
     console.log('🔄 loadQuotesForTrades aufgerufen für', tradesList.length, 'Gewerke');
@@ -1030,11 +1098,10 @@ export default function Dashboard() {
       try {
         setIsLoadingTrades(true);
         setTradesError(null);
-        const trades = await getMilestones(selectedProject.id);
-        console.log('🔍 Geladene Gewerke-Daten:', trades);
-        setProjectTrades(trades || []);
-        if (trades && trades.length > 0) {
-          void loadQuotesForTrades(trades);
+        const activeTrades = await loadAndFilterTrades(selectedProject.id);
+        setProjectTrades(activeTrades);
+        if (activeTrades && activeTrades.length > 0) {
+          void loadQuotesForTrades(activeTrades);
         } else {
           setAllTradeQuotes({});
         }
@@ -1059,6 +1126,8 @@ export default function Dashboard() {
     if (projectTrades && projectTrades.length > 0) {
       console.log('🚀 Rufe loadQuotesForTrades auf...');
       void loadQuotesForTrades(projectTrades);
+      console.log('🚀 Rufe loadAppointmentsForTrades auf...');
+      void loadAppointmentsForTrades(projectTrades);
     } else {
       console.log('❌ Keine Gewerke zum Laden von Quotes');
     }
@@ -1103,9 +1172,9 @@ export default function Dashboard() {
         
         // Gewerke und Angebote neu laden
         if (selectedProject?.id) {
-          const trades = await getMilestones(selectedProject.id);
-          setProjectTrades(trades || []);
-          await loadQuotesForTrades(trades || []);
+          const activeTrades = await loadAndFilterTrades(selectedProject.id);
+          setProjectTrades(activeTrades);
+          await loadQuotesForTrades(activeTrades);
         }
       } catch (e: any) {
         console.error('❌ Fehler beim Annehmen:', e);
@@ -1121,9 +1190,9 @@ export default function Dashboard() {
         
         // Gewerke und Angebote neu laden
         if (selectedProject?.id) {
-          const trades = await getMilestones(selectedProject.id);
-          setProjectTrades(trades || []);
-          await loadQuotesForTrades(trades || []);
+          const activeTrades = await loadAndFilterTrades(selectedProject.id);
+          setProjectTrades(activeTrades);
+          await loadQuotesForTrades(activeTrades);
         }
       } catch (e: any) {
         console.error('❌ Fehler beim Ablehnen:', e);
@@ -1250,7 +1319,7 @@ export default function Dashboard() {
     
     // Schließe andere Modals
     setShowTradeDetailsModal(false);
-    setShowCostEstimateDetailsModal(false);
+    setShowSimpleCostEstimateModal(false);
     
     // Öffne Besichtigungs-Modal nach kurzer Verzögerung
     setTimeout(() => {
@@ -1272,9 +1341,10 @@ export default function Dashboard() {
       
       // Gewerke neu laden um aktuelle Termine zu reflektieren
       if (selectedProject?.id) {
-        const trades = await getMilestones(selectedProject.id);
-        setProjectTrades(trades || []);
-        await loadQuotesForTrades(trades || []);
+        const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                setProjectTrades(activeTrades);
+                await loadQuotesForTrades(activeTrades);
+                await loadAppointmentsForTrades(activeTrades);
       }
       
     } catch (err: any) {
@@ -1713,6 +1783,22 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Archiv-Zugang */}
+      {selectedProject && (
+        <div className="mb-6">
+          <div className="flex justify-end">
+            <button
+              onClick={() => navigate('/archive')}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-600/20 hover:bg-gray-600/30 text-gray-300 hover:text-white rounded-lg transition-all duration-200 border border-gray-500/30 hover:border-gray-400/50"
+              title="Zum Archiv - Abgeschlossene Gewerke anzeigen"
+            >
+              <Archive size={16} />
+              <span className="text-sm font-medium">Archiv</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Gewerke für aktuelles Projekt */}
       {selectedProject && (
         <div className="mb-8">
@@ -1737,12 +1823,13 @@ export default function Dashboard() {
             isExpanded={true}
             onToggle={() => {}}
             onTradeClick={handleTradeClick}
+            tradeAppointments={tradeAppointments}
             onAcceptQuote={async (quoteId: number) => {
               try {
                 await acceptQuote(quoteId);
                 // Nach Annahme Gewerke neu laden, damit Status synchron ist
-                const trades = await getMilestones(selectedProject.id);
-                setProjectTrades(trades || []);
+                const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                setProjectTrades(activeTrades);
               } catch (e) {
                 console.error('❌ Fehler beim Annehmen:', e);
               }
@@ -1750,8 +1837,8 @@ export default function Dashboard() {
             onRejectQuote={async (quoteId: number, reason: string) => {
               try {
                 await rejectQuote(quoteId, reason);
-                const trades = await getMilestones(selectedProject.id);
-                setProjectTrades(trades || []);
+                const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                setProjectTrades(activeTrades);
               } catch (e) {
                 console.error('❌ Fehler beim Ablehnen:', e);
               }
@@ -1759,8 +1846,8 @@ export default function Dashboard() {
             onResetQuote={async (quoteId: number) => {
               try {
                 await resetQuote(quoteId);
-                const trades = await getMilestones(selectedProject.id);
-                setProjectTrades(trades || []);
+                const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                setProjectTrades(activeTrades);
               } catch (e) {
                 console.error('❌ Fehler beim Zurücksetzen:', e);
               }
@@ -1790,6 +1877,30 @@ export default function Dashboard() {
               onCreateQuote={() => {}}
               existingQuotes={allTradeQuotes[selectedTradeForDetails.id] || []}
               onCreateInspection={handleCreateInspection}
+              onAcceptQuote={async (quoteId: number) => {
+                try {
+                  await acceptQuote(quoteId);
+                  // Gewerke neu laden nach Annahme
+                  const trades = await getMilestones(selectedProject.id);
+                  setProjectTrades(trades || []);
+                  await loadQuotesForTrades(activeTrades);
+                  console.log('✅ Angebot angenommen und Daten neu geladen');
+                } catch (error) {
+                  console.error('❌ Fehler beim Annehmen des Angebots:', error);
+                }
+              }}
+              onRejectQuote={async (quoteId: number, reason: string) => {
+                try {
+                  await rejectQuote(quoteId, reason);
+                  // Gewerke neu laden nach Ablehnung
+                  const trades = await getMilestones(selectedProject.id);
+                  setProjectTrades(trades || []);
+                  await loadQuotesForTrades(activeTrades);
+                  console.log('✅ Angebot abgelehnt und Daten neu geladen');
+                } catch (error) {
+                  console.error('❌ Fehler beim Ablehnen des Angebots:', error);
+                }
+              }}
             />
           )}
           
@@ -1810,7 +1921,7 @@ export default function Dashboard() {
                   await acceptQuote(quoteId);
                   const trades = await getMilestones(selectedProject.id);
                   setProjectTrades(trades || []);
-                  await loadQuotesForTrades(trades || []);
+                  await loadQuotesForTrades(activeTrades);
                 } catch (e) {
                   console.error('❌ Fehler beim Annehmen:', e);
                 }
@@ -1820,7 +1931,7 @@ export default function Dashboard() {
                   await rejectQuote(quoteId, reason);
                   const trades = await getMilestones(selectedProject.id);
                   setProjectTrades(trades || []);
-                  await loadQuotesForTrades(trades || []);
+                  await loadQuotesForTrades(activeTrades);
                 } catch (e) {
                   console.error('❌ Fehler beim Ablehnen:', e);
                 }
@@ -1830,7 +1941,7 @@ export default function Dashboard() {
                   await resetQuote(quoteId);
                   const trades = await getMilestones(selectedProject.id);
                   setProjectTrades(trades || []);
-                  await loadQuotesForTrades(trades || []);
+                  await loadQuotesForTrades(activeTrades);
                 } catch (e) {
                   console.error('❌ Fehler beim Zurücksetzen:', e);
                 }
@@ -1839,9 +1950,9 @@ export default function Dashboard() {
               inspectionStatus={tradeInspectionStatus[selectedTradeForSimpleCostEstimate.id]}
               onTradeUpdate={async (updatedTrade: any) => {
                 // Aktualisiere den Trade im State
-                const trades = await getMilestones(selectedProject.id);
-                setProjectTrades(trades || []);
-                await loadQuotesForTrades(trades || []);
+                const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                setProjectTrades(activeTrades);
+                await loadQuotesForTrades(activeTrades);
                 console.log('✅ Trade aktualisiert');
               }}
             />
@@ -1855,8 +1966,8 @@ export default function Dashboard() {
               onSubmit={async (tradeData: any) => {
                 setShowTradeCreationForm(false);
                 // Lade Gewerke neu nach Erstellung
-                const trades = await getMilestones(selectedProject.id);
-                setProjectTrades(trades || []);
+                const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                setProjectTrades(activeTrades);
               }}
               projectId={selectedProject.id}
             />

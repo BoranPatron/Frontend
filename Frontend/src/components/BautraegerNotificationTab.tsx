@@ -169,6 +169,7 @@ Ihr BuildWise Team
               : 'bg-gradient-to-r from-gray-500 to-slate-500'
           } rounded-l-lg px-3 py-4 text-white hover:shadow-xl`}
           onClick={() => setIsExpanded(!isExpanded)}
+          data-tour-id="notification-tab-bautraeger"
         >
           <div className="flex flex-col items-center gap-2">
             {/* Bauträger Icon */}

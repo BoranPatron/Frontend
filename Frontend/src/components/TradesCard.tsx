@@ -55,6 +55,7 @@ interface TradesCardProps {
   onEditTrade?: (tradeId: number) => void;
   onDeleteTrade?: (tradeId: number) => void;
   onTradeClick?: (trade: Trade) => void;
+  tradeAppointments?: { [tradeId: number]: any[] };
 }
 
 interface TradeStats {
@@ -74,7 +75,8 @@ export default function TradesCard({
   onResetQuote,
   onEditTrade,
   onDeleteTrade,
-  onTradeClick
+  onTradeClick,
+  tradeAppointments = {}
 }: TradesCardProps) {
   const navigate = useNavigate();
   const [showAll, setShowAll] = useState(false);
@@ -721,6 +723,45 @@ export default function TradesCard({
                                 </span>
                               </div>
                               
+                              {/* Besichtigungstermin Badge */}
+                              {tradeAppointments[trade.id] && tradeAppointments[trade.id].length > 0 && (
+                                <div className="relative group">
+                                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600/30 via-cyan-500/30 to-blue-600/30 border border-blue-400/40 rounded-full cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20">
+                                    <div className="flex items-center gap-1.5">
+                                      <Calendar size={12} className="text-blue-300" />
+                                      <span className="text-xs font-semibold text-blue-200">
+                                        🗓️ Besichtigung
+                                      </span>
+                                    </div>
+                                    
+                                    {/* Termin-Indikator */}
+                                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-400 rounded-full border-2 border-white/20 animate-pulse"></div>
+                                  </div>
+                                  
+                                  {/* Tooltip */}
+                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50">
+                                    <div className="bg-gradient-to-b from-gray-900 to-gray-800 text-white text-xs rounded-xl py-3 px-4 shadow-2xl border border-gray-600/50 backdrop-blur-sm min-w-[200px]">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <Calendar size={14} className="text-blue-400" />
+                                        <div className="font-bold text-blue-300">Besichtigungstermin</div>
+                                      </div>
+                                      <div className="text-gray-300">
+                                        {tradeAppointments[trade.id][0]?.scheduled_date ? 
+                                          new Date(tradeAppointments[trade.id][0].scheduled_date).toLocaleDateString('de-DE', {
+                                            day: '2-digit',
+                                            month: '2-digit',
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                          }) : 'Termin geplant'
+                                        }
+                                      </div>
+                                    </div>
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Angenommenes Angebot Badge - Best Practice Design */}
                               {(tradeStatsForTrade?.acceptedQuote || currentQuoteStatus === 'accepted') && (
                                 <div className="relative group">

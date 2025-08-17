@@ -477,9 +477,9 @@ export default function Navbar() {
         }
         }
 
-      // Schließe Modal und navigiere zum neuen Projekt
+      // Schließe Modal und navigiere zur Startseite
       handleCloseCreateProjectModal();
-      window.location.href = `/project/${newProject.id}`;
+      window.location.href = '/';
 
     } catch (error) {
       console.error('❌ Fehler beim Erstellen des Projekts:', error);

@@ -28,14 +28,21 @@ const defaultSteps: TourStep[] = [
   { 
     id: 'radial-menu-fab', 
     title: 'Das Radial Menu', 
-    description: 'Ihr zentraler Zugang zu allen Funktionen. Das Plus-Symbol unten rechts ist immer verfügbar.', 
+    description: 'Ihr zentraler Zugang zu allen Funktionen! Das Plus-Symbol unten rechts ist Ihr persönlicher Assistent.', 
     pointer: 'left' 
   },
   { 
     id: 'radial-menu-fab', 
-    title: 'Ihr Kommandozentrum', 
-    description: 'Von hier aus erreichen Sie alle Bereiche: Projekte verwalten, Dokumente hochladen, Finanzen im Blick behalten, Aufgaben koordinieren, Angebote einholen und vieles mehr. Klicken Sie das Plus-Symbol um es zu erkunden!', 
-    pointer: 'top' 
+    title: 'Entdecken Sie Ihr Kommandozentrum! ✨', 
+    description: 'Klicken Sie jetzt auf das Plus-Symbol und lassen Sie sich überraschen! Hier finden Sie alles: 🏗️ Projekte erstellen, 📄 Dokumente verwalten, 💰 Finanzen überblicken, ✅ Aufgaben koordinieren, 🎯 Angebote einholen und noch vieles mehr. Los geht\'s - ein Klick öffnet Ihnen alle Türen!', 
+    pointer: 'right',
+    waitForClick: true
+  },
+  { 
+    id: 'radial-menu-fab', 
+    title: 'Personalisieren Sie Ihr Menu! 🎯', 
+    description: 'Pro-Tipp: Sie können alle Buttons im Radial Menu per Drag & Drop verschieben! Ziehen Sie einfach einen Button an eine neue Position und das Menu merkt sich Ihre Präferenzen. So haben Sie Ihre wichtigsten Funktionen immer griffbereit.', 
+    pointer: 'top'
   },
   { 
     id: 'dashboard-projects', 
@@ -62,10 +69,10 @@ const defaultSteps: TourStep[] = [
     pointer: 'bottom' 
   },
   { 
-    id: 'navbar-notifications', 
-    title: 'Benachrichtigungen', 
-    description: 'Verpassen Sie keine wichtigen Updates. Neue Angebote, Terminanfragen und Statusänderungen werden hier angezeigt.', 
-    pointer: 'bottom' 
+    id: 'notification-tab-bautraeger', 
+    title: 'Ihre Benachrichtigungslasche! 🔔', 
+    description: 'Hier rechts am Bildschirmrand finden Sie Ihre persönliche Benachrichtigungslasche. Sobald Dienstleister auf Terminanfragen antworten, blinkt sie grün auf und informiert Sie sofort! Ein Klick darauf zeigt alle wichtigen Updates zu Ihren Bauprojekten.', 
+    pointer: 'left' 
   },
   { 
     id: 'navbar-profile', 
@@ -356,15 +363,30 @@ export default function GuidedTourOverlay({ onClose, onCompleted, steps = defaul
           className="absolute max-w-sm bg-gray-900/90 backdrop-blur-md border border-[#ffbd59]/50 text-white rounded-2xl p-4 shadow-2xl"
           style={{
             top: (() => {
-              const cardHeight = 180; // Mindesthöhe Tooltip (etwas größer für längeren Text)
+              const cardHeight = 200; // Etwas größere Höhe für längeren Text
+              
+              // Spezielle Behandlung für Radial Menu (FAB Button)
+              if (step?.id === 'radial-menu-fab') {
+                // Für FAB: Deutlich höher positionieren UND sicherstellen, dass Button klickbar bleibt
+                const safeTopPosition = Math.max(rect.top - cardHeight - 80, 20);
+                return safeTopPosition;
+              }
+              
               if (pointer === 'bottom') return Math.min(rect.top + rect.height + 20, window.innerHeight - cardHeight - 20);
-              if (pointer === 'top') return Math.max(rect.top - 24 - cardHeight, 20); // Mehr Abstand nach oben
+              if (pointer === 'top') return Math.max(rect.top - 24 - cardHeight, 20);
               // left/right oder auto → vertikal mittig, aber im Viewport halten
               const mid = rect.top + rect.height / 2 - cardHeight / 2;
               return Math.min(Math.max(mid, 20), window.innerHeight - cardHeight - 20);
             })(),
             left: (() => {
               const cardWidth = 320; // Mindestbreite Tooltip
+              
+              // Spezielle Behandlung für Radial Menu (FAB Button)
+              if (step?.id === 'radial-menu-fab') {
+                // Für FAB: Links vom Button positionieren, damit er klickbar bleibt
+                return Math.max(rect.left - cardWidth - 20, 16);
+              }
+              
               if (pointer === 'right') return Math.min(rect.left + rect.width + 16, window.innerWidth - cardWidth - 16);
               if (pointer === 'left') return Math.max(rect.left - cardWidth - 16, 16);
               // top/bottom oder auto → horizontal mittig, aber im Viewport halten

@@ -68,8 +68,11 @@ export default function ServiceProviderDashboard() {
   const { user, userRole, isAuthenticated } = useAuth();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+
+
   // Geo-Search State für Dienstleister
   const [showGeoSearch, setShowGeoSearch] = useState(true);
+
   const [activeTab, setActiveTab] = useState<'list' | 'map'>('map');
   const [manualAddress, setManualAddress] = useState('');
   const [isGeocoding, setIsGeocoding] = useState(false);
@@ -150,6 +153,29 @@ export default function ServiceProviderDashboard() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // URL-Parameter für automatisches Öffnen des Quote-Forms
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const quoteParam = urlParams.get('quote');
+    
+    if (quoteParam && (trades.length > 0 || geoTrades.length > 0)) {
+      // Finde das Trade mit der ID und öffne das CostEstimateForm
+      const tradeId = parseInt(quoteParam);
+      if (tradeId && !isNaN(tradeId)) {
+        const trade = trades.find(t => t.id === tradeId) || geoTrades.find(t => t.id === tradeId);
+        if (trade) {
+          console.log('🎯 Öffne CostEstimateForm für Trade:', trade.id, trade.title);
+          setSelectedTradeForQuote(trade);
+          setShowCostEstimateForm(true);
+          
+          // Entferne URL-Parameter nach dem Öffnen
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, '', newUrl);
+        }
+      }
+    }
+  }, [location.search, trades, geoTrades]);
 
   // Weiterleitung wenn nicht authentifiziert oder nicht Dienstleister
   useEffect(() => {
@@ -249,6 +275,8 @@ export default function ServiceProviderDashboard() {
     }
   }, [currentLocation, radiusKm, geoTradeCategory, geoTradeStatus, geoTradePriority, geoMinBudget, geoMaxBudget]);
 
+
+
   // Lade Trades und Quotes für Dienstleister
   const loadTrades = async () => {
     console.log('🔍 loadTrades: Funktion gestartet');
@@ -260,6 +288,10 @@ export default function ServiceProviderDashboard() {
       const tradesData = await getAllMilestones();
       console.log('🔍 loadTrades: Milestones geladen:', tradesData.length, 'Trades');
       setTrades(tradesData);
+      
+      // Debug: Prüfe ob Error-State korrekt zurückgesetzt wird
+      console.log('🔍 loadTrades: Error-State vor Reset:', error);
+      console.log('🔍 loadTrades: TradesData erfolgreich geladen, setze Error zurück');
       
       console.log('🔍 loadTrades: Starte loadAllTradeQuotes...');
       // Lade Angebote für alle Gewerke
@@ -303,6 +335,7 @@ export default function ServiceProviderDashboard() {
     console.log('🔍 useEffect: Komponente gemountet, starte loadTrades()');
     loadTrades().catch(error => {
       console.error('❌ useEffect: Fehler in loadTrades():', error);
+      setError('Fehler beim Laden der Gewerke');
     });
   }, []);
 
@@ -740,7 +773,7 @@ export default function ServiceProviderDashboard() {
       </div>
 
       {/* Dashboard-Karten */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         {/* Alle Dashboard-Karten inklusive Todo-Kachel */}
         {dashboardCards.map((card, index) => (
           <DashboardCard
@@ -1192,7 +1225,7 @@ export default function ServiceProviderDashboard() {
               <select
                 value={geoTradeCategory || ''}
                 onChange={(e) => setGeoTradeCategory(e.target.value)}
-                className="w-full px-4 py-2.5 bg-white/10 text-white rounded-xl text-sm border border-white/20 focus:outline-none focus:border-[#ffbd59] focus:shadow-[0_0_15px_rgba(255,189,89,0.2)] transition-all duration-300 cursor-pointer hover:bg-white/15"
+                className="w-full px-4 py-2.5 bg-gray-800 text-white rounded-xl text-sm border border-gray-600 focus:outline-none focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59] transition-all duration-300 cursor-pointer hover:bg-gray-700"
               >
                 <option value="">Alle Kategorien</option>
                 <option value="electrical">⚡ Elektro</option>
@@ -1507,7 +1540,7 @@ export default function ServiceProviderDashboard() {
                 </div>
               ) : (
                 /* Modern Map View with Glow */
-            <div className="h-[50vh] min-h-[400px] rounded-2xl overflow-hidden border border-white/20 shadow-2xl hover:shadow-[0_0_40px_rgba(255,189,89,0.2)] transition-all duration-500">
+                <div className="h-[50vh] min-h-[400px] rounded-2xl overflow-hidden border border-white/20 shadow-2xl hover:shadow-[0_0_40px_rgba(255,189,89,0.2)] transition-all duration-500">
                   <TradeMap
                     currentLocation={currentLocation}
                     trades={geoTrades}
@@ -1516,7 +1549,7 @@ export default function ServiceProviderDashboard() {
                       handleTradeDetails(trade);
                     }}
                   />
-            </div>
+                </div>
           )}
 
           {/* Error-Anzeige */}

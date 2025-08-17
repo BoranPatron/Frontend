@@ -41,9 +41,9 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
   const [ratings, setRatings] = useState({
     qualityRating: 0,
     timelinessRating: 0,
+    communicationRating: 0,
     overallRating: 0
   });
-  const [finalNotes, setFinalNotes] = useState('');
 
   // Initialisiere mit den übergebenen Mängeln
   useEffect(() => {
@@ -93,8 +93,8 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
         accepted: true,
         qualityRating: ratings.qualityRating,
         timelinessRating: ratings.timelinessRating,
+        communicationRating: ratings.communicationRating,
         overallRating: ratings.overallRating,
-        finalNotes: finalNotes,
         milestone_id: milestoneId
       });
 
@@ -392,6 +392,30 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
                   </div>
                 </div>
 
+                {/* Kommunikation */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Kommunikation
+                  </label>
+                  <div className="flex space-x-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => setRatings(prev => ({ ...prev, communicationRating: star }))}
+                        className="p-1"
+                      >
+                        <Star 
+                          className={`w-6 h-6 ${
+                            star <= ratings.communicationRating 
+                              ? 'text-yellow-400 fill-current' 
+                              : 'text-gray-300'
+                          }`} 
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Gesamtbewertung */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -414,20 +438,6 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
                       </button>
                     ))}
                   </div>
-                </div>
-
-                {/* Notizen */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Abschließende Notizen (optional)
-                  </label>
-                  <textarea
-                    value={finalNotes}
-                    onChange={(e) => setFinalNotes(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1a1a2e] text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
-                    rows={3}
-                    placeholder="Zusätzliche Bemerkungen zur Abnahme..."
-                  />
                 </div>
               </div>
 

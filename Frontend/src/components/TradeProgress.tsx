@@ -394,7 +394,7 @@ export default function TradeProgress({
       >
         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
           <MessageCircle size={18} className="text-[#ffbd59]" />
-          Baufortschritt & Kommunikation
+          Kommunikation
         </h3>
         <div className="flex items-center gap-4">
           {/* Progress Display */}
