@@ -19,7 +19,7 @@ export async function getUserProfile(user_id: number) {
   return res.data;
 }
 
-export async function updateCompanyInfo(companyData: { company_name: string; company_address: string }) {
+export async function updateCompanyInfo(companyData: { company_name: string; company_address: string; company_uid?: string }) {
   const res = await api.post('/auth/update-company-info', companyData);
   return res.data;
 }

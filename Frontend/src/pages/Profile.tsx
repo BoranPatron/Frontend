@@ -27,6 +27,7 @@ interface ProfileData {
   phone: string;
   company_name: string;
   company_address: string;
+  company_uid: string;
   company_phone: string;
   company_website: string;
   bio: string;
@@ -52,6 +53,7 @@ export default function Profile() {
     phone: '',
     company_name: '',
     company_address: '',
+    company_uid: '',
     company_phone: '',
     company_website: '',
     bio: '',
@@ -106,6 +108,7 @@ export default function Profile() {
         phone: userData.phone || '',
         company_name: userData.company_name || '',
         company_address: userData.company_address || '',
+        company_uid: userData.company_uid || '',
         company_phone: userData.company_phone || '',
         company_website: userData.company_website || '',
         bio: userData.bio || '',
@@ -162,6 +165,7 @@ export default function Profile() {
         phone: profileData.phone,
         company_name: profileData.company_name,
         company_address: addressParts.join(', ') || null,
+        company_uid: profileData.company_uid || null,
         company_phone: profileData.company_phone,
         company_website: profileData.company_website,
         bio: profileData.bio,
@@ -387,6 +391,22 @@ export default function Profile() {
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
                   placeholder="Name Ihres Unternehmens"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-200 mb-3">
+                  UID-Nummer
+                </label>
+                <input
+                  type="text"
+                  value={profileData.company_uid}
+                  onChange={(e) => handleInputChange('company_uid', e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
+                  placeholder="z.B. DE123456789"
+                />
+                <p className="text-xs text-gray-400 mt-2">
+                  Umsatzsteuer-Identifikationsnummer (optional)
+                </p>
               </div>
 
               <div>

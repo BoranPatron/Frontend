@@ -979,10 +979,10 @@ export default function TradesCard({
                       {(effectiveTrade.notes || effectiveTrade.description) && (
                         <span 
                           className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30 cursor-help" 
-                          title={effectiveTrade.notes || effectiveTrade.description || 'Details verfügbar'}
+                          title={effectiveTrade.notes || effectiveTrade.description || 'Beschreibung & Leistungsumfang verfügbar'}
                         >
                           <StickyNote size={10} />
-                          Details
+                          Beschreibung & Leistungsumfang
                         </span>
                       )}
                       

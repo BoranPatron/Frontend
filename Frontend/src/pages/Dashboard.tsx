@@ -12,6 +12,7 @@ import TradeDetailsModal from '../components/TradeDetailsModal';
 import SimpleCostEstimateModal from '../components/SimpleCostEstimateModal';
 import CreateInspectionModal from '../components/CreateInspectionModal';
 import TradeCreationForm from '../components/TradeCreationForm';
+import FinanceWidget from '../components/FinanceWidget';
 import { getMilestones } from '../api/milestoneService';
 import { acceptQuote, rejectQuote, resetQuote, getQuotesForMilestone, getQuotes } from '../api/quoteService';
 import { getTasks } from '../api/taskService';
@@ -1496,6 +1497,61 @@ export default function Dashboard() {
           )}
         />
 
+        {/* Fixierte Schnellzugriff-Kacheln */}
+        <div className="sticky top-0 z-40 bg-gradient-to-br from-[#1a1a2e]/95 via-[#16213e]/95 to-[#0f3460]/95 backdrop-blur-lg border-b border-white/10 mb-6 -mx-6 px-6 py-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4" data-tour-id="dashboard-projects">
+            {/* Quick Stats */}
+            <div 
+              className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200 cursor-pointer group"
+              onClick={() => {
+                const tradesSection = document.querySelector('[data-section="trades"]');
+                if (tradesSection) {
+                  tradesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
+              title="Zu den Gewerken scrollen"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <Users size={20} className="text-[#ffbd59] group-hover:scale-110 transition-transform duration-200" />
+                  <span className="text-2xl font-bold text-white">{projectStats.activeTrades}</span>
+              </div>
+                <p className="text-sm text-gray-300">Aktive Gewerke</p>
+            </div>
+            
+            <div 
+              className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200 cursor-pointer group"
+              onClick={() => navigate('/tasks')}
+              title="Zum Aufgaben-Management"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <CheckSquare size={20} className="text-green-400 group-hover:scale-110 transition-transform duration-200" />
+                  <span className="text-2xl font-bold text-white">{projectStats.openTasks}</span>
+              </div>
+              <p className="text-sm text-gray-300">Offene Aufgaben</p>
+            </div>
+            
+            <div 
+              className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200 cursor-pointer group"
+              onClick={() => navigate('/documents')}
+              title="Zum intelligenten DMS"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <FileText size={20} className="text-blue-400 group-hover:scale-110 transition-transform duration-200" />
+                  <span className="text-2xl font-bold text-white">{projectStats.documentsTotal}</span>
+              </div>
+                <p className="text-sm text-gray-300">Dokumente</p>
+            </div>
+            
+            <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200 cursor-pointer group">
+              <div className="flex items-center justify-between mb-2">
+                <MessageSquare size={20} className="text-purple-400 group-hover:scale-110 transition-transform duration-200" />
+                  <span className="text-2xl font-bold text-white">{projectStats.newQuotes}</span>
+              </div>
+              <p className="text-sm text-gray-300">Neue Angebote</p>
+            </div>
+          </div>
+        </div>
+
         {/* Desktop/All: Hervorgehobene Projektnavigation (zentriert) */}
         {projects.length > 0 && (
           <div className="mb-4">
@@ -1747,41 +1803,7 @@ export default function Dashboard() {
         )}
       </div>
 
-        {/* Projekt-Statistiken */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" data-tour-id="dashboard-projects">
-        {/* Quick Stats */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-          <div className="flex items-center justify-between mb-2">
-            <Users size={20} className="text-[#ffbd59]" />
-              <span className="text-2xl font-bold text-white">{projectStats.activeTrades}</span>
-          </div>
-            <p className="text-sm text-gray-300">Aktive Gewerke</p>
-        </div>
         
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-          <div className="flex items-center justify-between mb-2">
-            <CheckSquare size={20} className="text-green-400" />
-              <span className="text-2xl font-bold text-white">{projectStats.openTasks}</span>
-          </div>
-          <p className="text-sm text-gray-300">Offene Aufgaben</p>
-        </div>
-        
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-          <div className="flex items-center justify-between mb-2">
-            <FileText size={20} className="text-blue-400" />
-              <span className="text-2xl font-bold text-white">{projectStats.documentsTotal}</span>
-          </div>
-            <p className="text-sm text-gray-300">Dokumente</p>
-        </div>
-        
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-          <div className="flex items-center justify-between mb-2">
-            <MessageSquare size={20} className="text-purple-400" />
-              <span className="text-2xl font-bold text-white">{projectStats.newQuotes}</span>
-          </div>
-            <p className="text-sm text-gray-300">Neue Angebote</p>
-        </div>
-      </div>
 
       {/* Archiv-Zugang */}
       {selectedProject && (
@@ -1801,7 +1823,7 @@ export default function Dashboard() {
 
       {/* Gewerke für aktuelles Projekt */}
       {selectedProject && (
-        <div className="mb-8">
+        <div className="mb-8" data-section="trades">
           {/* Header mit Gewerk-erstellen Button */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
@@ -1813,7 +1835,7 @@ export default function Dashboard() {
               className="px-4 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition-colors flex items-center gap-2"
             >
               <Plus size={18} />
-              Neues Gewerk
+              Neue Ausschreibung
             </button>
           </div>
           
@@ -1853,6 +1875,18 @@ export default function Dashboard() {
               }
             }}
           />
+        </div>
+      )}
+
+      {/* Finance Widget - unter den Gewerken */}
+      {selectedProject && (
+        <div className="mb-8">
+          <FinanceWidget projectId={selectedProject.id} />
+        </div>
+      )}
+
+      {selectedProject && (
+        <div className="mb-8" data-section="trades-continued">
           {/* Intelligente Modal-Auswahl wie in Quotes.tsx */}
           {(() => {
             console.log('🔧 Modal Render Check:', {

@@ -617,6 +617,8 @@ export default function Navbar() {
                     </div>
                   </div>
 
+                  {/* Pro Button für Bauträger deaktiviert */}
+                  {/* 
                   <Link
                     to="/buildwise-fees"
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
@@ -628,6 +630,7 @@ export default function Navbar() {
                     <Star size={18} />
                     <span>Pro</span>
                   </Link>
+                  */}
 
                   {/* Credits-Link für Bauträger */}
                   {!isServiceProvider() && user?.user_role === 'BAUTRAEGER' && (

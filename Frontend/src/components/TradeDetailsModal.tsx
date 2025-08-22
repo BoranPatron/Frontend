@@ -1763,7 +1763,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-300 mb-1">Beschreibung</label>
+                  <label className="block text-xs text-gray-300 mb-1">Beschreibung & Leistungsumfang</label>
                   <textarea rows={3} value={editForm.description} onChange={(e)=>setEditForm(p=>({...p,description:e.target.value}))} className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white" />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1842,7 +1842,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <FileText size={16} className="text-blue-400" />
-                  <span className="text-sm font-medium text-blue-300">Beschreibung</span>
+                  <span className="text-sm font-medium text-blue-300">Beschreibung & Leistungsumfang</span>
                 </div>
                 <div className="bg-black/20 rounded-lg p-4">
                   <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">

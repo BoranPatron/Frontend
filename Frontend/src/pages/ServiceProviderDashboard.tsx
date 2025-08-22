@@ -119,6 +119,7 @@ export default function ServiceProviderDashboard() {
   const [selectedTradeForCostEstimateDetails, setSelectedTradeForCostEstimateDetails] = useState<any | null>(null);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+  const [tradesError, setTradesError] = useState('');
   // Gewerk-Erstellung
   const [showTradeCreationForm, setShowTradeCreationForm] = useState(false);
   const [selectedProjectIdForCreation, setSelectedProjectIdForCreation] = useState<number | null>(null);
@@ -275,22 +276,43 @@ export default function ServiceProviderDashboard() {
     }
   }, [currentLocation, radiusKm, geoTradeCategory, geoTradeStatus, geoTradePriority, geoMinBudget, geoMaxBudget]);
 
+  // Auto-Dismissal Logic: Clear errors wenn entsprechende API erfolgreich wird
+  useEffect(() => {
+    if (geoTrades.length > 0 && geoError) {
+      setGeoError(null);
+    }
+  }, [geoTrades.length, geoError]);
+
+  useEffect(() => {
+    if (trades.length > 0 && tradesError) {
+      setTradesError('');
+    }
+  }, [trades.length, tradesError]);
+
 
 
   // Lade Trades und Quotes für Dienstleister
   const loadTrades = async () => {
     console.log('🔍 loadTrades: Funktion gestartet');
     setIsLoadingTrades(true);
-    setError('');
+    setTradesError('');
     try {
       console.log('🔍 loadTrades: Lade alle Milestones...');
+      console.log('🔍 loadTrades: User Info:', {
+        id: user?.id,
+        email: user?.email,
+        user_type: user?.user_type,
+        user_role: user?.user_role,
+        isAuthenticated: isAuthenticated()
+      });
+      
       // Dienstleister: alle Milestones (Ausschreibungen) global laden
       const tradesData = await getAllMilestones();
       console.log('🔍 loadTrades: Milestones geladen:', tradesData.length, 'Trades');
       setTrades(tradesData);
       
       // Debug: Prüfe ob Error-State korrekt zurückgesetzt wird
-      console.log('🔍 loadTrades: Error-State vor Reset:', error);
+      console.log('🔍 loadTrades: Error-State vor Reset:', tradesError);
       console.log('🔍 loadTrades: TradesData erfolgreich geladen, setze Error zurück');
       
       console.log('🔍 loadTrades: Starte loadAllTradeQuotes...');
@@ -298,8 +320,47 @@ export default function ServiceProviderDashboard() {
       await loadAllTradeQuotes(tradesData);
       console.log('🔍 loadTrades: Erfolgreich abgeschlossen');
     } catch (err: any) {
-      console.error('❌ Error in loadTrades:', err);
-      setError('Fehler beim Laden der Gewerke');
+      console.error('❌ Error in loadTrades - Detaillierte Fehlerinfo:', {
+        message: err.message,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+        config: {
+          url: err.config?.url,
+          method: err.config?.method,
+          headers: err.config?.headers
+        }
+      });
+      
+      // Spezifische Fehlermeldungen basierend auf HTTP-Status
+      let errorMessage = 'Fehler beim Laden der Gewerke';
+      if (err.response?.status === 401) {
+        errorMessage = 'Authentifizierung fehlgeschlagen - Bitte neu anmelden';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Keine Berechtigung für Gewerke-Liste';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Gewerke-Endpunkt nicht gefunden';
+      } else if (err.response?.status >= 500) {
+        errorMessage = 'Server-Fehler beim Laden der Gewerke';
+      } else if (err.code === 'NETWORK_ERROR' || err.message.includes('Network Error')) {
+        errorMessage = 'Netzwerk-Fehler - Server nicht erreichbar';
+      }
+      
+      setTradesError(errorMessage);
+      
+      // Fallback: Versuche Daten über Geo-Search zu bekommen, falls vorhanden
+      console.log('🔄 loadTrades: Versuche Fallback über Geo-Search...');
+      if (geoTrades.length > 0) {
+        console.log('✅ loadTrades: Fallback erfolgreich - verwende Geo-Search Daten als Trades');
+        setTrades(geoTrades.map(geoTrade => ({
+          ...geoTrade,
+          // Konvertiere Geo-Search Format zu Trades Format
+          project_name: geoTrade.project_name,
+          status: geoTrade.status
+        })));
+        // Aktualisiere Fehlermeldung um Fallback zu erwähnen
+        setTradesError(errorMessage + ' (verwende Geo-Search Daten)');
+      }
     } finally {
       setIsLoadingTrades(false);
     }
@@ -335,7 +396,7 @@ export default function ServiceProviderDashboard() {
     console.log('🔍 useEffect: Komponente gemountet, starte loadTrades()');
     loadTrades().catch(error => {
       console.error('❌ useEffect: Fehler in loadTrades():', error);
-      setError('Fehler beim Laden der Gewerke');
+      setTradesError('Fehler beim Laden der Gewerke');
     });
   }, []);
 
@@ -1253,31 +1314,11 @@ export default function ServiceProviderDashboard() {
           
           {/* Search Button entfernt, da jetzt in der Toolbar */}
           
-          {/* Error Banner */}
-          {error && (
-            <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-4 py-3 flex items-center justify-between mb-4 rounded-lg">
-              <div className="flex items-center gap-3">
-                <AlertTriangle size={16} />
-                <span className="text-sm">{error}</span>
-              </div>
-              <button onClick={() => setError('')} className="text-red-300 hover:text-red-100">
-                <XCircle size={16} />
-              </button>
-            </div>
-          )}
 
-          {/* Success Banner */}
-          {success && (
-            <div className="bg-green-500/20 border border-green-500/30 text-green-300 px-4 py-3 flex items-center justify-between mb-4 rounded-lg">
-              <div className="flex items-center gap-3">
-                <CheckCircle size={16} />
-                <span className="text-sm">{success}</span>
-              </div>
-              <button onClick={() => setSuccess('')} className="text-green-300 hover:text-green-100">
-                <XCircle size={16} />
-              </button>
-            </div>
-          )}
+
+
+          
+
           
           
 
@@ -1294,28 +1335,66 @@ export default function ServiceProviderDashboard() {
                   </div>
                   <p className="text-white font-medium">Suche Gewerke in Ihrer Nähe...</p>
                   <p className="text-gray-400 text-sm mt-2">Dies kann einen Moment dauern</p>
-                          </div>
+                  {/* Status-Indikatoren für parallele API-Calls */}
+                  <div className="flex justify-center gap-4 mt-4">
+                    <div className={`flex items-center gap-2 text-xs ${geoLoading ? 'text-yellow-400' : geoError ? 'text-red-400' : 'text-green-400'}`}>
+                      <div className={`w-2 h-2 rounded-full ${geoLoading ? 'bg-yellow-400 animate-pulse' : geoError ? 'bg-red-400' : 'bg-green-400'}`}></div>
+                      Geo-Suche
+                    </div>
+                    <div className={`flex items-center gap-2 text-xs ${isLoadingTrades ? 'text-yellow-400' : tradesError ? 'text-red-400' : 'text-green-400'}`}>
+                      <div className={`w-2 h-2 rounded-full ${isLoadingTrades ? 'bg-yellow-400 animate-pulse' : tradesError ? 'bg-red-400' : 'bg-green-400'}`}></div>
+                      Gewerke-Liste
+                    </div>
+                  </div>
+                </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Kombiniere und dedupliziere Geo-Trades und lokale Trades */}
-                  {(() => {
-                    // Erstelle eine Map für Deduplizierung basierend auf ID
-                    const tradeMap: { [key: number]: any } = {};
-                    
-                    // Füge Geo-Trades hinzu (haben Priorität wegen Distanz-Info)
-                    geoTrades.forEach(trade => {
-                      tradeMap[trade.id] = {...trade, isGeoResult: true};
-                    });
-                    
-                    // Füge lokale Trades hinzu (nur wenn nicht bereits vorhanden)
-                    trades.forEach(trade => {
-                      if (!tradeMap[trade.id]) {
-                        tradeMap[trade.id] = {...trade, isGeoResult: false};
-                      }
-                    });
-                    
-                    return Object.values(tradeMap);
-                  })().map((trade: any, index: number) => {
+                (() => {
+                  /* Kombiniere und dedupliziere Geo-Trades und lokale Trades */
+                  // Erstelle eine Map für Deduplizierung basierend auf ID
+                  const tradeMap: { [key: number]: any } = {};
+                  
+                  // Füge Geo-Trades hinzu (haben Priorität wegen Distanz-Info)
+                  geoTrades.forEach(trade => {
+                    tradeMap[trade.id] = {...trade, isGeoResult: true};
+                  });
+                  
+                  // Füge lokale Trades hinzu (nur wenn nicht bereits vorhanden)
+                  trades.forEach(trade => {
+                    if (!tradeMap[trade.id]) {
+                      tradeMap[trade.id] = {...trade, isGeoResult: false};
+                    }
+                  });
+                  
+                  const combinedTrades = Object.values(tradeMap);
+                  
+                  // Zeige Fallback-Meldung nur wenn BEIDE APIs fehlschlagen
+                  if (combinedTrades.length === 0 && geoError && tradesError) {
+                    return (
+                      <div className="col-span-full bg-gradient-to-br from-white/5 to-white/10 rounded-2xl p-8 text-center backdrop-blur-sm border border-white/10">
+                        <AlertTriangle size={48} className="mx-auto mb-4 text-yellow-400" />
+                        <h3 className="text-lg font-semibold text-white mb-2">Keine Gewerke verfügbar</h3>
+                        <p className="text-gray-400 text-sm mb-4">
+                          Sowohl Geo-Suche als auch Gewerke-Liste sind fehlgeschlagen.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setGeoError(null);
+                            setTradesError('');
+                            performGeoSearch();
+                            loadTrades();
+                          }}
+                          className="px-4 py-2 bg-[#ffbd59] text-[#2c3539] rounded-lg hover:bg-[#ffa726] transition-colors font-medium"
+                        >
+                          <RefreshCw size={16} className="inline mr-2" />
+                          Erneut versuchen
+                        </button>
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {combinedTrades.map((trade: any, index: number) => {
                     const quotes = allTradeQuotes[trade.id] || [];
                     // Verwende die erweiterte isUserQuote Funktion für robuste Erkennung
                     const userQuote = quotes.find(quote => isUserQuote(quote, user));
@@ -1534,11 +1613,13 @@ export default function ServiceProviderDashboard() {
                       </div>
                     </div>
                     );
-                  })}
+                      })}
                     </div>
-                  )}
-                </div>
-              ) : (
+                  );
+                })()
+              )}
+            </div>
+          ) : (
                 /* Modern Map View with Glow */
                 <div className="h-[50vh] min-h-[400px] rounded-2xl overflow-hidden border border-white/20 shadow-2xl hover:shadow-[0_0_40px_rgba(255,189,89,0.2)] transition-all duration-500">
                   <TradeMap

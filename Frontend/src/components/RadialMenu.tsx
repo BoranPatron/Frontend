@@ -91,20 +91,7 @@ export function RadialMenu({
         color: "#10B981",
         description: "Aufgabenmanagement"
       },
-      {
-        id: "finance",
-        label: "Finance",
-        icon: <Euro size={24} />,
-        onSelect: () => {
-          if (projectId) {
-            navigate(`/finance?project=${projectId}`);
-          } else {
-            navigate('/finance');
-          }
-        },
-        color: "#F59E0B",
-        description: "Budget & Ausgaben"
-      },
+
       {
         id: "documents",
         label: "Dokumente",
@@ -122,7 +109,7 @@ export function RadialMenu({
       // Entfernt: Gewerke-Hauptpunkt (Seite /quotes ist deaktiviert)
       {
         id: "create-trade",
-        label: "Neues Gewerk",
+        label: "Neue Ausschreibung",
         icon: <Hammer size={24} />,
         onSelect: () => {
           const projectId = selectedProject?.id;
@@ -284,7 +271,7 @@ export function RadialMenu({
         className={className}
         style={{
           position: "fixed",
-          right: isMobile ? 32 : 64,
+          right: isMobile ? 112 : 144,
           bottom: isMobile ? 32 : 64,
           zIndex: 9999,
           filter: enableGooeyEffect && open ? 'url(#gooey)' : undefined,

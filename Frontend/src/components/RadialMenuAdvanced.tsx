@@ -140,24 +140,7 @@ export function RadialMenuAdvanced({
         disabled: !hasProjects,
         disabledReason: "Erstellen Sie zuerst ein Projekt"
       },
-      {
-        id: "finance",
-        label: "Finance",
-        icon: <Euro size={24} />,
-        onSelect: () => {
-          if (projectId) {
-            navigate(`/finance?project=${projectId}`);
-          } else {
-            navigate('/finance');
-          }
-        },
-        color: "#F59E0B",
-        description: "Budget & Ausgaben",
-        ring: 1,
-        tourId: "radial-menu-finance",
-        disabled: !hasProjects,
-        disabledReason: "Erstellen Sie zuerst ein Projekt"
-      },
+
       // Entfernt: Gewerke-Hauptpunkt (Seite /quotes deaktiviert)
       {
         id: "visualize",
@@ -250,27 +233,10 @@ export function RadialMenuAdvanced({
         disabled: !hasProjects,
         disabledReason: "Erstellen Sie zuerst ein Projekt"
       },
-      {
-        id: "create-expense",
-        label: "Neue Ausgabe",
-        icon: <Receipt size={20} />,
-        onSelect: () => {
-          // Öffnet Finanzen und triggert Ausgaben-Modal via Query-Param
-          if (projectId) {
-            navigate(`/finance?project=${projectId}&create=expense`);
-          } else {
-            navigate('/finance?create=expense');
-          }
-        },
-        color: "#F59E0B",
-        description: "Ausgabe erfassen",
-        ring: 2,
-        disabled: !hasProjects,
-        disabledReason: "Erstellen Sie zuerst ein Projekt"
-      },
+
       {
         id: "create-trade",
-        label: "Neues Gewerk",
+        label: "Neue Ausschreibung",
         icon: <Hammer size={20} />,
         onSelect: () => {
           // Öffnet das aktuelle Layout und triggert Gewerk-Formular via Query-Param
@@ -595,7 +561,7 @@ export function RadialMenuAdvanced({
         className="radial-menu-container"
         style={{
           position: "fixed",
-          right: isMobile ? 32 : 64,
+          right: isMobile ? 112 : 144,
           bottom: isMobile ? 32 : 64,
           zIndex: document.querySelector('[data-tour-id-root]') ? 9998 : 9999, // Niedriger z-index während Tour
           filter: enableGooeyEffect && open ? 'url(#gooey-advanced)' : undefined,
@@ -915,7 +881,7 @@ export function RadialMenuAdvanced({
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            className="absolute bottom-20 right-0 flex flex-col gap-2"
+            className="absolute bottom-20 right-32 flex flex-col gap-2"
           >
             {/* Edit Mode Toggle */}
             <button
@@ -948,7 +914,7 @@ export function RadialMenuAdvanced({
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="absolute top-4 right-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2"
+            className="absolute top-4 right-36 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2"
           >
             <Edit3 size={16} />
             <span className="text-sm font-medium">Bearbeitungsmodus</span>

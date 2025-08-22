@@ -3,13 +3,14 @@ import { Building2, MapPin, X, ArrowRight } from 'lucide-react';
 import AddressAutocomplete from './AddressAutocomplete';
 
 interface CompanyAddressModalProps {
-  onComplete: (companyData: { company_name: string; company_address: string }) => void;
+  onComplete: (companyData: { company_name: string; company_address: string; company_uid?: string }) => void;
   onSkip: () => void;
   userRole: 'bautraeger' | 'dienstleister';
 }
 
 export default function CompanyAddressModal({ onComplete, onSkip, userRole }: CompanyAddressModalProps) {
   const [companyName, setCompanyName] = useState('');
+  const [companyUid, setCompanyUid] = useState('');
   const [addressData, setAddressData] = useState({
     address_street: '',
     address_zip: '',
@@ -35,7 +36,8 @@ export default function CompanyAddressModal({ onComplete, onSkip, userRole }: Co
     
     await onComplete({
       company_name: companyName.trim(),
-      company_address: fullAddress
+      company_address: fullAddress,
+      company_uid: companyUid.trim() || undefined
     });
     
     setIsLoading(false);
@@ -81,6 +83,23 @@ export default function CompanyAddressModal({ onComplete, onSkip, userRole }: Co
               placeholder="z.B. Mustermann Bau GmbH"
               required
             />
+          </div>
+
+          {/* UID-Nummer */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-200 mb-3">
+              UID-Nummer
+            </label>
+            <input
+              type="text"
+              value={companyUid}
+              onChange={(e) => setCompanyUid(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
+              placeholder="z.B. DE123456789"
+            />
+            <p className="text-xs text-gray-400 mt-2">
+              Umsatzsteuer-Identifikationsnummer (optional)
+            </p>
           </div>
 
           {/* Firmenadresse */}

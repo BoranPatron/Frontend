@@ -1,33 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Upload, 
   FileText, 
   X, 
   Save,
   AlertTriangle,
   CheckCircle,
   Info,
-  MoreVertical,
   Building,
-  Calendar,
-  Euro,
-  Users,
   FileCheck,
-  Clock,
-  Target,
-  Shield,
-  Leaf,
   CloudUpload,
-  Paperclip,
   File,
   Image,
   Video,
   Archive,
   FolderOpen,
-  Tags,
-  Settings,
-  ChevronDown,
-  ChevronUp,
   Eye
 } from 'lucide-react';
 
@@ -136,7 +122,6 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
   
   // Projekt-Dokumente States
   const [projectDocuments, setProjectDocuments] = useState<ProjectDocument[]>([]);
-  const [showDocumentSelector, setShowDocumentSelector] = useState(true); // Immer aufgeklappt
   const [selectedDocuments, setSelectedDocuments] = useState<Set<number>>(new Set());
   const [documentFilter, setDocumentFilter] = useState('all');
   const [documentSearch, setDocumentSearch] = useState('');
@@ -144,7 +129,6 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
   // Original States
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showDetailsDropdown, setShowDetailsDropdown] = useState(false);
   const [projectInfo, setProjectInfo] = useState<any>(null);
 
   // Refs
@@ -201,6 +185,16 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
     }
   }, [isOpen, projectId]);
 
+  // Auto-Kategorisierung für neue Dateien
+  useEffect(() => {
+    const uncategorizedFiles = uploadFiles.filter(file => !file.category && !file.subcategory && file.status === 'pending');
+    
+    if (uncategorizedFiles.length > 0 && !showCategoryDialog) {
+      setCategorizingFiles(uncategorizedFiles);
+      setShowCategoryDialog(true);
+    }
+  }, [uploadFiles, showCategoryDialog]);
+
   // Drag & Drop Event Handlers
   useEffect(() => {
     const handleDragOver = (e: DragEvent) => {
@@ -216,7 +210,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
     };
 
     const handleDrop = (e: DragEvent) => {
-      e.preventDefault();Component: CostEstimateDetailsModal.tsx
+      e.preventDefault();
       setDragOver(false);
       
       const files = Array.from(e.dataTransfer?.files || []);
@@ -278,6 +272,10 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
       return true;
     });
 
+    if (validFiles.length === 0) {
+      return;
+    }
+
     const newUploadFiles: UploadFile[] = validFiles.map(file => ({
       file,
       document_type: getDocumentTypeFromFile(file),
@@ -287,12 +285,6 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
     }));
 
     setUploadFiles(prev => [...prev, ...newUploadFiles]);
-    
-    // Zeige Kategorisierungs-Dialog wenn neue Dateien hinzugefügt wurden
-    if (newUploadFiles.length > 0) {
-      setCategorizingFiles(newUploadFiles);
-      setShowCategoryDialog(true);
-    }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -300,12 +292,20 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
     handleFilesSelected(files);
   };
 
-  const assignCategoryToFile = (fileId: string, category: string, subcategory?: string) => {
-    setUploadFiles(prev => prev.map(file => 
-      file.id === fileId 
-        ? { ...file, category, subcategory, status: 'categorizing' as const }
-        : file
+  // DMS-kompatible assignCategoryToFile Funktion (verwendet Index statt ID)
+  const assignCategoryToFile = (index: number, category: string, subcategory?: string) => {
+    // Aktualisiere sowohl categorizingFiles als auch uploadFiles
+    setCategorizingFiles(prev => prev.map((file, i) => 
+      i === index ? { ...file, category, subcategory } : file
     ));
+    
+    // Finde die entsprechende Datei in uploadFiles anhand der ID
+    const targetFile = categorizingFiles[index];
+    if (targetFile) {
+      setUploadFiles(prev => prev.map(file => 
+        file.id === targetFile.id ? { ...file, category, subcategory } : file
+      ));
+    }
   };
 
   const removeFile = (fileId: string) => {
@@ -389,15 +389,24 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
   const uploadDocumentsToAPI = async (files: UploadFile[]) => {
     const uploadPromises = files.map(async (uploadFile) => {
       try {
+        // Setze Status auf uploading
+        setUploadFiles(prev => prev.map(file => 
+          file.id === uploadFile.id 
+            ? { ...file, status: 'uploading', progress: 0 }
+            : file
+        ));
+
         const formData = new FormData();
         formData.append('file', uploadFile.file);
         formData.append('project_id', projectId.toString());
         formData.append('title', uploadFile.file.name.split('.')[0]);
-        formData.append('description', `Dokument für Gewerk: ${formData.get('title')}`);
+        formData.append('description', `Dokument für Ausschreibung: ${uploadFile.file.name.split('.')[0]}`);
         formData.append('document_type', uploadFile.document_type || 'other');
-        formData.append('category', uploadFile.category || 'documentation');
+        
+        // Verwende DMS-kompatible Kategorien (uppercase wie im DMS)
+        formData.append('category', (uploadFile.category || 'DOCUMENTATION').toUpperCase());
         formData.append('subcategory', uploadFile.subcategory || '');
-        formData.append('tags', 'gewerk,upload');
+        formData.append('tags', 'ausschreibung,gewerk');
         formData.append('is_public', 'true');
 
         const token = localStorage.getItem('token');
@@ -410,7 +419,8 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
         });
 
         if (!response.ok) {
-          throw new Error(`Upload failed: ${response.statusText}`);
+          const errorText = await response.text();
+          throw new Error(`Upload failed: ${response.statusText} - ${errorText}`);
         }
 
         const result = await response.json();
@@ -447,11 +457,23 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
       return;
     }
     
+    // Prüfe ob alle Upload-Dateien kategorisiert sind (wie im DMS)
+    const uncategorizedFiles = uploadFiles.filter(file => !file.category || !file.subcategory);
+    if (uncategorizedFiles.length > 0) {
+      setErrors(prev => ({
+        ...prev,
+        submit: 'Bitte kategorisieren Sie alle Dokumente bevor Sie die Ausschreibung erstellen.'
+      }));
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
-      // 1. Upload Dokumente zuerst
-      const documentsToUpload = uploadFiles.filter(file => file.status !== 'error');
+      // 1. Upload Dokumente zuerst (nur kategorisierte Dateien)
+      const documentsToUpload = uploadFiles.filter(file => 
+        file.status !== 'error' && file.category && file.subcategory
+      );
       let uploadedDocuments = [];
       
       if (documentsToUpload.length > 0) {
@@ -510,9 +532,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
     setCategorizingFiles([]);
     setShowCategoryDialog(false);
     setSelectedDocuments(new Set());
-    setShowDocumentSelector(false);
     setErrors({});
-    setShowDetailsDropdown(false);
     onClose();
   };
 
@@ -798,9 +818,24 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                   {/* Upload-Liste */}
                   {uploadFiles.length > 0 && (
                     <div className="mt-6 space-y-3">
-                      <h4 className="text-sm font-medium text-gray-300">
-                        Hochgeladene Dateien ({uploadFiles.length})
-                      </h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-medium text-gray-300">
+                          Hochgeladene Dateien ({uploadFiles.length})
+                        </h4>
+                        {uploadFiles.some(file => !file.category || !file.subcategory) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const uncategorizedFiles = uploadFiles.filter(file => !file.category || !file.subcategory);
+                              setCategorizingFiles(uncategorizedFiles);
+                              setShowCategoryDialog(true);
+                            }}
+                            className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs rounded-lg border border-red-500/30 transition-colors"
+                          >
+                            Kategorisieren erforderlich
+                          </button>
+                        )}
+                      </div>
                       <div className="space-y-2 max-h-60 overflow-y-auto">
                         {uploadFiles.map((uploadFile) => (
                           <div
@@ -817,17 +852,15 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                                 </p>
                                 <div className="flex items-center space-x-2 text-xs text-gray-400">
                                   <span>{formatFileSize(uploadFile.file.size)}</span>
-                                  {uploadFile.category && (
+                                  {uploadFile.category && uploadFile.subcategory ? (
                                     <>
                                       <span>•</span>
-                                      <span>{uploadFile.category}</span>
-                                      {uploadFile.subcategory && (
-                                        <>
-                                          <span>→</span>
-                                          <span>{uploadFile.subcategory}</span>
-                                        </>
-                                      )}
+                                      <span className="text-green-400">{DOCUMENT_CATEGORIES[uploadFile.category as keyof typeof DOCUMENT_CATEGORIES]?.name}</span>
+                                      <span>→</span>
+                                      <span className="text-green-400">{uploadFile.subcategory}</span>
                                     </>
+                                  ) : (
+                                    <span className="text-red-400 font-medium">• Kategorisierung erforderlich</span>
                                   )}
                                 </div>
                               </div>
@@ -1063,91 +1096,120 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
         </div>
       </div>
 
-      {/* DMS-Kategorien-Dialog */}
-      {showCategoryDialog && categorizingFiles.length > 0 && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-60">
-          <div className="bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] rounded-xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-y-auto border border-[#ffbd59]/20">
-            <div className="p-6 border-b border-[#ffbd59]/20">
+      {/* DMS-Upload-Modal (exakte Kopie vom DMS) */}
+      {showCategoryDialog && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden border border-gray-700">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-700">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-white">Dokumente kategorisieren</h3>
+                <h2 className="text-xl font-bold text-white">Dokumente kategorisieren</h2>
                 <button
-                  onClick={() => setShowCategoryDialog(false)}
+                  onClick={() => {
+                    setShowCategoryDialog(false);
+                    setCategorizingFiles([]);
+                  }}
                   className="text-gray-400 hover:text-white transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
-              <p className="text-gray-300 mt-2">
-                Ordnen Sie Ihre Dokumente in die entsprechenden Kategorien ein
-              </p>
             </div>
-
-            <div className="p-6">
+                
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(80vh-140px)]">
               <div className="space-y-4">
-                {categorizingFiles.map((uploadFile) => (
-                  <div key={uploadFile.id} className="bg-[#2c3539]/30 rounded-lg p-4">
-                    <div className="flex items-center space-x-3 mb-4">
-                      <div className="text-[#ffbd59]">
-                        {getFileIcon(uploadFile.file)}
-                      </div>
-                      <div>
-                        <p className="text-white font-medium">{uploadFile.file.name}</p>
-                        <p className="text-gray-400 text-sm">{formatFileSize(uploadFile.file.size)}</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                          Kategorie
-                        </label>
-                        <select
-                          value={uploadFile.category || ''}
-                          onChange={(e) => assignCategoryToFile(uploadFile.id, e.target.value)}
-                          className="w-full bg-[#2c3539]/50 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
-                        >
-                          <option value="">Kategorie wählen</option>
-                          {Object.entries(DOCUMENT_CATEGORIES).map(([key, category]) => (
-                            <option key={key} value={key}>{category.name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {uploadFile.category && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Unterkategorie
-                          </label>
-                          <select
-                            value={uploadFile.subcategory || ''}
-                            onChange={(e) => assignCategoryToFile(uploadFile.id, uploadFile.category!, e.target.value)}
-                            className="w-full bg-[#2c3539]/50 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
-                          >
-                            <option value="">Unterkategorie wählen</option>
-                            {DOCUMENT_CATEGORIES[uploadFile.category as keyof typeof DOCUMENT_CATEGORIES]?.subcategories.map(sub => (
-                              <option key={sub} value={sub}>{sub}</option>
-                            ))}
-                          </select>
+                {categorizingFiles.map((uploadFile, index) => (
+                  <div key={uploadFile.id} className="bg-[#3d4952]/50 rounded-lg p-4 border border-gray-600">
+                    <div className="flex items-start gap-4">
+                      {/* File Info */}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <File className="w-5 h-5 text-blue-400" />
+                          <span className="font-medium text-white">{uploadFile.file.name}</span>
+                          <span className="text-sm text-gray-400">
+                            ({formatFileSize(uploadFile.file.size)})
+                          </span>
                         </div>
-                      )}
+
+                        {/* Category Selection - exakt wie im DMS */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">
+                              Kategorie
+                            </label>
+                            <select
+                              value={uploadFile.category || ''}
+                              onChange={(e) => assignCategoryToFile(index, e.target.value)}
+                              className="w-full bg-[#2c3539] border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                            >
+                              <option value="">Kategorie wählen...</option>
+                              {Object.entries(DOCUMENT_CATEGORIES).map(([key, category]) => (
+                                <option key={key} value={key}>{category.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                
+                          {uploadFile.category && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-300 mb-1">
+                                Unterkategorie
+                              </label>
+                              <select
+                                value={uploadFile.subcategory || ''}
+                                onChange={(e) => assignCategoryToFile(index, uploadFile.category!, e.target.value)}
+                                className="w-full bg-[#2c3539] border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                              >
+                                <option value="">Unterkategorie wählen...</option>
+                                {DOCUMENT_CATEGORIES[uploadFile.category as keyof typeof DOCUMENT_CATEGORIES]?.subcategories.map(sub => (
+                                  <option key={sub} value={sub}>{sub}</option>
+                                ))}
+                              </select>
+
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Remove Button */}
+                      <button
+                        onClick={() => {
+                          setCategorizingFiles(prev => prev.filter((_, i) => i !== index));
+                          setUploadFiles(prev => prev.filter(file => file.id !== uploadFile.id));
+                        }}
+                        className="text-gray-400 hover:text-red-400 transition-colors"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
+            </div>
 
-              <div className="flex justify-end space-x-4 mt-6 pt-4 border-t border-gray-700">
+            {/* Footer - exakt wie im DMS */}
+            <div className="p-6 border-t border-gray-700 flex items-center justify-between">
+              <div className="text-sm text-gray-400">
+                {categorizingFiles.length} Datei{categorizingFiles.length !== 1 ? 'en' : ''} ausgewählt
+              </div>
+              <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setShowCategoryDialog(false)}
-                  className="px-6 py-2 text-gray-400 hover:text-white transition-colors"
+                  onClick={() => {
+                    setShowCategoryDialog(false);
+                    setCategorizingFiles([]);
+                  }}
+                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
                 >
-                  Später kategorisieren
+                  Abbrechen
                 </button>
                 <button
                   onClick={() => {
                     setShowCategoryDialog(false);
                     setCategorizingFiles([]);
                   }}
-                  className="bg-[#ffbd59] text-[#1a1a2e] px-6 py-2 rounded-lg font-medium hover:bg-[#ffa726] transition-colors"
+                  disabled={categorizingFiles.some(f => !f.category || !f.subcategory)}
+                  className="bg-[#ffbd59] hover:bg-[#ffa726] disabled:bg-[#2c3539] disabled:cursor-not-allowed text-[#1a1a2e] disabled:text-gray-400 px-6 py-2 rounded-lg font-medium transition-colors"
+                  title={categorizingFiles.some(f => !f.category || !f.subcategory) ? 'Bitte wählen Sie für alle Dokumente Kategorie und Unterkategorie aus' : ''}
                 >
                   Kategorisierung abschließen
                 </button>
