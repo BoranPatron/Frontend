@@ -8,6 +8,7 @@ import { uploadDocument } from '../api/documentService';
 import ConstructionPhaseTimeline from '../components/ConstructionPhaseTimeline';
 import TradesCard from '../components/TradesCard';
 import TradeDetailsModal from '../components/TradeDetailsModal';
+import ProjectDetailsModal from '../components/ProjectDetailsModal';
 
 import SimpleCostEstimateModal from '../components/SimpleCostEstimateModal';
 import CreateInspectionModal from '../components/CreateInspectionModal';
@@ -218,6 +219,9 @@ export default function Dashboard() {
   const [isUpdatingProject, setIsUpdatingProject] = useState(false);
   const [editProjectError, setEditProjectError] = useState<string | null>(null);
 
+  // Projekt-Details Modal State
+  const [showProjectDetailsModal, setShowProjectDetailsModal] = useState(false);
+
   // State für Dokumenten-Upload (vollständiges DMS-System)
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -315,7 +319,7 @@ export default function Dashboard() {
   };
 
   const handleProjectDetailsClick = () => {
-    navigate(`/project/${currentProject.id}`);
+    setShowProjectDetailsModal(true);
   };
 
   // Online/Offline-Status überwachen
@@ -2986,6 +2990,19 @@ export default function Dashboard() {
           selectedQuotes={selectedQuotesForInspection}
           project={selectedProject}
           onCreateInspection={handleInspectionCreated}
+        />
+      )}
+
+      {/* Projekt-Details-Modal */}
+      {showProjectDetailsModal && currentProject && (
+        <ProjectDetailsModal
+          project={currentProject}
+          isOpen={showProjectDetailsModal}
+          onClose={() => setShowProjectDetailsModal(false)}
+          onEdit={() => {
+            setShowProjectDetailsModal(false);
+            setShowEditProjectModal(true);
+          }}
         />
       )}
     </div>

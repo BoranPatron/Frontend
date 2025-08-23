@@ -14,11 +14,16 @@ interface Project {
   start_date?: string;
   end_date?: string;
   address?: string;
+  address_street?: string;
+  address_zip?: string;
+  address_city?: string;
+  address_country?: string;
   property_size?: number;
   construction_area?: number;
   estimated_duration?: number;
   is_public: boolean;
   allow_quotes: boolean;
+  construction_phase?: string;
   created_at: string;
   updated_at: string;
 }

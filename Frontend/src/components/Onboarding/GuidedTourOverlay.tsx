@@ -22,68 +22,68 @@ const defaultSteps: TourStep[] = [
   { 
     id: 'dashboard-title', 
     title: 'Willkommen bei BuildWise!', 
-    description: 'Ich zeige Ihnen die wichtigsten Funktionen. Diese Tour dauert nur 2 Minuten.', 
+    description: 'Ich zeige dir die wichtigsten Funktionen. Diese Tour dauert nur 2 Minuten.', 
     pointer: 'bottom' 
   },
   { 
     id: 'radial-menu-fab', 
     title: 'Das Radial Menu', 
-    description: 'Ihr zentraler Zugang zu allen Funktionen! Das Plus-Symbol unten rechts ist Ihr persönlicher Assistent.', 
+    description: 'Dein zentraler Zugang zu allen Funktionen! Das Plus-Symbol unten rechts ist dein persönlicher Assistent.', 
     pointer: 'left' 
   },
   { 
     id: 'radial-menu-fab', 
-    title: 'Entdecken Sie Ihr Kommandozentrum! ✨', 
-    description: 'Klicken Sie jetzt auf das Plus-Symbol und lassen Sie sich überraschen! Hier finden Sie alles: 🏗️ Projekte erstellen, 📄 Dokumente verwalten, 💰 Finanzen überblicken, ✅ Aufgaben koordinieren, 🎯 Angebote einholen und noch vieles mehr. Los geht\'s - ein Klick öffnet Ihnen alle Türen!', 
+    title: 'Entdecke dein Kommandozentrum! ✨', 
+    description: 'Klicke jetzt auf das Plus-Symbol und lass dich überraschen! Hier findest du alles: 🏗️ Projekte erstellen, 📄 Dokumente verwalten, 💰 Finanzen überblicken, ✅ Aufgaben koordinieren, 🎯 Angebote einholen und noch vieles mehr. Los geht\'s - ein Klick öffnet dir alle Türen!', 
     pointer: 'right',
     waitForClick: true
   },
   { 
     id: 'radial-menu-fab', 
-    title: 'Personalisieren Sie Ihr Menu! 🎯', 
-    description: 'Pro-Tipp: Sie können alle Buttons im Radial Menu per Drag & Drop verschieben! Ziehen Sie einfach einen Button an eine neue Position und das Menu merkt sich Ihre Präferenzen. So haben Sie Ihre wichtigsten Funktionen immer griffbereit.', 
+    title: 'Personalisier dein Menu! 🎯', 
+    description: 'Pro-Tipp: Du kannst alle Buttons im Radial Menu per Drag & Drop verschieben! Ziehe einfach einen Button an eine neue Position und das Menu merkt sich deine Präferenzen. So hast du deine wichtigsten Funktionen immer griffbereit.', 
     pointer: 'top'
   },
   { 
     id: 'dashboard-projects', 
-    title: 'Ihre Projekte im Überblick', 
-    description: 'Hier in der Mitte sehen Sie alle Ihre Bauprojekte und laufenden Ausschreibungen. Jedes Projekt zeigt den aktuellen Status, Fortschritt und wichtige Kennzahlen.', 
+    title: 'Deine Projekte im Überblick', 
+    description: 'Hier in der Mitte siehst du alle deine Bauprojekte und laufenden Ausschreibungen. Jedes Projekt zeigt den aktuellen Status, Fortschritt und wichtige Kennzahlen.', 
     pointer: 'auto' 
   },
   { 
     id: 'navbar-logo', 
     title: 'Die Navigation', 
-    description: 'Die obere Leiste bietet Schnellzugriff auf wichtige Funktionen. Lassen Sie uns die einzelnen Bereiche anschauen.', 
+    description: 'Die obere Leiste bietet Schnellzugriff auf wichtige Funktionen. Lass uns die einzelnen Bereiche anschauen.', 
     pointer: 'bottom' 
   },
   { 
     id: 'navbar-credits', 
-    title: 'Ihre Credits', 
-    description: 'Hier sehen Sie Ihr aktuelles Credit-Guthaben. Credits ermöglichen Ihnen den Zugang zu Pro-Funktionen und werden täglich abgebucht.', 
+    title: 'Deine Credits', 
+    description: 'Hier siehst du dein aktuelles Credit-Guthaben. Credits ermöglichen dir den Zugang zu Pro-Funktionen und werden täglich abgebucht.', 
     pointer: 'bottom' 
   },
   { 
     id: 'navbar-favorites', 
     title: 'Favoriten', 
-    description: 'Markieren Sie wichtige Dokumente, Aufgaben oder Bereiche als Favoriten für schnellen Zugriff.', 
+    description: 'Markiere wichtige Dokumente, Aufgaben oder Bereiche als Favoriten für schnellen Zugriff.', 
     pointer: 'bottom' 
   },
   { 
     id: 'notification-tab-bautraeger', 
-    title: 'Ihre Benachrichtigungslasche! 🔔', 
-    description: 'Hier rechts am Bildschirmrand finden Sie Ihre persönliche Benachrichtigungslasche. Sobald Dienstleister auf Terminanfragen antworten, blinkt sie grün auf und informiert Sie sofort! Ein Klick darauf zeigt alle wichtigen Updates zu Ihren Bauprojekten.', 
+    title: 'Deine Benachrichtigungslasche! 🔔', 
+    description: 'Hier rechts am Bildschirmrand findest du deine persönliche Benachrichtigungslasche. Sobald Dienstleister auf Terminanfragen antworten, blinkt sie grün auf und informiert dich sofort! Ein Klick darauf zeigt alle wichtigen Updates zu deinen Bauprojekten.', 
     pointer: 'left' 
   },
   { 
     id: 'navbar-profile', 
-    title: 'Ihr Profil', 
-    description: 'Verwalten Sie Ihre Einstellungen, Credits und persönlichen Informationen über das Profil-Menü.', 
+    title: 'Dein Profil', 
+    description: 'Verwalte deine Einstellungen, Credits und persönlichen Informationen über das Profil-Menü.', 
     pointer: 'bottom' 
   },
   { 
     id: 'dashboard-title', 
     title: 'Bereit zum Start! 🎉', 
-    description: 'Sie kennen jetzt die wichtigsten Bereiche. Beginnen Sie mit Ihrem ersten Projekt oder erkunden Sie BuildWise auf eigene Faust. Bei Fragen hilft Ihnen unser Support gerne weiter!', 
+    description: 'Du kennst jetzt die wichtigsten Bereiche. Beginne mit deinem ersten Projekt oder erkunde BuildWise auf eigene Faust. Bei Fragen hilft dir unser Support gerne weiter!', 
     pointer: 'bottom' 
   }
 ];

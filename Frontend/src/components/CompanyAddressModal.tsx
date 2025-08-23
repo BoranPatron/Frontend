@@ -64,9 +64,6 @@ export default function CompanyAddressModal({ onComplete, onSkip, userRole }: Co
           <h2 className="text-3xl font-bold text-white mb-2">
             Firmeninformationen
           </h2>
-          <p className="text-gray-300">
-            Ergänzen Sie Ihre Firmenadresse als {roleText} (optional)
-          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
