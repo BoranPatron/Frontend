@@ -6,13 +6,19 @@ interface TradeMapProps {
   trades: TradeSearchResult[];
   radiusKm: number;
   onTradeClick: (trade: TradeSearchResult) => void;
+  isExpanded?: boolean;
+  hasQuoteForTrade?: (tradeId: number) => boolean;
+  getQuoteStatusForTrade?: (tradeId: number) => string | null;
 }
 
 export default function TradeMap({ 
   currentLocation, 
   trades, 
   radiusKm,
-  onTradeClick 
+  onTradeClick,
+  isExpanded = false,
+  hasQuoteForTrade,
+  getQuoteStatusForTrade
 }: TradeMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<any>(null);
@@ -21,92 +27,145 @@ export default function TradeMap({
 
   // Leaflet CSS laden
   useEffect(() => {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
-    link.crossOrigin = '';
-    
     // Prüfen ob bereits geladen
     const existingLink = document.querySelector('link[href*="leaflet.css"]');
     if (!existingLink) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+      link.crossOrigin = '';
+      
+      // CSS vollständig laden bevor fortgefahren wird
+      link.onload = () => {
+        console.log('✅ Leaflet CSS geladen');
+      };
+      
+      link.onerror = () => {
+        console.error('❌ Fehler beim Laden von Leaflet CSS');
+      };
+      
       document.head.appendChild(link);
+      
+      return () => {
+        if (document.head.contains(link)) {
+          document.head.removeChild(link);
+        }
+      };
     }
-
-    return () => {
-      if (!existingLink && document.head.contains(link)) {
-        document.head.removeChild(link);
-      }
-    };
   }, []);
 
   // Leaflet Script laden
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
-    script.crossOrigin = '';
-    
     // Prüfen ob bereits geladen
     if (window.L) {
+      console.log('✅ Leaflet bereits verfügbar');
       setIsMapLoaded(true);
       return;
     }
     
-    script.onload = () => {
-      setIsMapLoaded(true);
-    };
-    
     const existingScript = document.querySelector('script[src*="leaflet.js"]');
     if (!existingScript) {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+      script.crossOrigin = '';
+      
+      script.onload = () => {
+        console.log('✅ Leaflet Script geladen');
+        setIsMapLoaded(true);
+      };
+      
+      script.onerror = () => {
+        console.error('❌ Fehler beim Laden von Leaflet Script');
+      };
+      
       document.head.appendChild(script);
+      
+      return () => {
+        if (document.head.contains(script)) {
+          document.head.removeChild(script);
+        }
+      };
+    } else {
+      // Script existiert bereits, warten auf Verfügbarkeit
+      const checkLeaflet = setInterval(() => {
+        if (window.L) {
+          console.log('✅ Leaflet verfügbar nach Warten');
+          setIsMapLoaded(true);
+          clearInterval(checkLeaflet);
+        }
+      }, 100);
+      
+      return () => clearInterval(checkLeaflet);
     }
-
-    return () => {
-      if (!existingScript && document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
-    };
   }, []);
 
   // Karte initialisieren
   useEffect(() => {
-    if (!isMapLoaded || !mapRef.current || !currentLocation) return;
+    if (!isMapLoaded || !mapRef.current || !currentLocation) {
+      console.log('🔍 Karten-Init übersprungen:', { isMapLoaded, hasMapRef: !!mapRef.current, hasLocation: !!currentLocation });
+      return;
+    }
 
     // @ts-ignore - Leaflet ist global verfügbar
     const L = window.L;
-    if (!L) return;
+    if (!L) {
+      console.error('❌ Leaflet nicht verfügbar für Karten-Init');
+      return;
+    }
 
-    // Karte erstellen
-    const newMap = L.map(mapRef.current).setView(
-      [currentLocation.latitude, currentLocation.longitude], 
-      12
-    );
+    try {
+      console.log('🗺️ Initialisiere Karte...');
+      
+      // Karte erstellen
+      const newMap = L.map(mapRef.current, {
+        preferCanvas: true,
+        zoomControl: true,
+        attributionControl: true
+      }).setView(
+        [currentLocation.latitude, currentLocation.longitude], 
+        12
+      );
 
-    // OpenStreetMap Tile Layer hinzufügen
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(newMap);
+      // OpenStreetMap Tile Layer hinzufügen
+      const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19,
+        subdomains: ['a', 'b', 'c']
+      });
+      
+      tileLayer.addTo(newMap);
+      
+      // Warten bis Tiles geladen sind
+      tileLayer.on('load', () => {
+        console.log('✅ Karten-Tiles geladen');
+      });
 
-    // Zentrum-Marker hinzufügen
-    const centerIcon = L.divIcon({
-      className: 'center-marker',
-      html: '<div style="background: #3b82f6; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);"></div>',
-      iconSize: [20, 20],
-      iconAnchor: [10, 10]
-    });
+      // Zentrum-Marker hinzufügen
+      const centerIcon = L.divIcon({
+        className: 'center-marker',
+        html: '<div style="background: #3b82f6; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);"></div>',
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+      });
 
-    const centerMarker = L.marker([currentLocation.latitude, currentLocation.longitude], { icon: centerIcon })
-      .addTo(newMap)
-      .bindPopup('<div class="text-center"><b>📍 Ihr Standort</b><br><span class="text-sm text-gray-600">Zentrum der Suche</span></div>');
+      const centerMarker = L.marker([currentLocation.latitude, currentLocation.longitude], { icon: centerIcon })
+        .addTo(newMap)
+        .bindPopup('<div class="text-center"><b>📍 Ihr Standort</b><br><span class="text-sm text-gray-600">Zentrum der Suche</span></div>');
 
-    setMap(newMap);
+      console.log('✅ Karte erfolgreich initialisiert');
+      setMap(newMap);
 
-    return () => {
-      if (newMap) {
-        newMap.remove();
-      }
-    };
+      return () => {
+        console.log('🧹 Karte wird entfernt');
+        if (newMap) {
+          newMap.remove();
+        }
+      };
+    } catch (error) {
+      console.error('❌ Fehler bei Karten-Initialisierung:', error);
+    }
   }, [isMapLoaded, currentLocation]);
 
   // Suchradius-Kreis aktualisieren
@@ -156,6 +215,30 @@ export default function TradeMap({
         const trade = cluster[0];
         const categoryInfo = getCategoryIcon(trade.category);
         
+        // Quote-Status prüfen
+        const hasQuote = hasQuoteForTrade ? hasQuoteForTrade(trade.id) : false;
+        const quoteStatus = getQuoteStatusForTrade ? getQuoteStatusForTrade(trade.id) : null;
+        
+        // Border-Farbe basierend auf Quote-Status
+        let borderColor = 'white';
+        let borderWidth = '3px';
+        if (hasQuote) {
+          borderWidth = '4px';
+          switch (quoteStatus) {
+            case 'accepted':
+              borderColor = '#10b981'; // green-500
+              break;
+            case 'under_review':
+              borderColor = '#f59e0b'; // yellow-500
+              break;
+            case 'rejected':
+              borderColor = '#ef4444'; // red-500
+              break;
+            default:
+              borderColor = '#3b82f6'; // blue-500
+          }
+        }
+        
         const tradeIcon = L.divIcon({
           className: 'trade-marker',
           html: `
@@ -164,14 +247,25 @@ export default function TradeMap({
               width: 30px; 
               height: 30px; 
               border-radius: 50%; 
-              border: 3px solid white; 
+              border: ${borderWidth} solid ${borderColor}; 
               box-shadow: 0 2px 6px rgba(0,0,0,0.3);
               display: flex;
               align-items: center;
               justify-content: center;
               font-size: 14px;
+              position: relative;
             ">
               ${categoryInfo.icon}
+              ${hasQuote ? `<div style="
+                position: absolute;
+                top: -2px;
+                right: -2px;
+                width: 8px;
+                height: 8px;
+                background: ${borderColor};
+                border-radius: 50%;
+                border: 1px solid white;
+              "></div>` : ''}
             </div>
           `,
           iconSize: [30, 30],
@@ -334,40 +428,103 @@ export default function TradeMap({
 
   const createSingleTradePopup = (trade: TradeSearchResult) => {
     const categoryInfo = getCategoryIcon(trade.category);
+    const description = trade.description || 'Keine Beschreibung';
+    const maxDescriptionLength = 100;
+    const isLongDescription = description.length > maxDescriptionLength;
+    const shortDescription = isLongDescription ? description.substring(0, maxDescriptionLength) + '...' : description;
+    const popupId = `popup-${trade.id}`;
+    
+    // Quote-Status prüfen
+    const hasQuote = hasQuoteForTrade ? hasQuoteForTrade(trade.id) : false;
+    const quoteStatus = getQuoteStatusForTrade ? getQuoteStatusForTrade(trade.id) : null;
+    
+    let quoteStatusBadge = '';
+    if (hasQuote && quoteStatus) {
+      const statusConfig = {
+        'accepted': { color: 'bg-green-100 text-green-800', icon: '✓', text: 'Gewonnen' },
+        'under_review': { color: 'bg-yellow-100 text-yellow-800', icon: '⏳', text: 'In Prüfung' },
+        'rejected': { color: 'bg-red-100 text-red-800', icon: '✗', text: 'Abgelehnt' },
+        'submitted': { color: 'bg-blue-100 text-blue-800', icon: '📋', text: 'Angebot abgegeben' }
+      };
+      const config = statusConfig[quoteStatus as keyof typeof statusConfig] || statusConfig['submitted'];
+      
+      quoteStatusBadge = `
+        <div class="mb-2">
+          <span class="inline-block ${config.color} text-xs px-2 py-1 rounded font-medium">
+            ${config.icon} ${config.text}
+          </span>
+        </div>
+      `;
+    }
     
     return `
-      <div class="p-3 min-w-[250px]">
+      <div class="p-3 min-w-[280px] max-w-[350px]">
         <div class="flex items-center gap-2 mb-2">
           <span style="font-size: 18px;">${categoryInfo.icon}</span>
-          <h3 class="font-bold text-lg">${trade.title}</h3>
+          <h3 class="font-bold text-lg leading-tight">${trade.title}</h3>
         </div>
+        ${quoteStatusBadge}
         
-        <div class="mb-2">
-          <span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-1">
+        <div class="mb-3 flex flex-wrap gap-1">
+          <span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
             ${trade.category}
           </span>
-          <span class="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded mr-1">
+          <span class="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
             ${trade.status}
           </span>
           ${trade.requires_inspection ? '<span class="inline-block bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">🔍 Besichtigung</span>' : ''}
         </div>
         
-        <p class="text-sm text-gray-600 mb-2">${trade.description || 'Keine Beschreibung'}</p>
-        
-        <div class="space-y-1 text-sm mb-3">
-          <p><strong>Projekt:</strong> ${trade.project_name}</p>
-          <p><strong>Adresse:</strong> ${trade.address_street}, ${trade.address_zip} ${trade.address_city}</p>
-          <p><strong>Entfernung:</strong> ${trade.distance_km.toFixed(1)} km</p>
-          ${trade.budget ? `<p><strong>Budget:</strong> ${trade.budget.toLocaleString('de-DE')} €</p>` : ''}
-          ${trade.planned_date ? `<p><strong>Geplant:</strong> ${new Date(trade.planned_date).toLocaleDateString('de-DE')}</p>` : ''}
+        <!-- Beschreibung mit Einklapp-Funktion -->
+        <div class="mb-3">
+          <div id="desc-short-${popupId}" class="text-sm text-gray-600 leading-relaxed">
+            ${shortDescription}
+            ${isLongDescription ? `
+              <button 
+                onclick="document.getElementById('desc-short-${popupId}').style.display='none'; document.getElementById('desc-full-${popupId}').style.display='block';"
+                class="text-blue-600 hover:text-blue-800 font-medium ml-1 underline cursor-pointer"
+              >
+                Mehr anzeigen
+              </button>
+            ` : ''}
+          </div>
+          
+          ${isLongDescription ? `
+            <div id="desc-full-${popupId}" class="text-sm text-gray-600 leading-relaxed" style="display: none;">
+              ${description}
+              <button 
+                onclick="document.getElementById('desc-full-${popupId}').style.display='none'; document.getElementById('desc-short-${popupId}').style.display='block';"
+                class="text-blue-600 hover:text-blue-800 font-medium ml-1 underline cursor-pointer"
+              >
+                Weniger anzeigen
+              </button>
+            </div>
+          ` : ''}
         </div>
         
-        <button 
-          onclick="window.dispatchEvent(new CustomEvent('tradeMarkerClick', {detail: ${JSON.stringify(trade).replace(/"/g, '&quot;')}}))"
-          class="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300"
-        >
-          🎯 Angebot abgeben
-        </button>
+        <div class="space-y-1 text-sm mb-4 bg-gray-50 p-2 rounded-lg">
+          <p><strong>Projekt:</strong> <span class="text-gray-700">${trade.project_name}</span></p>
+          <p><strong>Adresse:</strong> <span class="text-gray-700">${trade.address_street}, ${trade.address_zip} ${trade.address_city}</span></p>
+          <p><strong>Entfernung:</strong> <span class="text-blue-600 font-medium">${trade.distance_km.toFixed(1)} km</span></p>
+          ${trade.budget ? `<p><strong>Budget:</strong> <span class="text-green-600 font-medium">${trade.budget.toLocaleString('de-DE')} €</span></p>` : ''}
+          ${trade.planned_date ? `<p><strong>Geplant:</strong> <span class="text-gray-700">${new Date(trade.planned_date).toLocaleDateString('de-DE')}</span></p>` : ''}
+        </div>
+        
+        <div class="flex gap-2">
+          <button 
+            onclick="window.dispatchEvent(new CustomEvent('tradeMarkerClick', {detail: ${JSON.stringify(trade).replace(/"/g, '&quot;')}}))"
+            class="flex-1 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300 shadow-md"
+          >
+            🎯 Angebot abgeben
+          </button>
+          <button 
+            onclick="window.dispatchEvent(new CustomEvent('tradeMarkerClick', {detail: ${JSON.stringify(trade).replace(/"/g, '&quot;')}}))"
+            class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+            title="Details anzeigen"
+          >
+            📋
+          </button>
+        </div>
       </div>
     `;
   };
@@ -390,22 +547,57 @@ export default function TradeMap({
         `;
       }).join('');
 
-    const tradesList = cluster.map(trade => {
+    const tradesList = cluster.map((trade, index) => {
       const categoryInfo = getCategoryIcon(trade.category);
+      const description = trade.description || 'Keine Beschreibung';
+      const maxDescriptionLength = 80;
+      const isLongDescription = description.length > maxDescriptionLength;
+      const shortDescription = isLongDescription ? description.substring(0, maxDescriptionLength) + '...' : description;
+      const clusterItemId = `cluster-item-${trade.id}-${index}`;
+      
       return `
-        <div class="border-b border-gray-200 pb-2 mb-2 last:border-b-0 last:pb-0 last:mb-0">
-          <div class="flex items-center gap-2 mb-1">
+        <div class="border-b border-gray-200 pb-3 mb-3 last:border-b-0 last:pb-0 last:mb-0">
+          <div class="flex items-center gap-2 mb-2">
             <span style="font-size: 14px;">${categoryInfo.icon}</span>
-            <h4 class="font-medium text-gray-800">${trade.title}</h4>
+            <h4 class="font-medium text-gray-800 leading-tight">${trade.title}</h4>
           </div>
-          <p class="text-xs text-gray-600 mb-2">${trade.description || 'Keine Beschreibung'}</p>
+          
+          <div class="mb-2">
+            <div id="desc-short-${clusterItemId}" class="text-xs text-gray-600 leading-relaxed">
+              ${shortDescription}
+              ${isLongDescription ? `
+                <button 
+                  onclick="document.getElementById('desc-short-${clusterItemId}').style.display='none'; document.getElementById('desc-full-${clusterItemId}').style.display='block';"
+                  class="text-blue-600 hover:text-blue-800 font-medium ml-1 underline cursor-pointer"
+                >
+                  Mehr
+                </button>
+              ` : ''}
+            </div>
+            
+            ${isLongDescription ? `
+              <div id="desc-full-${clusterItemId}" class="text-xs text-gray-600 leading-relaxed" style="display: none;">
+                ${description}
+                <button 
+                  onclick="document.getElementById('desc-full-${clusterItemId}').style.display='none'; document.getElementById('desc-short-${clusterItemId}').style.display='block';"
+                  class="text-blue-600 hover:text-blue-800 font-medium ml-1 underline cursor-pointer"
+                >
+                  Weniger
+                </button>
+              </div>
+            ` : ''}
+          </div>
+          
           <div class="flex items-center justify-between">
-            <span class="text-xs text-gray-500">${trade.project_name}</span>
+            <div class="flex flex-col">
+              <span class="text-xs text-gray-500">${trade.project_name}</span>
+              ${trade.budget ? `<span class="text-xs text-green-600 font-medium">${trade.budget.toLocaleString('de-DE')} €</span>` : ''}
+            </div>
             <button 
               onclick="window.dispatchEvent(new CustomEvent('tradeMarkerClick', {detail: ${JSON.stringify(trade).replace(/"/g, '&quot;')}}))"
-              class="bg-yellow-500 text-white px-2 py-1 rounded text-xs hover:bg-yellow-600 transition-colors"
+              class="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300 shadow-sm"
             >
-              Angebot
+              🎯 Angebot
             </button>
           </div>
         </div>
@@ -454,6 +646,32 @@ export default function TradeMap({
     map.fitBounds(group.getBounds().pad(0.1));
   }, [map, currentLocation, trades]);
 
+  // Karte bei Hover-Vergrößerung neu dimensionieren
+  useEffect(() => {
+    if (!map) return;
+
+    // Längeres Timeout für smooth transition (synchron mit CSS-Transitions)
+    const resizeTimeout = setTimeout(() => {
+      try {
+        map.invalidateSize();
+        
+        // Optional: Zoom-Level bei Vergrößerung leicht anpassen
+        if (isExpanded && currentLocation) {
+          const currentZoom = map.getZoom();
+          // Leichte Zoom-Anpassung für bessere Übersicht bei größerer Karte
+          map.setView([currentLocation.latitude, currentLocation.longitude], Math.min(currentZoom + 0.3, 14), {
+            animate: true,
+            duration: 0.8 // Smooth zoom animation
+          });
+        }
+      } catch (error) {
+        console.log('Map resize error:', error);
+      }
+    }, 300); // Längere Verzögerung für smooth transition (synchron mit 1000ms CSS)
+
+    return () => clearTimeout(resizeTimeout);
+  }, [map, isExpanded, currentLocation]);
+
   if (!currentLocation) {
     return (
       <div className="h-full bg-gray-100 rounded-lg flex items-center justify-center">
@@ -470,16 +688,28 @@ export default function TradeMap({
 
   return (
     <div className="h-full relative">
+      {/* Loading-Anzeige */}
+      {!map && (
+        <div className="absolute inset-0 bg-gray-100 rounded-lg flex items-center justify-center z-20">
+          <div className="text-center text-gray-500">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-lg font-medium">Karte wird geladen...</p>
+            <p className="text-sm">
+              {!isMapLoaded ? 'Leaflet wird geladen...' : 'Karte wird initialisiert...'}
+            </p>
+          </div>
+        </div>
+      )}
+      
       <div 
         ref={mapRef}
         className="w-full h-full rounded-lg"
         style={{ 
-          height: '200vh !important', 
-          minHeight: '1500px !important',
-          maxHeight: 'none !important',
+          height: '100%',
+          minHeight: '400px',
+          width: '100%',
           position: 'relative',
-          zIndex: 1,
-          overflow: 'visible'
+          zIndex: 1
         }}
       />
       

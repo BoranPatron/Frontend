@@ -292,7 +292,7 @@ function AppContent() {
         />
       )}
 
-      {/* Separate Bauträger Notification Tab für Terminantworten (rechts) */}
+      {/* Bauträger Notification Tab für Terminantworten und neue Angebote (rechts) */}
       {user && user.user_role === 'BAUTRAEGER' && (
         <BautraegerNotificationTab
           userId={user.id}

@@ -192,6 +192,7 @@ export default function Dashboard() {
   const [success, setSuccess] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [showTour, setShowTour] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   
   // State für Projekt-Erstellung
   const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
@@ -1491,15 +1492,22 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6">
       {/* Header mit Projekt-Informationen */}
       <div className="mb-8">
-        <PageHeader
-          title="Dashboard"
-          right={(
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">
+                Willkommen zurück, {user?.first_name || user?.name || 'Bauträger'}! 👋
+              </h1>
+              <p className="text-gray-300 text-lg">
+                Hier ist dein Dashboard - verwalte deine Bauprojekte effizient und behalte den Überblick über alle wichtigen Aspekte deiner Bauvorhaben.
+              </p>
+            </div>
             <div className="flex items-center space-x-2">
               <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-400' : 'bg-red-400'}`}></div>
               <span className="text-sm text-gray-300">{isOnline ? 'Online' : 'Offline'}</span>
             </div>
-          )}
-        />
+          </div>
+        </div>
 
         {/* Fixierte Schnellzugriff-Kacheln */}
         <div className="sticky top-0 z-40 bg-gradient-to-br from-[#1a1a2e]/95 via-[#16213e]/95 to-[#0f3460]/95 backdrop-blur-lg border-b border-white/10 mb-6 -mx-6 px-6 py-4">
@@ -1556,47 +1564,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Desktop/All: Hervorgehobene Projektnavigation (zentriert) */}
-        {projects.length > 0 && (
-          <div className="mb-4">
-            <div className="flex justify-center">
-              <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/10 border border-[#ffbd59]/50 shadow-lg shadow-[#ffbd59]/10 backdrop-blur-sm">
-                <button
-                  onClick={goPrevProject}
-                  disabled={!canGoPrev}
-                  className={`p-2 rounded-full hover:bg-white/10 transition-colors ${!canGoPrev ? 'opacity-40 cursor-not-allowed' : ''}`}
-                  title="Vorheriges Projekt (Pfeil links)"
-                >
-                  <ChevronLeft size={18} className="text-[#ffbd59]" />
-                </button>
-                <div className="text-sm font-medium text-[#ffbd59]">
-                  {selectedProjectIndex + 1} von {projects.length}
-                </div>
-                <button
-                  onClick={goNextProject}
-                  disabled={!canGoNext}
-                  className={`p-2 rounded-full hover:bg-white/10 transition-colors ${!canGoNext ? 'opacity-40 cursor-not-allowed' : ''}`}
-                  title="Nächstes Projekt (Pfeil rechts)"
-                >
-                  <ChevronRight size={18} className="text-[#ffbd59]" />
-                </button>
-                <div className="w-px h-5 bg-white/20 mx-1" />
-                <select
-                  value={selectedProjectIndex}
-                  onChange={(e) => setSelectedProjectIndex(parseInt(e.target.value, 10))}
-                  className="px-3 py-1.5 pr-8 bg-[#3d4952] border border-white/20 rounded-full text-sm text-white hover:bg-[#46535c] focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-colors appearance-none"
-                  title="Projekt direkt auswählen"
-                >
-                  {projects.map((p, idx) => (
-                    <option key={p.id} value={idx}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-        )}
+
 
         {/* Projekt-Auswahl mit Swipe-Funktionalität */}
         {projects.length > 0 && (
@@ -1604,13 +1572,52 @@ export default function Dashboard() {
             {...swipeHandlers}
             className="relative bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 transition-all duration-300 hover:bg-white/15"
           >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
+            <div className="mb-4">
+              <div className="flex items-center space-x-3 mb-4">
                 <div className="w-3 h-3 bg-[#ffbd59] rounded-full"></div>
                 <span className="text-sm text-gray-400">Aktuelles Projekt</span>
               </div>
-              {/* Navigationsleiste über dem Abschnitt, daher hier entfernt */}
-              <div />
+              
+              {/* Prominente, zentrierte Projektnavigation */}
+              <div className="flex justify-center mb-4">
+                <div className="inline-flex items-center gap-4 px-6 py-3 rounded-2xl bg-gradient-to-r from-white/10 to-white/5 border border-[#ffbd59]/50 shadow-lg shadow-[#ffbd59]/20 backdrop-blur-lg">
+                  <button
+                    onClick={goPrevProject}
+                    disabled={!canGoPrev}
+                    className={`p-3 rounded-xl hover:bg-white/15 transition-all duration-200 ${!canGoPrev ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105'}`}
+                    title="Vorheriges Projekt (Pfeil links)"
+                  >
+                    <ChevronLeft size={20} className="text-[#ffbd59]" />
+                  </button>
+                  
+                  <div className="text-center px-4">
+                    <div className="text-sm font-semibold text-[#ffbd59] mb-1">
+                      Projekt {selectedProjectIndex + 1} von {projects.length}
+                    </div>
+                    <select
+                      value={selectedProjectIndex}
+                      onChange={(e) => setSelectedProjectIndex(parseInt(e.target.value, 10))}
+                      className="px-4 py-2 pr-8 bg-[#2c3539] border border-[#ffbd59]/30 rounded-lg text-sm text-white hover:bg-[#3d4952] focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 appearance-none font-medium"
+                      title="Projekt direkt auswählen"
+                    >
+                      {projects.map((p, idx) => (
+                        <option key={p.id} value={idx}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <button
+                    onClick={goNextProject}
+                    disabled={!canGoNext}
+                    className={`p-3 rounded-xl hover:bg-white/15 transition-all duration-200 ${!canGoNext ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105'}`}
+                    title="Nächstes Projekt (Pfeil rechts)"
+                  >
+                    <ChevronRight size={20} className="text-[#ffbd59]" />
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="mb-4">
@@ -1635,7 +1642,48 @@ export default function Dashboard() {
                   </button>
                 </div>
               </div>
-              <p className="text-gray-300 mb-3">{currentProject.description}</p>
+              {/* Einklappbare Projektbeschreibung */}
+              {currentProject.description && (
+                <div className="mb-3">
+                  {(() => {
+                    const maxLength = 150; // Maximale Anzahl Zeichen vor dem Einklappen
+                    const isLongText = currentProject.description.length > maxLength;
+                    const displayText = isDescriptionExpanded || !isLongText 
+                      ? currentProject.description 
+                      : currentProject.description.substring(0, maxLength) + '...';
+                    
+                    return (
+                      <div>
+                        <p className="text-gray-300 leading-relaxed">
+                          {displayText}
+                        </p>
+                        {isLongText && (
+                          <button
+                            onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                            className="mt-2 text-[#ffbd59] hover:text-[#ffa726] text-sm font-medium transition-colors flex items-center gap-1"
+                          >
+                            {isDescriptionExpanded ? (
+                              <>
+                                <span>Weniger anzeigen</span>
+                                <svg className="w-4 h-4 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </>
+                            ) : (
+                              <>
+                                <span>Mehr anzeigen</span>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
               
               {/* Projektanschrift mit Hover-Effekt */}
               {(currentProject.address || (currentProject.address_street && currentProject.address_city)) && (

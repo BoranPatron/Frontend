@@ -15,6 +15,26 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { appointmentService, type AppointmentResponse } from '../api/appointmentService';
+import api from '../api/api';
+
+interface Notification {
+  id: number;
+  recipient_id: number;
+  type: string;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  title: string;
+  message: string;
+  data?: string;
+  is_read: boolean;
+  is_acknowledged: boolean;
+  created_at: string;
+  read_at?: string;
+  acknowledged_at?: string;
+  related_quote_id?: number;
+  related_project_id?: number;
+  related_milestone_id?: number;
+  related_appointment_id?: number;
+}
 
 interface BautraegerNotificationTabProps {
   userId: number;
@@ -22,10 +42,20 @@ interface BautraegerNotificationTabProps {
 }
 
 interface BautraegerNotificationData {
-  appointment: AppointmentResponse;
-  response: any; // Service Provider Response
-  type: 'confirmation' | 'rejection' | 'reschedule';
+  id: string;
+  type: 'appointment' | 'quote_submitted' | 'quote_update';
+  title: string;
+  message: string;
+  timestamp: string;
   isHandled: boolean;
+  isRead: boolean;
+  priority?: 'normal' | 'high' | 'urgent';
+  // Appointment-spezifische Daten
+  appointment?: AppointmentResponse;
+  response?: any; // Service Provider Response
+  appointmentType?: 'confirmation' | 'rejection' | 'reschedule';
+  // Quote-spezifische Daten
+  notification?: Notification;
 }
 
 export default function BautraegerNotificationTab({ userId, onResponseHandled }: BautraegerNotificationTabProps) {
@@ -41,17 +71,48 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
 
   const loadBautraegerNotifications = async () => {
     try {
-      // Nutze den sicheren Endpunkt - Bauträger sehen nur eigene Termine
-      const myAppointments = await appointmentService.getMyAppointments(8); // Demo: Projekt 8
-      
       let notifications: BautraegerNotificationData[] = [];
       
-      // Verarbeite jede Antwort von Service Providern
-      myAppointments.forEach(appointment => {
-        // Parse responses robustly - handle both array and JSON string
-        let responses = [];
-        if (appointment.responses_array && Array.isArray(appointment.responses_array)) {
-          responses = appointment.responses_array;
+      // 1. Lade neue Angebots-Benachrichtigungen
+      try {
+        const response = await api.get('/notifications/', {
+          params: {
+            limit: 20,
+            unacknowledged_only: true
+          }
+        });
+        const quoteNotifications: Notification[] = response.data;
+        
+        quoteNotifications.forEach(notification => {
+          if (notification.type === 'quote_submitted') {
+            notifications.push({
+              id: `quote_${notification.id}`,
+              type: 'quote_submitted',
+              title: notification.title,
+              message: notification.message,
+              timestamp: notification.created_at,
+              isHandled: notification.is_acknowledged,
+              isRead: notification.is_read,
+              priority: notification.priority as 'normal' | 'high' | 'urgent',
+              notification: notification
+            });
+          }
+        });
+      } catch (error) {
+        console.error('Fehler beim Laden der Quote-Benachrichtigungen:', error);
+      }
+      
+      // 2. Lade Termin-Benachrichtigungen (bestehende Logik)
+      try {
+        // Nutze den sicheren Endpunkt - Bauträger sehen nur eigene Termine
+        const myAppointments = await appointmentService.getMyAppointments(8); // Demo: Projekt 8
+        
+        // Verarbeite jede Antwort von Service Providern
+        myAppointments.forEach(appointment => {
+          // Parse responses robustly - handle both array and JSON string
+          let responses = [];
+          if (appointment.responses_array && Array.isArray(appointment.responses_array)) {
+            responses = appointment.responses_array;
           } else if (appointment.responses) {
           try {
             if (typeof appointment.responses === 'string') {
@@ -65,22 +126,34 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
           }
         }
         
-        if (responses && responses.length > 0) {
-          responses.forEach(response => {
-            notifications.push({
-              appointment,
-              response,
-              type: response.status === 'accepted' ? 'confirmation' : 
-                    response.status === 'rejected_with_suggestion' ? 'reschedule' : 'rejection',
-              isHandled: false // TODO: Aus Backend laden
+          if (responses && responses.length > 0) {
+            responses.forEach(response => {
+              const appointmentType = response.status === 'accepted' ? 'confirmation' : 
+                        response.status === 'rejected_with_suggestion' ? 'reschedule' : 'rejection';
+              
+              notifications.push({
+                id: `appointment_${appointment.id}_${response.id}`,
+                type: 'appointment',
+                title: `Terminantwort: ${appointment.title}`,
+                message: `${response.service_provider_name} hat ${appointmentType === 'confirmation' ? 'zugesagt' : appointmentType === 'reschedule' ? 'einen anderen Termin vorgeschlagen' : 'abgesagt'}`,
+                timestamp: response.created_at || appointment.created_at,
+                isHandled: false, // TODO: Aus Backend laden
+                isRead: false,
+                appointment,
+                response,
+                appointmentType
+              });
             });
-          });
-        }
-      });
-
-      // Keine Demo-Benachrichtigungen mehr - nur echte Daten
-      setNotifications(notifications);
-      } catch (error) {
+          }
+        });
+        
+        // Keine Demo-Benachrichtigungen mehr - nur echte Daten
+        setNotifications(notifications);
+      } catch (appointmentError) {
+        console.error('❌ Fehler beim Laden der Termin-Benachrichtigungen:', appointmentError);
+      }
+      
+    } catch (error) {
       console.error('❌ BautraegerNotificationTab: Fehler beim Laden:', error);
       // Bei Fehlern Demo-Daten als Fallback
       setNotifications([]);
@@ -230,34 +303,46 @@ Ihr BuildWise Team
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <h4 className="font-medium text-gray-900 mb-1">
-                      {notification.appointment.title}
+                      {notification.title}
                     </h4>
                     
-                    <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-                      <div className="flex items-center gap-1">
-                        <Calendar size={14} />
-                        {formatDate(notification.appointment.scheduled_date)}
+                    <p className="text-sm text-gray-600 mb-2">
+                      {notification.message}
+                    </p>
+                    
+                    {/* Termin-spezifische Informationen */}
+                    {notification.type === 'appointment' && notification.appointment && (
+                      <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
+                        <div className="flex items-center gap-1">
+                          <Calendar size={14} />
+                          {formatDate(notification.appointment.scheduled_date)}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock size={14} />
+                          {formatTime(notification.appointment.scheduled_date)}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Clock size={14} />
-                        {formatTime(notification.appointment.scheduled_date)}
-                      </div>
-                    </div>
+                    )}
 
                     <div className="flex items-center justify-between">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        notification.type === 'confirmation' ? 'bg-green-100 text-green-800' :
-                        notification.type === 'reschedule' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
+                        notification.type === 'quote_submitted' ? 'bg-blue-100 text-blue-800' :
+                        notification.appointmentType === 'confirmation' ? 'bg-green-100 text-green-800' :
+                        notification.appointmentType === 'reschedule' ? 'bg-yellow-100 text-yellow-800' :
+                        notification.appointmentType === 'rejection' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
                       }`}>
-                        {notification.type === 'confirmation' && '✅ Bestätigt'}
-                        {notification.type === 'reschedule' && '📅 Neuer Vorschlag'}
-                        {notification.type === 'rejection' && '❌ Abgelehnt'}
+                        {notification.type === 'quote_submitted' && '📋 Neues Angebot'}
+                        {notification.appointmentType === 'confirmation' && '✅ Bestätigt'}
+                        {notification.appointmentType === 'reschedule' && '📅 Neuer Vorschlag'}
+                        {notification.appointmentType === 'rejection' && '❌ Abgelehnt'}
                       </span>
                       
                       {!notification.isHandled && (
                         <div className="animate-pulse">
-                          <AlertCircle size={16} className="text-green-500" />
+                          <AlertCircle size={16} className={
+                            notification.type === 'quote_submitted' ? 'text-blue-500' : 'text-green-500'
+                          } />
                         </div>
                       )}
                     </div>
@@ -275,9 +360,15 @@ Ihr BuildWise Team
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-6 rounded-t-xl">
+            <div className={`text-white p-6 rounded-t-xl ${
+              selectedNotification.type === 'quote_submitted' 
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600' 
+                : 'bg-gradient-to-r from-green-600 to-blue-600'
+            }`}>
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Terminantwort Details</h3>
+                <h3 className="text-lg font-semibold">
+                  {selectedNotification.type === 'quote_submitted' ? 'Neues Angebot' : 'Terminantwort Details'}
+                </h3>
                 <button 
                   onClick={() => setSelectedNotification(null)}
                   className="hover:bg-white/20 rounded-full p-1 transition-colors"
@@ -290,9 +381,64 @@ Ihr BuildWise Team
             {/* Modal Content */}
             <div className="p-6">
               
+              {/* Quote Details */}
+              {selectedNotification.type === 'quote_submitted' && selectedNotification.notification && (
+                <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                  <h4 className="font-medium text-gray-900 mb-3">{selectedNotification.title}</h4>
+                  <p className="text-sm text-gray-700 mb-3">{selectedNotification.message}</p>
+                  
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} />
+                      Eingereicht am {new Date(selectedNotification.timestamp).toLocaleDateString('de-DE', {
+                        day: '2-digit',
+                        month: '2-digit', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </div>
+                    {selectedNotification.notification.related_quote_id && (
+                      <div className="flex items-center gap-2">
+                        <MessageSquare size={16} />
+                        Angebot-ID: {selectedNotification.notification.related_quote_id}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="mt-4 flex gap-2">
+                    <button 
+                      onClick={async () => {
+                        if (selectedNotification.notification) {
+                          await api.patch(`/notifications/${selectedNotification.notification.id}/acknowledge`);
+                          setSelectedNotification(null);
+                          loadBautraegerNotifications();
+                        }
+                      }}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    >
+                      Angebot ansehen
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        if (selectedNotification.notification) {
+                          await api.patch(`/notifications/${selectedNotification.notification.id}/acknowledge`);
+                          setSelectedNotification(null);
+                          loadBautraegerNotifications();
+                        }
+                      }}
+                      className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                    >
+                      Quittieren
+                    </button>
+                  </div>
+                </div>
+              )}
+              
               {/* Appointment Details */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 className="font-medium text-gray-900 mb-3">{selectedNotification.appointment.title}</h4>
+              {selectedNotification.type === 'appointment' && selectedNotification.appointment && (
+                <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                  <h4 className="font-medium text-gray-900 mb-3">{selectedNotification.appointment.title}</h4>
                 
                 <div className="space-y-2 text-sm text-gray-600">
                   <div className="flex items-center gap-2">
@@ -310,25 +456,27 @@ Ihr BuildWise Team
                     </div>
                   )}
                 </div>
-              </div>
+                </div>
+              )}
 
               {/* Service Provider Response */}
-              <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                <h5 className="font-medium text-gray-900 mb-2">Antwort des Dienstleisters</h5>
-                
-                <div className="flex items-center gap-2 mb-2">
-                  <User size={16} className="text-blue-600" />
-                  <span className="text-sm text-gray-700">Dienstleister #{selectedNotification.response.service_provider_id}</span>
-                </div>
-                
-                <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium mb-3 ${
-                  selectedNotification.type === 'confirmation' ? 'bg-green-100 text-green-800' :
-                  selectedNotification.type === 'reschedule' ? 'bg-yellow-100 text-yellow-800' :
+              {selectedNotification.type === 'appointment' && selectedNotification.response && (
+                <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                  <h5 className="font-medium text-gray-900 mb-2">Antwort des Dienstleisters</h5>
+                  
+                  <div className="flex items-center gap-2 mb-2">
+                    <User size={16} className="text-blue-600" />
+                    <span className="text-sm text-gray-700">Dienstleister #{selectedNotification.response.service_provider_id}</span>
+                  </div>
+                  
+                  <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium mb-3 ${
+                    selectedNotification.appointmentType === 'confirmation' ? 'bg-green-100 text-green-800' :
+                    selectedNotification.appointmentType === 'reschedule' ? 'bg-yellow-100 text-yellow-800' :
                   'bg-red-100 text-red-800'
                 }`}>
-                  {selectedNotification.type === 'confirmation' && '✅ Termin bestätigt'}
-                  {selectedNotification.type === 'reschedule' && '📅 Alternativtermin vorgeschlagen'}
-                  {selectedNotification.type === 'rejection' && '❌ Termin abgelehnt'}
+                  {selectedNotification.appointmentType === 'confirmation' && '✅ Termin bestätigt'}
+                  {selectedNotification.appointmentType === 'reschedule' && '📅 Alternativtermin vorgeschlagen'}
+                  {selectedNotification.appointmentType === 'rejection' && '❌ Termin abgelehnt'}
                 </div>
 
                 {selectedNotification.response.message && (
@@ -345,19 +493,22 @@ Ihr BuildWise Team
                     </p>
                   </div>
                 )}
-              </div>
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex flex-col gap-3">
                 
-                {/* E-Mail an Dienstleister */}
-                <button
-                  onClick={() => generateEmailToServiceProvider(selectedNotification)}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-                >
-                  <Mail size={16} />
-                  E-Mail an Dienstleister senden
-                </button>
+                {/* E-Mail an Dienstleister - nur für Appointments */}
+                {selectedNotification.type === 'appointment' && (
+                  <button
+                    onClick={() => generateEmailToServiceProvider(selectedNotification)}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                  >
+                    <Mail size={16} />
+                    E-Mail an Dienstleister senden
+                  </button>
+                )}
 
                 {/* Als behandelt markieren */}
                 {!selectedNotification.isHandled && (

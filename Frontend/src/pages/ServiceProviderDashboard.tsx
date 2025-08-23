@@ -3,14 +3,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   FileText, 
-  Handshake, 
-  Users, 
-  BarChart3, 
   User, 
   Euro, 
   Sparkles,
   TrendingUp,
-  MessageSquare,
   Clock,
   CheckCircle,
   CheckSquare,
@@ -19,44 +15,33 @@ import {
   Search,
   List,
   Map,
-  Filter,
   RefreshCw,
-  // Zusätzliche Icons für Quotes-Integration
   Eye,
-  Edit,
-  Trash2,
-  Upload,
-  Download,
-  Send,
   XCircle,
   Award,
   Gavel,
-  Ban,
-  RotateCcw,
   Plus,
-  Calendar,
-  Target,
   Building,
-  Shield,
-  Star,
   Wrench,
   Archive,
   ExternalLink
 } from 'lucide-react';
-import DashboardCard from '../components/DashboardCard';
+
 import CostEstimateForm from '../components/CostEstimateForm';
 import TradeMap from '../components/TradeMap';
 import TradeDetailsModal from '../components/TradeDetailsModal';
-import CostEstimateDetailsModal from '../components/CostEstimateDetailsModal';
+// import CostEstimateDetailsModal from '../components/CostEstimateDetailsModal';
 import ServiceProviderQuoteModal from '../components/ServiceProviderQuoteModal';
 import ArchivedTrades from '../components/ArchivedTrades';
 import InvoiceManagementModal from '../components/InvoiceManagementModal';
+import { RadialMenu } from '../components/RadialMenu';
+import KanbanBoard from '../components/KanbanBoard';
 import { 
   searchTradesInRadius, 
   type TradeSearchRequest, 
   type TradeSearchResult
 } from '../api/geoService';
-import { createQuote, getQuotesForMilestone, acceptQuote, rejectQuote, withdrawQuote } from '../api/quoteService';
+import { createQuote, getQuotesForMilestone, acceptQuote, rejectQuote, withdrawQuote, getQuotes } from '../api/quoteService';
 import { getMilestones, getAllMilestones } from '../api/milestoneService';
 import { getProjects } from '../api/projectService';
 import logo from '../logo_trans_big.png';
@@ -94,6 +79,10 @@ export default function ServiceProviderDashboard() {
   const [geoError, setGeoError] = useState<string | null>(null);
   const [geoTrades, setGeoTrades] = useState<TradeSearchResult[]>([]);
   
+  // Service Provider Angebote und zugehörige Trades
+  const [serviceProviderQuotes, setServiceProviderQuotes] = useState<any[]>([]);
+  const [serviceProviderTrades, setServiceProviderTrades] = useState<TradeSearchResult[]>([]);
+  
   // Filter-State
   const [geoTradeCategory, setGeoTradeCategory] = useState<string>('');
   const [geoTradeStatus, setGeoTradeStatus] = useState<string>('');
@@ -108,6 +97,11 @@ export default function ServiceProviderDashboard() {
   // Detailansicht-State
   const [showTradeDetails, setShowTradeDetails] = useState(false);
   const [detailTrade, setDetailTrade] = useState<TradeSearchResult | null>(null);
+
+  // Neue Layout-State für moderne Umstrukturierung
+  const [activeLeftTab, setActiveLeftTab] = useState<'bidding' | 'awarded'>('bidding'); // 'bidding' = Angebotsverfahren, 'awarded' = Gewonnene Ausschreibungen
+  const [geoSearchExpanded, setGeoSearchExpanded] = useState(false); // State für erweiterte Geo-Search
+  const [geoSearchHovered, setGeoSearchHovered] = useState(false); // State für Hover-Vergrößerung
 
   // Quotes-Integration State
   const [trades, setTrades] = useState<any[]>([]);
@@ -366,6 +360,39 @@ export default function ServiceProviderDashboard() {
     }
   };
 
+  // Lade alle Angebote des Service Providers
+  const loadServiceProviderQuotes = async () => {
+    if (!user) return;
+    
+    try {
+      console.log('🔍 loadServiceProviderQuotes: Lade alle Angebote des Service Providers...');
+      const quotes = await getQuotes(); // Ohne project_id = alle Angebote des Service Providers
+      console.log('🔍 loadServiceProviderQuotes: Gefundene Angebote:', quotes);
+      
+      setServiceProviderQuotes(quotes);
+      
+      // Lade die zugehörigen Trades/Milestones für diese Angebote
+      const uniqueTradeIds = [...new Set(quotes.map((quote: any) => quote.milestone_id).filter(Boolean))];
+      console.log('🔍 loadServiceProviderQuotes: Unique Trade IDs:', uniqueTradeIds);
+      
+      if (uniqueTradeIds.length > 0) {
+        // Hier müssten wir eigentlich die Trades über die Milestone IDs laden
+        // Für jetzt verwenden wir die bereits geladenen Trades
+        const relevantTrades = [...geoTrades, ...trades].filter(trade => 
+          uniqueTradeIds.includes(trade.id)
+        );
+        
+        console.log('🔍 loadServiceProviderQuotes: Relevante Trades:', relevantTrades);
+        setServiceProviderTrades(relevantTrades);
+      }
+      
+    } catch (error) {
+      console.error('❌ Fehler beim Laden der Service Provider Angebote:', error);
+      setServiceProviderQuotes([]);
+      setServiceProviderTrades([]);
+    }
+  };
+
   // Lade Angebote für alle Gewerke
   const loadAllTradeQuotes = async (tradesData: any[]) => {
     try {
@@ -398,7 +425,31 @@ export default function ServiceProviderDashboard() {
       console.error('❌ useEffect: Fehler in loadTrades():', error);
       setTradesError('Fehler beim Laden der Gewerke');
     });
+    
+    // Lade auch die Service Provider Angebote
+    loadServiceProviderQuotes().catch(error => {
+      console.error('❌ useEffect: Fehler in loadServiceProviderQuotes():', error);
+    });
   }, []);
+
+  // Hilfsfunktion: Kombiniert alle Trades für die der Service Provider Angebote hat
+  const getAllTradesWithQuotes = () => {
+    try {
+      // Temporäre Vereinfachung: Verwende nur geoTrades
+      return geoTrades.filter(trade => {
+        try {
+          return hasServiceProviderQuote(trade.id);
+        } catch (error) {
+          console.error('❌ Fehler in hasServiceProviderQuote für Trade:', trade.id, error);
+          return false;
+        }
+      });
+    } catch (error) {
+      console.error('❌ Fehler in getAllTradesWithQuotes:', error);
+      // Fallback: Leere Liste
+      return [];
+    }
+  };
 
   // Hilfsfunktion: Prüft ob ein Quote dem aktuellen User gehört
   const isUserQuote = (quote: any, user: any): boolean => {
@@ -435,7 +486,10 @@ export default function ServiceProviderDashboard() {
       return false;
     }
     
+    // Prüfe sowohl allTradeQuotes als auch serviceProviderQuotes
     const quotes = allTradeQuotes[tradeId] || [];
+    const serviceQuotes = serviceProviderQuotes.filter(q => q.milestone_id === tradeId);
+    const allQuotes = [...quotes, ...serviceQuotes];
     
     // DEBUG: Ausgabe für Analyse
     console.log('🔍 hasServiceProviderQuote DEBUG:', {
@@ -443,7 +497,9 @@ export default function ServiceProviderDashboard() {
       userId: user.id,
       userIdType: typeof user.id,
       quotesCount: quotes.length,
-      quotes: quotes.map(q => ({
+      serviceQuotesCount: serviceQuotes.length,
+      totalQuotesCount: allQuotes.length,
+      quotes: allQuotes.map(q => ({
         id: q.id,
         service_provider_id: q.service_provider_id,
         service_provider_id_type: typeof q.service_provider_id,
@@ -464,7 +520,7 @@ export default function ServiceProviderDashboard() {
     });
     
     // Verwende die erweiterte isUserQuote Funktion für robuste Erkennung
-    const hasQuote = quotes.some(quote => isUserQuote(quote, user));
+    const hasQuote = allQuotes.some(quote => isUserQuote(quote, user));
     
     console.log('🔍 hasServiceProviderQuote RESULT:', { tradeId, hasQuote });
     
@@ -477,11 +533,13 @@ export default function ServiceProviderDashboard() {
       return null;
     }
     
+    // Prüfe sowohl allTradeQuotes als auch serviceProviderQuotes
     const quotes = allTradeQuotes[tradeId] || [];
-    // Verwende die erweiterte isUserQuote Funktion für robuste Erkennung
-    const userQuote = quotes.find(quote => isUserQuote(quote, user));
+    const serviceQuotes = serviceProviderQuotes.filter(q => q.milestone_id === tradeId);
+    const allQuotes = [...quotes, ...serviceQuotes];
     
-
+    // Verwende die erweiterte isUserQuote Funktion für robuste Erkennung
+    const userQuote = allQuotes.find(quote => isUserQuote(quote, user));
     
     return userQuote ? userQuote.status : null;
   };
@@ -492,11 +550,13 @@ export default function ServiceProviderDashboard() {
       return null;
     }
     
+    // Prüfe sowohl allTradeQuotes als auch serviceProviderQuotes
     const quotes = allTradeQuotes[tradeId] || [];
-    // Verwende die erweiterte isUserQuote Funktion für robuste Erkennung
-    const userQuote = quotes.find(quote => isUserQuote(quote, user));
+    const serviceQuotes = serviceProviderQuotes.filter(q => q.milestone_id === tradeId);
+    const allQuotes = [...quotes, ...serviceQuotes];
     
-
+    // Verwende die erweiterte isUserQuote Funktion für robuste Erkennung
+    const userQuote = allQuotes.find(quote => isUserQuote(quote, user));
     
     return userQuote || null;
   };
@@ -571,19 +631,20 @@ export default function ServiceProviderDashboard() {
     }
   };
 
-  const getCategoryIcon = (category: string) => {
-    switch (category?.toLowerCase()) {
+  const getCategoryIcon = (category: string | undefined | null) => {
+    const cat = category?.toLowerCase() || '';
+    switch (cat) {
       case 'electrical':
       case 'elektro':
-        return <Wrench size={20} className="text-white" />;
+        return React.createElement(Wrench, { size: 20, className: "text-white" });
       case 'plumbing':
       case 'sanitaer':
-        return <Wrench size={20} className="text-white" />;
+        return React.createElement(Wrench, { size: 20, className: "text-white" });
       case 'heating':
       case 'heizung':
-        return <Wrench size={20} className="text-white" />;
+        return React.createElement(Wrench, { size: 20, className: "text-white" });
       default:
-        return <Building size={20} className="text-white" />;
+        return React.createElement(Building, { size: 20, className: "text-white" });
     }
   };
 
@@ -613,6 +674,7 @@ export default function ServiceProviderDashboard() {
         project_id: selectedTradeForQuote.project_id,
         milestone_id: selectedTradeForQuote.id,
         service_provider_id: user.id, // KRITISCH: Muss user.id sein
+        status: 'SUBMITTED', // WICHTIG: Status explizit auf SUBMITTED setzen
         total_amount: parseFloat(costEstimateData.total_amount) || 0,
         currency: costEstimateData.currency || 'CHF', // Standard CHF
         valid_until: costEstimateData.valid_until || '',
@@ -629,7 +691,19 @@ export default function ServiceProviderDashboard() {
         contact_person: `${user.first_name} ${user.last_name}`,
         phone: user.phone || costEstimateData.phone || '',
         email: user.email, // IMMER user.email verwenden
-        website: user.company_website || costEstimateData.website || ''
+        website: user.company_website || costEstimateData.website || '',
+        // Alle neuen Felder hinzufügen
+        quote_number: costEstimateData.quote_number || '',
+        qualifications: costEstimateData.qualifications || '',
+        references: costEstimateData.references || '',
+        certifications: costEstimateData.certifications || '',
+        technical_approach: costEstimateData.technical_approach || '',
+        quality_standards: costEstimateData.quality_standards || '',
+        safety_measures: costEstimateData.safety_measures || '',
+        environmental_compliance: costEstimateData.environmental_compliance || '',
+        risk_assessment: costEstimateData.risk_assessment || '',
+        contingency_plan: costEstimateData.contingency_plan || '',
+        additional_notes: costEstimateData.additional_notes || ''
       };
 
       console.log('🔍 Quote-Erstellung mit Daten:', {
@@ -658,6 +732,9 @@ export default function ServiceProviderDashboard() {
       // Lokale Trades und Quotes aktualisieren
       updatePromises.push(loadTrades());
       
+      // Service Provider Angebote aktualisieren
+      updatePromises.push(loadServiceProviderQuotes());
+      
       // Beide Updates parallel ausführen
       await Promise.all(updatePromises);
       
@@ -679,79 +756,7 @@ export default function ServiceProviderDashboard() {
 
   const stats = getServiceProviderStats();
 
-  // Dedizierte Dienstleister-Dashboard-Karten inklusive Todo-Kachel
-  const getDashboardCards = () => [
-    {
-      title: "To Do",
-      description: "Aufgabenmanagement & Tracking",
-      icon: <CheckSquare size={32} />,
-      onClick: () => navigate('/tasks'),
-      ariaLabel: "Aufgabenmanagement öffnen",
-      badge: { text: `${stats.activeQuotes} offen`, color: "yellow" as const },
-      cardId: "tasks",
-      path: "/tasks",
-      iconString: "<CheckSquare size={16} />",
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <Clock size={16} />
-          <span>Stundenerfassung</span>
-        </div>
-      )
-    },
-    {
-      title: "Docs",
-      description: "Dokumentenmanagement & Uploads",
-      icon: <FileText size={32} />,
-      onClick: () => navigate('/documents'),
-      ariaLabel: "Dokumentenmanagement öffnen",
-      badge: { text: `${stats.documentsUploaded} Dokumente`, color: "blue" as const },
-      cardId: "docs",
-      path: "/documents",
-      iconString: "<FileText size={16} />",
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <FileText size={16} />
-          <span>Angebots-PDFs hochladen</span>
-        </div>
-      )
-    },
-    {
-      title: "Rechnungen",
-      description: "Rechnungsmanagement & Zahlungen",
-      icon: <Euro size={32} />,
-      onClick: () => window.location.href = '/invoices',
-      ariaLabel: "Rechnungsmanagement öffnen",
-      badge: { text: `${stats.activeQuotes} Rechnungen`, color: "green" as const },
-      cardId: "invoices",
-      path: "/invoices",
-      iconString: "<Euro size={16} />",
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <BarChart3 size={16} />
-          <span>Rechnungen erstellen & verwalten</span>
-        </div>
-      )
-    },
-    {
-      title: "Archiv",
-      description: "Abgeschlossene Gewerke & Historie",
-      icon: <Archive size={32} />,
-      onClick: () => setShowArchive(true),
-      ariaLabel: "Archivierte Gewerke anzeigen",
-      badge: { text: "Abgeschlossen", color: "green" as const },
-      cardId: "archive",
-      path: "/archive",
-      iconString: "<Archive size={16} />",
-      children: (
-        <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-          <CheckCircle size={16} />
-          <span>Fertige Projekte einsehen</span>
-        </div>
-      )
-    }
-  ];
-
-  const dashboardCards = getDashboardCards();
+  // Dashboard-Karten entfernt - Funktionalität über Radiales Menü verfügbar
 
   // Fallback wenn nicht authentifiziert
   if (!isAuthenticated()) {
@@ -769,13 +774,20 @@ export default function ServiceProviderDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6">
       {/* Header mit Dienstleister-Informationen */}
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-3xl font-bold text-white">Dienstleister-Dashboard</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">
+              Willkommen zurück, {user?.first_name || user?.name || 'Dienstleister'}! 🔧
+            </h1>
+            <p className="text-gray-300 text-lg">
+              Hier ist dein Dashboard - entdecke neue Aufträge, verwalte deine Angebote und baue dein Geschäft aus.
+            </p>
+          </div>
           <div className="flex items-center space-x-2">
             <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-400' : 'bg-red-400'}`}></div>
             <span className="text-sm text-gray-300">{isOnline ? 'Online' : 'Offline'}</span>
           </div>
-      </div>
+        </div>
 
         {/* Dienstleister-Profil-Karte */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 transition-all duration-300 hover:bg-white/15">
@@ -833,26 +845,7 @@ export default function ServiceProviderDashboard() {
         </div>
       </div>
 
-      {/* Dashboard-Karten */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        {/* Alle Dashboard-Karten inklusive Todo-Kachel */}
-        {dashboardCards.map((card, index) => (
-          <DashboardCard
-            key={index}
-            title={card.title}
-            icon={card.icon}
-            onClick={card.onClick}
-            ariaLabel={card.ariaLabel}
-            status={isOnline ? 'online' : 'offline'}
-            badge={card.badge}
-            cardId={card.cardId}
-            path={card.path}
-            iconString={card.iconString}
-          >
-            {card.children}
-          </DashboardCard>
-        ))}
-      </div>
+      {/* Dashboard-Karten entfernt - Funktionalität jetzt über Radiales Menü */}
 
               {/* Neue Ausschreibung Modal */}
       {showTradeCreationForm && (
@@ -875,290 +868,374 @@ export default function ServiceProviderDashboard() {
         />
       )}
 
-      {/* Angebotsverfahren - Gewerke mit eigenen Angeboten */}
-      <div className="mb-8 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 backdrop-blur-xl rounded-2xl p-6 border border-blue-500/30 shadow-2xl">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl shadow-lg">
-              <FileText size={24} className="text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">Angebotsverfahren</h2>
-              <p className="text-gray-400 text-sm mt-1">
-                Gewerke für die Sie bereits Angebote abgegeben haben
-              </p>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-blue-400">
-              {geoTrades.filter(trade => hasServiceProviderQuote(trade.id)).length}
-            </div>
-            <div className="text-xs text-gray-400">Laufende Angebote</div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {geoTrades
-            .filter(trade => hasServiceProviderQuote(trade.id))
-            .map((trade) => {
-              const quoteStatus = getServiceProviderQuoteStatus(trade.id);
-              const quote = getServiceProviderQuote(trade.id);
-              
-              return (
-                <div key={trade.id} className="bg-white/5 rounded-xl p-4 border border-blue-500/20 hover:border-blue-400/40 transition-all duration-300">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-500/20 rounded-lg">
-                        {getCategoryIcon(trade.category)}
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-white text-sm">{trade.title}</h3>
-                        <p className="text-gray-400 text-xs">Projekt ID: {trade.project_id}</p>
-                      </div>
-                    </div>
-                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      quoteStatus === 'accepted' ? 'bg-green-500/20 text-green-400' :
-                      quoteStatus === 'under_review' ? 'bg-yellow-500/20 text-yellow-400' :
-                      quoteStatus === 'rejected' ? 'bg-red-500/20 text-red-400' :
-                      'bg-blue-500/20 text-blue-400'
-                    }`}>
-                      {getQuoteStatusLabel(quoteStatus || 'draft')}
-                    </div>
+      {/* Moderne Zwei-Spalten Layout: Angebotsbereich + Geo-Search */}
+      {/* Mobile: Einspaltiges Layout | Desktop: Zwei-Spalten | Expanded: Vollbild */}
+      <div className={`mb-8 transition-all duration-500 ${geoSearchExpanded ? 'fixed inset-0 z-50 bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6 overflow-y-auto' : ''}`}>
+        <div className={`transition-all duration-1000 ease-out ${
+          geoSearchExpanded 
+            ? 'max-w-7xl mx-auto' 
+            : geoSearchHovered
+            ? 'grid grid-cols-1 xl:grid-cols-4 gap-8'
+            : 'grid grid-cols-1 xl:grid-cols-2 gap-8'
+        }`}>
+          
+          {/* Linke Spalte: Angebotsverfahren / Gewonnene Ausschreibungen mit Toggle */}
+          <div className={`${geoSearchExpanded ? 'hidden' : 'space-y-6'}`}>
+            {/* Moderner Toggle-Header */}
+            <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg shadow-[#ffbd59]/20">
+                    <FileText size={24} className="text-[#2c3539]" />
                   </div>
-                  
-                  <div className="space-y-2 text-xs text-gray-300">
-                    <div className="flex justify-between">
-                      <span>Angebotssumme:</span>
-                      <span className="font-semibold text-white">
-                        {quote?.total_amount ? `${Number(quote.total_amount).toLocaleString('de-DE')} ${quote.currency || 'CHF'}` : 'N/A'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Eingereicht:</span>
-                      <span>{quote?.created_at ? new Date(quote.created_at).toLocaleDateString('de-DE') : 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Entfernung:</span>
-                      <span>{trade.distance_km ? `${trade.distance_km.toFixed(1)} km` : 'N/A'}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 flex gap-2">
-                    <button
-                      onClick={() => {
-                        setDetailTrade(trade);
-                        setShowTradeDetails(true);
-                      }}
-                      className="flex-1 px-3 py-2 bg-blue-500/20 text-blue-300 rounded-lg hover:bg-blue-500/30 transition-colors text-xs font-medium"
-                    >
-                      Details
-                    </button>
-                    {quoteStatus === 'draft' && (
-                      <button
-                        onClick={() => {
-                          setSelectedTradeForQuote(trade);
-                          setShowCostEstimateForm(true);
-                        }}
-                        className="flex-1 px-3 py-2 bg-yellow-500/20 text-yellow-300 rounded-lg hover:bg-yellow-500/30 transition-colors text-xs font-medium"
-                      >
-                        Bearbeiten
-                      </button>
-                    )}
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Angebots-Management</h2>
+                    <p className="text-gray-400 text-sm mt-1">
+                      Verwalten Sie Ihre Ausschreibungen und gewonnenen Projekte
+                    </p>
                   </div>
                 </div>
-              );
-            })}
-        </div>
-        
-        {geoTrades.filter(trade => hasServiceProviderQuote(trade.id)).length === 0 && (
-          <div className="text-center py-8">
-            <FileText size={48} className="mx-auto mb-4 text-gray-500" />
-            <h3 className="text-lg font-semibold text-gray-300 mb-2">Keine laufenden Angebote</h3>
-            <p className="text-gray-400 text-sm">
-              Sie haben noch keine Angebote für Gewerke abgegeben. Nutzen Sie die Geo-Search unten, um passende Ausschreibungen zu finden.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Gewonnene Ausschreibungen - Angenommene Angebote */}
-      <div className="mb-8 bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl rounded-2xl p-6 border border-green-500/30 shadow-2xl">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg">
-              <Award size={24} className="text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">Gewonnene Ausschreibungen</h2>
-              <p className="text-gray-400 text-sm mt-1">
-                Angenommene Angebote und aktive Projekte
-              </p>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-green-400">
-              {geoTrades.filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted').length}
-            </div>
-            <div className="text-xs text-gray-400">Gewonnene Projekte</div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {geoTrades
-            .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted')
-            .map((trade) => {
-              const quote = getServiceProviderQuote(trade.id);
-              
-              return (
-                <div key={trade.id} className="bg-white/5 rounded-xl p-4 border border-green-500/20 hover:border-green-400/40 transition-all duration-300">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-500/20 rounded-lg">
-                        {getCategoryIcon(trade.category)}
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-white text-sm">{trade.title}</h3>
-                        <p className="text-gray-400 text-xs">Projekt ID: {trade.project_id}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                      <span className="text-green-400 text-xs font-medium">Aktiv</span>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2 text-xs text-gray-300">
-                    <div className="flex justify-between">
-                      <span>Auftragswert:</span>
-                      <span className="font-semibold text-green-400">
-                        {quote?.total_amount ? `${Number(quote.total_amount).toLocaleString('de-DE')} ${quote.currency || 'CHF'}` : 'N/A'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Angenommen:</span>
-                      <span>{quote?.updated_at ? new Date(quote.updated_at).toLocaleDateString('de-DE') : 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Status:</span>
-                      <span className="text-green-400">
-                        {getStatusLabel(trade.status)}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 flex gap-2">
-                    <button
-                      onClick={() => {
-                        setDetailTrade(trade);
-                        setShowTradeDetails(true);
-                      }}
-                      className="flex-1 px-3 py-2 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition-colors text-xs font-medium"
-                    >
-                      Projekt öffnen
-                    </button>
-                    <button
-                      onClick={() => {
-                        // Navigation zu Projektdetails oder Fortschritt
-                        window.location.href = `/projects/${trade.project_id}`;
-                      }}
-                      className="px-3 py-2 bg-blue-500/20 text-blue-300 rounded-lg hover:bg-blue-500/30 transition-colors text-xs font-medium"
-                    >
-                      <ExternalLink size={14} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-        </div>
-        
-        {geoTrades.filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted').length === 0 && (
-          <div className="text-center py-8">
-            <Award size={48} className="mx-auto mb-4 text-gray-500" />
-            <h3 className="text-lg font-semibold text-gray-300 mb-2">Noch keine gewonnenen Ausschreibungen</h3>
-            <p className="text-gray-400 text-sm">
-              Sobald Ihre Angebote angenommen werden, erscheinen sie hier als aktive Projekte.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Gewerke in Ihrer Nähe - Moderne Geo-Suche */}
-      {showGeoSearch && (
-        <div className="mb-6 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl hover:shadow-[0_0_30px_rgba(255,189,89,0.15)] transition-all duration-500">
-          {/* Modern Header with Glow */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg shadow-[#ffbd59]/20">
-                <MapPin size={24} className="text-[#2c3539]" />
               </div>
-              <div>
-                <h2 className="text-xl font-bold text-white">Gewerke in Ihrer Nähe</h2>
-                <p className="text-gray-400 text-sm mt-1">
-                  {currentLocation ? (
-                    <>Finden Sie passende Dienstleister im Umkreis</>  
-                  ) : (
-                    <>Geben Sie eine Adresse ein oder nutzen Sie Ihren Standort</>  
+
+              {/* Moderner Tab-Toggle - Mobile-optimiert */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center p-1 bg-white/10 rounded-xl backdrop-blur-sm mb-6 gap-1 sm:gap-0">
+                <button
+                  onClick={() => setActiveLeftTab('bidding')}
+                  className={`flex-1 px-4 sm:px-6 py-3 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                    activeLeftTab === 'bidding'
+                      ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg shadow-blue-500/30 transform scale-[1.02]'
+                      : 'text-gray-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Gavel size={16} />
+                  <span className="hidden sm:inline">Angebotsverfahren</span>
+                  <span className="sm:hidden">Angebote</span>
+                  <div className={`ml-2 px-2 py-1 rounded-full text-xs ${
+                    activeLeftTab === 'bidding' ? 'bg-white/20 text-white' : 'bg-blue-500/20 text-blue-400'
+                  }`}>
+                    {getAllTradesWithQuotes().length}
+                  </div>
+                </button>
+                <button
+                  onClick={() => setActiveLeftTab('awarded')}
+                  className={`flex-1 px-4 sm:px-6 py-3 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                    activeLeftTab === 'awarded'
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg shadow-green-500/30 transform scale-[1.02]'
+                      : 'text-gray-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Award size={16} />
+                  <span className="hidden sm:inline">Gewonnene Projekte</span>
+                  <span className="sm:hidden">Gewonnen</span>
+                  <div className={`ml-2 px-2 py-1 rounded-full text-xs ${
+                    activeLeftTab === 'awarded' ? 'bg-white/20 text-white' : 'bg-green-500/20 text-green-400'
+                  }`}>
+                    {getAllTradesWithQuotes().filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted').length}
+                  </div>
+                </button>
+              </div>
+
+              {/* Content-Bereich mit Smooth Transition */}
+              <div className="min-h-[400px] relative">
+                {/* Angebotsverfahren Content */}
+                <div className={`absolute inset-0 transition-all duration-500 ${
+                  activeLeftTab === 'bidding' 
+                    ? 'opacity-100 transform translate-x-0' 
+                    : 'opacity-0 transform translate-x-4 pointer-events-none'
+                }`}>
+                  <div className="grid grid-cols-1 gap-4">
+                    {getAllTradesWithQuotes()
+                      .map((trade) => {
+                        const quoteStatus = getServiceProviderQuoteStatus(trade.id);
+                        const quote = getServiceProviderQuote(trade.id);
+                        
+                        return (
+                          <div key={trade.id} className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-xl p-4 border border-blue-500/20 hover:border-blue-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-500/20 rounded-lg">
+                                  {getCategoryIcon(trade.category)}
+                                </div>
+                                <div>
+                                  <h3 className="font-semibold text-white text-sm">{trade.title}</h3>
+                                  <p className="text-gray-400 text-xs">Projekt ID: {trade.project_id}</p>
+                                </div>
+                              </div>
+                              <div className={`px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm ${
+                                quoteStatus === 'accepted' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                quoteStatus === 'under_review' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                                quoteStatus === 'rejected' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                                'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                              }`}>
+                                {getQuoteStatusLabel(quoteStatus || 'draft')}
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2 text-xs text-gray-300">
+                              <div className="flex justify-between">
+                                <span>Angebotssumme:</span>
+                                <span className="font-semibold text-white">
+                                  {quote?.total_amount ? `${Number(quote.total_amount).toLocaleString('de-DE')} ${quote.currency || 'CHF'}` : 'N/A'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Eingereicht:</span>
+                                <span>{quote?.created_at ? new Date(quote.created_at).toLocaleDateString('de-DE') : 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Entfernung:</span>
+                                <span>{trade.distance_km ? `${trade.distance_km.toFixed(1)} km` : 'N/A'}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="mt-4 flex gap-2">
+                              <button
+                                onClick={() => {
+                                  setDetailTrade(trade);
+                                  setShowTradeDetails(true);
+                                }}
+                                className="flex-1 px-3 py-2 bg-blue-500/20 text-blue-300 rounded-lg hover:bg-blue-500/30 transition-colors text-xs font-medium"
+                              >
+                                Details
+                              </button>
+                              {quoteStatus === 'draft' && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedTradeForQuote(trade);
+                                    setShowCostEstimateForm(true);
+                                  }}
+                                  className="flex-1 px-3 py-2 bg-yellow-500/20 text-yellow-300 rounded-lg hover:bg-yellow-500/30 transition-colors text-xs font-medium"
+                                >
+                                  Bearbeiten
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                  
+                  {getAllTradesWithQuotes().length === 0 && (
+                    <div className="text-center py-12">
+                      <Gavel size={48} className="mx-auto mb-4 text-gray-500" />
+                      <h3 className="text-lg font-semibold text-gray-300 mb-2">Keine laufenden Angebote</h3>
+                      <p className="text-gray-400 text-sm max-w-md mx-auto">
+                        Sie haben noch keine Angebote für Gewerke abgegeben. Nutzen Sie die Geo-Search rechts, um passende Ausschreibungen zu finden.
+                      </p>
+                    </div>
                   )}
-                </p>
-              </div>
-            </div>
-            
-            {/* Toolbar: Tabs + Search Icon + Results */}
-            <div className="flex items-center gap-3">
-              {/* Tabs */}
-              <div className="flex items-center p-1 bg-white/10 rounded-xl backdrop-blur-sm">
-                <button
-                  onClick={() => setActiveTab('list')}
-                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-300 ${
-                    activeTab === 'list'
-                      ? 'bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] shadow-lg shadow-[#ffbd59]/30 transform scale-105'
-                      : 'text-white hover:text-[#ffbd59] hover:bg-white/10'
-                  }`}
-                >
-                  <List size={16} className="inline mr-2" />
-                  Liste
-                </button>
-                <button
-                  onClick={() => setActiveTab('map')}
-                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-300 ${
-                    activeTab === 'map'
-                      ? 'bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] shadow-lg shadow-[#ffbd59]/30 transform scale-105'
-                      : 'text-white hover:text-[#ffbd59] hover:bg-white/10'
-                  }`}
-                >
-                  <Map size={16} className="inline mr-2" />
-                  Karte
-                </button>
-              </div>
+                </div>
 
-              {/* Search Icon Button */}
-              <button
-                onClick={performGeoSearch}
-                disabled={geoLoading || !currentLocation}
-                title="Gewerke suchen"
-                className="p-2.5 rounded-lg bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] hover:from-[#ffa726] hover:to-[#ff9800] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-md hover:shadow-xl"
-              >
-                {geoLoading ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#2c3539]"></div>
-                ) : (
-                  <Search size={18} className="" />
-                )}
-              </button>
-
-              {/* Results inline */}
-              <div className="hidden md:flex items-center text-xs bg-white/10 border border-white/20 text-white rounded-lg px-2 py-1">
-                {(() => {
-                  const tradeIds = new Set([...geoTrades.map(t => t.id), ...trades.map(t => t.id)]);
-                  return (
-                    <span>
-                      <span className="text-emerald-400 font-semibold mr-1">{tradeIds.size}</span>
-                      gefunden{currentLocation ? ` · ${radiusKm}km` : ''}
-                    </span>
-                  );
-                })()}
+                {/* Gewonnene Ausschreibungen Content */}
+                <div className={`absolute inset-0 transition-all duration-500 ${
+                  activeLeftTab === 'awarded' 
+                    ? 'opacity-100 transform translate-x-0' 
+                    : 'opacity-0 transform -translate-x-4 pointer-events-none'
+                }`}>
+                  <div className="grid grid-cols-1 gap-4">
+                    {getAllTradesWithQuotes()
+                      .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted')
+                      .map((trade) => {
+                        const quote = getServiceProviderQuote(trade.id);
+                        
+                        return (
+                          <div key={trade.id} className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl p-4 border border-green-500/20 hover:border-green-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-green-500/20 rounded-lg">
+                                  {getCategoryIcon(trade.category)}
+                                </div>
+                                <div>
+                                  <h3 className="font-semibold text-white text-sm">{trade.title}</h3>
+                                  <p className="text-gray-400 text-xs">Projekt ID: {trade.project_id}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                <span className="text-green-400 text-xs font-medium">Aktiv</span>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2 text-xs text-gray-300">
+                              <div className="flex justify-between">
+                                <span>Auftragswert:</span>
+                                <span className="font-semibold text-green-400">
+                                  {quote?.total_amount ? `${Number(quote.total_amount).toLocaleString('de-DE')} ${quote.currency || 'CHF'}` : 'N/A'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Angenommen:</span>
+                                <span>{quote?.updated_at ? new Date(quote.updated_at).toLocaleDateString('de-DE') : 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Status:</span>
+                                <span className="text-green-400">
+                                  {getStatusLabel(trade.status)}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="mt-4 flex gap-2">
+                              <button
+                                onClick={() => {
+                                  setDetailTrade(trade);
+                                  setShowTradeDetails(true);
+                                }}
+                                className="flex-1 px-3 py-2 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition-colors text-xs font-medium"
+                              >
+                                Projekt öffnen
+                              </button>
+                              <button
+                                onClick={() => {
+                                  // Navigation zu Projektdetails oder Fortschritt
+                                  window.location.href = `/projects/${trade.project_id}`;
+                                }}
+                                className="px-3 py-2 bg-blue-500/20 text-blue-300 rounded-lg hover:bg-blue-500/30 transition-colors text-xs font-medium"
+                              >
+                                <ExternalLink size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                  
+                  {getAllTradesWithQuotes().filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted').length === 0 && (
+                    <div className="text-center py-12">
+                      <Award size={48} className="mx-auto mb-4 text-gray-500" />
+                      <h3 className="text-lg font-semibold text-gray-300 mb-2">Noch keine gewonnenen Ausschreibungen</h3>
+                      <p className="text-gray-400 text-sm max-w-md mx-auto">
+                        Sobald Ihre Angebote angenommen werden, erscheinen sie hier als aktive Projekte.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Rechte Spalte: Erweiterte Geo-Search mit Hover-Vergrößerung */}
+          <div className={`transition-all duration-1000 ease-out ${
+            geoSearchExpanded ? 'col-span-2' : geoSearchHovered ? 'col-span-3' : ''
+          }`}>
+            {/* Geo-Search Container */}
+            <div 
+              className={`bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl transition-all duration-1000 ease-out ${
+                geoSearchHovered 
+                  ? 'p-8 shadow-[0_0_40px_rgba(255,189,89,0.25)] border-[#ffbd59]/30 scale-[1.01]' 
+                  : 'p-6 hover:shadow-[0_0_30px_rgba(255,189,89,0.15)]'
+              }`}
+              onMouseEnter={() => setGeoSearchHovered(true)}
+              onMouseLeave={() => setGeoSearchHovered(false)}
+            >
+              {/* Header mit Expand-Button */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg shadow-[#ffbd59]/20">
+                    <MapPin size={24} className="text-[#2c3539]" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Gewerke in Ihrer Nähe</h2>
+                    <p className="text-gray-400 text-sm mt-1">
+                      {currentLocation ? (
+                        <>Finden Sie passende Ausschreibungen im Umkreis</>  
+                      ) : (
+                        <>Geben Sie eine Adresse ein oder nutzen Sie Ihren Standort</>  
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Expand/Collapse Button - Mobile-optimiert */}
+                <div className="flex items-center gap-2 sm:gap-3">
+                  {geoSearchExpanded && (
+                    <button
+                      onClick={() => setGeoSearchExpanded(false)}
+                      className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors text-sm font-medium"
+                      title="Geo-Search verkleinern"
+                    >
+                      <XCircle size={16} />
+                      <span className="hidden sm:inline">Schließen</span>
+                    </button>
+                  )}
+                  {!geoSearchExpanded && (
+                    <button
+                      onClick={() => setGeoSearchExpanded(true)}
+                      className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] rounded-lg hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 text-sm font-medium shadow-lg hover:shadow-xl"
+                      title="Geo-Search auf Vollbild erweitern"
+                    >
+                      <ExternalLink size={16} />
+                      <span className="hidden sm:inline">Erweitern</span>
+                    </button>
+                  )}
+                  
+                  {/* Results Badge - Mobile angepasst */}
+                  <div className="flex items-center text-xs bg-white/10 border border-white/20 text-white rounded-lg px-2 sm:px-3 py-1">
+                    <span>
+                      <span className="text-emerald-400 font-semibold mr-1">
+                        {(() => {
+                          const tradeIds = new Set([...geoTrades.map(t => t.id), ...trades.map(t => t.id)]);
+                          return tradeIds.size;
+                        })()}
+                      </span>
+                      <span className="hidden sm:inline">gefunden{currentLocation ? ` · ${radiusKm}km` : ''}</span>
+                      <span className="sm:hidden">Ergebnisse</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              {/* Toolbar: Tabs + Search Icon */}
+              <div className={`flex items-center justify-between mb-4 transition-all duration-1000 ease-out ${
+                geoSearchHovered ? 'mb-6' : ''
+              }`}>
+                <div className="flex items-center gap-3">
+                  {/* Tabs - Einheitliches Design wie Angebots-Management */}
+                  <div className={`flex items-center p-1 bg-white/10 rounded-xl backdrop-blur-sm transition-all duration-1000 ease-out ${
+                    geoSearchHovered ? 'scale-105' : ''
+                  }`}>
+                    <button
+                      onClick={() => setActiveTab('list')}
+                      className={`flex-1 px-4 sm:px-6 py-3 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                        activeTab === 'list'
+                          ? 'bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] shadow-lg shadow-[#ffbd59]/30 transform scale-[1.02]'
+                          : 'text-gray-300 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <List size={geoSearchHovered ? 18 : 16} />
+                      <span>Liste</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('map')}
+                      className={`flex-1 px-4 sm:px-6 py-3 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                        activeTab === 'map'
+                          ? 'bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] shadow-lg shadow-[#ffbd59]/30 transform scale-[1.02]'
+                          : 'text-gray-300 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <Map size={geoSearchHovered ? 18 : 16} />
+                      <span>Karte</span>
+                    </button>
+                  </div>
+
+                  {/* Search Icon Button */}
+                  <button
+                    onClick={performGeoSearch}
+                    disabled={geoLoading || !currentLocation}
+                    title="Gewerke suchen"
+                    className={`rounded-lg bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] hover:from-[#ffa726] hover:to-[#ff9800] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-1000 ease-out shadow-md hover:shadow-xl ${
+                      geoSearchHovered ? 'p-3 scale-110' : 'p-2.5'
+                    }`}
+                  >
+                    {geoLoading ? (
+                      <div className={`animate-spin rounded-full border-b-2 border-[#2c3539] ${
+                        geoSearchHovered ? 'h-6 w-6' : 'h-5 w-5'
+                      }`}></div>
+                    ) : (
+                      <Search size={geoSearchHovered ? 20 : 18} className="" />
+                    )}
+                  </button>
+                </div>
+              </div>
           
           {/* Modern Location Input with Glow */}
           <div className="bg-white/5 rounded-xl p-4 mb-4 border border-white/10 hover:border-[#ffbd59]/30 transition-all duration-300">
@@ -1454,6 +1531,16 @@ export default function ServiceProviderDashboard() {
                         {/* Hover Glow Effect */}
                         <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/0 to-[#ffa726]/0 group-hover:from-[#ffbd59]/5 group-hover:to-[#ffa726]/5 transition-all duration-500 pointer-events-none"></div>
                         
+                        {/* Quote Status Indicator - Left Border */}
+                        {hasQuote && (
+                          <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl ${
+                            quoteStatus === 'accepted' ? 'bg-gradient-to-b from-green-400 to-green-600' :
+                            quoteStatus === 'under_review' ? 'bg-gradient-to-b from-yellow-400 to-yellow-600' :
+                            quoteStatus === 'rejected' ? 'bg-gradient-to-b from-red-400 to-red-600' :
+                            'bg-gradient-to-b from-blue-400 to-blue-600'
+                          }`}></div>
+                        )}
+                        
                         {/* Status Badge Overlay - Top Right */}
                         {hasQuote && (
                           <div className="absolute top-3 right-3 z-20">
@@ -1505,8 +1592,29 @@ export default function ServiceProviderDashboard() {
                               {getCategoryIcon(trade.category || '')}
                             </div>
                             <div>
-                              <h3 className="text-lg font-bold text-white group-hover:text-[#ffbd59] transition-all duration-300">
+                              <h3 className="text-lg font-bold text-white group-hover:text-[#ffbd59] transition-all duration-300 flex items-center gap-2">
                                 {trade.title}
+                                {hasQuote && (
+                                  <div className="flex items-center gap-1">
+                                    <div className={`w-2 h-2 rounded-full ${
+                                      quoteStatus === 'accepted' ? 'bg-green-400 animate-pulse' :
+                                      quoteStatus === 'under_review' ? 'bg-yellow-400 animate-pulse' :
+                                      quoteStatus === 'rejected' ? 'bg-red-400' :
+                                      'bg-blue-400 animate-pulse'
+                                    }`}></div>
+                                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                      quoteStatus === 'accepted' ? 'bg-green-500/20 text-green-400' :
+                                      quoteStatus === 'under_review' ? 'bg-yellow-500/20 text-yellow-400' :
+                                      quoteStatus === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                                      'bg-blue-500/20 text-blue-400'
+                                    }`}>
+                                      {quoteStatus === 'accepted' ? '✓ Gewonnen' :
+                                       quoteStatus === 'under_review' ? '⏳ In Prüfung' :
+                                       quoteStatus === 'rejected' ? '✗ Abgelehnt' :
+                                       '📋 Angebot abgegeben'}
+                                    </span>
+                                  </div>
+                                )}
                               </h3>
                               <p className="text-gray-300 text-sm mt-1">{trade.description}</p>
                               {trade.isGeoResult && trade.address_street && (
@@ -1621,7 +1729,11 @@ export default function ServiceProviderDashboard() {
             </div>
           ) : (
                 /* Modern Map View with Glow */
-                <div className="h-[50vh] min-h-[400px] rounded-2xl overflow-hidden border border-white/20 shadow-2xl hover:shadow-[0_0_40px_rgba(255,189,89,0.2)] transition-all duration-500">
+                <div className={`rounded-2xl overflow-hidden border border-white/20 shadow-2xl transition-all duration-1000 ease-out ${
+                  geoSearchHovered 
+                    ? 'h-[60vh] min-h-[500px] shadow-[0_0_50px_rgba(255,189,89,0.3)] border-[#ffbd59]/40' 
+                    : 'h-[50vh] min-h-[400px] hover:shadow-[0_0_40px_rgba(255,189,89,0.2)]'
+                }`}>
                   <TradeMap
                     currentLocation={currentLocation}
                     trades={geoTrades}
@@ -1629,18 +1741,48 @@ export default function ServiceProviderDashboard() {
                     onTradeClick={(trade) => {
                       handleTradeDetails(trade);
                     }}
+                    isExpanded={geoSearchHovered}
+                    hasQuoteForTrade={hasServiceProviderQuote}
+                    getQuoteStatusForTrade={getServiceProviderQuoteStatus}
                   />
                 </div>
           )}
 
-          {/* Error-Anzeige */}
-          {geoError && (
-            <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-3 py-2 rounded-lg text-sm mt-4">
-              {geoError}
+              {/* Error-Anzeige */}
+              {geoError && (
+                <div className="bg-red-500/20 border border-red-500/30 text-red-300 px-3 py-2 rounded-lg text-sm mt-4">
+                  {geoError}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
-      )}
+      </div>
+
+      {/* Kanban-Board für To-Do Aufgaben */}
+      <div className="mb-8">
+        <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="p-3 bg-gradient-to-br from-[#10B981] to-[#059669] rounded-xl shadow-lg shadow-[#10B981]/20">
+              <CheckSquare size={24} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">To-Do Aufgaben</h2>
+              <p className="text-gray-400 text-sm mt-1">
+                Verwalten Sie Ihre Aufgaben im Kanban-Board
+              </p>
+            </div>
+          </div>
+          
+          {/* Kanban Board Container */}
+          <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+            <KanbanBoard 
+              showOnlyAssignedToMe={true}
+              showArchived={false}
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Dienstleister-Aktionen und Tipps */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1747,20 +1889,36 @@ export default function ServiceProviderDashboard() {
         }}
         onCreateQuote={handleCreateQuote}
         existingQuotes={(() => {
-          const quotes = detailTrade ? (allTradeQuotes[detailTrade.id] || []) : [];
-          console.log('🔍 DEBUG: Übergabe an TradeDetailsModal', {
-            tradeId: detailTrade?.id,
-            quotesLength: quotes.length,
-            quotes: quotes.map(q => ({
+          if (!detailTrade) return [];
+          
+          // Kombiniere allTradeQuotes und serviceProviderQuotes
+          const tradeQuotes = allTradeQuotes[detailTrade.id] || [];
+          const serviceQuotes = serviceProviderQuotes.filter(q => q.milestone_id === detailTrade.id);
+          const allQuotes = [...tradeQuotes, ...serviceQuotes];
+          
+          // Entferne Duplikate basierend auf ID
+          const uniqueQuotes = allQuotes.filter((quote, index, self) => 
+            index === self.findIndex(q => q.id === quote.id)
+          );
+          
+          console.log('🔍 DEBUG: Erweiterte Übergabe an TradeDetailsModal', {
+            tradeId: detailTrade.id,
+            tradeQuotesLength: tradeQuotes.length,
+            serviceQuotesLength: serviceQuotes.length,
+            totalQuotesLength: uniqueQuotes.length,
+            quotes: uniqueQuotes.map(q => ({
               id: q.id,
               service_provider_id: q.service_provider_id,
               service_provider_id_type: typeof q.service_provider_id,
-              status: q.status
+              status: q.status,
+              title: q.title,
+              hasNewFields: !!(q.quote_number || q.qualifications || q.technical_approach)
             })),
             userId: user?.id,
             userIdType: typeof user?.id
           });
-          return quotes;
+          
+          return uniqueQuotes;
         })()}
       />
 
@@ -1812,6 +1970,45 @@ export default function ServiceProviderDashboard() {
           onClose={() => setShowInvoiceManagement(false)}
         />
       )}
+
+      {/* Radiales Menü für Dienstleister-Navigation */}
+      <RadialMenu
+        items={[
+          {
+            id: "tasks",
+            label: "To Do",
+            icon: <CheckSquare size={24} />,
+            onSelect: () => navigate('/tasks'),
+            color: "#10B981",
+            description: "Aufgaben & Termine verwalten"
+          },
+          {
+            id: "documents",
+            label: "Docs",
+            icon: <FileText size={24} />,
+            onSelect: () => navigate('/documents'),
+            color: "#3B82F6",
+            description: "Dokumenten-Upload & Verwaltung"
+          },
+          {
+            id: "invoices",
+            label: "Rechnungen",
+            icon: <Euro size={24} />,
+            onSelect: () => navigate('/invoices'),
+            color: "#059669",
+            description: "Rechnungsmanagement"
+          },
+          {
+            id: "archive",
+            label: "Archiv",
+            icon: <Archive size={24} />,
+            onSelect: () => setShowArchive(true),
+            color: "#6B7280",
+            description: "Abgeschlossene Projekte"
+          }
+        ]}
+        showTooltips={true}
+      />
     </div>
   );
 } 

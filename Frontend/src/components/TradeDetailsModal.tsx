@@ -38,6 +38,7 @@ import { appointmentService, type AppointmentResponse } from '../api/appointment
 import ServiceProviderRating from './ServiceProviderRating';
 import InvoiceModal from './InvoiceModal';
 import FinalAcceptanceModal from './FinalAcceptanceModal';
+import DocumentDebugger from './DocumentDebugger';
 // import FullDocumentViewer from './DocumentViewer';
 import { updateMilestone } from '../api/milestoneService';
 
@@ -1120,20 +1121,23 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
 
     // Lade das Angebot des aktuellen Dienstleisters aus existingQuotes
     useEffect(() => {
-      if (isOpen && !isBautraeger() && user?.id && existingQuotes) {
+      if (isOpen && !isBautraeger() && user?.id) {
         setUserQuoteLoading(true);
         
         console.log('🔍 DEBUG: Suche nach Benutzer-Quote', {
           userId: user.id,
           userIdType: typeof user.id,
           userObject: user,
-          existingQuotesLength: existingQuotes.length,
-          existingQuotes: existingQuotes.map(q => ({
+          existingQuotesLength: existingQuotes?.length || 0,
+          existingQuotes: (existingQuotes || []).map(q => ({
             id: q.id,
             service_provider_id: q.service_provider_id,
             service_provider_id_type: typeof q.service_provider_id,
             status: q.status,
-            title: q.title
+            title: q.title,
+            quote_number: q.quote_number,
+            qualifications: q.qualifications,
+            technical_approach: q.technical_approach
           }))
         });
         
@@ -1156,11 +1160,19 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         
         // Suche das Quote des aktuellen Benutzers in den existingQuotes
         // Verwende die erweiterte isUserQuote Funktion für robuste Erkennung
-        const foundUserQuote = existingQuotes.find(q => isUserQuote(q, user));
+        const foundUserQuote = (existingQuotes || []).find(q => isUserQuote(q, user));
         
         if (foundUserQuote) {
           setUserQuote(foundUserQuote);
-          console.log('🔍 Benutzer-Quote aus existingQuotes gefunden:', foundUserQuote);
+          console.log('✅ Benutzer-Quote aus existingQuotes gefunden:', {
+            id: foundUserQuote.id,
+            title: foundUserQuote.title,
+            status: foundUserQuote.status,
+            quote_number: foundUserQuote.quote_number,
+            qualifications: foundUserQuote.qualifications,
+            technical_approach: foundUserQuote.technical_approach,
+            hasNewFields: !!(foundUserQuote.quote_number || foundUserQuote.qualifications)
+          });
         } else {
           setUserQuote(null);
           console.log('ℹ️ Kein Angebot für aktuellen Benutzer in existingQuotes gefunden');
@@ -2136,6 +2148,140 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                         </div>
                       )}
 
+                      {/* Angebotsnummer */}
+                      {userQuote.quote_number && (
+                        <div className="bg-black/20 rounded-lg p-4 border border-green-500/20">
+                          <h5 className="text-white font-semibold mb-2 flex items-center gap-2">
+                            <Receipt size={16} className="text-green-400" />
+                            Angebotsnummer
+                          </h5>
+                          <div className="text-white font-mono text-lg">
+                            {userQuote.quote_number}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Qualifikationen und Referenzen */}
+                      {(userQuote.qualifications || userQuote.references || userQuote.certifications) && (
+                        <div className="bg-black/20 rounded-lg p-4 border border-green-500/20">
+                          <h5 className="text-white font-semibold mb-3 flex items-center gap-2">
+                            <Star size={16} className="text-green-400" />
+                            Qualifikationen & Referenzen
+                          </h5>
+                          <div className="space-y-4">
+                            {userQuote.qualifications && (
+                              <div>
+                                <div className="text-sm text-green-300 mb-2">Qualifikationen</div>
+                                <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
+                                  {userQuote.qualifications}
+                                </div>
+                              </div>
+                            )}
+                            {userQuote.references && (
+                              <div>
+                                <div className="text-sm text-green-300 mb-2">Referenzen</div>
+                                <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
+                                  {userQuote.references}
+                                </div>
+                              </div>
+                            )}
+                            {userQuote.certifications && (
+                              <div>
+                                <div className="text-sm text-green-300 mb-2">Zertifizierungen</div>
+                                <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
+                                  {userQuote.certifications}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Technische Details */}
+                      {(userQuote.technical_approach || userQuote.quality_standards || userQuote.safety_measures || userQuote.environmental_compliance) && (
+                        <div className="bg-black/20 rounded-lg p-4 border border-green-500/20">
+                          <h5 className="text-white font-semibold mb-3 flex items-center gap-2">
+                            <Settings size={16} className="text-green-400" />
+                            Technische Details
+                          </h5>
+                          <div className="space-y-4">
+                            {userQuote.technical_approach && (
+                              <div>
+                                <div className="text-sm text-green-300 mb-2">Technischer Ansatz</div>
+                                <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
+                                  {userQuote.technical_approach}
+                                </div>
+                              </div>
+                            )}
+                            {userQuote.quality_standards && (
+                              <div>
+                                <div className="text-sm text-green-300 mb-2">Qualitätsstandards</div>
+                                <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
+                                  {userQuote.quality_standards}
+                                </div>
+                              </div>
+                            )}
+                            {userQuote.safety_measures && (
+                              <div>
+                                <div className="text-sm text-green-300 mb-2">Sicherheitsmaßnahmen</div>
+                                <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
+                                  {userQuote.safety_measures}
+                                </div>
+                              </div>
+                            )}
+                            {userQuote.environmental_compliance && (
+                              <div>
+                                <div className="text-sm text-green-300 mb-2">Umwelt-Compliance</div>
+                                <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
+                                  {userQuote.environmental_compliance}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Risikobewertung und Notfallplan */}
+                      {(userQuote.risk_assessment || userQuote.contingency_plan) && (
+                        <div className="bg-black/20 rounded-lg p-4 border border-green-500/20">
+                          <h5 className="text-white font-semibold mb-3 flex items-center gap-2">
+                            <AlertTriangle size={16} className="text-green-400" />
+                            Risikomanagement
+                          </h5>
+                          <div className="space-y-4">
+                            {userQuote.risk_assessment && (
+                              <div>
+                                <div className="text-sm text-green-300 mb-2">Risikobewertung</div>
+                                <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
+                                  {userQuote.risk_assessment}
+                                </div>
+                              </div>
+                            )}
+                            {userQuote.contingency_plan && (
+                              <div>
+                                <div className="text-sm text-green-300 mb-2">Notfallplan</div>
+                                <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
+                                  {userQuote.contingency_plan}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Zusätzliche Notizen */}
+                      {userQuote.additional_notes && (
+                        <div className="bg-black/20 rounded-lg p-4 border border-green-500/20">
+                          <h5 className="text-white font-semibold mb-3 flex items-center gap-2">
+                            <StickyNote size={16} className="text-green-400" />
+                            Zusätzliche Notizen
+                          </h5>
+                          <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
+                            {userQuote.additional_notes}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Dokumente */}
                       {(userQuote.pdf_upload_path || userQuote.additional_documents) && (
                         <div className="bg-black/20 rounded-lg p-4 border border-green-500/20">
@@ -2492,10 +2638,18 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       </button>
                     </div>
                   ) : (
-                    <TradeDocumentViewer 
-                      documents={loadedDocuments.length > 0 ? loadedDocuments : (trade?.documents || [])} 
-                      existingQuotes={existingQuotes} 
-                    />
+                    <>
+                      <DocumentDebugger 
+                        loadedDocuments={loadedDocuments}
+                        trade={trade}
+                        documentsLoading={documentsLoading}
+                        documentsError={documentsError}
+                      />
+                      <TradeDocumentViewer 
+                        documents={loadedDocuments.length > 0 ? loadedDocuments : (trade?.documents || [])} 
+                        existingQuotes={existingQuotes} 
+                      />
+                    </>
                   )}
                 </div>
               )}
