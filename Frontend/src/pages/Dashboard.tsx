@@ -1578,8 +1578,8 @@ export default function Dashboard() {
                 <span className="text-sm text-gray-400">Aktuelles Projekt</span>
               </div>
               
-              {/* Prominente, zentrierte Projektnavigation */}
-              <div className="flex justify-center mb-4">
+              {/* Desktop: Prominente, zentrierte Projektnavigation */}
+              <div className="hidden md:flex justify-center mb-4">
                 <div className="inline-flex items-center gap-4 px-6 py-3 rounded-2xl bg-gradient-to-r from-white/10 to-white/5 border border-[#ffbd59]/50 shadow-lg shadow-[#ffbd59]/20 backdrop-blur-lg">
                   <button
                     onClick={goPrevProject}
@@ -1617,6 +1617,41 @@ export default function Dashboard() {
                     <ChevronRight size={20} className="text-[#ffbd59]" />
                   </button>
                 </div>
+              </div>
+
+              {/* Mobile: Minimale transparente Pfeile + Swipe */}
+              <div className="md:hidden relative mb-4">
+                {/* Linker Pfeil */}
+                {canGoPrev && (
+                  <button
+                    onClick={goPrevProject}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-all duration-200"
+                    title="Vorheriges Projekt"
+                  >
+                    <ChevronLeft size={24} className="text-white/80" />
+                  </button>
+                )}
+                
+                {/* Zentraler Indikator */}
+                <div className="text-center py-2">
+                  <div className="text-sm font-medium text-[#ffbd59]">
+                    {selectedProjectIndex + 1} / {projects.length}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    Wischen zum Wechseln
+                  </div>
+                </div>
+                
+                {/* Rechter Pfeil */}
+                {canGoNext && (
+                  <button
+                    onClick={goNextProject}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-all duration-200"
+                    title="Nächstes Projekt"
+                  >
+                    <ChevronRight size={24} className="text-white/80" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1857,38 +1892,34 @@ export default function Dashboard() {
 
         
 
-      {/* Archiv-Zugang */}
-      {selectedProject && (
-        <div className="mb-6">
-          <div className="flex justify-end">
-            <button
-              onClick={() => navigate('/archive')}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-600/20 hover:bg-gray-600/30 text-gray-300 hover:text-white rounded-lg transition-all duration-200 border border-gray-500/30 hover:border-gray-400/50"
-              title="Zum Archiv - Abgeschlossene Ausschreibungen anzeigen"
-            >
-              <Archive size={16} />
-              <span className="text-sm font-medium">Archiv</span>
-            </button>
-          </div>
-        </div>
-      )}
+
 
       {/* Gewerke für aktuelles Projekt */}
       {selectedProject && (
         <div className="mb-8" data-section="trades">
-          {/* Header mit Gewerk-erstellen Button */}
+          {/* Header mit Buttons in einer Zeile */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
               <div className="w-3 h-3 bg-[#ffbd59] rounded-full"></div>
               <span className="text-lg font-semibold text-white">Ausschreibungen</span>
             </div>
-            <button
-              onClick={handleCreateTrade}
-              className="px-4 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition-colors flex items-center gap-2"
-            >
-              <Plus size={18} />
-              Neue Ausschreibung
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/archive')}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600/20 hover:bg-gray-600/30 text-gray-300 hover:text-white rounded-lg transition-all duration-200 border border-gray-500/30 hover:border-gray-400/50"
+                title="Zum Archiv - Abgeschlossene Ausschreibungen anzeigen"
+              >
+                <Archive size={16} />
+                <span className="text-sm font-medium">Archiv</span>
+              </button>
+              <button
+                onClick={handleCreateTrade}
+                className="px-4 py-2 bg-[#ffbd59] text-[#3d4952] rounded-lg font-semibold hover:bg-[#ffa726] transition-colors flex items-center gap-2"
+              >
+                <Plus size={18} />
+                Neue Ausschreibung
+              </button>
+            </div>
           </div>
           
           <TradesCard

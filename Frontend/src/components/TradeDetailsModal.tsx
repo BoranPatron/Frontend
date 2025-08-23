@@ -38,7 +38,6 @@ import { appointmentService, type AppointmentResponse } from '../api/appointment
 import ServiceProviderRating from './ServiceProviderRating';
 import InvoiceModal from './InvoiceModal';
 import FinalAcceptanceModal from './FinalAcceptanceModal';
-import DocumentDebugger from './DocumentDebugger';
 // import FullDocumentViewer from './DocumentViewer';
 import { updateMilestone } from '../api/milestoneService';
 
@@ -2638,18 +2637,10 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       </button>
                     </div>
                   ) : (
-                    <>
-                      <DocumentDebugger 
-                        loadedDocuments={loadedDocuments}
-                        trade={trade}
-                        documentsLoading={documentsLoading}
-                        documentsError={documentsError}
-                      />
-                      <TradeDocumentViewer 
-                        documents={loadedDocuments.length > 0 ? loadedDocuments : (trade?.documents || [])} 
-                        existingQuotes={existingQuotes} 
-                      />
-                    </>
+                    <TradeDocumentViewer 
+                      documents={loadedDocuments.length > 0 ? loadedDocuments : (trade?.documents || [])} 
+                      existingQuotes={existingQuotes} 
+                    />
                   )}
                 </div>
               )}
