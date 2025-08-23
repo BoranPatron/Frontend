@@ -245,7 +245,7 @@ export default function AppointmentResponseTracker({
           <Calendar size={20} className="text-[#ffbd59]" />
           <h3 className="text-lg font-semibold text-white">Terminantworten</h3>
         </div>
-        <p className="text-gray-400 text-sm">Keine Besichtigungstermine für dieses Gewerk</p>
+        <p className="text-gray-400 text-sm">Keine Besichtigungstermine für diese Ausschreibung</p>
       </div>
     );
   }

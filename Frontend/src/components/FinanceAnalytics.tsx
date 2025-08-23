@@ -483,7 +483,7 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
         labels: ['Keine Daten'],
         datasets: [
           {
-            label: 'Kosten nach Gewerken',
+            label: 'Kosten nach Ausschreibungen',
             data: [0],
             backgroundColor: ['rgba(255, 189, 89, 0.9)'],
             borderWidth: 3,
@@ -502,7 +502,7 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
         labels: ['Keine Daten'],
         datasets: [
           {
-            label: 'Kosten nach Gewerken',
+            label: 'Kosten nach Ausschreibungen',
             data: [0],
             backgroundColor: ['rgba(255, 189, 89, 0.9)'],
             borderWidth: 3,

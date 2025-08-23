@@ -379,7 +379,7 @@ export default function GeoSearch() {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-[#ffbd59] mb-2">Geo-basierte Umkreissuche</h1>
-          <p className="text-gray-300">Finden Sie Gewerke und Projekte in Ihrer Nähe</p>
+          <p className="text-gray-300">Finden Sie Ausschreibungen und Projekte in Ihrer Nähe</p>
         </div>
 
         {/* Suchbereich */}
@@ -454,7 +454,7 @@ export default function GeoSearch() {
                 onChange={(e) => setSearchMode(e.target.value as 'trades' | 'projects')}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
               >
-                <option value="trades">Gewerke</option>
+                <option value="trades">Ausschreibungen</option>
                 <option value="projects">Projekte</option>
               </select>
             </div>
@@ -639,7 +639,7 @@ export default function GeoSearch() {
           <div className="bg-white/5 backdrop-blur-sm rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-[#ffbd59]">
-                {filteredTrades.length} Gewerke gefunden
+                {filteredTrades.length} Ausschreibungen gefunden
               </h2>
               <div className="text-sm text-gray-300">
                 Radius: {radiusKm} km
@@ -891,7 +891,7 @@ export default function GeoSearch() {
           <div className="bg-white/5 backdrop-blur-sm rounded-lg p-6 text-center">
             <Search size={48} className="text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-300 mb-2">Keine Ergebnisse</h3>
-            <p className="text-gray-400">Keine Gewerke entsprechen den aktuellen Filtern.</p>
+            <p className="text-gray-400">Keine Ausschreibungen entsprechen den aktuellen Filtern.</p>
           </div>
         )}
 

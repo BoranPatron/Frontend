@@ -416,7 +416,7 @@ export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
                 <thead className="bg-gradient-to-r from-[#1f2a33] to-[#2c3539] text-xs uppercase border border-white/10">
                   <tr>
                     <th className="px-3 py-2 text-[#ffbd59]">Erstellt</th>
-                    <th className="px-3 py-2 text-[#ffbd59]">Gewerk</th>
+                    <th className="px-3 py-2 text-[#ffbd59]">Ausschreibung</th>
                     <th className="px-3 py-2 text-[#ffbd59]">Dienstleister</th>
                     <th className="px-3 py-2 text-right text-[#ffbd59]">Betrag</th>
                   </tr>

@@ -264,8 +264,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             <FileText size={48} className="text-gray-500 mx-auto mb-3 opacity-50" />
             <p className="text-gray-400 text-sm">
               {isBautraeger() 
-                ? 'Keine Dokumente fÃ¼r dieses Gewerk vorhanden' 
-                : 'Keine Dokumente fÃ¼r dieses Gewerk freigegeben'
+                ? 'Keine Dokumente für diese Ausschreibung vorhanden' 
+                : 'Keine Dokumente für diese Ausschreibung freigegeben'
               }
             </p>
             <p className="text-gray-500 text-xs mt-1">
@@ -1299,7 +1299,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       const response = await apiCall(`/milestones/${trade?.id}/progress/completion`, {
         method: 'POST',
         body: JSON.stringify({
-          message: 'Gewerk fertiggestellt. Bitte um Abnahme.',
+          message: 'Ausschreibung fertiggestellt. Bitte um Abnahme.',
           update_type: 'completion'
         })
       });
@@ -1329,7 +1329,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         method: 'POST',
         body: JSON.stringify({
           accepted,
-          message: message || (accepted ? 'Gewerk abgenommen.' : 'Nachbesserung erforderlich.'),
+          message: message || (accepted ? 'Ausschreibung abgenommen.' : 'Nachbesserung erforderlich.'),
           revision_deadline: deadline
         })
       });
@@ -1388,7 +1388,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   const hasAccepted = (existingQuotes || []).some(q => String(q.status).toLowerCase() === 'accepted');
                   const hasAnyQuote = (existingQuotes || []).length > 0;
                   const disabled = hasAnyQuote;
-                  const title = hasAccepted ? 'Bearbeiten nicht mÃ¶glich, Angebot wurde bereits angenommen' : (hasAnyQuote ? 'Bearbeiten nicht mÃ¶glich, es liegen bereits Angebote vor' : 'Gewerk bearbeiten');
+                  const title = hasAccepted ? 'Bearbeiten nicht mÃ¶glich, Angebot wurde bereits angenommen' : (hasAnyQuote ? 'Bearbeiten nicht mÃ¶glich, es liegen bereits Angebote vor' : 'Ausschreibung bearbeiten');
                   return (
                     <button
                       onClick={() => { if (!disabled) { setIsEditing(true); setEditForm({ title: trade.title || '', description: trade.description || '', category: (trade as any).category || '', priority: (trade as any).priority || 'medium', planned_date: (trade as any).planned_date || '', notes: (trade as any).notes || '', requires_inspection: (trade as any).requires_inspection || false }); }}}
@@ -1718,7 +1718,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           {/* Edit Modal Inline */}
           {isEditing && (
             <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
-              <h3 className="text-white font-semibold mb-3">Gewerk bearbeiten</h3>
+              <h3 className="text-white font-semibold mb-3">Ausschreibung bearbeiten</h3>
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
@@ -1745,7 +1745,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                     setIsEditing(false);
                   } catch (err) {
                     console.error('âŒ Fehler beim Aktualisieren des Gewerks:', err);
-                    alert('Fehler beim Aktualisieren des Gewerks');
+                    alert('Fehler beim Aktualisieren der Ausschreibung');
                   } finally {
                     setIsUpdatingTrade(false);
                   }
@@ -2450,7 +2450,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                     <FileText size={48} className="mx-auto mb-4 text-gray-500" />
                     <h3 className="text-lg font-semibold text-gray-300 mb-2">Keine Angebote vorhanden</h3>
                     <p className="text-gray-400 text-sm">
-                      Für dieses Gewerk sind noch keine Angebote eingegangen.
+                      Für diese Ausschreibung sind noch keine Angebote eingegangen.
                     </p>
                   </div>
                 )}
@@ -2623,9 +2623,9 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   // Rechnung erstellen
                   <div className="space-y-3">
                     <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
-                      <h4 className="text-green-300 font-medium mb-2">Gewerk erfolgreich abgenommen</h4>
+                      <h4 className="text-green-300 font-medium mb-2">Ausschreibung erfolgreich abgenommen</h4>
                       <p className="text-gray-300 text-sm">
-                        Das Gewerk wurde vollständig abgenommen. Sie können jetzt Ihre Rechnung erstellen.
+                        Die Ausschreibung wurde vollständig abgenommen. Sie können jetzt Ihre Rechnung erstellen.
                       </p>
                     </div>
                     
@@ -2829,7 +2829,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           onClose={() => setShowFinalAcceptanceModal(false)}
           acceptanceId={1} // Wird vom Backend automatisch ermittelt
           milestoneId={trade?.id || 0}
-          milestoneTitle={trade?.title || 'Gewerk'}
+          milestoneTitle={trade?.title || 'Ausschreibung'}
           defects={acceptanceDefects}
           onAcceptanceComplete={() => {
             setShowFinalAcceptanceModal(false);

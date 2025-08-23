@@ -169,7 +169,7 @@ interface Project {
   address_longitude?: number;
 }
 
-// Interface für Gewerke
+// Interface für Ausschreibungen
 interface Trade {
   id: number;
   project_id: number;
@@ -293,7 +293,7 @@ interface Trade {
   payment_terms?: string;
 }
 
-// Interface für kombinierte Gewerke (lokale + Geo-Gewerke)
+// Interface für kombinierte Ausschreibungen (lokale + Geo-Ausschreibungen)
 interface CombinedTrade extends Trade {
   isGeoResult?: boolean;
   distance_km?: number;
@@ -308,7 +308,7 @@ interface CombinedTrade extends Trade {
   address_longitude?: number;
 }
 
-// Interface für gruppierte Projekte mit Gewerken
+// Interface für gruppierte Projekte mit Ausschreibungen
 interface ProjectWithTrades extends ProjectSearchResult {
   trades: TradeSearchResult[];
 }
@@ -2027,7 +2027,7 @@ export default function Trades() {
       <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ffbd59] mx-auto mb-4"></div>
-          <p className="text-white">Lade Gewerke...</p>
+          <p className="text-white">Lade Ausschreibungen...</p>
         </div>
       </div>
     );
@@ -2065,12 +2065,12 @@ export default function Trades() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">
-              {isServiceProviderUser ? 'Kostenvoranschläge' : 'Gewerke'}
+              {isServiceProviderUser ? 'Kostenvoranschläge' : 'Ausschreibungen'}
             </h1>
             <p className="text-gray-300">
               {isServiceProviderUser 
-                ? 'Verwalten Sie Ihre Kostenvoranschläge für verschiedene Gewerke'
-                : 'Erstellen und verwalten Sie Gewerke für Ihr Bauprojekt'
+                ? 'Verwalten Sie Ihre Kostenvoranschläge für verschiedene Ausschreibungen'
+                : 'Erstellen und verwalten Sie Ausschreibungen für Ihr Bauprojekt'
               }
             </p>
           </div>
@@ -2101,7 +2101,7 @@ export default function Trades() {
                     {userRole === 'bautraeger' && subscriptionPlan === 'basis' && (
                       <div className="text-sm text-gray-300">
                         <span className={currentTradeCount >= 3 ? 'text-red-400' : 'text-gray-300'}>
-                          {currentTradeCount}/3 Gewerke
+                          {currentTradeCount}/3 Ausschreibungen
                         </span>
                         {currentTradeCount >= 3 && (
                           <span className="ml-2 text-[#ffbd59] font-medium">
@@ -2125,7 +2125,7 @@ export default function Trades() {
             onClick={handleDebugDeleteAll}
             className="mb-8 px-6 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition shadow-lg border-2 border-red-800"
           >
-            Debug: Alle Gewerke, Angebote & Kostenpositionen löschen
+            Debug: Alle Ausschreibungen, Angebote & Kostenpositionen löschen
           </button>
         )}
 
@@ -2179,7 +2179,7 @@ export default function Trades() {
               <span className="text-sm text-gray-400">Gesamt</span>
             </div>
             <h3 className="text-2xl font-bold text-white mb-1">{combinedTrades.length}</h3>
-            <p className="text-sm text-gray-400">Gewerke</p>
+            <p className="text-sm text-gray-400">Ausschreibungen</p>
           </div>
 
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
@@ -2187,12 +2187,12 @@ export default function Trades() {
               <div className="p-3 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl">
                 <Eye size={24} className="text-white" />
               </div>
-              <span className="text-sm text-gray-400">Aktive Gewerke</span>
+              <span className="text-sm text-gray-400">Aktive Ausschreibungen</span>
             </div>
             <h3 className="text-2xl font-bold text-white mb-1">
               {activeCount}
             </h3>
-            <p className="text-sm text-gray-400">Anzahl aktiver Gewerke</p>
+            <p className="text-sm text-gray-400">Anzahl aktiver Ausschreibungen</p>
           </div>
 
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
@@ -2205,7 +2205,7 @@ export default function Trades() {
             <h3 className="text-2xl font-bold text-white mb-1">
               {tradesWithoutQuotes}
             </h3>
-            <p className="text-sm text-gray-400">Gewerke ohne Angebote</p>
+            <p className="text-sm text-gray-400">Ausschreibungen ohne Angebote</p>
           </div>
 
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
@@ -2218,7 +2218,7 @@ export default function Trades() {
             <h3 className="text-2xl font-bold text-white mb-1">
               {tradesWithPendingQuotes}
             </h3>
-            <p className="text-sm text-gray-400">Gewerke mit ausstehenden Angeboten</p>
+            <p className="text-sm text-gray-400">Ausschreibungen mit ausstehenden Angeboten</p>
           </div>
         </div>
 
@@ -2408,14 +2408,14 @@ export default function Trades() {
                   onChange={(e) => setShowAcceptedTrades(e.target.checked)}
                   className="w-4 h-4 text-[#ffbd59] bg-white/10 border-white/20 rounded focus:ring-[#ffbd59] focus:ring-2"
                 />
-                <span className="text-white text-sm">Angenommene Gewerke anzeigen</span>
+                <span className="text-white text-sm">Angenommene Ausschreibungen anzeigen</span>
               </label>
             </div>
             
             {/* Ergebnisse-Anzeige */}
             {geoTrades.length > 0 && (
               <div className="text-white text-sm">
-                <span className="text-[#ffbd59] font-bold">{geoTrades.length}</span> Gewerke im Radius von <span className="text-[#ffbd59] font-bold">{radiusKm}km</span> gefunden
+                <span className="text-[#ffbd59] font-bold">{geoTrades.length}</span> Ausschreibungen im Radius von <span className="text-[#ffbd59] font-bold">{radiusKm}km</span> gefunden
               </div>
             )}
           </div>
@@ -2427,7 +2427,7 @@ export default function Trades() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
             <input
               type="text"
-              placeholder="Gewerke durchsuchen..."
+              placeholder="Ausschreibungen durchsuchen..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
@@ -2628,11 +2628,11 @@ export default function Trades() {
         {combinedTrades.length === 0 && !isLoadingTrades && (
           <div className="text-center py-12">
             <div className="text-6xl mb-4">🏗️</div>
-            <h3 className="text-xl font-semibold text-white mb-2">Keine Gewerke gefunden</h3>
+            <h3 className="text-xl font-semibold text-white mb-2">Keine Ausschreibungen gefunden</h3>
             <p className="text-gray-300">
               {isServiceProviderUser 
-                ? 'Es sind aktuell keine ausgeschriebenen Gewerke verfügbar.'
-                : 'Erstellen Sie Ihr erstes Gewerk für dieses Projekt.'
+                ? 'Es sind aktuell keine ausgeschriebenen Ausschreibungen verfügbar.'
+                : 'Erstellen Sie Ihre erste Ausschreibung für dieses Projekt.'
               }
             </p>
           </div>
@@ -2642,7 +2642,7 @@ export default function Trades() {
         {isLoadingTrades && (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ffbd59] mx-auto mb-4"></div>
-            <p className="text-white">Lade Gewerke...</p>
+            <p className="text-white">Lade Ausschreibungen...</p>
           </div>
         )}
 

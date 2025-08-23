@@ -182,7 +182,7 @@ const ArchivedTrades: React.FC<ArchivedTradesProps> = ({ className = '' }) => {
       <div className={`bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl p-6 border border-white/10 ${className}`}>
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#ffbd59]"></div>
-          <span className="ml-3 text-white">Lade archivierte Gewerke...</span>
+          <span className="ml-3 text-white">Lade archivierte Ausschreibungen...</span>
         </div>
       </div>
     );
@@ -213,9 +213,9 @@ const ArchivedTrades: React.FC<ArchivedTradesProps> = ({ className = '' }) => {
             <Archive size={24} className="text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-white">Archivierte Gewerke</h2>
+            <h2 className="text-xl font-bold text-white">Archivierte Ausschreibungen</h2>
             <p className="text-sm text-gray-400">
-              {filteredAndSortedTrades.length} von {archivedTrades.length} Gewerken
+              {filteredAndSortedTrades.length} von {archivedTrades.length} Ausschreibungen
             </p>
           </div>
         </div>
@@ -239,7 +239,7 @@ const ArchivedTrades: React.FC<ArchivedTradesProps> = ({ className = '' }) => {
               <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Gewerk oder Projekt suchen..."
+                placeholder="Ausschreibung oder Projekt suchen..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
@@ -288,11 +288,11 @@ const ArchivedTrades: React.FC<ArchivedTradesProps> = ({ className = '' }) => {
         {filteredAndSortedTrades.length === 0 ? (
           <div className="text-center py-12">
             <Archive size={48} className="mx-auto mb-4 text-gray-400 opacity-50" />
-            <h3 className="text-lg font-semibold text-white mb-2">Keine archivierten Gewerke</h3>
+            <h3 className="text-lg font-semibold text-white mb-2">Keine archivierten Ausschreibungen</h3>
             <p className="text-gray-400">
               {searchTerm || selectedCategory !== 'all' 
-                ? 'Keine Gewerke entsprechen den aktuellen Filterkriterien.'
-                : 'Abgeschlossene Gewerke werden hier archiviert und können jederzeit eingesehen werden.'
+                ? 'Keine Ausschreibungen entsprechen den aktuellen Filterkriterien.'
+                : 'Abgeschlossene Ausschreibungen werden hier archiviert und können jederzeit eingesehen werden.'
               }
             </p>
           </div>

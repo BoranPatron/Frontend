@@ -616,7 +616,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
 
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Beschreibung *
+                    Beschreibung & Leistungsumfang *
                   </label>
                   <textarea
                     name="description"

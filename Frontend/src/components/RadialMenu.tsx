@@ -75,7 +75,7 @@ export function RadialMenu({
           }
         },
         color: "#ffbd59",
-        description: "Projekt- und Gewerkverwaltung"
+        description: "Projekt- und Ausschreibungsverwaltung"
       },
       {
         id: "tasks",
