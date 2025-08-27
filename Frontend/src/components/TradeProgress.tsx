@@ -61,6 +61,10 @@ interface TradeProgressProps {
    * "Nachbesserung anfordern" aus (z. B. im CostEstimateDetailsModal).
    */
   hideCompletionResponseControls?: boolean;
+  /**
+   * Information ob ein Angebot angenommen wurde (für Kommunikations-Hinweise)
+   */
+  hasAcceptedQuote?: boolean;
 }
 
 export default function TradeProgress({
@@ -72,7 +76,8 @@ export default function TradeProgress({
   completionStatus,
   onCompletionRequest,
   onCompletionResponse,
-  hideCompletionResponseControls = false
+  hideCompletionResponseControls = false,
+  hasAcceptedQuote = false
 }: TradeProgressProps) {
   const [updates, setUpdates] = useState<ProgressUpdate[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -419,10 +424,55 @@ export default function TradeProgress({
 
       {isExpanded && (
         <div className="border-t border-gray-600/30">
+          {/* Statusabhängige Hinweise */}
+          <div className="p-6 border-b border-gray-600/30">
+            {(() => {
+              // Prüfe ob ein Angebot angenommen wurde
+              
+              if (hasAcceptedQuote) {
+                // Angebot wurde angenommen - Private Kommunikation
+                return (
+                  <div className="mb-3 p-3 bg-gradient-to-r from-emerald-500/8 to-green-500/8 border border-emerald-500/20 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0 w-6 h-6 bg-emerald-500/20 rounded-full flex items-center justify-center">
+                        <CheckCircle size={12} className="text-emerald-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-emerald-300 font-medium mb-1 text-sm">🔒 Private Kommunikation</h4>
+                        <p className="text-xs text-gray-300 leading-relaxed">
+                          <strong>Vertraulicher Austausch:</strong> Ihre Nachrichten sind nur für Sie und den beauftragten Dienstleister sichtbar. 
+                          Nutzen Sie diesen Bereich für projektspezifische Absprachen, Terminkoordinationen und vertrauliche Details.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              } else {
+                // Noch kein Angebot angenommen - Öffentliche Kommunikation
+                return (
+                  <div className="mb-3 p-3 bg-gradient-to-r from-[#ffbd59]/8 to-orange-500/8 border border-[#ffbd59]/20 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0 w-6 h-6 bg-[#ffbd59]/20 rounded-full flex items-center justify-center">
+                        <MessageCircle size={12} className="text-[#ffbd59]" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-[#ffbd59] font-medium mb-1 text-sm">👁️ Öffentliche Kommunikation</h4>
+                        <p className="text-xs text-gray-300 leading-relaxed">
+                          <strong>Transparenter Austausch:</strong> Alle Nachrichten sind für interessierte Dienstleister sichtbar. 
+                          Nutzen Sie diesen Bereich für allgemeine Fragen, Klärungen zur Ausschreibung und öffentliche Ankündigungen.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+            })()}
+          </div>
+          
           {/* Progress Slider (nur für Dienstleister) */}
           {isServiceProvider && completionStatus !== 'completed' && (
             <div className="p-6 border-b border-gray-600/30">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 mb-3">
                 <span className="text-sm text-gray-400">Fortschritt anpassen:</span>
                 <input
                   type="range"
@@ -442,15 +492,48 @@ export default function TradeProgress({
                 <span className="text-white font-bold w-12 text-right">{progress}%</span>
               </div>
               
-              {/* Fertigstellung Button */}
-              {progress === 100 && completionStatus === 'in_progress' && (
-                <button
-                  onClick={onCompletionRequest}
-                  className="mt-4 w-full bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all duration-200"
-                >
-                  <CheckCircle size={20} className="inline mr-2" />
-                  Als fertiggestellt markieren
-                </button>
+              {/* Erklärung für Fortschrittsbalken */}
+              <div className="mb-4 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <p className="text-xs text-blue-300 flex items-center gap-2">
+                  <AlertTriangle size={12} />
+                  <span>Bei 100% Fortschritt wird der Button "Als fertiggestellt markieren" aktiviert.</span>
+                </p>
+              </div>
+              
+              {/* Fertigstellung Button - immer sichtbar aber bedingt aktiviert */}
+              {hasAcceptedQuote && (
+                <div className="relative group">
+                  <button
+                    onClick={progress === 100 ? onCompletionRequest : undefined}
+                    disabled={progress !== 100 || completionStatus !== 'in_progress'}
+                    className={`w-full font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 ${
+                      progress === 100 && completionStatus === 'in_progress'
+                        ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:shadow-lg cursor-pointer'
+                        : 'bg-gray-500/20 text-gray-400 cursor-not-allowed border border-gray-500/30'
+                    }`}
+                  >
+                    <CheckCircle size={20} />
+                    Als fertiggestellt markieren
+                  </button>
+                  
+                  {/* Tooltip für ausgegrauten Button */}
+                  {(progress !== 100 || completionStatus !== 'in_progress') && (
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 bg-[#0f172a] border border-gray-500/30 rounded-xl shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition p-3 z-20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle size={14} className="text-yellow-400" />
+                        <span className="text-xs font-medium text-yellow-400">Voraussetzungen nicht erfüllt</span>
+                      </div>
+                      <p className="text-xs text-gray-300">
+                        {progress !== 100 
+                          ? `Der Fortschritt muss auf 100% gesetzt werden (aktuell: ${progress}%).`
+                          : completionStatus !== 'in_progress'
+                          ? 'Das Projekt ist bereits als fertiggestellt markiert oder befindet sich in einem anderen Status.'
+                          : 'Unbekannter Grund.'
+                        }
+                      </p>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}

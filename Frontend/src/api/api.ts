@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { cacheManager, withCache } from '../utils/cacheManager';
 
 // Dynamische API-URL basierend auf der aktuellen Host-URL
 export const getApiBaseUrl = () => {

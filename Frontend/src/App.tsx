@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider } from './context/ProjectContext';
+import CacheDebugPanel from './components/CacheDebugPanel';
+import './utils/serviceWorkerManager'; // Service Worker initialisieren
 import Navbar from './components/Navbar';
 import CreditNotification from './components/CreditNotification';
 import WelcomeCreditNotification from './components/WelcomeCreditNotification';
@@ -439,6 +441,7 @@ export default function App() {
       <AuthProvider>
         <ProjectProvider>
           <AppContent />
+          <CacheDebugPanel />
         </ProjectProvider>
       </AuthProvider>
     </ErrorBoundary>

@@ -50,7 +50,7 @@ export function RadialMenu({
   showTooltips = true,
 }: RadialMenuProps) {
   const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState<number>(0);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -214,25 +214,37 @@ export function RadialMenu({
       case "ArrowLeft":
       case "ArrowUp":
         e.preventDefault();
-        setActiveIndex((i) => (i - 1 + items.length) % items.length);
+        setActiveIndex((i) => {
+          const currentIndex = i ?? 0;
+          return (currentIndex - 1 + items.length) % items.length;
+        });
         break;
       case "ArrowRight":
       case "ArrowDown":
         e.preventDefault();
-        setActiveIndex((i) => (i + 1) % items.length);
+        setActiveIndex((i) => {
+          const currentIndex = i ?? 0;
+          return (currentIndex + 1) % items.length;
+        });
         break;
       case "Enter":
       case " ":
         e.preventDefault();
-        items[activeIndex]?.onSelect();
+        if (activeIndex !== null) items[activeIndex]?.onSelect();
         setOpen(false);
         break;
       case "Tab":
         e.preventDefault();
         if (e.shiftKey) {
-          setActiveIndex((i) => (i - 1 + items.length) % items.length);
+          setActiveIndex((i) => {
+            const currentIndex = i ?? 0;
+            return (currentIndex - 1 + items.length) % items.length;
+          });
         } else {
-          setActiveIndex((i) => (i + 1) % items.length);
+          setActiveIndex((i) => {
+            const currentIndex = i ?? 0;
+            return (currentIndex + 1) % items.length;
+          });
         }
         break;
     }
@@ -240,7 +252,7 @@ export function RadialMenu({
 
   // Focus management
   useEffect(() => {
-    if (open && activeIndex !== null) {
+    if (open && activeIndex !== null && activeIndex >= 0) {
       const element = document.querySelector(`[data-radial-item="${items[activeIndex]?.id}"]`) as HTMLElement;
       element?.focus();
     }
@@ -344,7 +356,10 @@ export function RadialMenu({
                     setHoveredIndex(i);
                     setActiveIndex(i);
                   }}
-                  onMouseLeave={() => setHoveredIndex(null)}
+                  onMouseLeave={() => {
+                    setHoveredIndex(null);
+                    setActiveIndex(null);
+                  }}
                   onFocus={() => setActiveIndex(i)}
                   className="absolute group"
                   style={{

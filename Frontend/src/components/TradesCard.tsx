@@ -628,26 +628,11 @@ export default function TradesCard({
   };
 
   return (
-    <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
-      <button
-        onClick={onToggle}
-        className="w-full p-6 text-left hover:bg-white/5 transition-colors"
-      >
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-3">
-            <Wrench size={20} className="text-[#ffbd59]" />
-            Gewerke ({trades.length})
-          </h3>
-          <div className={`transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
-            <svg className="w-5 h-5 text-[#ffbd59]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-        </div>
-      </button>
+    <div className="w-full">
+      {/* Header entfernt - wird jetzt vom übergeordneten Dashboard verwaltet */}
       
       {isExpanded && (
-        <div className="px-6 pb-6 space-y-3">
+        <div className="space-y-3">
           {trades.length === 0 ? (
             <div className="text-center py-8">
               <Wrench size={48} className="text-gray-400 mx-auto mb-4" />
@@ -837,8 +822,103 @@ export default function TradesCard({
                                     </div>
                                   </div>
                                 </div>
-                              )}
-                              
+                                                            )}
+
+                              {/* Fertigstellungsstatus Badge - nur für angenommene Angebote */}
+                              {(tradeStatsForTrade?.acceptedQuote || currentQuoteStatus === 'accepted') && (() => {
+                                // Temporäre Lösung: Simuliere completion_status für Demo-Zwecke
+                                const simulatedCompletionStatus = trade.id === 1 ? 'completion_requested' : (trade as any).completion_status;
+                                
+                                if (simulatedCompletionStatus && simulatedCompletionStatus !== 'in_progress') {
+                                  return (
+                                    <div className="relative group">
+                                      <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer transform transition-all duration-300 hover:scale-105 shadow-lg border ${
+                                        simulatedCompletionStatus === 'completed' 
+                                          ? 'bg-gradient-to-r from-green-600/40 via-emerald-500/40 to-green-600/40 border-green-400/50 hover:shadow-green-500/30'
+                                          : simulatedCompletionStatus === 'completed_with_defects'
+                                          ? 'bg-gradient-to-r from-yellow-600/40 via-amber-500/40 to-yellow-600/40 border-yellow-400/50 hover:shadow-yellow-500/30'
+                                          : simulatedCompletionStatus === 'completion_requested'
+                                          ? 'bg-gradient-to-r from-orange-600/40 via-orange-500/40 to-orange-600/40 border-orange-400/50 hover:shadow-orange-500/30 animate-pulse'
+                                          : 'bg-gradient-to-r from-gray-600/40 via-gray-500/40 to-gray-600/40 border-gray-400/50 hover:shadow-gray-500/30'
+                                      }`}>
+                                        <div className="flex items-center gap-1.5">
+                                          {simulatedCompletionStatus === 'completion_requested' ? (
+                                            <>
+                                              <Clock size={12} className="text-orange-200" />
+                                              <span className="text-xs font-semibold text-orange-200">
+                                                🔄 Als fertiggestellt markiert
+                                              </span>
+                                            </>
+                                          ) : simulatedCompletionStatus === 'completed' ? (
+                                            <>
+                                              <CheckCircle size={12} className="text-green-200" />
+                                              <span className="text-xs font-semibold text-green-200">
+                                                ✅ Abgeschlossen
+                                              </span>
+                                            </>
+                                          ) : simulatedCompletionStatus === 'completed_with_defects' ? (
+                                            <>
+                                              <AlertTriangle size={12} className="text-yellow-200" />
+                                              <span className="text-xs font-semibold text-yellow-200">
+                                                ⚠️ Unter Vorbehalt
+                                              </span>
+                                            </>
+                                          ) : (
+                                            <span className="text-xs font-semibold text-gray-200">{simulatedCompletionStatus}</span>
+                                          )}
+                                        </div>
+                                        
+                                        {/* Status-Indikator */}
+                                        <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white/20 ${
+                                          simulatedCompletionStatus === 'completion_requested' ? 'bg-orange-400 animate-ping' :
+                                          simulatedCompletionStatus === 'completed' ? 'bg-green-400' :
+                                          simulatedCompletionStatus === 'completed_with_defects' ? 'bg-yellow-400' :
+                                          'bg-gray-400'
+                                        }`}></div>
+                                      </div>
+                                      
+                                      {/* Tooltip */}
+                                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50">
+                                        <div className="bg-gradient-to-b from-gray-900 to-gray-800 text-white text-xs rounded-xl py-3 px-4 shadow-2xl border border-gray-600/50 backdrop-blur-sm min-w-[200px]">
+                                          <div className="flex items-center gap-2 mb-2">
+                                            {simulatedCompletionStatus === 'completion_requested' ? (
+                                              <>
+                                                <Clock size={14} className="text-orange-400" />
+                                                <div className="font-bold text-orange-300">Als fertiggestellt markiert</div>
+                                              </>
+                                            ) : simulatedCompletionStatus === 'completed' ? (
+                                              <>
+                                                <CheckCircle size={14} className="text-green-400" />
+                                                <div className="font-bold text-green-300">Projekt abgeschlossen</div>
+                                              </>
+                                            ) : simulatedCompletionStatus === 'completed_with_defects' ? (
+                                              <>
+                                                <AlertTriangle size={14} className="text-yellow-400" />
+                                                <div className="font-bold text-yellow-300">Abgeschlossen unter Vorbehalt</div>
+                                              </>
+                                            ) : (
+                                              <div className="font-bold text-gray-300">Status: {simulatedCompletionStatus}</div>
+                                            )}
+                                          </div>
+                                          <div className="text-gray-300 text-xs">
+                                            {simulatedCompletionStatus === 'completion_requested' 
+                                              ? 'Der Dienstleister hat das Projekt als fertiggestellt markiert und wartet auf Ihre Bestätigung.'
+                                              : simulatedCompletionStatus === 'completed'
+                                              ? 'Das Projekt wurde erfolgreich abgeschlossen und abgenommen.'
+                                              : simulatedCompletionStatus === 'completed_with_defects'
+                                              ? 'Das Projekt wurde unter Vorbehalt abgenommen. Mängel wurden dokumentiert.'
+                                              : 'Fertigstellungsstatus des Projekts.'
+                                            }
+                                          </div>
+                                        </div>
+                                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
+
                               {/* Offene Angebote mit verbessertem Design */}
                               {!tradeStatsForTrade?.acceptedQuote && (tradeStatsForTrade?.pendingQuotes || 0) > 0 && (
                                 <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-500/20 border border-blue-500/30 rounded-full hover:bg-blue-500/30 transition-colors">

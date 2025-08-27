@@ -222,10 +222,10 @@ export default function QuoteDetailsModal({
                   </div>
                   
                   <div className="flex items-center gap-3">
-                    <Award size={16} className="text-gray-400" />
+                    <Shield size={16} className="text-gray-400" />
                     <div>
-                      <div className="text-sm text-gray-400">Garantie</div>
-                      <div className="text-white font-medium">{quote.warranty_period || 12} Monate</div>
+                      <div className="text-sm text-gray-400">Zahlungsbedingungen</div>
+                      <div className="text-white font-medium">{quote.payment_terms || 'Nicht angegeben'}</div>
                     </div>
                   </div>
                 </div>
@@ -283,14 +283,94 @@ export default function QuoteDetailsModal({
               </div>
             )}
 
-            {/* Zahlungsbedingungen */}
-            {quote.payment_terms && (
+
+
+            {/* DEBUG: Dokument-Felder prüfen */}
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-xs mb-4">
+              <div className="text-yellow-300 font-medium mb-2">🔍 Debug: Quote-Dokumente Status</div>
+              <div className="text-gray-300 space-y-1">
+                <div>Quote ID: {quote.id}</div>
+                <div>pdf_upload_path: {quote.pdf_upload_path ? '✅ VORHANDEN' : '❌ FEHLT'}</div>
+                <div>additional_documents: {quote.additional_documents ? '✅ VORHANDEN' : '❌ FEHLT'}</div>
+                <div>pdf_upload_path Wert: "{quote.pdf_upload_path}"</div>
+                <div>additional_documents Wert: "{quote.additional_documents}"</div>
+                <div>Bedingung erfüllt: {(quote.pdf_upload_path || quote.additional_documents) ? '✅ JA' : '❌ NEIN'}</div>
+                <div>Alle Quote Keys: {Object.keys(quote).join(', ')}</div>
+              </div>
+            </div>
+            
+            {/* Console Log für Debugging */}
+            {console.log('🔍 QuoteDetailsModal - Quote Objekt:', quote)}
+
+            {/* Angebot-Dokumente */}
+            {(quote.pdf_upload_path || quote.additional_documents) && (
               <div className="bg-white/5 rounded-xl p-6">
                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <Shield size={20} className="text-[#ffbd59]" />
-                  Zahlungsbedingungen
+                  <FileText size={20} className="text-[#ffbd59]" />
+                  Angebot-Dokumente
                 </h3>
-                <p className="text-gray-300 text-sm leading-relaxed">{quote.payment_terms}</p>
+                
+                <div className="space-y-3">
+                  {/* PDF Upload */}
+                  {quote.pdf_upload_path && (
+                    <div className="flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/10">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-red-500/20 rounded-lg">
+                          <FileText size={16} className="text-red-400" />
+                        </div>
+                        <div>
+                          <div className="text-white font-medium">Angebot PDF</div>
+                          <div className="text-gray-400 text-sm">
+                            {quote.pdf_upload_path.split('/').pop() || 'Angebot.pdf'}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => window.open(`/api/v1${quote.pdf_upload_path}`, '_blank')}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-[#ffbd59] text-[#0f172a] rounded-lg font-medium hover:bg-[#ffa726] transition-colors"
+                      >
+                        <Download size={14} />
+                        Download
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Zusätzliche Dokumente */}
+                  {quote.additional_documents && (() => {
+                    try {
+                      const additionalDocs = JSON.parse(quote.additional_documents);
+                      return Array.isArray(additionalDocs) && additionalDocs.length > 0 ? (
+                        additionalDocs.map((doc: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/10">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-blue-500/20 rounded-lg">
+                                <FileText size={16} className="text-blue-400" />
+                              </div>
+                              <div>
+                                <div className="text-white font-medium">
+                                  {doc.name || doc.title || `Dokument ${index + 1}`}
+                                </div>
+                                <div className="text-gray-400 text-sm">
+                                  {doc.type || 'Unbekannter Typ'} • {doc.size ? `${Math.round(doc.size / 1024)} KB` : 'Unbekannte Größe'}
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => window.open(doc.url || doc.path, '_blank')}
+                              className="flex items-center gap-2 px-3 py-1.5 bg-[#ffbd59] text-[#0f172a] rounded-lg font-medium hover:bg-[#ffa726] transition-colors"
+                            >
+                              <Download size={14} />
+                              Download
+                            </button>
+                          </div>
+                        ))
+                      ) : null;
+                    } catch (e) {
+                      console.error('Fehler beim Parsen der zusätzlichen Dokumente:', e);
+                      return null;
+                    }
+                  })()}
+                </div>
               </div>
             )}
 

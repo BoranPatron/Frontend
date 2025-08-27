@@ -27,7 +27,8 @@ import {
   FileText,
   Edit3,
   Save,
-  RotateCcw
+  RotateCcw,
+  Building
 } from 'lucide-react';
 
 type RadialItem = {
@@ -61,7 +62,7 @@ export function RadialMenuAdvanced({
   customCreateActions
 }: RadialMenuAdvancedProps) {
   const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState<number>(0);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [showCreateMenu, setShowCreateMenu] = useState(false);
@@ -204,7 +205,7 @@ export function RadialMenuAdvanced({
       {
         id: "create-project",
         label: "Neues Projekt",
-        icon: <FolderPlus size={20} />,
+        icon: <Building size={20} />,
         onSelect: () => {
           // Öffnet das globale Projekt-Erstellungs-Modal über URL-Parameter
           navigate(`${window.location.pathname}?create=project`);
@@ -307,13 +308,7 @@ export function RadialMenuAdvanced({
     return orderedItems;
   }, [defaultItems, customOrder]);
 
-  // Set initial activeIndex to first enabled item
-  useEffect(() => {
-    const firstEnabledIndex = allItems.findIndex(item => !item.disabled);
-    if (firstEnabledIndex !== -1 && activeIndex !== firstEnabledIndex) {
-      setActiveIndex(firstEnabledIndex);
-    }
-  }, [allItems, activeIndex]);
+  // Don't set initial activeIndex - let it remain null until user interaction
 
   // Save custom order to localStorage
   const saveCustomOrder = useCallback((newOrder: string[]) => {
@@ -437,9 +432,10 @@ export function RadialMenuAdvanced({
       case "ArrowUp":
         e.preventDefault();
         setActiveIndex((i) => {
-          let newIndex = (i - 1 + allItems.length) % allItems.length;
+          const currentIndex = i ?? 0;
+          let newIndex = (currentIndex - 1 + allItems.length) % allItems.length;
           // Skip disabled items
-          while (allItems[newIndex]?.disabled && newIndex !== i) {
+          while (allItems[newIndex]?.disabled && newIndex !== currentIndex) {
             newIndex = (newIndex - 1 + allItems.length) % allItems.length;
           }
           return newIndex;
@@ -449,9 +445,10 @@ export function RadialMenuAdvanced({
       case "ArrowDown":
         e.preventDefault();
         setActiveIndex((i) => {
-          let newIndex = (i + 1) % allItems.length;
+          const currentIndex = i ?? 0;
+          let newIndex = (currentIndex + 1) % allItems.length;
           // Skip disabled items
-          while (allItems[newIndex]?.disabled && newIndex !== i) {
+          while (allItems[newIndex]?.disabled && newIndex !== currentIndex) {
             newIndex = (newIndex + 1) % allItems.length;
           }
           return newIndex;
@@ -460,7 +457,7 @@ export function RadialMenuAdvanced({
       case "Enter":
       case " ":
         e.preventDefault();
-        if (!allItems[activeIndex]?.disabled) {
+        if (activeIndex !== null && !allItems[activeIndex]?.disabled) {
           allItems[activeIndex]?.onSelect();
           setOpen(false);
           setShowCreateMenu(false);
@@ -470,18 +467,20 @@ export function RadialMenuAdvanced({
         e.preventDefault();
         if (e.shiftKey) {
           setActiveIndex((i) => {
-            let newIndex = (i - 1 + allItems.length) % allItems.length;
+            const currentIndex = i ?? 0;
+            let newIndex = (currentIndex - 1 + allItems.length) % allItems.length;
             // Skip disabled items
-            while (allItems[newIndex]?.disabled && newIndex !== i) {
+            while (allItems[newIndex]?.disabled && newIndex !== currentIndex) {
               newIndex = (newIndex - 1 + allItems.length) % allItems.length;
             }
             return newIndex;
           });
         } else {
           setActiveIndex((i) => {
-            let newIndex = (i + 1) % allItems.length;
+            const currentIndex = i ?? 0;
+            let newIndex = (currentIndex + 1) % allItems.length;
             // Skip disabled items
-            while (allItems[newIndex]?.disabled && newIndex !== i) {
+            while (allItems[newIndex]?.disabled && newIndex !== currentIndex) {
               newIndex = (newIndex + 1) % allItems.length;
             }
             return newIndex;
@@ -689,7 +688,10 @@ export function RadialMenuAdvanced({
                       setActiveIndex(i);
                     }
                   }}
-                  onMouseLeave={() => setHoveredIndex(null)}
+                  onMouseLeave={() => {
+                    setHoveredIndex(null);
+                    setActiveIndex(null);
+                  }}
                   onFocus={() => {
                     if (!item.disabled) {
                       setActiveIndex(i);

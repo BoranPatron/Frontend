@@ -48,23 +48,35 @@ interface QuoteData {
   description: string;
   project_id: number;
   milestone_id?: number;
-  service_provider_id: number;
+  // service_provider_id wird vom Backend automatisch gesetzt
   total_amount: number;
-  currency: string;
-  valid_until: string;
-  labor_cost: number;
-  material_cost: number;
-  overhead_cost: number;
-  estimated_duration: number;
-  start_date: string;
-  completion_date: string;
-  payment_terms: string;
-  warranty_period: number;
+  currency?: string;
+  valid_until?: string;
+  labor_cost?: number;
+  material_cost?: number;
+  overhead_cost?: number;
+  estimated_duration?: number;
+  start_date?: string;
+  completion_date?: string;
+  payment_terms?: string;
+  warranty_period?: number;
   company_name?: string;
   contact_person?: string;
   phone?: string;
   email?: string;
   website?: string;
+  // Neue Felder für erweiterte Angebote
+  quote_number?: string;
+  qualifications?: string;
+  references?: string;
+  certifications?: string;
+  technical_approach?: string;
+  quality_standards?: string;
+  safety_measures?: string;
+  environmental_compliance?: string;
+  risk_assessment?: string;
+  contingency_plan?: string;
+  additional_notes?: string;
 }
 
 export async function createQuote(data: QuoteData) {

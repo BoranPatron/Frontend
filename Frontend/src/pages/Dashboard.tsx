@@ -1806,19 +1806,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Projekt-Fortschritt */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-300">Fortschritt</span>
-                <span className="text-[#ffbd59] font-bold">{currentProject.progress_percentage}%</span>
-              </div>
-              <div className="w-full bg-gray-700/50 rounded-full h-3 overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-3 rounded-full transition-all duration-1000 ease-out"
-                  style={{ width: `${currentProject.progress_percentage}%` }}
-                ></div>
-              </div>
-            </div>
+            {/* Projekt-Fortschritt entfernt */}
 
             {/* Projekt-Details */}
             <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
@@ -1894,11 +1882,11 @@ export default function Dashboard() {
 
 
 
-      {/* Gewerke für aktuelles Projekt */}
+      {/* Ausschreibungen für aktuelles Projekt - Zweigeteiltes Layout */}
       {selectedProject && (
         <div className="mb-8" data-section="trades">
           {/* Header mit Buttons in einer Zeile */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
               <div className="w-3 h-3 bg-[#ffbd59] rounded-full"></div>
               <span className="text-lg font-semibold text-white">Ausschreibungen</span>
@@ -1922,42 +1910,191 @@ export default function Dashboard() {
             </div>
           </div>
           
-          <TradesCard
-            trades={projectTrades}
-            projectId={selectedProject.id}
-            isExpanded={true}
-            onToggle={() => {}}
-            onTradeClick={handleTradeClick}
-            tradeAppointments={tradeAppointments}
-            onAcceptQuote={async (quoteId: number) => {
-              try {
-                await acceptQuote(quoteId);
-                // Nach Annahme Gewerke neu laden, damit Status synchron ist
-                const activeTrades = await loadAndFilterTrades(selectedProject.id);
-                setProjectTrades(activeTrades);
-              } catch (e) {
-                console.error('❌ Fehler beim Annehmen:', e);
-              }
-            }}
-            onRejectQuote={async (quoteId: number, reason: string) => {
-              try {
-                await rejectQuote(quoteId, reason);
-                const activeTrades = await loadAndFilterTrades(selectedProject.id);
-                setProjectTrades(activeTrades);
-              } catch (e) {
-                console.error('❌ Fehler beim Ablehnen:', e);
-              }
-            }}
-            onResetQuote={async (quoteId: number) => {
-              try {
-                await resetQuote(quoteId);
-                const activeTrades = await loadAndFilterTrades(selectedProject.id);
-                setProjectTrades(activeTrades);
-              } catch (e) {
-                console.error('❌ Fehler beim Zurücksetzen:', e);
-              }
-            }}
-          />
+          {/* Zweigeteiltes Layout: Links offene Ausschreibungen, rechts angenommene Ausschreibungen */}
+          {/* Mobile: Gestapelt | Tablet: 1 Spalte | Desktop: 2 Spalten */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 items-start">
+            {/* Linke Spalte: Offene Ausschreibungen */}
+            <div className="space-y-4 w-full">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base md:text-lg font-semibold text-white flex items-center gap-2 md:gap-3">
+                  <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+                  <span className="hidden sm:inline">Offene Ausschreibungen</span>
+                  <span className="sm:hidden">Offen</span>
+                  <span className="text-xs md:text-sm text-gray-400 bg-white/10 px-2 py-1 rounded-full">
+                    {(() => {
+                      const openTrades = projectTrades.filter(trade => {
+                        const quotes = allTradeQuotes[trade.id] || [];
+                        const hasAcceptedQuote = quotes.some(quote => quote.status === 'accepted');
+                        return !hasAcceptedQuote;
+                      });
+                      return openTrades.length;
+                    })()}
+                  </span>
+                </h3>
+              </div>
+              
+              <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden relative">
+                <div className="p-4 md:p-6 space-y-3 relative z-10">
+                  {(() => {
+                    const openTrades = projectTrades.filter(trade => {
+                      const quotes = allTradeQuotes[trade.id] || [];
+                      const hasAcceptedQuote = quotes.some(quote => quote.status === 'accepted');
+                      return !hasAcceptedQuote;
+                    });
+                    
+                    if (openTrades.length === 0) {
+                      return (
+                        <div className="text-center py-8">
+                          <CheckCircle size={48} className="text-green-400 mx-auto mb-4" />
+                          <p className="text-gray-400 text-sm mb-4">Alle Ausschreibungen haben angenommene Angebote</p>
+                          <p className="text-gray-500 text-xs">Erstellen Sie neue Ausschreibungen über den Button oben.</p>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <TradesCard
+                        trades={openTrades}
+                        projectId={selectedProject.id}
+                        isExpanded={true}
+                        onToggle={() => {}}
+                        onTradeClick={handleTradeClick}
+                        tradeAppointments={tradeAppointments}
+                        onAcceptQuote={async (quoteId: number) => {
+                          try {
+                            await acceptQuote(quoteId);
+                            const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                            setProjectTrades(activeTrades);
+                            await loadQuotesForTrades(activeTrades);
+                            await loadAppointmentsForTrades(activeTrades);
+                            setSuccess('Angebot erfolgreich angenommen!');
+                            setTimeout(() => setSuccess(''), 3000);
+                          } catch (e: any) {
+                            console.error('❌ Fehler beim Annehmen:', e);
+                            setError('Fehler beim Annehmen des Angebots');
+                          }
+                        }}
+                        onRejectQuote={async (quoteId: number, reason: string) => {
+                          try {
+                            await rejectQuote(quoteId, reason);
+                            const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                            setProjectTrades(activeTrades);
+                            await loadQuotesForTrades(activeTrades);
+                            await loadAppointmentsForTrades(activeTrades);
+                            setSuccess('Angebot erfolgreich abgelehnt!');
+                            setTimeout(() => setSuccess(''), 3000);
+                          } catch (e: any) {
+                            console.error('❌ Fehler beim Ablehnen:', e);
+                            setError('Fehler beim Ablehnen des Angebots');
+                          }
+                        }}
+                        onResetQuote={async (quoteId: number) => {
+                          try {
+                            await resetQuote(quoteId);
+                            const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                            setProjectTrades(activeTrades);
+                          } catch (e) {
+                            console.error('❌ Fehler beim Zurücksetzen:', e);
+                          }
+                        }}
+                      />
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+            
+            {/* Rechte Spalte: Angenommene Ausschreibungen */}
+            <div className="space-y-4 w-full">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base md:text-lg font-semibold text-white flex items-center gap-2 md:gap-3">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span className="hidden sm:inline">Angenommene Ausschreibungen</span>
+                  <span className="sm:hidden">Angenommen</span>
+                  <span className="text-xs md:text-sm text-gray-400 bg-white/10 px-2 py-1 rounded-full">
+                    {(() => {
+                      const acceptedTrades = projectTrades.filter(trade => {
+                        const quotes = allTradeQuotes[trade.id] || [];
+                        const hasAcceptedQuote = quotes.some(quote => quote.status === 'accepted');
+                        return hasAcceptedQuote;
+                      });
+                      return acceptedTrades.length;
+                    })()}
+                  </span>
+                </h3>
+              </div>
+              
+              <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden relative">
+                <div className="p-4 md:p-6 space-y-3 relative z-10">
+                  {(() => {
+                    const acceptedTrades = projectTrades.filter(trade => {
+                      const quotes = allTradeQuotes[trade.id] || [];
+                      const hasAcceptedQuote = quotes.some(quote => quote.status === 'accepted');
+                      return hasAcceptedQuote;
+                    });
+                    
+                    if (acceptedTrades.length === 0) {
+                      return (
+                        <div className="text-center py-8">
+                          <AlertTriangle size={48} className="text-yellow-400 mx-auto mb-4" />
+                          <p className="text-gray-400 text-sm mb-4">Noch keine Angebote angenommen</p>
+                          <p className="text-gray-500 text-xs">Angenommene Ausschreibungen erscheinen hier.</p>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <TradesCard
+                        trades={acceptedTrades}
+                        projectId={selectedProject.id}
+                        isExpanded={true}
+                        onToggle={() => {}}
+                        onTradeClick={handleTradeClick}
+                        tradeAppointments={tradeAppointments}
+                        onAcceptQuote={async (quoteId: number) => {
+                          try {
+                            await acceptQuote(quoteId);
+                            const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                            setProjectTrades(activeTrades);
+                            await loadQuotesForTrades(activeTrades);
+                            await loadAppointmentsForTrades(activeTrades);
+                            setSuccess('Angebot erfolgreich angenommen!');
+                            setTimeout(() => setSuccess(''), 3000);
+                          } catch (e: any) {
+                            console.error('❌ Fehler beim Annehmen:', e);
+                            setError('Fehler beim Annehmen des Angebots');
+                          }
+                        }}
+                        onRejectQuote={async (quoteId: number, reason: string) => {
+                          try {
+                            await rejectQuote(quoteId, reason);
+                            const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                            setProjectTrades(activeTrades);
+                            await loadQuotesForTrades(activeTrades);
+                            await loadAppointmentsForTrades(activeTrades);
+                            setSuccess('Angebot erfolgreich abgelehnt!');
+                            setTimeout(() => setSuccess(''), 3000);
+                          } catch (e: any) {
+                            console.error('❌ Fehler beim Ablehnen:', e);
+                            setError('Fehler beim Ablehnen des Angebots');
+                          }
+                        }}
+                        onResetQuote={async (quoteId: number) => {
+                          try {
+                            await resetQuote(quoteId);
+                            const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                            setProjectTrades(activeTrades);
+                          } catch (e) {
+                            console.error('❌ Fehler beim Zurücksetzen:', e);
+                          }
+                        }}
+                      />
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1998,8 +2135,8 @@ export default function Dashboard() {
                 try {
                   await acceptQuote(quoteId);
                   // Gewerke neu laden nach Annahme
-                  const trades = await getMilestones(selectedProject.id);
-                  setProjectTrades(trades || []);
+                  const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                  setProjectTrades(activeTrades);
                   await loadQuotesForTrades(activeTrades);
                   console.log('✅ Angebot angenommen und Daten neu geladen');
                 } catch (error) {
@@ -2010,8 +2147,8 @@ export default function Dashboard() {
                 try {
                   await rejectQuote(quoteId, reason);
                   // Gewerke neu laden nach Ablehnung
-                  const trades = await getMilestones(selectedProject.id);
-                  setProjectTrades(trades || []);
+                  const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                  setProjectTrades(activeTrades);
                   await loadQuotesForTrades(activeTrades);
                   console.log('✅ Angebot abgelehnt und Daten neu geladen');
                 } catch (error) {
@@ -2036,8 +2173,8 @@ export default function Dashboard() {
               onAcceptQuote={async (quoteId: number) => {
                 try {
                   await acceptQuote(quoteId);
-                  const trades = await getMilestones(selectedProject.id);
-                  setProjectTrades(trades || []);
+                  const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                  setProjectTrades(activeTrades);
                   await loadQuotesForTrades(activeTrades);
                 } catch (e) {
                   console.error('❌ Fehler beim Annehmen:', e);
@@ -2046,8 +2183,8 @@ export default function Dashboard() {
               onRejectQuote={async (quoteId: number, reason: string) => {
                 try {
                   await rejectQuote(quoteId, reason);
-                  const trades = await getMilestones(selectedProject.id);
-                  setProjectTrades(trades || []);
+                  const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                  setProjectTrades(activeTrades);
                   await loadQuotesForTrades(activeTrades);
                 } catch (e) {
                   console.error('❌ Fehler beim Ablehnen:', e);
@@ -2056,8 +2193,8 @@ export default function Dashboard() {
               onResetQuote={async (quoteId: number) => {
                 try {
                   await resetQuote(quoteId);
-                  const trades = await getMilestones(selectedProject.id);
-                  setProjectTrades(trades || []);
+                  const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                  setProjectTrades(activeTrades);
                   await loadQuotesForTrades(activeTrades);
                 } catch (e) {
                   console.error('❌ Fehler beim Zurücksetzen:', e);

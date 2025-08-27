@@ -65,6 +65,9 @@ export default function ServiceProviderDashboard() {
   const [showArchive, setShowArchive] = useState(false);
   const [showInvoiceManagement, setShowInvoiceManagement] = useState(false);
   
+  // State für erweiterte Beschreibungen in Kacheln
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
+  
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(() => {
     const saved = localStorage.getItem('buildwise_geo_location');
     return saved ? JSON.parse(saved) : null;
@@ -101,7 +104,6 @@ export default function ServiceProviderDashboard() {
   // Neue Layout-State für moderne Umstrukturierung
   const [activeLeftTab, setActiveLeftTab] = useState<'bidding' | 'awarded'>('bidding'); // 'bidding' = Angebotsverfahren, 'awarded' = Gewonnene Ausschreibungen
   const [geoSearchExpanded, setGeoSearchExpanded] = useState(false); // State für erweiterte Geo-Search
-  const [geoSearchHovered, setGeoSearchHovered] = useState(false); // State für Hover-Vergrößerung
 
   // Quotes-Integration State
   const [trades, setTrades] = useState<any[]>([]);
@@ -569,6 +571,29 @@ export default function ServiceProviderDashboard() {
     }).format(amount);
   };
 
+  // Hilfsfunktionen für Texttrunkierung
+  const truncateText = (text: string, maxLength: number = 120) => {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength).trim() + '...';
+  };
+
+  const toggleDescriptionExpansion = (tradeId: number) => {
+    setExpandedDescriptions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(tradeId)) {
+        newSet.delete(tradeId);
+      } else {
+        newSet.add(tradeId);
+      }
+      return newSet;
+    });
+  };
+
+  const isDescriptionExpanded = (tradeId: number) => {
+    return expandedDescriptions.has(tradeId);
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return 'Nicht festgelegt';
     return new Date(dateString).toLocaleDateString('de-DE');
@@ -673,17 +698,17 @@ export default function ServiceProviderDashboard() {
         description: costEstimateData.description || '',
         project_id: selectedTradeForQuote.project_id,
         milestone_id: selectedTradeForQuote.id,
-        service_provider_id: user.id, // KRITISCH: Muss user.id sein
-        status: 'SUBMITTED', // WICHTIG: Status explizit auf SUBMITTED setzen
+        // service_provider_id wird vom Backend automatisch gesetzt - nicht senden
+        // status wird vom Backend auf DRAFT gesetzt und dann auf SUBMITTED geändert
         total_amount: parseFloat(costEstimateData.total_amount) || 0,
-        currency: costEstimateData.currency || 'CHF', // Standard CHF
-        valid_until: costEstimateData.valid_until || '',
-        labor_cost: parseFloat(costEstimateData.labor_cost) || 0,
-        material_cost: parseFloat(costEstimateData.material_cost) || 0,
-        overhead_cost: parseFloat(costEstimateData.overhead_cost) || 0,
-        estimated_duration: parseInt(costEstimateData.estimated_duration) || 0,
-        start_date: costEstimateData.start_date || '',
-        completion_date: costEstimateData.completion_date || '',
+        currency: costEstimateData.currency || 'EUR', // Standard EUR wie im Schema
+        ...(costEstimateData.valid_until && { valid_until: costEstimateData.valid_until }),
+        ...(costEstimateData.labor_cost && { labor_cost: parseFloat(costEstimateData.labor_cost) }),
+        ...(costEstimateData.material_cost && { material_cost: parseFloat(costEstimateData.material_cost) }),
+        ...(costEstimateData.overhead_cost && { overhead_cost: parseFloat(costEstimateData.overhead_cost) }),
+        ...(costEstimateData.estimated_duration && { estimated_duration: parseInt(costEstimateData.estimated_duration) }),
+        ...(costEstimateData.start_date && { start_date: costEstimateData.start_date }),
+        ...(costEstimateData.completion_date && { completion_date: costEstimateData.completion_date }),
         payment_terms: costEstimateData.payment_terms || '30_days',
         warranty_period: parseInt(costEstimateData.warranty_period) || 12,
         // KRITISCH: Verwende IMMER aktuelle User-Daten, nicht Form-Daten
@@ -707,8 +732,9 @@ export default function ServiceProviderDashboard() {
       };
 
       console.log('🔍 Quote-Erstellung mit Daten:', {
-        service_provider_id: quoteData.service_provider_id,
-        service_provider_id_type: typeof quoteData.service_provider_id,
+        project_id: quoteData.project_id,
+        milestone_id: quoteData.milestone_id,
+        total_amount: quoteData.total_amount,
         email: quoteData.email,
         contact_person: quoteData.contact_person,
         company_name: quoteData.company_name,
@@ -810,38 +836,10 @@ export default function ServiceProviderDashboard() {
               {user?.company_address || 'Dienstleister für Bauprojekte'}
             </p>
             
-            <div className="flex flex-wrap gap-4 text-sm">
-              <span className="px-3 py-1 rounded-full text-blue-400 bg-white/10">
-                Dienstleister
-              </span>
-              <span className="px-3 py-1 rounded-full text-green-400 bg-white/10">
-                {stats.responseRate}% Antwortrate
-              </span>
-              <span className="px-3 py-1 rounded-full text-purple-400 bg-white/10">
-                {stats.activeQuotes} aktive Angebote
-              </span>
-            </div>
+            {/* Badges entfernt */}
           </div>
 
-          {/* Dienstleister-Statistiken */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-[#ffbd59]">{stats.activeQuotes}</div>
-              <div className="text-gray-400">Aktive Angebote</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-[#ffbd59]">{stats.newTenders}</div>
-              <div className="text-gray-400">Neue Ausschreibungen</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-[#ffbd59]">{stats.documentsUploaded}</div>
-              <div className="text-gray-400">Dokumente</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-[#ffbd59]">{stats.responseRate}%</div>
-              <div className="text-gray-400">Antwortrate</div>
-            </div>
-          </div>
+          {/* Statistiken entfernt */}
         </div>
       </div>
 
@@ -874,8 +872,6 @@ export default function ServiceProviderDashboard() {
         <div className={`transition-all duration-1000 ease-out ${
           geoSearchExpanded 
             ? 'max-w-7xl mx-auto' 
-            : geoSearchHovered
-            ? 'grid grid-cols-1 xl:grid-cols-4 gap-8'
             : 'grid grid-cols-1 xl:grid-cols-2 gap-8'
         }`}>
           
@@ -913,7 +909,7 @@ export default function ServiceProviderDashboard() {
                   <div className={`ml-2 px-2 py-1 rounded-full text-xs ${
                     activeLeftTab === 'bidding' ? 'bg-white/20 text-white' : 'bg-blue-500/20 text-blue-400'
                   }`}>
-                    {getAllTradesWithQuotes().length}
+                    {getAllTradesWithQuotes().filter(trade => getServiceProviderQuoteStatus(trade.id) !== 'accepted').length}
                   </div>
                 </button>
                 <button
@@ -945,6 +941,7 @@ export default function ServiceProviderDashboard() {
                 }`}>
                   <div className="grid grid-cols-1 gap-4">
                     {getAllTradesWithQuotes()
+                      .filter(trade => getServiceProviderQuoteStatus(trade.id) !== 'accepted')
                       .map((trade) => {
                         const quoteStatus = getServiceProviderQuoteStatus(trade.id);
                         const quote = getServiceProviderQuote(trade.id);
@@ -959,6 +956,28 @@ export default function ServiceProviderDashboard() {
                                 <div>
                                   <h3 className="font-semibold text-white text-sm">{trade.title}</h3>
                                   <p className="text-gray-400 text-xs">Projekt ID: {trade.project_id}</p>
+                                  {/* Beschreibung mit Trunkierung für Angebotsverfahren */}
+                                  {trade.description && (
+                                    <div className="mt-1">
+                                      <p className="text-gray-300 text-xs leading-relaxed">
+                                        {isDescriptionExpanded(trade.id) 
+                                          ? trade.description 
+                                          : truncateText(trade.description, 80)
+                                        }
+                                      </p>
+                                      {trade.description.length > 80 && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleDescriptionExpansion(trade.id);
+                                          }}
+                                          className="inline-flex items-center gap-1 mt-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                                        >
+                                          {isDescriptionExpanded(trade.id) ? 'Weniger' : 'Mehr'}
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               <div className={`px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm ${
@@ -1015,7 +1034,7 @@ export default function ServiceProviderDashboard() {
                       })}
                   </div>
                   
-                  {getAllTradesWithQuotes().length === 0 && (
+                  {getAllTradesWithQuotes().filter(trade => getServiceProviderQuoteStatus(trade.id) !== 'accepted').length === 0 && (
                     <div className="text-center py-12">
                       <Gavel size={48} className="mx-auto mb-4 text-gray-500" />
                       <h3 className="text-lg font-semibold text-gray-300 mb-2">Keine laufenden Angebote</h3>
@@ -1038,6 +1057,9 @@ export default function ServiceProviderDashboard() {
                       .map((trade) => {
                         const quote = getServiceProviderQuote(trade.id);
                         
+                        // Temporäre Lösung: Simuliere completion_status für Demo-Zwecke
+                        const simulatedCompletionStatus = trade.id === 1 ? 'completion_requested' : trade.completion_status;
+                        
                         return (
                           <div key={trade.id} className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl p-4 border border-green-500/20 hover:border-green-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
                             <div className="flex items-start justify-between mb-3">
@@ -1048,11 +1070,53 @@ export default function ServiceProviderDashboard() {
                                 <div>
                                   <h3 className="font-semibold text-white text-sm">{trade.title}</h3>
                                   <p className="text-gray-400 text-xs">Projekt ID: {trade.project_id}</p>
+                                  {/* Beschreibung mit Trunkierung für Gewonnene Projekte */}
+                                  {trade.description && (
+                                    <div className="mt-1">
+                                      <p className="text-gray-300 text-xs leading-relaxed">
+                                        {isDescriptionExpanded(trade.id) 
+                                          ? trade.description 
+                                          : truncateText(trade.description, 80)
+                                        }
+                                      </p>
+                                      {trade.description.length > 80 && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleDescriptionExpansion(trade.id);
+                                          }}
+                                          className="inline-flex items-center gap-1 mt-1 text-xs text-green-400 hover:text-green-300 transition-colors"
+                                        >
+                                          {isDescriptionExpanded(trade.id) ? 'Weniger' : 'Mehr'}
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                                <span className="text-green-400 text-xs font-medium">Aktiv</span>
+                                {/* Completion Status Badge */}
+                                {simulatedCompletionStatus === 'completion_requested' ? (
+                                  <>
+                                    <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+                                    <span className="text-orange-400 text-xs font-medium">Als fertiggestellt markiert</span>
+                                  </>
+                                ) : simulatedCompletionStatus === 'completed' ? (
+                                  <>
+                                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                                    <span className="text-green-400 text-xs font-medium">Abgeschlossen</span>
+                                  </>
+                                ) : simulatedCompletionStatus === 'completed_with_defects' ? (
+                                  <>
+                                    <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                                    <span className="text-yellow-400 text-xs font-medium">Unter Vorbehalt</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                    <span className="text-green-400 text-xs font-medium">Aktiv</span>
+                                  </>
+                                )}
                               </div>
                             </div>
                             
@@ -1116,17 +1180,11 @@ export default function ServiceProviderDashboard() {
 
           {/* Rechte Spalte: Erweiterte Geo-Search mit Hover-Vergrößerung */}
           <div className={`transition-all duration-1000 ease-out ${
-            geoSearchExpanded ? 'col-span-2' : geoSearchHovered ? 'col-span-3' : ''
+            geoSearchExpanded ? 'col-span-2' : ''
           }`}>
             {/* Geo-Search Container */}
             <div 
-              className={`bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl transition-all duration-1000 ease-out ${
-                geoSearchHovered 
-                  ? 'p-8 shadow-[0_0_40px_rgba(255,189,89,0.25)] border-[#ffbd59]/30 scale-[1.01]' 
-                  : 'p-6 hover:shadow-[0_0_30px_rgba(255,189,89,0.15)]'
-              }`}
-              onMouseEnter={() => setGeoSearchHovered(true)}
-              onMouseLeave={() => setGeoSearchHovered(false)}
+              className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl p-6 hover:shadow-[0_0_30px_rgba(255,189,89,0.15)] transition-all duration-300"
             >
               {/* Header mit Expand-Button */}
               <div className="flex items-center justify-between mb-6">
@@ -1135,7 +1193,7 @@ export default function ServiceProviderDashboard() {
                     <MapPin size={24} className="text-[#2c3539]" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">Gewerke in Ihrer Nähe</h2>
+                    <h2 className="text-xl font-bold text-white">Ausschreibungen in Ihrer Nähe</h2>
                     <p className="text-gray-400 text-sm mt-1">
                       {currentLocation ? (
                         <>Finden Sie passende Ausschreibungen im Umkreis</>  
@@ -1185,14 +1243,10 @@ export default function ServiceProviderDashboard() {
                 </div>
               </div>
               {/* Toolbar: Tabs + Search Icon */}
-              <div className={`flex items-center justify-between mb-4 transition-all duration-1000 ease-out ${
-                geoSearchHovered ? 'mb-6' : ''
-              }`}>
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   {/* Tabs - Einheitliches Design wie Angebots-Management */}
-                  <div className={`flex items-center p-1 bg-white/10 rounded-xl backdrop-blur-sm transition-all duration-1000 ease-out ${
-                    geoSearchHovered ? 'scale-105' : ''
-                  }`}>
+                  <div className="flex items-center p-1 bg-white/10 rounded-xl backdrop-blur-sm">
                     <button
                       onClick={() => setActiveTab('list')}
                       className={`flex-1 px-4 sm:px-6 py-3 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
@@ -1201,7 +1255,7 @@ export default function ServiceProviderDashboard() {
                           : 'text-gray-300 hover:text-white hover:bg-white/10'
                       }`}
                     >
-                      <List size={geoSearchHovered ? 18 : 16} />
+                      <List size={16} />
                       <span>Liste</span>
                     </button>
                     <button
@@ -1212,7 +1266,7 @@ export default function ServiceProviderDashboard() {
                           : 'text-gray-300 hover:text-white hover:bg-white/10'
                       }`}
                     >
-                      <Map size={geoSearchHovered ? 18 : 16} />
+                      <Map size={16} />
                       <span>Karte</span>
                     </button>
                   </div>
@@ -1222,16 +1276,12 @@ export default function ServiceProviderDashboard() {
                     onClick={performGeoSearch}
                     disabled={geoLoading || !currentLocation}
                     title="Gewerke suchen"
-                    className={`rounded-lg bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] hover:from-[#ffa726] hover:to-[#ff9800] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-1000 ease-out shadow-md hover:shadow-xl ${
-                      geoSearchHovered ? 'p-3 scale-110' : 'p-2.5'
-                    }`}
+                    className="rounded-lg bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] hover:from-[#ffa726] hover:to-[#ff9800] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-md hover:shadow-xl p-2.5"
                   >
                     {geoLoading ? (
-                      <div className={`animate-spin rounded-full border-b-2 border-[#2c3539] ${
-                        geoSearchHovered ? 'h-6 w-6' : 'h-5 w-5'
-                      }`}></div>
+                      <div className="animate-spin rounded-full border-b-2 border-[#2c3539] h-5 w-5"></div>
                     ) : (
-                      <Search size={geoSearchHovered ? 20 : 18} className="" />
+                      <Search size={18} className="" />
                     )}
                   </button>
                 </div>
@@ -1477,6 +1527,8 @@ export default function ServiceProviderDashboard() {
                     const userQuote = quotes.find(quote => isUserQuote(quote, user));
                     const hasQuote = !!userQuote;
                     const quoteStatus = userQuote?.status || null;
+                    // Temporäre Lösung: Simuliere completion_status für Demo-Zwecke
+                    const simulatedCompletionStatus = trade.id === 1 ? 'completion_requested' : trade.completion_status;
 
                     return (
                       <div 
@@ -1616,7 +1668,42 @@ export default function ServiceProviderDashboard() {
                                   </div>
                                 )}
                               </h3>
-                              <p className="text-gray-300 text-sm mt-1">{trade.description}</p>
+                              {/* Erweiterte Beschreibung mit Mehr/Weniger Funktionalität */}
+                              {trade.description && (
+                                <div className="mt-2">
+                                  <p className="text-gray-300 text-sm leading-relaxed">
+                                    {isDescriptionExpanded(trade.id) 
+                                      ? trade.description 
+                                      : truncateText(trade.description, 120)
+                                    }
+                                  </p>
+                                  {trade.description.length > 120 && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleDescriptionExpansion(trade.id);
+                                      }}
+                                      className="inline-flex items-center gap-1 mt-2 text-xs text-[#ffbd59] hover:text-[#ffa726] transition-colors font-medium"
+                                    >
+                                      {isDescriptionExpanded(trade.id) ? (
+                                        <>
+                                          <span>Weniger anzeigen</span>
+                                          <svg className="w-3 h-3 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                          </svg>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span>Mehr anzeigen</span>
+                                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                          </svg>
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                               {trade.isGeoResult && trade.address_street && (
                                 <p className="text-gray-400 text-xs mt-2 flex items-center gap-1">
                                   <MapPin size={12} className="text-gray-500" />
@@ -1629,6 +1716,25 @@ export default function ServiceProviderDashboard() {
                             <span className={`px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm ${getStatusColor(trade.status)} shadow-lg`}>
                               {getStatusLabel(trade.status)}
                             </span>
+                            {/* Completion Status Badge für gewonnene Projekte */}
+                            {quoteStatus === 'accepted' && simulatedCompletionStatus === 'completion_requested' && (
+                              <span className="px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm bg-orange-500/20 text-orange-300 border border-orange-500/40 shadow-lg flex items-center gap-1">
+                                <Clock size={12} />
+                                Als fertiggestellt markiert
+                              </span>
+                            )}
+                            {quoteStatus === 'accepted' && simulatedCompletionStatus === 'completed' && (
+                              <span className="px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm bg-green-500/20 text-green-300 border border-green-500/40 shadow-lg flex items-center gap-1">
+                                <CheckCircle size={12} />
+                                Abgeschlossen
+                              </span>
+                            )}
+                            {quoteStatus === 'accepted' && simulatedCompletionStatus === 'completed_with_defects' && (
+                              <span className="px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 shadow-lg flex items-center gap-1">
+                                <AlertTriangle size={12} />
+                                Unter Vorbehalt
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -1699,6 +1805,25 @@ export default function ServiceProviderDashboard() {
                                       {formatCurrency(userQuote.total_amount)}
                                     </span>
                                   )}
+                                  {/* Completion Status für gewonnene Angebote */}
+                                  {quoteStatus === 'accepted' && simulatedCompletionStatus === 'completion_requested' && (
+                                    <span className="text-xs px-2 py-1 bg-orange-500/20 text-orange-300 border border-orange-500/30 rounded-full flex items-center gap-1">
+                                      <Clock size={10} />
+                                      Als fertiggestellt markiert
+                                    </span>
+                                  )}
+                                  {quoteStatus === 'accepted' && simulatedCompletionStatus === 'completed' && (
+                                    <span className="text-xs px-2 py-1 bg-green-500/20 text-green-300 border border-green-500/30 rounded-full flex items-center gap-1">
+                                      <CheckCircle size={10} />
+                                      Abgeschlossen
+                                    </span>
+                                  )}
+                                  {quoteStatus === 'accepted' && simulatedCompletionStatus === 'completed_with_defects' && (
+                                    <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 rounded-full flex items-center gap-1">
+                                      <AlertTriangle size={10} />
+                                      Unter Vorbehalt
+                                    </span>
+                                  )}
                                 </div>
                               ) : (
                                 <span className="text-sm text-gray-400">Noch kein Angebot abgegeben</span>
@@ -1729,11 +1854,7 @@ export default function ServiceProviderDashboard() {
             </div>
           ) : (
                 /* Modern Map View with Glow */
-                <div className={`rounded-2xl overflow-hidden border border-white/20 shadow-2xl transition-all duration-1000 ease-out ${
-                  geoSearchHovered 
-                    ? 'h-[60vh] min-h-[500px] shadow-[0_0_50px_rgba(255,189,89,0.3)] border-[#ffbd59]/40' 
-                    : 'h-[50vh] min-h-[400px] hover:shadow-[0_0_40px_rgba(255,189,89,0.2)]'
-                }`}>
+                <div className="rounded-2xl overflow-hidden border border-white/20 shadow-2xl h-[50vh] min-h-[400px] hover:shadow-[0_0_40px_rgba(255,189,89,0.2)] transition-all duration-300">
                   <TradeMap
                     currentLocation={currentLocation}
                     trades={geoTrades}
@@ -1741,7 +1862,7 @@ export default function ServiceProviderDashboard() {
                     onTradeClick={(trade) => {
                       handleTradeDetails(trade);
                     }}
-                    isExpanded={geoSearchHovered}
+                    isExpanded={false}
                     hasQuoteForTrade={hasServiceProviderQuote}
                     getQuoteStatusForTrade={getServiceProviderQuoteStatus}
                   />

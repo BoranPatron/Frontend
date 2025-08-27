@@ -48,10 +48,15 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
   // Initialisiere mit den übergebenen Mängeln
   useEffect(() => {
     if (isOpen && defects.length > 0) {
-      // Alle Mängel sind erstmal nicht als behoben markiert
-      setCheckedDefects(new Set());
+      // Bereits erledigte Mängel automatisch als behoben markieren
+      const resolvedDefectIds = defects
+        .filter(defect => defect.resolved)
+        .map(defect => defect.id);
+      setCheckedDefects(new Set(resolvedDefectIds));
+      console.log('🔍 FinalAcceptanceModal - Bereits erledigte Mängel vorausgewählt:', resolvedDefectIds);
     } else if (isOpen && defects.length === 0) {
-      }
+      setCheckedDefects(new Set());
+    }
   }, [isOpen, defects]);
 
   const toggleDefectCheck = (defectId: number) => {
@@ -229,6 +234,11 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
                           <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getSeverityColor(defect.severity)}`}>
                             {getSeverityLabel(defect.severity)}
                           </div>
+                          {defect.resolved && (
+                            <div className="px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
+                              ✓ Im Kanban erledigt
+                            </div>
+                          )}
                         </div>
                         
                         <p className={`text-sm mb-2 ${

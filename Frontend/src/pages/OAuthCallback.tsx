@@ -6,9 +6,10 @@ import { AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
 export default function OAuthCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const processingRef = useRef(false);
   const mountedRef = useRef(true);
 
@@ -134,6 +135,9 @@ export default function OAuthCallback() {
             console.log('🔄 Führe Login durch (ohne mountedRef Check)');
             
             try {
+              // Speichere Benutzerdaten für die Willkommensnachricht
+              setCurrentUser(data.user);
+              
               // Führe Login durch - IMMER ausführen
               console.log('🔐 Rufe login() Funktion auf...');
               login(data.access_token, data.user);
@@ -146,7 +150,7 @@ export default function OAuthCallback() {
                 const redirectPath = localStorage.getItem('redirectAfterLogin') || '/';
                 localStorage.removeItem('redirectAfterLogin');
                 navigate(redirectPath, { replace: true });
-              }, 1500); // Reduziert auf 1.5 Sekunden für schnellere UX
+              }, 2000); // Etwas länger für bessere UX mit der neuen Willkommensnachricht
               
             } catch (loginError) {
               console.error('❌ Fehler beim Login-Prozess:', loginError);
@@ -202,7 +206,19 @@ export default function OAuthCallback() {
           />
         </div>
 
-        <h1 className="text-2xl font-bold text-[#ffbd59] mb-4">OAuth-Verarbeitung</h1>
+        {/* Dynamischer Titel basierend auf Status */}
+        {status === 'loading' && (
+          <h1 className="text-2xl font-bold text-[#ffbd59] mb-4">OAuth-Verarbeitung</h1>
+        )}
+        
+        {(status === 'success' || status === 'error') && (
+          <h1 className="text-2xl font-bold text-[#ffbd59] mb-4">
+            {status === 'success' && currentUser ? 
+              `Willkommen ${currentUser.first_name || currentUser.name || currentUser.email || 'zurück'}!` : 
+              'Anmeldung'
+            }
+          </h1>
+        )}
 
         {/* Status-Anzeige */}
         {status === 'loading' && (
@@ -219,7 +235,17 @@ export default function OAuthCallback() {
             <div className="flex justify-center">
               <CheckCircle className="h-12 w-12 text-green-500" />
             </div>
-            <p className="text-gray-300">{message}</p>
+            <div className="text-center space-y-3">
+              <p className="text-lg text-white font-medium">
+                Schön, dass du da bist! 🎉
+              </p>
+              <p className="text-gray-300">
+                Deine Anmeldung war erfolgreich. Du wirst gleich zu deinem Dashboard weitergeleitet.
+              </p>
+              <p className="text-sm text-gray-400">
+                {message}
+              </p>
+            </div>
           </div>
         )}
 

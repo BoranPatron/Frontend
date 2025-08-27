@@ -50,6 +50,7 @@ interface CostEstimateFormData {
   
   // Zahlungsbedingungen
   payment_terms: string;
+  custom_payment_terms: string;
   
   // Dienstleister-Informationen
   company_name: string;
@@ -96,6 +97,7 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
     material_cost: '',
     overhead_cost: '',
     payment_terms: '',
+    custom_payment_terms: '',
     company_name: '',
     contact_person: '',
     phone: '',
@@ -189,6 +191,8 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
     if (!formData.quote_number) errors.push('Angebotsnummer');
     if (!formData.total_amount) errors.push('Gesamtbetrag');
     if (!formData.valid_until) errors.push('Gültig bis');
+    if (!formData.payment_terms) errors.push('Zahlungsbedingungen');
+    if (formData.payment_terms === 'custom' && !formData.custom_payment_terms) errors.push('Individuelle Zahlungsbedingungen');
 
     if (!formData.start_date) errors.push('Startdatum');
     if (!formData.completion_date) errors.push('Fertigstellungsdatum');
@@ -259,8 +263,52 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
         });
 
         try {
-          await Promise.all(uploadPromises);
-          setSuccess('Erstangebot und alle Dokumente erfolgreich hochgeladen!');
+          const uploadResults = await Promise.all(uploadPromises);
+          console.log('✅ Alle Dokumente erfolgreich hochgeladen:', uploadResults);
+          
+          // Aktualisiere die Quote mit den Dokument-Pfaden
+          try {
+            const pdfDoc = uploadResults.find(doc => doc.file_name?.toLowerCase().endsWith('.pdf'));
+            const additionalDocs = uploadResults.map(doc => ({
+              id: doc.id,
+              name: doc.title || doc.file_name,
+              title: doc.title,
+              file_name: doc.file_name,
+              url: `/documents/${doc.id}/download`,
+              path: `/documents/${doc.id}/download`,
+              type: doc.mime_type || 'application/octet-stream',
+              size: doc.file_size || 0
+            }));
+
+            const quoteUpdate = {
+              pdf_upload_path: pdfDoc ? `/documents/${pdfDoc.id}/download` : null,
+              additional_documents: JSON.stringify(additionalDocs)
+            };
+
+            console.log('🔄 Aktualisiere Quote mit Dokumenten:', {
+              quoteId: (createdQuote as any).id,
+              quoteUpdate,
+              uploadResults
+            });
+
+            // API-Call zum Aktualisieren der Quote
+            const { apiCall } = await import('../api/api');
+            const updateResult = await apiCall(`/quotes/${(createdQuote as any).id}`, {
+              method: 'PUT',
+              body: JSON.stringify(quoteUpdate),
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
+
+            console.log('✅ Quote-Update Ergebnis:', updateResult);
+
+            console.log('✅ Quote mit Dokument-Pfaden aktualisiert');
+            setSuccess('Erstangebot und alle Dokumente erfolgreich eingereicht!');
+          } catch (updateError) {
+            console.error('❌ Fehler beim Aktualisieren der Quote mit Dokumenten:', updateError);
+            setSuccess('Erstangebot und Dokumente hochgeladen, aber Verknüpfung fehlgeschlagen.');
+          }
         } catch (uploadError) {
           setSuccess('Erstangebot erstellt, aber einige Dokumente konnten nicht hochgeladen werden.');
           console.error('Dokument-Upload-Fehler:', uploadError);
@@ -319,6 +367,7 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
       material_cost: '',
       overhead_cost: '',
       payment_terms: '',
+      custom_payment_terms: '',
       company_name: '',
       contact_person: '',
       phone: '',
@@ -650,21 +699,62 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
 
                     <div>
                       <label className="block text-sm font-medium text-white mb-2">
-                        Zahlungsbedingungen
+                        Zahlungsbedingungen *
                       </label>
                       <select
                         name="payment_terms"
                         value={formData.payment_terms}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:border-[#ffbd59] focus:bg-white/10 focus:outline-none transition-all duration-300 backdrop-blur-sm"
+                        className="w-full px-4 py-3 bg-[#51636f] border border-white/20 rounded-xl text-white focus:border-[#ffbd59] focus:bg-[#51636f]/80 focus:outline-none transition-all duration-300 backdrop-blur-sm"
+                        style={{ 
+                          backgroundColor: '#51636f',
+                          color: '#ffffff'
+                        }}
                       >
-                        <option value="">Bitte wählen...</option>
-                        <option value="30_days">30 Tage netto</option>
-                        <option value="14_days">14 Tage netto</option>
-                        <option value="immediate">Sofort</option>
-                        <option value="50_50">50% bei Auftrag, 50% bei Fertigstellung</option>
-                        <option value="milestone">Nach Meilensteinen</option>
+                        <option value="" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>Bitte wählen...</option>
+                        <option value="immediate" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>Sofort zahlbar</option>
+                        <option value="7_days" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>7 Tage netto</option>
+                        <option value="14_days" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>14 Tage netto</option>
+                        <option value="30_days" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>30 Tage netto</option>
+                        <option value="60_days" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>60 Tage netto</option>
+                        <option value="2_skonto_10_days" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>2% Skonto bei Zahlung innerhalb 10 Tagen, sonst 30 Tage netto</option>
+                        <option value="3_skonto_14_days" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>3% Skonto bei Zahlung innerhalb 14 Tagen, sonst 30 Tage netto</option>
+                        <option value="vorkasse" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>Vorkasse (100% im Voraus)</option>
+                        <option value="anzahlung_30" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>30% Anzahlung, Rest bei Fertigstellung</option>
+                        <option value="anzahlung_50" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>50% Anzahlung, Rest bei Fertigstellung</option>
+                        <option value="50_50" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>50% bei Auftrag, 50% bei Fertigstellung</option>
+                        <option value="30_30_40" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>30% bei Auftrag, 30% bei Zwischenabnahme, 40% bei Fertigstellung</option>
+                        <option value="milestone" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>Nach Meilensteinen/Baufortschritt</option>
+                        <option value="monthly" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>Monatliche Abschlagszahlungen</option>
+                        <option value="bei_lieferung" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>Bei Lieferung/Übergabe</option>
+                        <option value="ratenzahlung_3" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>Ratenzahlung in 3 Monatsraten</option>
+                        <option value="ratenzahlung_6" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>Ratenzahlung in 6 Monatsraten</option>
+                        <option value="custom" style={{ backgroundColor: '#51636f', color: '#ffffff' }}>Individuelle Zahlungsbedingungen</option>
                       </select>
+                      
+                      {/* Custom Payment Terms Field */}
+                      {formData.payment_terms === 'custom' && (
+                        <div className="mt-4">
+                          <label className="block text-sm font-medium text-white mb-2">
+                            Individuelle Zahlungsbedingungen *
+                          </label>
+                          <textarea
+                            name="custom_payment_terms"
+                            value={formData.custom_payment_terms}
+                            onChange={handleInputChange}
+                            rows={3}
+                            placeholder="Beschreiben Sie Ihre individuellen Zahlungsbedingungen detailliert..."
+                            className="w-full px-4 py-3 bg-[#51636f] border border-white/20 rounded-xl text-white placeholder-gray-300 focus:border-[#ffbd59] focus:bg-[#51636f]/80 focus:outline-none transition-all duration-300 backdrop-blur-sm resize-none"
+                            style={{ 
+                              backgroundColor: '#51636f',
+                              color: '#ffffff'
+                            }}
+                          />
+                          <p className="text-xs text-gray-300 mt-2">
+                            Beispiel: "10% Anzahlung bei Auftragserteilung, 40% bei Materialbeschaffung, 40% bei 50% Baufortschritt, 10% nach Abnahme innerhalb 14 Tagen"
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

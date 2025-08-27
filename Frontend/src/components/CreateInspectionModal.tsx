@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Calendar, 
@@ -15,6 +15,7 @@ import {
   Clipboard
 } from 'lucide-react';
 import { appointmentService, formatAppointmentDateTime, type AppointmentCreate } from '../api/appointmentService';
+import { getMe } from '../api/userService';
 
 interface CreateInspectionModalProps {
   isOpen: boolean;
@@ -49,6 +50,34 @@ export default function CreateInspectionModal({
 
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [userDataLoaded, setUserDataLoaded] = useState(false);
+
+  // Lade Benutzerdaten beim Öffnen des Modals
+  useEffect(() => {
+    if (isOpen && !userDataLoaded) {
+      loadUserData();
+    }
+  }, [isOpen, userDataLoaded]);
+
+  const loadUserData = async () => {
+    try {
+      const userData = await getMe();
+      if (userData) {
+        // Automatisches Befüllen der Kontaktdaten
+        const fullName = `${userData.first_name} ${userData.last_name}`.trim();
+        setFormData(prev => ({
+          ...prev,
+          contact_person: fullName,
+          contact_phone: userData.phone || ''
+        }));
+        setUserDataLoaded(true);
+      }
+    } catch (error) {
+      console.error('Fehler beim Laden der Benutzerdaten:', error);
+      // Bei Fehler trotzdem als geladen markieren, um wiederholte Anfragen zu vermeiden
+      setUserDataLoaded(true);
+    }
+  };
 
   if (!isOpen) return null;
 
