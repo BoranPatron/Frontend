@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, AlertCircle, Calendar, FileText, Star, Download } from 'lucide-react';
 import { api } from '../api/api';
+import { useAuth } from '../context/AuthContext';
 
 interface Defect {
   id: number;
@@ -34,6 +35,7 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
   defects,
   onAcceptanceComplete
 }) => {
+  const { user } = useAuth();
   const [checkedDefects, setCheckedDefects] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +45,25 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
     timelinessRating: 0,
     communicationRating: 0,
     overallRating: 0
+  });
+
+  // Verwende die AuthContext Funktionen für korrekte Rollenprüfung
+  const { isServiceProvider: isServiceProviderFromAuth, isBautraeger: isBautraegerFromAuth } = useAuth();
+  
+  // Prüfe ob der aktuelle Benutzer ein Bauträger ist (kann bewerten)
+  const isBautraeger = isBautraegerFromAuth();
+  
+  // Prüfe ob der aktuelle Benutzer ein Dienstleister ist (kann nicht bewerten)
+  const isServiceProvider = isServiceProviderFromAuth();
+  
+  // Debug-Logging
+  console.log('🔍 FinalAcceptanceModal - Benutzerrolle:', {
+    user: user,
+    user_role: user?.user_role,
+    user_type: user?.user_type,
+    isBautraeger,
+    isServiceProvider,
+    email: user?.email
   });
 
   // Initialisiere mit den übergebenen Mängeln
@@ -77,7 +98,13 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
       return;
     }
 
-    setShowRatingModal(true);
+    // Nur Bauträger müssen bewerten - Dienstleister können direkt abschließen
+    if (isBautraeger) {
+      setShowRatingModal(true);
+    } else {
+      // Dienstleister schließt direkt ab ohne Bewertung
+      await submitFinalAcceptanceWithoutRating();
+    }
   };
 
   const submitFinalAcceptance = async () => {
@@ -93,14 +120,77 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
         });
       }
 
-      // Schließe die finale Abnahme ab
-      await api.post(`/acceptance/${acceptanceId}/final-complete`, {
+      // Wenn keine gültige acceptanceId vorhanden ist, verwende die automatisch erstellte vom Backend
+      let finalAcceptanceId = acceptanceId;
+      if (!acceptanceId || acceptanceId === 0) {
+        console.log('🔧 Keine gültige acceptanceId - lade Abnahme vom Backend');
+        
+        // Lade die automatisch erstellte Abnahme vom Backend
+        const acceptanceResponse = await api.get(`/acceptance/milestone/${milestoneId}`);
+        if (acceptanceResponse.data && acceptanceResponse.data.length > 0) {
+          const latestAcceptance = acceptanceResponse.data[acceptanceResponse.data.length - 1];
+          finalAcceptanceId = latestAcceptance.id;
+          console.log('✅ Abnahme-ID vom Backend erhalten:', finalAcceptanceId);
+        } else {
+          throw new Error('Keine Abnahme verfügbar - bitte versuchen Sie es erneut');
+        }
+      }
+
+      // Schließe die finale Abnahme ab (mit Bewertung für Bauträger)
+      await api.post(`/acceptance/${finalAcceptanceId}/final-complete`, {
         accepted: true,
         qualityRating: ratings.qualityRating,
         timelinessRating: ratings.timelinessRating,
         communicationRating: ratings.communicationRating,
         overallRating: ratings.overallRating,
         milestone_id: milestoneId
+      });
+
+      onAcceptanceComplete();
+      onClose();
+      
+    } catch (error: any) {
+      console.error('❌ Fehler bei finaler Abnahme:', error);
+      setError('Fehler beim Abschließen der finalen Abnahme. Bitte versuchen Sie es erneut.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const submitFinalAcceptanceWithoutRating = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Markiere alle Mängel als behoben
+      for (const defectId of checkedDefects) {
+        await api.put(`/acceptance/defects/${defectId}`, {
+          resolved: true,
+          resolved_at: new Date().toISOString()
+        });
+      }
+
+      // Wenn keine gültige acceptanceId vorhanden ist, verwende die automatisch erstellte vom Backend
+      let finalAcceptanceId = acceptanceId;
+      if (!acceptanceId || acceptanceId === 0) {
+        console.log('🔧 Keine gültige acceptanceId - lade Abnahme vom Backend (ohne Bewertung)');
+        
+        // Lade die automatisch erstellte Abnahme vom Backend
+        const acceptanceResponse = await api.get(`/acceptance/milestone/${milestoneId}`);
+        if (acceptanceResponse.data && acceptanceResponse.data.length > 0) {
+          const latestAcceptance = acceptanceResponse.data[acceptanceResponse.data.length - 1];
+          finalAcceptanceId = latestAcceptance.id;
+          console.log('✅ Abnahme-ID vom Backend erhalten:', finalAcceptanceId);
+        } else {
+          throw new Error('Keine Abnahme verfügbar - bitte versuchen Sie es erneut');
+        }
+      }
+
+      // Schließe die finale Abnahme ab (ohne Bewertung für Dienstleister)
+      await api.post(`/acceptance/${finalAcceptanceId}/final-complete`, {
+        accepted: true,
+        milestone_id: milestoneId
+        // Keine Bewertungen für Dienstleister
       });
 
       onAcceptanceComplete();
@@ -149,7 +239,7 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">
-                Finale Abnahme
+                {isServiceProvider ? 'Mängelbehebung melden' : 'Finale Abnahme'}
               </h2>
               <p className="text-sm text-gray-300">{milestoneTitle}</p>
             </div>
@@ -177,8 +267,10 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
               <div>
                 <h3 className="font-semibold text-blue-200 mb-2">Abnahme-Checkliste</h3>
                 <p className="text-blue-200/90 text-sm">
-                  Prüfen Sie alle dokumentierten Mängel und bestätigen Sie deren Behebung. 
-                  Erst wenn alle Mängel als behoben markiert sind, kann die finale Abnahme erfolgen.
+                  {isServiceProvider 
+                    ? 'Prüfen Sie alle dokumentierten Mängel und bestätigen Sie deren Behebung. Nach der Meldung kann der Bauträger die finale Abnahme durchführen.'
+                    : 'Prüfen Sie alle dokumentierten Mängel und bestätigen Sie deren Behebung. Erst wenn alle Mängel als behoben markiert sind, kann die finale Abnahme erfolgen.'
+                  }
                 </p>
               </div>
             </div>
@@ -202,7 +294,8 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
                 {defects.map((defect) => (
                   <div
                     key={defect.id}
-                    className={`border rounded-lg p-4 transition-all duration-200 ${
+                    onClick={() => toggleDefectCheck(defect.id)}
+                    className={`border rounded-lg p-4 transition-all duration-200 cursor-pointer hover:bg-white/10 ${
                       checkedDefects.has(defect.id) 
                         ? 'bg-green-500/10 border-green-500/20' 
                         : 'bg-white/5 border-gray-600/30'
@@ -210,18 +303,17 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
                   >
                     <div className="flex items-start space-x-4">
                       {/* Checkbox */}
-                      <button
-                        onClick={() => toggleDefectCheck(defect.id)}
+                      <div
                         className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
                           checkedDefects.has(defect.id)
                             ? 'border-green-500 bg-green-500'
-                            : 'border-gray-500 hover:border-green-400'
+                            : 'border-gray-500'
                         }`}
                       >
                         {checkedDefects.has(defect.id) && (
                           <CheckCircle className="w-4 h-4 text-white" />
                         )}
-                      </button>
+                      </div>
 
                       {/* Mangel-Details */}
                       <div className="flex-1">
@@ -337,15 +429,15 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
             ) : (
               <>
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Finale Abnahme durchführen
+                {isServiceProvider ? 'Mängelbehebung melden' : 'Finale Abnahme durchführen'}
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* Rating Modal */}
-      {showRatingModal && (
+      {/* Rating Modal - nur für Bauträger */}
+      {showRatingModal && isBautraeger && (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-60 p-4">
           <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] text-white rounded-xl border border-gray-600/30 shadow-2xl max-w-md w-full">
             <div className="p-6">

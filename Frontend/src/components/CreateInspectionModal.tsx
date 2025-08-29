@@ -100,6 +100,15 @@ export default function CreateInspectionModal({
     setLoading(true);
     
     try {
+      // Debug: Zeige aktuelle formData
+      console.log('🎯 DEBUG: Aktuelle formData vor API-Call:', {
+        contact_person: formData.contact_person,
+        contact_phone: formData.contact_phone,
+        preparation_notes: formData.preparation_notes,
+        title: formData.title,
+        location_address: formData.location_address
+      });
+      
       // Erstelle Appointment über neues API
       const appointmentCreateData: AppointmentCreate = {
         project_id: project.id,
@@ -111,11 +120,20 @@ export default function CreateInspectionModal({
         duration_minutes: formData.duration_minutes,
         location: formData.location_address,
         location_details: formData.location_notes,
+        // Erweiterte Besichtigungsdetails
+        contact_person: formData.contact_person,
+        contact_phone: formData.contact_phone,
+        preparation_notes: formData.preparation_notes,
         invited_service_provider_ids: selectedQuotes.map(q => q.service_provider_id || q.user_id).filter(id => id)
       };
 
       // Erstelle Appointment - OHNE RETRY!
       console.log('📅 Erstelle Appointment (OHNE RETRY)...');
+      console.log('📝 DEBUG: Sende folgende Kontaktdaten an Backend:', {
+        contact_person: appointmentCreateData.contact_person,
+        contact_phone: appointmentCreateData.contact_phone,
+        preparation_notes: appointmentCreateData.preparation_notes
+      });
       const createdAppointment = await appointmentService.createAppointment(appointmentCreateData);
       
       // Prüfe explizit auf erfolgreiche Antwort

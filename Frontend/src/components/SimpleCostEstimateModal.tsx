@@ -1296,10 +1296,10 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
     }
   }, [isOpen, trade?.id]);
 
-  // Lade Mängel wenn Status 'completed_with_defects' ist
+  // Lade Mängel wenn Status 'completed_with_defects' oder 'defects_resolved' ist
   useEffect(() => {
-    if (isOpen && completionStatus === 'completed_with_defects' && trade?.id) {
-      console.log('🔍 SimpleCostEstimateModal - Lade Mängel für completed_with_defects Status');
+    if (isOpen && (completionStatus === 'completed_with_defects' || completionStatus === 'defects_resolved') && trade?.id) {
+      console.log('🔍 SimpleCostEstimateModal - Lade Mängel für Status:', completionStatus);
       loadAcceptanceDefects();
     }
   }, [isOpen, completionStatus, trade?.id]);
@@ -1314,7 +1314,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
 
   // Lade bestehende Rechnung wenn Gewerk abgeschlossen ist
   useEffect(() => {
-    if (isOpen && (completionStatus === 'completed' || completionStatus === 'completed_with_defects') && trade?.id && isBautraeger()) {
+    if (isOpen && (completionStatus === 'completed') && trade?.id && isBautraeger()) {
       console.log('🔍 SimpleCostEstimateModal - Lade bestehende Rechnung für Bauträger', {
         isOpen,
         completionStatus,
@@ -2760,6 +2760,8 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                     ? 'bg-green-500/10 border-green-500/30' 
                     : completionStatus === 'completed_with_defects'
                     ? 'bg-yellow-500/10 border-yellow-500/30'
+                    : completionStatus === 'defects_resolved'
+                    ? 'bg-blue-500/10 border-blue-500/30'
                     : completionStatus === 'completion_requested'
                     ? 'bg-orange-500/10 border-orange-500/30'
                     : 'bg-blue-500/10 border-blue-500/30'
@@ -2780,6 +2782,16 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                           <h4 className="text-yellow-300 font-medium">Abnahme unter Vorbehalt</h4>
                           <p className="text-yellow-200 text-sm">
                             Mängel wurden dokumentiert. Finale Abnahme steht noch aus.
+                          </p>
+                        </div>
+                      </>
+                    ) : completionStatus === 'defects_resolved' ? (
+                      <>
+                        <CheckCircle size={20} className="text-blue-400" />
+                        <div>
+                          <h4 className="text-blue-300 font-medium">Mängelbehebung gemeldet</h4>
+                          <p className="text-blue-200 text-sm">
+                            Der Dienstleister hat die Mängelbehebung gemeldet. Finale Abnahme kann durchgeführt werden.
                           </p>
                         </div>
                       </>
@@ -2829,10 +2841,15 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                     </div>
                   )}
                   
-                  {completionStatus === 'completed_with_defects' && (
+                  {(completionStatus === 'completed_with_defects' || completionStatus === 'defects_resolved') && (
                     <div className="space-y-3">
                       <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-3">
-                        <h4 className="text-yellow-300 font-medium mb-2">Dokumentierte Mängel ({acceptanceDefects.length})</h4>
+                        <h4 className="text-yellow-300 font-medium mb-2">
+                          {completionStatus === 'defects_resolved' 
+                            ? `Mängelbehebung gemeldet (${acceptanceDefects.length} Mängel)` 
+                            : `Dokumentierte Mängel (${acceptanceDefects.length})`
+                          }
+                        </h4>
                         {acceptanceDefects.length > 0 ? (
                           <div className="space-y-2">
                             {acceptanceDefects.slice(0, 3).map((defect, index) => (
@@ -2849,10 +2866,33 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                         ) : (
                           <p className="text-gray-400 text-sm">Keine Mängel-Details verfügbar</p>
                         )}
+                        
+                        {completionStatus === 'defects_resolved' && (
+                          <div className="mt-2 p-2 bg-green-500/10 border border-green-500/20 rounded text-sm text-green-300">
+                            ✅ Der Dienstleister hat die Mängelbehebung gemeldet. Sie können nun die finale Abnahme durchführen.
+                          </div>
+                        )}
                       </div>
                       
                       <button
-                        onClick={() => setShowFinalAcceptanceModal(true)}
+                        onClick={() => {
+                          console.log('🔍 Finale Abnahme Button geklickt:', {
+                            acceptanceId,
+                            acceptanceDefects: acceptanceDefects.length,
+                            completionStatus,
+                            tradeId: trade?.id
+                          });
+                          
+                          // Stelle sicher, dass Mängel geladen sind
+                          if (!acceptanceId || acceptanceDefects.length === 0) {
+                            console.log('🔄 Lade Abnahme-Daten vor Modal-Öffnung');
+                            loadAcceptanceDefects().then(() => {
+                              setShowFinalAcceptanceModal(true);
+                            });
+                          } else {
+                            setShowFinalAcceptanceModal(true);
+                          }
+                        }}
                         disabled={loading}
                         className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
                       >
@@ -3736,11 +3776,11 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
       )}
 
       {/* FinalAcceptanceModal für finale Abnahme */}
-      {showFinalAcceptanceModal && acceptanceId && (
+      {showFinalAcceptanceModal && (
         <FinalAcceptanceModal
           isOpen={showFinalAcceptanceModal}
           onClose={() => setShowFinalAcceptanceModal(false)}
-          acceptanceId={acceptanceId}
+          acceptanceId={acceptanceId || 0}
           milestoneId={trade?.id}
           milestoneTitle={trade?.title}
           defects={acceptanceDefects}
@@ -3749,6 +3789,8 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
             // Reload der Daten nach finaler Abnahme
             if (trade?.id) {
               loadTradeDocuments(trade.id);
+              // Aktualisiere auch den Status
+              setCompletionStatus('completed');
             }
           }}
         />

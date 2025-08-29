@@ -21,6 +21,7 @@ import { getCategoryStatistics } from '../api/documentService';
 import { appointmentService } from '../api/appointmentService';
 import { RadialMenu } from '../components/RadialMenu';
 import { RadialMenuAdvanced } from '../components/RadialMenuAdvanced';
+import KanbanBoard from '../components/KanbanBoard';
 import { 
   Users, 
   Upload, 
@@ -2102,6 +2103,34 @@ export default function Dashboard() {
       {selectedProject && (
         <div className="mb-8">
           <FinanceWidget projectId={selectedProject.id} />
+        </div>
+      )}
+
+      {/* Kanban-Board für To-Do Aufgaben - analog dem Dienstleister Dashboard */}
+      {selectedProject && (
+        <div className="mb-8">
+          <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="p-3 bg-gradient-to-br from-[#10B981] to-[#059669] rounded-xl shadow-lg shadow-[#10B981]/20">
+                <CheckSquare size={24} className="text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">To-Do Aufgaben</h2>
+                <p className="text-gray-400 text-sm mt-1">
+                  Verwalten Sie Ihre Aufgaben im Kanban-Board
+                </p>
+              </div>
+            </div>
+            
+            {/* Kanban Board Container */}
+            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+              <KanbanBoard 
+                showOnlyAssignedToMe={false}
+                showArchived={false}
+                projectId={selectedProject.id}
+              />
+            </div>
+          </div>
         </div>
       )}
 

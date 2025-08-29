@@ -606,7 +606,7 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
                         value={formData.description}
                         onChange={handleInputChange}
                         rows={4}
-                        placeholder="Detaillierte Beschreibung des Erstangebots..."
+                        placeholder="z.B. Komplette Neuverkabelung Erdgeschoss inkl. LED-Beleuchtung nach DIN VDE 0100"
                         className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:border-[#ffbd59] focus:bg-white/10 focus:outline-none transition-all duration-300 backdrop-blur-sm resize-none"
                       />
                     </div>
@@ -933,7 +933,7 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
                         value={formData.qualifications}
                         onChange={handleInputChange}
                         rows={3}
-                        placeholder="Beschreiben Sie Ihre relevanten Qualifikationen..."
+                        placeholder="z.B. Elektrotechnikermeister, VDE-Zertifizierung, KNX-Zertifikat Stufe 2"
                         className="w-full px-4 py-3 bg-[#2c3539] border border-[#ffbd59]/30 rounded-xl text-white placeholder-gray-400 focus:border-[#ffbd59] focus:outline-none transition-colors resize-none"
                       />
                     </div>
@@ -947,7 +947,7 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
                         value={formData.references}
                         onChange={handleInputChange}
                         rows={3}
-                        placeholder="Beschreiben Sie relevante Referenzprojekte..."
+                        placeholder="z.B. Mehrfamilienhaus München 2023, Bürogebäude Frankfurt 2022, Industriehalle Nürnberg"
                         className="w-full px-4 py-3 bg-[#2c3539] border border-[#ffbd59]/30 rounded-xl text-white placeholder-gray-400 focus:border-[#ffbd59] focus:outline-none transition-colors resize-none"
                       />
                     </div>
@@ -979,7 +979,7 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
                         value={formData.technical_approach}
                         onChange={handleInputChange}
                         rows={4}
-                        placeholder="Beschreiben Sie Ihren technischen Ansatz für dieses Gewerk..."
+                        placeholder="z.B. Markenprodukte (Gira), NYM-J Leitungen, FI/LS-Schutzschalter nach neuesten Standards"
                         className="w-full px-4 py-3 bg-[#2c3539] border border-[#ffbd59]/30 rounded-xl text-white placeholder-gray-400 focus:border-[#ffbd59] focus:outline-none transition-colors resize-none"
                       />
                     </div>
@@ -993,7 +993,7 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
                         value={formData.quality_standards}
                         onChange={handleInputChange}
                         rows={3}
-                        placeholder="Beschreiben Sie Ihre Qualitätsstandards..."
+                        placeholder="z.B. DIN VDE 0100, ISO 9001 zertifiziert, Vier-Augen-Prinzip, 2 Jahre Gewährleistung"
                         className="w-full px-4 py-3 bg-[#2c3539] border border-[#ffbd59]/30 rounded-xl text-white placeholder-gray-400 focus:border-[#ffbd59] focus:outline-none transition-colors resize-none"
                       />
                     </div>
@@ -1007,7 +1007,7 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
                         value={formData.safety_measures}
                         onChange={handleInputChange}
                         rows={3}
-                        placeholder="Beschreiben Sie geplante Sicherheitsmaßnahmen..."
+                        placeholder="z.B. PSA für alle Mitarbeiter, Spannungsfreischaltung, Erste-Hilfe vor Ort"
                         className="w-full px-4 py-3 bg-[#2c3539] border border-[#ffbd59]/30 rounded-xl text-white placeholder-gray-400 focus:border-[#ffbd59] focus:outline-none transition-colors resize-none"
                       />
                     </div>
@@ -1021,7 +1021,7 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
                         value={formData.environmental_compliance}
                         onChange={handleInputChange}
                         rows={3}
-                        placeholder="Beschreiben Sie Umweltmaßnahmen und Compliance..."
+                        placeholder="z.B. WEEE-Richtlinie konforme Entsorgung, RoHS-Komponenten, LED-Technologie"
                         className="w-full px-4 py-3 bg-[#2c3539] border border-[#ffbd59]/30 rounded-xl text-white placeholder-gray-400 focus:border-[#ffbd59] focus:outline-none transition-colors resize-none"
                       />
                     </div>
@@ -1036,7 +1036,7 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
                           value={formData.risk_assessment}
                           onChange={handleInputChange}
                           rows={3}
-                          placeholder="Identifizierte Risiken und Maßnahmen..."
+                          placeholder="z.B. Altleitungen → Bestandsaufnahme, Lieferverzögerungen → Ersatzlösungen"
                           className="w-full px-4 py-3 bg-[#2c3539] border border-[#ffbd59]/30 rounded-xl text-white placeholder-gray-400 focus:border-[#ffbd59] focus:outline-none transition-colors resize-none"
                         />
                       </div>
@@ -1050,7 +1050,7 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
                           value={formData.contingency_plan}
                           onChange={handleInputChange}
                           rows={3}
-                          placeholder="Notfallpläne und Alternativen..."
+                          placeholder="z.B. 24h-Bereitschaft, Partnerbetriebe, Lagerbestand vor Ort, Notstromversorgung"
                           className="w-full px-4 py-3 bg-[#2c3539] border border-[#ffbd59]/30 rounded-xl text-white placeholder-gray-400 focus:border-[#ffbd59] focus:outline-none transition-colors resize-none"
                         />
                       </div>

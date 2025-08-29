@@ -11,6 +11,10 @@ export interface AppointmentCreate {
   duration_minutes: number;
   location?: string;
   location_details?: string;
+  // Erweiterte Besichtigungsdetails
+  contact_person?: string;
+  contact_phone?: string;
+  preparation_notes?: string;
   invited_service_provider_ids: number[];
 }
 
@@ -27,6 +31,10 @@ export interface AppointmentResponse {
   duration_minutes: number;
   location?: string;
   location_details?: string;
+  // Erweiterte Besichtigungsdetails
+  contact_person?: string;
+  contact_phone?: string;
+  preparation_notes?: string;
   invited_service_providers?: ServiceProviderInvite[];
   responses?: ServiceProviderResponse[];
   inspection_completed: boolean;
@@ -128,6 +136,10 @@ export const appointmentService = {
         duration_minutes: apt.duration_minutes || 60,
         location: apt.location || '',
         location_details: apt.location_details || '',
+        // Erweiterte Besichtigungsdetails
+        contact_person: apt.contact_person || '',
+        contact_phone: apt.contact_phone || '',
+        preparation_notes: apt.preparation_notes || '',
         invited_service_providers: apt.invited_service_providers || [],
         responses: apt.responses || [],
         responses_array: apt.responses_array || [],

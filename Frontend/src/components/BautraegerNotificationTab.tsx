@@ -131,13 +131,20 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
               const appointmentType = response.status === 'accepted' ? 'confirmation' : 
                         response.status === 'rejected_with_suggestion' ? 'reschedule' : 'rejection';
               
+              // Prüfe permanente Marker für behandelte Benachrichtigungen
+              const emailSentKey = `bautraeger_email_sent_${appointment.id}_${userId}`;
+              const handledKey = `bautraeger_handled_${appointment.id}_${userId}`;
+              const hasEmailSent = localStorage.getItem(emailSentKey);
+              const hasHandled = localStorage.getItem(handledKey);
+              const isPermanentlyHandled = hasEmailSent || hasHandled;
+              
               notifications.push({
                 id: `appointment_${appointment.id}_${response.id}`,
                 type: 'appointment',
                 title: `Terminantwort: ${appointment.title}`,
                 message: `${response.service_provider_name} hat ${appointmentType === 'confirmation' ? 'zugesagt' : appointmentType === 'reschedule' ? 'einen anderen Termin vorgeschlagen' : 'abgesagt'}`,
                 timestamp: response.created_at || appointment.created_at,
-                isHandled: false, // TODO: Aus Backend laden
+                isHandled: isPermanentlyHandled, // Prüfe permanente Marker
                 isRead: false,
                 appointment,
                 response,
@@ -188,15 +195,40 @@ Ihr BuildWise Team
     const mailtoLink = `mailto:service-provider-${response.service_provider_id}@demo.com?subject=${subject}&body=${body}`;
     window.open(mailtoLink, '_blank');
     
+    // Setze permanenten Marker für behandelte Benachrichtigung
+    const permanentHandledKey = `bautraeger_email_sent_${appointment.id}_${userId}`;
+    localStorage.setItem(permanentHandledKey, JSON.stringify({
+      appointmentId: appointment.id,
+      userId: userId,
+      emailSentAt: new Date().toISOString(),
+      action: 'email_sent'
+    }));
+    
+    // Setze lokalen Status auf behandelt
+    const notificationIndex = notifications.indexOf(notification);
+    handleMarkAsHandled(notificationIndex);
     };
 
   const handleMarkAsHandled = (notificationIndex: number) => {
+    const notification = notifications[notificationIndex];
+    
     setNotifications(prev => 
       prev.map((n, idx) => 
         idx === notificationIndex ? { ...n, isHandled: true } : n
       )
     );
     setSelectedNotification(null);
+    
+    // Setze permanenten Marker für behandelte Benachrichtigung
+    if (notification && notification.appointment) {
+      const permanentHandledKey = `bautraeger_handled_${notification.appointment.id}_${userId}`;
+      localStorage.setItem(permanentHandledKey, JSON.stringify({
+        appointmentId: notification.appointment.id,
+        userId: userId,
+        handledAt: new Date().toISOString(),
+        action: 'marked_as_handled'
+      }));
+    }
     
     if (onResponseHandled) {
       onResponseHandled();
