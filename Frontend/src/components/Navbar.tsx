@@ -43,6 +43,7 @@ import { uploadDocument } from '../api/documentService';
 import FavoritesManager from './FavoritesManager';
 import CreditIndicator from './CreditIndicator';
 import CreditDisplay from './CreditDisplay';
+import NavbarCalendar from './NavbarCalendar';
 import logo from '../logo_trans_big.png';
 
 // DMS-Kategorien (synchron mit Backend)
@@ -178,6 +179,7 @@ export default function Navbar() {
   const [showFavoritesManager, setShowFavoritesManager] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   
   // Projekt-Erstellung State
   const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
@@ -689,6 +691,20 @@ export default function Navbar() {
 
           {/* Rechte Seite */}
           <div className="flex items-center gap-4">
+            {/* Kalender Button */}
+            <button
+              onClick={() => setShowCalendar(!showCalendar)}
+              className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+                showCalendar
+                  ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
+                  : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
+              }`}
+              title="Terminkalender öffnen"
+            >
+              <Calendar size={18} />
+              <span>Kalender</span>
+            </button>
+
             {/* Dezenter Projekt-Hinweis (außer Dashboard) */}
             {currentProjectId && currentProjectName && (
               <Link
@@ -848,6 +864,17 @@ export default function Navbar() {
                     <Euro size={18} />
                     <span>Gebühren</span>
                   </Link>
+
+                  <button
+                    onClick={() => {
+                      setShowCalendar(!showCalendar);
+                      setShowMobileMenu(false);
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-lg text-white hover:bg-white/10 transition-colors"
+                  >
+                    <Calendar size={18} />
+                    <span>Kalender</span>
+                  </button>
                 </>
               ) : (
                 /* Bauträger Mobile Menu: vollständige Navigation */
@@ -900,6 +927,17 @@ export default function Navbar() {
                     <FileText size={18} />
                     <span>Dokumente</span>
                   </Link>
+
+                  <button
+                    onClick={() => {
+                      setShowCalendar(!showCalendar);
+                      setShowMobileMenu(false);
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-lg text-white hover:bg-white/10 transition-colors"
+                  >
+                    <Calendar size={18} />
+                    <span>Kalender</span>
+                  </button>
                 </>
               )}
             </div>
@@ -917,6 +955,12 @@ export default function Navbar() {
           }}
         />
       )}
+
+      {/* NavbarCalendar */}
+      <NavbarCalendar 
+        isOpen={showCalendar}
+        onClose={() => setShowCalendar(false)}
+      />
 
       {/* FavoritesManager Modal */}
       <FavoritesManager 

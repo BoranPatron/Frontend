@@ -806,7 +806,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     return parts.join('\\n');
   };
 
-  // Generiere Standard-ICS-Inhalt (minimal und kompatibel)
+  // Generiere Standard-ICS-Inhalt (minimal und kompatibel) mit korrekter Zeitzone
   const generateICSContent = (event: {
     title: string;
     description: string;
@@ -815,29 +815,60 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     endDate: Date;
     appointmentId: number;
   }): string => {
+    // Formatiere Datum für ICS in lokaler Zeit (ohne UTC-Konvertierung)
     const formatDate = (date: Date): string => {
-      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      
+      // Verwende lokale Zeit ohne 'Z' (floating time)
+      return `${year}${month}${day}T${hours}${minutes}${seconds}`;
     };
     
     const now = new Date();
     const uid = `${event.appointmentId}-${now.getTime()}@buildwise`;
     
-    // Minimaler, standardkonformer ICS-Inhalt
+    console.log('🔍 TradeDetailsModal ICS Generation Debug:', {
+      startDate: event.startDate,
+      localStartTime: event.startDate.toLocaleString('de-DE'),
+      icsStartTime: formatDate(event.startDate),
+      endDate: event.endDate,
+      icsEndTime: formatDate(event.endDate)
+    });
+    
+    // Escape Sonderzeichen für ICS
+    const escapeICSText = (text: string): string => {
+      return text
+        .replace(/\\/g, '\\\\')
+        .replace(/;/g, '\\;')
+        .replace(/,/g, '\\,')
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '');
+    };
+    
+    // Minimaler, standardkonformer ICS-Inhalt mit lokaler Zeit
     return [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//BuildWise//DE',
+      'PRODID:-//BuildWise//Appointment Calendar//DE',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
       'BEGIN:VEVENT',
       `UID:${uid}`,
       `DTSTART:${formatDate(event.startDate)}`,
       `DTEND:${formatDate(event.endDate)}`,
       `DTSTAMP:${formatDate(now)}`,
-      `SUMMARY:${event.title}`,
-      `DESCRIPTION:${event.description.replace(/\n/g, '\\n')}`,
-      `LOCATION:${event.location}`,
+      `SUMMARY:${escapeICSText(event.title)}`,
+      `DESCRIPTION:${escapeICSText(event.description)}`,
+      event.location ? `LOCATION:${escapeICSText(event.location)}` : '',
+      'STATUS:CONFIRMED',
+      'TRANSP:OPAQUE',
       'END:VEVENT',
       'END:VCALENDAR'
-    ].join('\r\n');
+    ].filter(line => line !== '').join('\r\n');
   };
 
   const { user, isBautraeger } = useAuth();
@@ -2386,133 +2417,207 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         </div>
         
         {/* Besichtigungstermin-Anzeige */}
-        {appointmentsForTrade && appointmentsForTrade.length > 0 && !inspectionCompleted && (
-          <div className="px-6 py-4 bg-gradient-to-r from-blue-600/20 to-cyan-500/20 border-b border-blue-400/30 flex-shrink-0">
-            <div className="flex items-start gap-4">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-blue-500/20 rounded-xl">
-                  <Calendar size={24} className="text-blue-300" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-white font-semibold text-lg">
-                    {appointmentsForTrade[0]?.title || 'Besichtigungstermin vereinbart'}
-                  </h3>
-                  <div className="flex items-center gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Clock size={16} className="text-blue-300" />
-                      <span className="text-blue-200">
-                        {appointmentsForTrade[0]?.scheduled_date ? 
-                          new Date(appointmentsForTrade[0].scheduled_date).toLocaleDateString('de-DE', {
-                            weekday: 'long',
-                            day: '2-digit',
-                            month: 'long',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          }) : 'Termin geplant'
-                        }
-                      </span>
-                    </div>
-                    {appointmentsForTrade[0]?.duration_minutes && (
+        {(() => {
+          // Filtere Termine für den aktuellen Benutzer
+          const relevantAppointments = appointmentsForTrade.filter(appointment => {
+            if (isBautraeger()) {
+              // Bauträger sehen alle Termine die sie erstellt haben
+              return appointment.created_by === user?.id;
+            } else {
+              // Dienstleister sehen nur Termine zu denen sie eingeladen wurden
+              const responses = Array.isArray(appointment.responses) ? appointment.responses : [];
+              const invitedProviders = Array.isArray(appointment.invited_service_providers) ? appointment.invited_service_providers : [];
+              
+              // Prüfe ob User zu diesem Termin eingeladen wurde oder bereits geantwortet hat
+              const hasUserResponse = responses.some((r: any) => 
+                r.service_provider_id === user?.id || 
+                String(r.service_provider_id) === String(user?.id) ||
+                Number(r.service_provider_id) === Number(user?.id)
+              );
+              
+              const isInvited = invitedProviders.some((provider: any) => 
+                provider.id === user?.id || 
+                String(provider.id) === String(user?.id) ||
+                Number(provider.id) === Number(user?.id)
+              );
+              
+              return hasUserResponse || isInvited;
+            }
+          });
+
+          console.log('🔍 Termine-Banner Debug:', {
+            userId: user?.id,
+            userRole: user?.user_role,
+            isBautraeger: isBautraeger(),
+            totalAppointments: appointmentsForTrade.length,
+            relevantAppointments: relevantAppointments.length,
+            appointmentDetails: relevantAppointments.map(apt => ({
+              id: apt.id,
+              title: apt.title,
+              created_by: apt.created_by,
+              responses: apt.responses,
+              invited_service_providers: apt.invited_service_providers
+            }))
+          });
+
+          return relevantAppointments.length > 0 && !inspectionCompleted && (
+            <div className="px-6 py-4 bg-gradient-to-r from-blue-600/20 to-cyan-500/20 border-b border-blue-400/30 flex-shrink-0">
+              <div className="flex items-start gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-blue-500/20 rounded-xl">
+                    <Calendar size={24} className="text-blue-300" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-white font-semibold text-lg">
+                      {relevantAppointments[0]?.title || 'Besichtigungstermin vereinbart'}
+                    </h3>
+                    <div className="flex items-center gap-4 text-sm">
                       <div className="flex items-center gap-2">
-                        <span className="text-blue-300">•</span>
+                        <Clock size={16} className="text-blue-300" />
                         <span className="text-blue-200">
-                          {Math.floor(appointmentsForTrade[0].duration_minutes / 60)}h {appointmentsForTrade[0].duration_minutes % 60}min
+                          {relevantAppointments[0]?.scheduled_date ? 
+                            new Date(relevantAppointments[0].scheduled_date).toLocaleDateString('de-DE', {
+                              weekday: 'long',
+                              day: '2-digit',
+                              month: 'long',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            }) : 'Termin geplant'
+                          }
                         </span>
+                      </div>
+                      {relevantAppointments[0]?.duration_minutes && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-blue-300">•</span>
+                          <span className="text-blue-200">
+                            {Math.floor(relevantAppointments[0].duration_minutes / 60)}h {relevantAppointments[0].duration_minutes % 60}min
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {relevantAppointments[0]?.location && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <MapPin size={16} className="text-blue-300" />
+                        <span className="text-blue-200">{relevantAppointments[0].location}</span>
+                      </div>
+                    )}
+                    {relevantAppointments[0]?.location_details && (
+                      <div className="text-xs text-blue-300 ml-5">
+                        {relevantAppointments[0].location_details}
                       </div>
                     )}
                   </div>
-                  {appointmentsForTrade[0]?.location && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <MapPin size={16} className="text-blue-300" />
-                      <span className="text-blue-200">{appointmentsForTrade[0].location}</span>
-                    </div>
-                  )}
-                  {appointmentsForTrade[0]?.location_details && (
-                    <div className="text-xs text-blue-300 ml-5">
-                      {appointmentsForTrade[0].location_details}
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex-1"></div>
-              
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-
-                  {appointmentsForTrade[0]?.description && (
-                    <div className="text-blue-300 text-xs max-w-xs truncate">
-                      {appointmentsForTrade[0].description}
-                    </div>
-                  )}
                 </div>
                 
-                {/* Besichtigung stattgefunden Button - dezent */}
-                <button
-                  onClick={handleInspectionCompleted}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-yellow-500/10 text-yellow-400 rounded-lg hover:bg-yellow-500/20 transition-colors text-xs font-medium border border-yellow-500/20 hover:border-yellow-500/40"
-                  title="Besichtigung hat stattgefunden"
-                >
-                  <CheckCircle size={14} />
-                  Stattgefunden
-                </button>
+                <div className="flex-1"></div>
                 
-                {/* ICS Download Button */}
-                <button
-                  onClick={async () => {
-                    try {
-                      const appointment = appointmentsForTrade[0];
-                      await downloadEnhancedCalendarEvent(appointment);
-                    } catch (error) {
-                      console.error('Fehler beim Download des Kalendereintrags:', error);
-                      alert('Fehler beim Herunterladen des Kalendereintrags');
-                    }
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 text-blue-300 rounded-lg hover:bg-blue-500/30 transition-colors text-sm font-medium"
-                  title="Kalendereintrag speichern"
-                >
-                  <Download size={16} />
-                  Kalender
-                </button>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    {relevantAppointments.length > 1 && (
+                      <div className="text-blue-200 text-sm mb-1">
+                        {relevantAppointments.length} Termine
+                      </div>
+                    )}
+                    {relevantAppointments[0]?.description && (
+                      <div className="text-blue-300 text-xs max-w-xs truncate">
+                        {relevantAppointments[0].description}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Besichtigung stattgefunden Button - dezent */}
+                  <button
+                    onClick={handleInspectionCompleted}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-yellow-500/10 text-yellow-400 rounded-lg hover:bg-yellow-500/20 transition-colors text-xs font-medium border border-yellow-500/20 hover:border-yellow-500/40"
+                    title="Besichtigung hat stattgefunden"
+                  >
+                    <CheckCircle size={14} />
+                    Stattgefunden
+                  </button>
+                  
+                  {/* ICS Download Button */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        const appointment = relevantAppointments[0];
+                        await downloadEnhancedCalendarEvent(appointment);
+                      } catch (error) {
+                        console.error('Fehler beim Download des Kalendereintrags:', error);
+                        alert('Fehler beim Herunterladen des Kalendereintrags');
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 text-blue-300 rounded-lg hover:bg-blue-500/30 transition-colors text-sm font-medium"
+                    title="Kalendereintrag speichern"
+                  >
+                    <Download size={16} />
+                    Kalender
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Eingeklapptes Banner - zeigt nur dass Besichtigung stattgefunden hat */}
-        {appointmentsForTrade && appointmentsForTrade.length > 0 && inspectionCompleted && (
-          <div className="px-6 py-2 bg-gradient-to-r from-yellow-600/10 to-amber-500/10 border-b border-yellow-400/20 flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-yellow-500/20 rounded-lg">
-                  <CheckCircle size={18} className="text-yellow-400" />
-                </div>
-                <div>
-                  <span className="text-yellow-300 font-medium text-sm">Besichtigung hat stattgefunden</span>
-                  <span className="text-yellow-400/70 text-xs ml-2">
-                    {appointmentsForTrade[0]?.scheduled_date ? 
-                      new Date(appointmentsForTrade[0].scheduled_date).toLocaleDateString('de-DE', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric'
-                      }) : ''
-                    }
-                  </span>
-                </div>
-              </div>
+        {(() => {
+          // Filtere auch hier die relevanten Termine
+          const relevantAppointments = appointmentsForTrade.filter(appointment => {
+            if (isBautraeger()) {
+              return appointment.created_by === user?.id;
+            } else {
+              const responses = Array.isArray(appointment.responses) ? appointment.responses : [];
+              const invitedProviders = Array.isArray(appointment.invited_service_providers) ? appointment.invited_service_providers : [];
               
-              {/* Button zum wieder Einblenden */}
-              <button
-                onClick={() => setInspectionCompleted(false)}
-                className="text-yellow-400/60 hover:text-yellow-300 transition-colors p-1"
-                title="Details wieder anzeigen"
-              >
-                <ChevronDown size={16} />
-              </button>
+              const hasUserResponse = responses.some((r: any) => 
+                r.service_provider_id === user?.id || 
+                String(r.service_provider_id) === String(user?.id) ||
+                Number(r.service_provider_id) === Number(user?.id)
+              );
+              
+              const isInvited = invitedProviders.some((provider: any) => 
+                provider.id === user?.id || 
+                String(provider.id) === String(user?.id) ||
+                Number(provider.id) === Number(user?.id)
+              );
+              
+              return hasUserResponse || isInvited;
+            }
+          });
+
+          return relevantAppointments.length > 0 && inspectionCompleted && (
+            <div className="px-6 py-2 bg-gradient-to-r from-yellow-600/10 to-amber-500/10 border-b border-yellow-400/20 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-yellow-500/20 rounded-lg">
+                    <CheckCircle size={18} className="text-yellow-400" />
+                  </div>
+                  <div>
+                    <span className="text-yellow-300 font-medium text-sm">Besichtigung hat stattgefunden</span>
+                    <span className="text-yellow-400/70 text-xs ml-2">
+                      {relevantAppointments[0]?.scheduled_date ? 
+                        new Date(relevantAppointments[0].scheduled_date).toLocaleDateString('de-DE', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        }) : ''
+                      }
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Button zum wieder Einblenden */}
+                <button
+                  onClick={() => setInspectionCompleted(false)}
+                  className="text-yellow-400/60 hover:text-yellow-300 transition-colors p-1"
+                  title="Details wieder anzeigen"
+                >
+                  <ChevronDown size={16} />
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         <div className="flex-1 overflow-y-auto p-6">
           {/* Angenommenes Angebot - Dienstleister-Informationen */}

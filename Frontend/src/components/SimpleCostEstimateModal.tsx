@@ -448,7 +448,6 @@ export default function SimpleCostEstimateModal({
   
   // Abnahme-States
   const [showAcceptanceModal, setShowAcceptanceModal] = useState(false);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showFinalAcceptanceModal, setShowFinalAcceptanceModal] = useState(false);
   // Temporäre Lösung: Simuliere completion_status für Demo-Zwecke
   const simulatedCompletionStatus = trade?.id === 1 ? 'completion_requested' : (trade?.completion_status || 'in_progress');
@@ -782,14 +781,7 @@ export default function SimpleCostEstimateModal({
               Abnahme starten
             </button>
             
-            <button
-              onClick={() => setShowScheduleModal(true)}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-            >
-              <Calendar size={16} />
-              Abnahme-Termin vereinbaren
-            </button>
+
           </div>
         )}
         
