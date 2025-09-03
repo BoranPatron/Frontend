@@ -34,10 +34,10 @@ import { useAuth } from '../context/AuthContext';
 import { getAuthenticatedFileUrl, getApiBaseUrl, apiCall } from '../api/api';
 import TradeProgress from './TradeProgress';
 import QuoteDetailsModal from './QuoteDetailsModal';
+import FinalAcceptanceModal from './FinalAcceptanceModal';
 import { appointmentService, type AppointmentResponse } from '../api/appointmentService';
 import ServiceProviderRating from './ServiceProviderRating';
 import InvoiceModal from './InvoiceModal';
-import FinalAcceptanceModal from './FinalAcceptanceModal';
 // import FullDocumentViewer from './DocumentViewer';
 import { updateMilestone } from '../api/milestoneService';
 
@@ -802,17 +802,6 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       parts.push(''); // Leerzeile
     }
     
-    // Eingeladene Dienstleister
-    const invitedCount = appointment.invited_service_providers?.length || 
-                        appointment.responses?.length || 
-                        (appointment as any).responses_array?.length || 0;
-    if (invitedCount > 0) {
-      parts.push(`EINGELADENE DIENSTLEISTER: ${invitedCount}`);
-      parts.push(''); // Leerzeile
-    }
-    
-    // Termin-ID für Referenz
-    parts.push(`Termin-ID: ${appointment.id}`);
     
     return parts.join('\\n');
   };
@@ -898,6 +887,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   const [showFinalAcceptanceModal, setShowFinalAcceptanceModal] = useState(false);
   const [acceptanceDefects, setAcceptanceDefects] = useState<any[]>([]);
   const [acceptanceId, setAcceptanceId] = useState<number | null>(null);
+  const [hasFinalAcceptance, setHasFinalAcceptance] = useState(false);
   
   // State für vollständige Trade-Daten vom Backend
   const [fullTradeData, setFullTradeData] = useState<any>(null);
@@ -978,7 +968,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       existingInvoice: existingInvoice,
       isBautraeger: isBautraeger(),
       existingQuotes: existingQuotes,
-      shouldShowInvoiceButton: !isBautraeger() && completionStatus === 'completed' && !existingInvoice
+      shouldShowInvoiceButton: !isBautraeger() && completionStatus === 'completed' && hasFinalAcceptance && !existingInvoice,
+      hasFinalAcceptance: hasFinalAcceptance
     });
     
     // Warnung wenn trade-ID 1 ist (kÃ¶nnte falsches Gewerk sein)
@@ -1558,6 +1549,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       loadTradeDocuments(trade.id);
       // ZusÃ¤tzlich: Lade completion_status explizit vom Backend
       loadCompletionStatus(trade.id);
+      // WICHTIG: Lade immer Mängel-Daten beim Modal-Öffnen
+      loadAcceptanceDefects();
     }
   }, [isOpen, trade?.id]);
 
@@ -1671,10 +1664,17 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       }
     };
 
-    // Lade bestehende Rechnung wenn Modal geÃ¶ffnet wird
+    // Lade bestehende Rechnung wenn Modal geÃ¶ffnet wird - nur nach finaler Abnahme
     useEffect(() => {
-      if (isOpen && trade?.id && (completionStatus === 'completed' || completionStatus === 'completed_with_defects')) {
+      if (isOpen && trade?.id && (completionStatus === 'completed' || completionStatus === 'completed_with_defects') && hasFinalAcceptance) {
         loadExistingInvoice();
+      }
+    }, [isOpen, trade?.id, completionStatus, hasFinalAcceptance]);
+
+    // Prüfe finale Abnahme-Status wenn Modal geöffnet wird
+    useEffect(() => {
+      if (isOpen && trade?.id && completionStatus === 'completed') {
+        checkFinalAcceptance();
       }
     }, [isOpen, trade?.id, completionStatus]);
 
@@ -1785,6 +1785,29 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       console.error('❌ Fehler beim Laden der Abnahme-Mängel:', error);
       setAcceptanceDefects([]);
       setAcceptanceId(1); // Fallback
+    }
+  };
+
+  // Prüfe ob finale Abnahme durch Bauträger stattgefunden hat
+  const checkFinalAcceptance = async () => {
+    if (!trade?.id) return;
+    
+    try {
+      const { api } = await import('../api/api');
+      
+      // Lade alle Abnahmen für diesen Milestone
+      const acceptanceResponse = await api.get(`/acceptance/milestone/${trade.id}`);
+      if (acceptanceResponse.data && acceptanceResponse.data.length > 0) {
+        // Prüfe ob eine Abnahme eine final_completion_date hat (= finale Bauträger-Abnahme)
+        const hasFinal = acceptanceResponse.data.some((acceptance: any) => acceptance.final_completion_date);
+        setHasFinalAcceptance(hasFinal);
+        console.log('🔍 Finale Abnahme-Status:', hasFinal ? 'Vorhanden' : 'Nicht vorhanden');
+      } else {
+        setHasFinalAcceptance(false);
+      }
+    } catch (error) {
+      console.error('❌ Fehler beim Prüfen der finalen Abnahme:', error);
+      setHasFinalAcceptance(false);
     }
   };
 
@@ -1940,6 +1963,193 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     setShowRatingModal(false);
   };
 
+  // Abnahme-Workflow Komponente für Dienstleister - bedingte Platzierung
+  const renderAbnahmeWorkflow = () => (
+    <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+      <h3 className="text-lg font-semibold text-orange-300 mb-3 flex items-center gap-2">
+        <Settings size={20} />
+        Abnahme-Workflow
+      </h3>
+      
+      {/* Status-Banner */}
+      <div className={`mb-4 p-3 rounded-lg border ${
+        completionStatus === 'completed' 
+          ? 'bg-green-500/10 border-green-500/30' 
+          : completionStatus === 'completed_with_defects'
+          ? 'bg-yellow-500/10 border-yellow-500/30'
+          : completionStatus === 'defects_resolved'
+          ? 'bg-blue-500/10 border-blue-500/30'
+          : completionStatus === 'completion_requested'
+          ? 'bg-orange-500/10 border-orange-500/30'
+          : 'bg-blue-500/10 border-blue-500/30'
+      }`}>
+        <div className="flex items-center gap-3">
+          {completionStatus === 'completed' ? (
+            <>
+              <CheckCircle size={20} className="text-green-400" />
+              <div>
+                <h4 className="text-green-300 font-medium">Gewerk vollständig abgeschlossen</h4>
+                <p className="text-green-200 text-sm">Das Gewerk wurde erfolgreich und ohne Mängel abgenommen.</p>
+              </div>
+            </>
+          ) : completionStatus === 'completed_with_defects' ? (
+            <>
+              <AlertTriangle size={20} className="text-yellow-400" />
+              <div>
+                <h4 className="text-yellow-300 font-medium">Abnahme unter Vorbehalt</h4>
+                <p className="text-yellow-200 text-sm">
+                  Es wurden Mängel dokumentiert. Bitte beheben Sie diese für die finale Abnahme.
+                </p>
+              </div>
+            </>
+          ) : completionStatus === 'defects_resolved' ? (
+            <>
+              <CheckCircle size={20} className="text-blue-400" />
+              <div>
+                <h4 className="text-blue-300 font-medium">Mängelbehebung gemeldet</h4>
+                <p className="text-blue-200 text-sm">
+                  Sie haben die Mängelbehebung gemeldet. Der Bauträger wird die finale Abnahme durchführen.
+                </p>
+              </div>
+            </>
+          ) : completionStatus === 'completion_requested' ? (
+            <>
+              <AlertTriangle size={20} className="text-orange-400" />
+              <div>
+                <h4 className="text-orange-300 font-medium">Fertigstellung gemeldet</h4>
+                <p className="text-orange-200 text-sm">
+                  Sie haben die Fertigstellung gemeldet. Der Bauträger wird die Abnahme durchführen.
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <Clock size={20} className="text-blue-400" />
+              <div>
+                <h4 className="text-blue-300 font-medium">Gewerk in Bearbeitung</h4>
+                <p className="text-blue-200 text-sm">Das Gewerk ist noch nicht zur Abnahme bereit.</p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Abnahme-Aktionen für Dienstleister */}
+      <div className="space-y-3">
+        {completionStatus === 'in_progress' && !isBautraeger() && (
+          <div className="flex gap-3 flex-wrap">
+            <button
+              onClick={handleCompletionRequest}
+              disabled={false}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+            >
+              <CheckCircle size={16} />
+              Als fertiggestellt markieren
+            </button>
+          </div>
+        )}
+        
+        {completionStatus === 'completed_with_defects' && !isBautraeger() && (
+          <div className="space-y-3">
+            <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-3">
+              <h4 className="text-yellow-300 font-medium mb-2">
+                Dokumentierte Mängel ({acceptanceDefects.length})
+              </h4>
+              <p className="text-gray-400 text-sm mb-3">
+                Der Bauträger hat Mängel dokumentiert. Quittieren Sie jeden behobenen Mangel einzeln.
+              </p>
+              
+              {/* Mängel-Liste mit einzelner Quittierung */}
+              {acceptanceDefects.length > 0 ? (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {acceptanceDefects.map((defect, index) => (
+                    <div 
+                      key={defect.id || index} 
+                      className="flex items-start gap-3 p-3 bg-black/30 rounded-lg border border-transparent hover:border-yellow-400/50 hover:bg-black/50 hover:shadow-lg hover:shadow-yellow-400/20 transition-all duration-300 cursor-pointer group"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log('🔍 Mangel-Details:', defect);
+                      }}
+                    >
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          console.log('🔧 Mangel lokal als behoben markiert:', defect);
+                          
+                          // NUR lokales Update - API-Call erfolgt später im FinalAcceptanceModal
+                          const updatedDefects = acceptanceDefects.map(d => 
+                            d.id === defect.id ? { ...d, resolved: !d.resolved } : d
+                          );
+                          setAcceptanceDefects(updatedDefects);
+                          
+                          console.log('✅ Mangel-Status lokal geändert');
+                        }}
+                        className="mt-1 w-6 h-6 rounded-full border-2 border-yellow-400 bg-transparent hover:bg-yellow-400 hover:scale-110 hover:shadow-lg hover:shadow-yellow-400/50 transition-all duration-200 flex items-center justify-center cursor-pointer active:scale-95"
+                        title="Als behoben markieren"
+                      >
+                        {defect.resolved ? (
+                          <CheckCircle size={16} className="text-green-400 drop-shadow-sm animate-pulse" />
+                        ) : (
+                          <div className="w-3 h-3 bg-yellow-400 rounded-full opacity-70 group-hover:opacity-100 group-hover:animate-pulse transition-all" />
+                        )}
+                      </button>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-white mb-1">
+                          {defect.title || `Mangel ${index + 1}`}
+                        </div>
+                        <div className="text-xs text-gray-300 mb-1">
+                          {defect.description || 'Keine Beschreibung'}
+                        </div>
+                        {defect.location && (
+                          <div className="text-xs text-gray-400">
+                            📍 {defect.location} {defect.room && `- ${defect.room}`}
+                          </div>
+                        )}
+                        {defect.severity && (
+                          <div className={`inline-block px-2 py-1 rounded text-xs font-medium mt-1 ${
+                            defect.severity === 'CRITICAL' ? 'bg-red-500/20 text-red-300' :
+                            defect.severity === 'MAJOR' ? 'bg-orange-500/20 text-orange-300' :
+                            'bg-yellow-500/20 text-yellow-300'
+                          }`}>
+                            {defect.severity === 'CRITICAL' ? 'Kritisch' :
+                             defect.severity === 'MAJOR' ? 'Wichtig' : 'Gering'}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-400 text-sm">Keine Mängel-Details verfügbar</p>
+              )}
+            </div>
+            
+            <button
+              onClick={() => setShowFinalAcceptanceModal(true)}
+              disabled={false}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-blue-500/30 hover:scale-105 active:scale-95 disabled:opacity-50"
+            >
+              <FileText size={16} />
+              Finale Abnahme öffnen
+            </button>
+          </div>
+        )}
+        
+        {completionStatus === 'completed' && (
+          <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
+            <div className="flex items-center gap-2 text-green-300">
+              <CheckCircle size={16} />
+              <span className="text-sm font-medium">
+                Gewerk erfolgreich abgeschlossen!
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   // Handler für Besichtigung abschließen
   const handleInspectionCompleted = async () => {
     try {
@@ -1952,6 +2162,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       console.error('❌ Fehler beim Markieren der Besichtigung als abgeschlossen:', error);
     }
   };
+
+
 
   if (!isOpen || !trade) return null;
 
@@ -2139,6 +2351,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             </div>
           </div>
           
+
+          
           <div className="flex items-center gap-3">
             {/* Angebot abgeben Button für Dienstleister */}
             {!isBautraeger() && (() => {
@@ -2226,15 +2440,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <div className="text-blue-200 text-sm font-medium">
-                    {(() => {
-                      const appointment = appointmentsForTrade[0];
-                      const invitedCount = appointment?.invited_service_providers?.length || 
-                                         appointment?.responses?.length || 
-                                         (appointment as any)?.responses_array?.length || 0;
-                      return `${invitedCount} Dienstleister eingeladen`;
-                    })()}
-                  </div>
+
                   {appointmentsForTrade[0]?.description && (
                     <div className="text-blue-300 text-xs max-w-xs truncate">
                       {appointmentsForTrade[0].description}
@@ -2624,6 +2830,13 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               </div>
             )}
           </div>
+
+          {/* Abnahme-Workflow direkt unterhalb der Ausschreibungsdetails für Dienstleister - nur wenn Angebot angenommen */}
+          {!isBautraeger() && acceptedQuote && completionStatus === 'completed_with_defects' && (
+            <div className="mb-6">
+              {renderAbnahmeWorkflow()}
+            </div>
+          )}
 
           {/* Dienstleister: Mein Angebot Abschnitt - NUR für Dienstleister */}
           {!isBautraeger() && (
@@ -3363,6 +3576,28 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           )}
 
           <div className="space-y-6">
+            {/* Abnahme-Workflow unten für Dienstleister wenn NICHT completed_with_defects - nur wenn Angebot angenommen */}
+            {!isBautraeger() && acceptedQuote && completionStatus !== 'completed_with_defects' && renderAbnahmeWorkflow && (
+              <div>
+                {renderAbnahmeWorkflow()}
+              </div>
+            )}
+
+            {/* Info-Banner für Dienstleister ohne angenommenes Angebot */}
+            {!isBautraeger() && !acceptedQuote && (
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <Info size={20} className="text-blue-400" />
+                  <div>
+                    <h4 className="text-blue-300 font-medium">Abnahme-Workflow nicht verfügbar</h4>
+                    <p className="text-blue-200 text-sm">
+                      Der Abnahme-Workflow wird verfügbar, sobald Ihr Angebot vom Bauträger angenommen wurde.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Dokumente - Einklappbar */}
             <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl border border-gray-600/30 overflow-hidden">
               <div className="flex items-center justify-between p-6 cursor-pointer hover:bg-[#1a1a2e]/30 transition-all duration-200" onClick={() => setIsExpanded(!isExpanded)}>
@@ -3464,7 +3699,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
 
                 {/* Mängel-Übersicht */}
                 <div className="space-y-3">
-                  <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-3">
+                  <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-lg p-4 shadow-lg">
                     <h4 className="text-yellow-300 font-medium mb-2">Dokumentierte Mängel</h4>
                     <p className="text-gray-400 text-sm">
                       Der Bauträger hat Mängel dokumentiert. Beheben Sie diese und starten Sie die finale Abnahme.
@@ -3482,8 +3717,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               </div>
             )}
 
-            {/* Rechnungsstellung für Dienstleister */}
-            {!isBautraeger() && completionStatus === 'completed' && (
+            {/* Rechnungsstellung für Dienstleister - nur nach finaler Bauträger-Abnahme */}
+            {!isBautraeger() && completionStatus === 'completed' && hasFinalAcceptance && (
               <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-green-300 mb-3 flex items-center gap-2">
                   <Receipt size={20} />
@@ -3744,11 +3979,11 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       )}
 
       {/* FinalAcceptanceModal für finale Abnahme */}
-      {showFinalAcceptanceModal && acceptanceId && (
+      {showFinalAcceptanceModal && (
         <FinalAcceptanceModal
           isOpen={showFinalAcceptanceModal}
           onClose={() => setShowFinalAcceptanceModal(false)}
-          acceptanceId={acceptanceId}
+          acceptanceId={acceptanceId || 0}
           milestoneId={trade?.id || 0}
           milestoneTitle={trade?.title || 'Ausschreibung'}
           defects={acceptanceDefects}
@@ -3758,6 +3993,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             if (trade?.id) {
               loadTradeDocuments(trade.id);
               loadCompletionStatus(trade.id);
+              // Prüfe finale Abnahme-Status neu
+              checkFinalAcceptance();
             }
           }}
         />

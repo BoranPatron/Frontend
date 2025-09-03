@@ -1057,8 +1057,8 @@ export default function ServiceProviderDashboard() {
                       .map((trade) => {
                         const quote = getServiceProviderQuote(trade.id);
                         
-                        // Temporäre Lösung: Simuliere completion_status für Demo-Zwecke
-                        const simulatedCompletionStatus = trade.id === 1 ? 'completion_requested' : trade.completion_status;
+                        // Verwende nur den tatsächlichen completion_status aus den Daten
+                        const actualCompletionStatus = trade.completion_status;
                         
                         return (
                           <div key={trade.id} className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl p-4 border border-green-500/20 hover:border-green-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
@@ -1095,18 +1095,18 @@ export default function ServiceProviderDashboard() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                {/* Completion Status Badge */}
-                                {simulatedCompletionStatus === 'completion_requested' ? (
+                                {/* Completion Status Badge - nur wenn tatsächlich gesetzt */}
+                                {actualCompletionStatus === 'completion_requested' ? (
                                   <>
                                     <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
                                     <span className="text-orange-400 text-xs font-medium">Als fertiggestellt markiert</span>
                                   </>
-                                ) : simulatedCompletionStatus === 'completed' ? (
+                                ) : actualCompletionStatus === 'completed' ? (
                                   <>
                                     <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                                     <span className="text-green-400 text-xs font-medium">Abgeschlossen</span>
                                   </>
-                                ) : simulatedCompletionStatus === 'completed_with_defects' ? (
+                                ) : actualCompletionStatus === 'completed_with_defects' ? (
                                   <>
                                     <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
                                     <span className="text-yellow-400 text-xs font-medium">Unter Vorbehalt</span>
@@ -1527,8 +1527,8 @@ export default function ServiceProviderDashboard() {
                     const userQuote = quotes.find(quote => isUserQuote(quote, user));
                     const hasQuote = !!userQuote;
                     const quoteStatus = userQuote?.status || null;
-                    // Temporäre Lösung: Simuliere completion_status für Demo-Zwecke
-                    const simulatedCompletionStatus = trade.id === 1 ? 'completion_requested' : trade.completion_status;
+                    // Verwende nur den tatsächlichen completion_status aus den Daten
+                    const actualCompletionStatus = trade.completion_status;
 
                     return (
                       <div 
@@ -1716,20 +1716,20 @@ export default function ServiceProviderDashboard() {
                             <span className={`px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm ${getStatusColor(trade.status)} shadow-lg`}>
                               {getStatusLabel(trade.status)}
                             </span>
-                            {/* Completion Status Badge für gewonnene Projekte */}
-                            {quoteStatus === 'accepted' && simulatedCompletionStatus === 'completion_requested' && (
+                            {/* Completion Status Badge für gewonnene Projekte - nur wenn tatsächlich gesetzt */}
+                            {quoteStatus === 'accepted' && actualCompletionStatus === 'completion_requested' && (
                               <span className="px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm bg-orange-500/20 text-orange-300 border border-orange-500/40 shadow-lg flex items-center gap-1">
                                 <Clock size={12} />
                                 Als fertiggestellt markiert
                               </span>
                             )}
-                            {quoteStatus === 'accepted' && simulatedCompletionStatus === 'completed' && (
+                            {quoteStatus === 'accepted' && actualCompletionStatus === 'completed' && (
                               <span className="px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm bg-green-500/20 text-green-300 border border-green-500/40 shadow-lg flex items-center gap-1">
                                 <CheckCircle size={12} />
                                 Abgeschlossen
                               </span>
                             )}
-                            {quoteStatus === 'accepted' && simulatedCompletionStatus === 'completed_with_defects' && (
+                            {quoteStatus === 'accepted' && actualCompletionStatus === 'completed_with_defects' && (
                               <span className="px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 shadow-lg flex items-center gap-1">
                                 <AlertTriangle size={12} />
                                 Unter Vorbehalt
@@ -1805,20 +1805,20 @@ export default function ServiceProviderDashboard() {
                                       {formatCurrency(userQuote.total_amount)}
                                     </span>
                                   )}
-                                  {/* Completion Status für gewonnene Angebote */}
-                                  {quoteStatus === 'accepted' && simulatedCompletionStatus === 'completion_requested' && (
+                                  {/* Completion Status für gewonnene Angebote - nur wenn tatsächlich gesetzt */}
+                                  {quoteStatus === 'accepted' && actualCompletionStatus === 'completion_requested' && (
                                     <span className="text-xs px-2 py-1 bg-orange-500/20 text-orange-300 border border-orange-500/30 rounded-full flex items-center gap-1">
                                       <Clock size={10} />
                                       Als fertiggestellt markiert
                                     </span>
                                   )}
-                                  {quoteStatus === 'accepted' && simulatedCompletionStatus === 'completed' && (
+                                  {quoteStatus === 'accepted' && actualCompletionStatus === 'completed' && (
                                     <span className="text-xs px-2 py-1 bg-green-500/20 text-green-300 border border-green-500/30 rounded-full flex items-center gap-1">
                                       <CheckCircle size={10} />
                                       Abgeschlossen
                                     </span>
                                   )}
-                                  {quoteStatus === 'accepted' && simulatedCompletionStatus === 'completed_with_defects' && (
+                                  {quoteStatus === 'accepted' && actualCompletionStatus === 'completed_with_defects' && (
                                     <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 rounded-full flex items-center gap-1">
                                       <AlertTriangle size={10} />
                                       Unter Vorbehalt

@@ -824,39 +824,39 @@ export default function TradesCard({
                                 </div>
                                                             )}
 
-                              {/* Fertigstellungsstatus Badge - nur für angenommene Angebote */}
+                              {/* Fertigstellungsstatus Badge - nur wenn tatsächlich fertiggestellt markiert */}
                               {(tradeStatsForTrade?.acceptedQuote || currentQuoteStatus === 'accepted') && (() => {
-                                // Temporäre Lösung: Simuliere completion_status für Demo-Zwecke
-                                const simulatedCompletionStatus = trade.id === 1 ? 'completion_requested' : (trade as any).completion_status;
+                                // Verwende nur den tatsächlichen completion_status aus den Daten
+                                const actualCompletionStatus = (trade as any).completion_status;
                                 
-                                if (simulatedCompletionStatus && simulatedCompletionStatus !== 'in_progress') {
+                                if (actualCompletionStatus && actualCompletionStatus !== 'in_progress') {
                                   return (
                                     <div className="relative group">
                                       <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer transform transition-all duration-300 hover:scale-105 shadow-lg border ${
-                                        simulatedCompletionStatus === 'completed' 
+                                        actualCompletionStatus === 'completed' 
                                           ? 'bg-gradient-to-r from-green-600/40 via-emerald-500/40 to-green-600/40 border-green-400/50 hover:shadow-green-500/30'
-                                          : simulatedCompletionStatus === 'completed_with_defects'
+                                          : actualCompletionStatus === 'completed_with_defects'
                                           ? 'bg-gradient-to-r from-yellow-600/40 via-amber-500/40 to-yellow-600/40 border-yellow-400/50 hover:shadow-yellow-500/30'
-                                          : simulatedCompletionStatus === 'completion_requested'
+                                          : actualCompletionStatus === 'completion_requested'
                                           ? 'bg-gradient-to-r from-orange-600/40 via-orange-500/40 to-orange-600/40 border-orange-400/50 hover:shadow-orange-500/30 animate-pulse'
                                           : 'bg-gradient-to-r from-gray-600/40 via-gray-500/40 to-gray-600/40 border-gray-400/50 hover:shadow-gray-500/30'
                                       }`}>
                                         <div className="flex items-center gap-1.5">
-                                          {simulatedCompletionStatus === 'completion_requested' ? (
+                                          {actualCompletionStatus === 'completion_requested' ? (
                                             <>
                                               <Clock size={12} className="text-orange-200" />
                                               <span className="text-xs font-semibold text-orange-200">
                                                 🔄 Als fertiggestellt markiert
                                               </span>
                                             </>
-                                          ) : simulatedCompletionStatus === 'completed' ? (
+                                          ) : actualCompletionStatus === 'completed' ? (
                                             <>
                                               <CheckCircle size={12} className="text-green-200" />
                                               <span className="text-xs font-semibold text-green-200">
                                                 ✅ Abgeschlossen
                                               </span>
                                             </>
-                                          ) : simulatedCompletionStatus === 'completed_with_defects' ? (
+                                          ) : actualCompletionStatus === 'completed_with_defects' ? (
                                             <>
                                               <AlertTriangle size={12} className="text-yellow-200" />
                                               <span className="text-xs font-semibold text-yellow-200">
@@ -864,15 +864,15 @@ export default function TradesCard({
                                               </span>
                                             </>
                                           ) : (
-                                            <span className="text-xs font-semibold text-gray-200">{simulatedCompletionStatus}</span>
+                                            <span className="text-xs font-semibold text-gray-200">{actualCompletionStatus}</span>
                                           )}
                                         </div>
                                         
                                         {/* Status-Indikator */}
                                         <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white/20 ${
-                                          simulatedCompletionStatus === 'completion_requested' ? 'bg-orange-400 animate-ping' :
-                                          simulatedCompletionStatus === 'completed' ? 'bg-green-400' :
-                                          simulatedCompletionStatus === 'completed_with_defects' ? 'bg-yellow-400' :
+                                          actualCompletionStatus === 'completion_requested' ? 'bg-orange-400 animate-ping' :
+                                          actualCompletionStatus === 'completed' ? 'bg-green-400' :
+                                          actualCompletionStatus === 'completed_with_defects' ? 'bg-yellow-400' :
                                           'bg-gray-400'
                                         }`}></div>
                                       </div>
@@ -881,31 +881,31 @@ export default function TradesCard({
                                       <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50">
                                         <div className="bg-gradient-to-b from-gray-900 to-gray-800 text-white text-xs rounded-xl py-3 px-4 shadow-2xl border border-gray-600/50 backdrop-blur-sm min-w-[200px]">
                                           <div className="flex items-center gap-2 mb-2">
-                                            {simulatedCompletionStatus === 'completion_requested' ? (
+                                            {actualCompletionStatus === 'completion_requested' ? (
                                               <>
                                                 <Clock size={14} className="text-orange-400" />
                                                 <div className="font-bold text-orange-300">Als fertiggestellt markiert</div>
                                               </>
-                                            ) : simulatedCompletionStatus === 'completed' ? (
+                                            ) : actualCompletionStatus === 'completed' ? (
                                               <>
                                                 <CheckCircle size={14} className="text-green-400" />
                                                 <div className="font-bold text-green-300">Projekt abgeschlossen</div>
                                               </>
-                                            ) : simulatedCompletionStatus === 'completed_with_defects' ? (
+                                            ) : actualCompletionStatus === 'completed_with_defects' ? (
                                               <>
                                                 <AlertTriangle size={14} className="text-yellow-400" />
                                                 <div className="font-bold text-yellow-300">Abgeschlossen unter Vorbehalt</div>
                                               </>
                                             ) : (
-                                              <div className="font-bold text-gray-300">Status: {simulatedCompletionStatus}</div>
+                                              <div className="font-bold text-gray-300">Status: {actualCompletionStatus}</div>
                                             )}
                                           </div>
                                           <div className="text-gray-300 text-xs">
-                                            {simulatedCompletionStatus === 'completion_requested' 
+                                            {actualCompletionStatus === 'completion_requested' 
                                               ? 'Der Dienstleister hat das Projekt als fertiggestellt markiert und wartet auf Ihre Bestätigung.'
-                                              : simulatedCompletionStatus === 'completed'
+                                              : actualCompletionStatus === 'completed'
                                               ? 'Das Projekt wurde erfolgreich abgeschlossen und abgenommen.'
-                                              : simulatedCompletionStatus === 'completed_with_defects'
+                                              : actualCompletionStatus === 'completed_with_defects'
                                               ? 'Das Projekt wurde unter Vorbehalt abgenommen. Mängel wurden dokumentiert.'
                                               : 'Fertigstellungsstatus des Projekts.'
                                             }

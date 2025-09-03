@@ -99,6 +99,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
            type.includes('powerpoint'));
   };
 
+
+
   const getViewerUrl = (doc: any) => {
     const url = doc.url || doc.file_path || '';
     const type = doc.type || doc.mime_type || '';
@@ -695,6 +697,257 @@ export default function SimpleCostEstimateModal({
   const handleProgressChange = (newProgress: number) => {
     setCurrentProgress(newProgress);
   };
+
+  // Abnahme-Workflow Komponente für bedingte Platzierung
+  const renderAbnahmeWorkflow = () => (
+    <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+      <h3 className="text-lg font-semibold text-orange-300 mb-3 flex items-center gap-2">
+        <Settings size={20} />
+        Abnahme-Workflow
+      </h3>
+      
+      {/* Status-Banner */}
+      <div className={`mb-4 p-3 rounded-lg border ${
+        completionStatus === 'completed' 
+          ? 'bg-green-500/10 border-green-500/30' 
+          : completionStatus === 'completed_with_defects'
+          ? 'bg-yellow-500/10 border-yellow-500/30'
+          : completionStatus === 'defects_resolved'
+          ? 'bg-blue-500/10 border-blue-500/30'
+          : completionStatus === 'completion_requested'
+          ? 'bg-orange-500/10 border-orange-500/30'
+          : 'bg-blue-500/10 border-blue-500/30'
+      }`}>
+        <div className="flex items-center gap-3">
+          {completionStatus === 'completed' ? (
+            <>
+              <CheckCircle size={20} className="text-green-400" />
+              <div>
+                <h4 className="text-green-300 font-medium">Gewerk vollständig abgenommen</h4>
+                <p className="text-green-200 text-sm">Das Gewerk wurde erfolgreich und ohne Mängel abgenommen.</p>
+              </div>
+            </>
+          ) : completionStatus === 'completed_with_defects' ? (
+            <>
+              <AlertTriangle size={20} className="text-yellow-400" />
+              <div>
+                <h4 className="text-yellow-300 font-medium">Abnahme unter Vorbehalt</h4>
+                <p className="text-yellow-200 text-sm">
+                  Mängel wurden dokumentiert. Finale Abnahme steht noch aus.
+                </p>
+              </div>
+            </>
+          ) : completionStatus === 'defects_resolved' ? (
+            <>
+              <CheckCircle size={20} className="text-blue-400" />
+              <div>
+                <h4 className="text-blue-300 font-medium">Mängelbehebung gemeldet</h4>
+                <p className="text-blue-200 text-sm">
+                  Der Dienstleister hat die Mängelbehebung gemeldet. Finale Abnahme kann durchgeführt werden.
+                </p>
+              </div>
+            </>
+          ) : completionStatus === 'completion_requested' ? (
+            <>
+              <AlertTriangle size={20} className="text-orange-400" />
+              <div>
+                <h4 className="text-orange-300 font-medium">Fertigstellung gemeldet</h4>
+                <p className="text-orange-200 text-sm">
+                  Der Dienstleister hat die Fertigstellung gemeldet. Abnahme kann gestartet werden.
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <Clock size={20} className="text-blue-400" />
+              <div>
+                <h4 className="text-blue-300 font-medium">Gewerk in Bearbeitung</h4>
+                <p className="text-blue-200 text-sm">Das Gewerk ist noch nicht zur Abnahme bereit.</p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Abnahme-Aktionen */}
+      <div className="space-y-3">
+        {completionStatus === 'completion_requested' && isBautraeger() && (
+          <div className="flex gap-3 flex-wrap">
+            <button
+              onClick={handleStartAcceptance}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+            >
+              <PlayCircle size={16} />
+              Abnahme starten
+            </button>
+            
+            <button
+              onClick={() => setShowScheduleModal(true)}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+            >
+              <Calendar size={16} />
+              Abnahme-Termin vereinbaren
+            </button>
+          </div>
+        )}
+        
+        {(completionStatus === 'completed_with_defects' || completionStatus === 'defects_resolved') && (
+          <div className="space-y-3">
+            <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-3">
+              <h4 className="text-yellow-300 font-medium mb-2">
+                {completionStatus === 'defects_resolved' 
+                  ? `Mängelbehebung gemeldet (${acceptanceDefects.length} Mängel)` 
+                  : `Dokumentierte Mängel (${acceptanceDefects.length})`
+                }
+              </h4>
+              {acceptanceDefects.length > 0 ? (
+                <div className="space-y-2">
+                  {acceptanceDefects.slice(0, 3).map((defect, index) => (
+                    <div key={index} className="text-sm text-gray-300">
+                      • {defect.description || defect.title || `Mangel ${index + 1}`}
+                    </div>
+                  ))}
+                  {acceptanceDefects.length > 3 && (
+                    <div className="text-sm text-gray-400">
+                      ... und {acceptanceDefects.length - 3} weitere Mängel
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-400 text-sm">Keine Mängel-Details verfügbar</p>
+              )}
+              
+              {completionStatus === 'defects_resolved' && (
+                <div className="mt-2 p-2 bg-green-500/10 border border-green-500/20 rounded text-sm text-green-300">
+                  ✅ Der Dienstleister hat die Mängelbehebung gemeldet. Sie können nun die finale Abnahme durchführen.
+                </div>
+              )}
+            </div>
+            
+            <button
+              onClick={() => {
+                console.log('🔍 Finale Abnahme Button geklickt:', {
+                  acceptanceId,
+                  acceptanceDefects: acceptanceDefects.length,
+                  completionStatus,
+                  tradeId: trade?.id
+                });
+                
+                // Stelle sicher, dass Mängel geladen sind
+                if (!acceptanceId || acceptanceDefects.length === 0) {
+                  console.log('🔄 Lade Abnahme-Daten vor Modal-Öffnung');
+                  loadAcceptanceDefects().then(() => {
+                    setShowFinalAcceptanceModal(true);
+                  });
+                } else {
+                  setShowFinalAcceptanceModal(true);
+                }
+              }}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+            >
+              <CheckCircle size={16} />
+              Finale Abnahme durchführen
+            </button>
+          </div>
+        )}
+        
+        {completionStatus === 'completed' && (
+          <div className="space-y-3">
+            <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
+              <div className="flex items-center gap-2 text-green-300">
+                <CheckCircle size={16} />
+                <span className="text-sm font-medium">
+                  Gewerk vollständig abgeschlossen
+                </span>
+              </div>
+            </div>
+            
+            {/* Rechnungsanzeige */}
+            {(() => {
+              console.log('🔍 SimpleCostEstimateModal - Rechnungsanzeige Check:', {
+                existingInvoice,
+                isBautraeger: isBautraeger(),
+                completionStatus
+              });
+              return null;
+            })()}
+            {existingInvoice ? (
+              <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h4 className="text-blue-300 font-medium">Rechnung erhalten</h4>
+                    <p className="text-gray-400 text-sm">Der Dienstleister hat eine Rechnung erstellt</p>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    existingInvoice.status === 'paid' 
+                      ? 'bg-green-500/20 text-green-300'
+                      : existingInvoice.status === 'sent'
+                      ? 'bg-blue-500/20 text-blue-300'
+                      : 'bg-yellow-500/20 text-yellow-300'
+                  }`}>
+                    {existingInvoice.status === 'paid' ? 'Bezahlt' : 
+                     existingInvoice.status === 'sent' ? 'Versendet' : 'Neu'}
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 mb-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Rechnungsnummer:</span>
+                    <span className="text-white font-medium">{existingInvoice.invoice_number}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Betrag:</span>
+                    <span className="text-white font-medium">
+                      {new Intl.NumberFormat('de-DE', {
+                        style: 'currency',
+                        currency: existingInvoice.currency || 'EUR'
+                      }).format(existingInvoice.total_amount || 0)}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={handleViewInvoice}
+                    className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    <Eye size={14} />
+                    Öffnen
+                  </button>
+                  <button
+                    onClick={handleDownloadInvoice}
+                    className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    <Download size={14} />
+                    Download
+                  </button>
+                  {existingInvoice.status !== 'paid' && (
+                    <button
+                      onClick={handleMarkAsPaid}
+                      className="flex items-center gap-2 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-colors"
+                      disabled={isMarkingAsPaid}
+                    >
+                      <CreditCard size={16} />
+                      {isMarkingAsPaid ? 'Wird markiert...' : 'Als bezahlt markieren'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3">
+                <p className="text-blue-300 text-sm">
+                  Warten auf Rechnung vom Dienstleister...
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   // Lade dokumentierte Mängel
   const loadAcceptanceDefects = async () => {
@@ -2253,6 +2506,13 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
             )}
           </div>
 
+          {/* Abnahme-Workflow oben wenn completion_requested */}
+          {completionStatus === 'completion_requested' && (
+            <div className="mb-6">
+              {renderAbnahmeWorkflow()}
+            </div>
+          )}
+
           {/* Angenommenes Angebot - Dienstleister-Informationen */}
           {acceptedQuote && (
             <div className="mb-6 p-6 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 rounded-xl border border-emerald-500/20">
@@ -2698,27 +2958,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                 </div>
               )}
 
-              {/* Accepted Quote Actions */}
-              {acceptedQuote && onResetQuote && (
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-yellow-300 mb-3 flex items-center gap-2">
-                    <AlertTriangle size={20} />
-                    Angebot-Verwaltung
-                  </h3>
-                  <p className="text-gray-300 text-sm mb-3">
-                    Das Angebot von {acceptedQuote.company_name} wurde angenommen. 
-                    Sie können es zurücksetzen, um andere Angebote zu prüfen.
-                  </p>
-                  <button
-                    onClick={() => handleResetQuote(acceptedQuote)}
-                    disabled={loading}
-                    className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    <RotateCcw size={16} />
-                    Angebot zurücksetzen
-                  </button>
-                </div>
-              )}
+
 
               {/* Dokumente-Bereich mit vollständigem Viewer */}
               <TradeDocumentViewer 
@@ -2747,254 +2987,8 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                 />
               </div>
               
-              {/* Abnahme-Workflow-Bereich */}
-              <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-orange-300 mb-3 flex items-center gap-2">
-                  <Settings size={20} />
-                  Abnahme-Workflow
-                </h3>
-                
-                {/* Status-Banner */}
-                <div className={`mb-4 p-3 rounded-lg border ${
-                  completionStatus === 'completed' 
-                    ? 'bg-green-500/10 border-green-500/30' 
-                    : completionStatus === 'completed_with_defects'
-                    ? 'bg-yellow-500/10 border-yellow-500/30'
-                    : completionStatus === 'defects_resolved'
-                    ? 'bg-blue-500/10 border-blue-500/30'
-                    : completionStatus === 'completion_requested'
-                    ? 'bg-orange-500/10 border-orange-500/30'
-                    : 'bg-blue-500/10 border-blue-500/30'
-                }`}>
-                  <div className="flex items-center gap-3">
-                    {completionStatus === 'completed' ? (
-                      <>
-                        <CheckCircle size={20} className="text-green-400" />
-                        <div>
-                          <h4 className="text-green-300 font-medium">Gewerk vollständig abgenommen</h4>
-                          <p className="text-green-200 text-sm">Das Gewerk wurde erfolgreich und ohne Mängel abgenommen.</p>
-                        </div>
-                      </>
-                    ) : completionStatus === 'completed_with_defects' ? (
-                      <>
-                        <AlertTriangle size={20} className="text-yellow-400" />
-                        <div>
-                          <h4 className="text-yellow-300 font-medium">Abnahme unter Vorbehalt</h4>
-                          <p className="text-yellow-200 text-sm">
-                            Mängel wurden dokumentiert. Finale Abnahme steht noch aus.
-                          </p>
-                        </div>
-                      </>
-                    ) : completionStatus === 'defects_resolved' ? (
-                      <>
-                        <CheckCircle size={20} className="text-blue-400" />
-                        <div>
-                          <h4 className="text-blue-300 font-medium">Mängelbehebung gemeldet</h4>
-                          <p className="text-blue-200 text-sm">
-                            Der Dienstleister hat die Mängelbehebung gemeldet. Finale Abnahme kann durchgeführt werden.
-                          </p>
-                        </div>
-                      </>
-                    ) : completionStatus === 'completion_requested' ? (
-                      <>
-                        <AlertTriangle size={20} className="text-orange-400" />
-                        <div>
-                          <h4 className="text-orange-300 font-medium">Fertigstellung gemeldet</h4>
-                          <p className="text-orange-200 text-sm">
-                            Der Dienstleister hat die Fertigstellung gemeldet. Abnahme kann gestartet werden.
-                          </p>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <Clock size={20} className="text-blue-400" />
-                        <div>
-                          <h4 className="text-blue-300 font-medium">Gewerk in Bearbeitung</h4>
-                          <p className="text-blue-200 text-sm">Das Gewerk ist noch nicht zur Abnahme bereit.</p>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Abnahme-Aktionen */}
-                <div className="space-y-3">
-                  {completionStatus === 'completion_requested' && isBautraeger() && (
-                    <div className="flex gap-3 flex-wrap">
-                      <button
-                        onClick={handleStartAcceptance}
-                        disabled={loading}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-                      >
-                        <PlayCircle size={16} />
-                        Abnahme starten
-                      </button>
-                      
-                      <button
-                        onClick={() => setShowScheduleModal(true)}
-                        disabled={loading}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-                      >
-                        <Calendar size={16} />
-                        Abnahme-Termin vereinbaren
-                      </button>
-                    </div>
-                  )}
-                  
-                  {(completionStatus === 'completed_with_defects' || completionStatus === 'defects_resolved') && (
-                    <div className="space-y-3">
-                      <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-3">
-                        <h4 className="text-yellow-300 font-medium mb-2">
-                          {completionStatus === 'defects_resolved' 
-                            ? `Mängelbehebung gemeldet (${acceptanceDefects.length} Mängel)` 
-                            : `Dokumentierte Mängel (${acceptanceDefects.length})`
-                          }
-                        </h4>
-                        {acceptanceDefects.length > 0 ? (
-                          <div className="space-y-2">
-                            {acceptanceDefects.slice(0, 3).map((defect, index) => (
-                              <div key={index} className="text-sm text-gray-300">
-                                • {defect.description || defect.title || `Mangel ${index + 1}`}
-                              </div>
-                            ))}
-                            {acceptanceDefects.length > 3 && (
-                              <div className="text-sm text-gray-400">
-                                ... und {acceptanceDefects.length - 3} weitere Mängel
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="text-gray-400 text-sm">Keine Mängel-Details verfügbar</p>
-                        )}
-                        
-                        {completionStatus === 'defects_resolved' && (
-                          <div className="mt-2 p-2 bg-green-500/10 border border-green-500/20 rounded text-sm text-green-300">
-                            ✅ Der Dienstleister hat die Mängelbehebung gemeldet. Sie können nun die finale Abnahme durchführen.
-                          </div>
-                        )}
-                      </div>
-                      
-                      <button
-                        onClick={() => {
-                          console.log('🔍 Finale Abnahme Button geklickt:', {
-                            acceptanceId,
-                            acceptanceDefects: acceptanceDefects.length,
-                            completionStatus,
-                            tradeId: trade?.id
-                          });
-                          
-                          // Stelle sicher, dass Mängel geladen sind
-                          if (!acceptanceId || acceptanceDefects.length === 0) {
-                            console.log('🔄 Lade Abnahme-Daten vor Modal-Öffnung');
-                            loadAcceptanceDefects().then(() => {
-                              setShowFinalAcceptanceModal(true);
-                            });
-                          } else {
-                            setShowFinalAcceptanceModal(true);
-                          }
-                        }}
-                        disabled={loading}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-                      >
-                        <CheckCircle size={16} />
-                        Finale Abnahme durchführen
-                      </button>
-                    </div>
-                  )}
-                  
-                  {completionStatus === 'completed' && (
-                    <div className="space-y-3">
-                      <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
-                        <div className="flex items-center gap-2 text-green-300">
-                          <CheckCircle size={16} />
-                          <span className="text-sm font-medium">
-                            Gewerk vollständig abgeschlossen
-                          </span>
-                        </div>
-                      </div>
-                      
-                      {/* Rechnungsanzeige */}
-                      {(() => {
-                        console.log('🔍 SimpleCostEstimateModal - Rechnungsanzeige Check:', {
-                          existingInvoice,
-                          isBautraeger: isBautraeger(),
-                          completionStatus
-                        });
-                        return null;
-                      })()}
-                      {existingInvoice ? (
-                        <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3">
-                          <div className="flex items-center justify-between mb-3">
-                            <div>
-                              <h4 className="text-blue-300 font-medium">Rechnung erhalten</h4>
-                              <p className="text-gray-400 text-sm">Der Dienstleister hat eine Rechnung erstellt</p>
-                            </div>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              existingInvoice.status === 'paid' 
-                                ? 'bg-green-500/20 text-green-300'
-                                : existingInvoice.status === 'sent'
-                                ? 'bg-blue-500/20 text-blue-300'
-                                : 'bg-yellow-500/20 text-yellow-300'
-                            }`}>
-                              {existingInvoice.status === 'paid' ? 'Bezahlt' : 
-                               existingInvoice.status === 'sent' ? 'Versendet' : 'Neu'}
-                            </span>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-4 mb-3 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-gray-400">Rechnungsnummer:</span>
-                              <span className="text-white font-medium">{existingInvoice.invoice_number}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-400">Betrag:</span>
-                              <span className="text-white font-medium">
-                                {new Intl.NumberFormat('de-DE', {
-                                  style: 'currency',
-                                  currency: existingInvoice.currency || 'EUR'
-                                }).format(existingInvoice.total_amount || 0)}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          <div className="flex gap-2 flex-wrap">
-                            <button
-                              onClick={handleViewInvoice}
-                              className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-                            >
-                              <Eye size={14} />
-                              Öffnen
-                            </button>
-                            <button
-                              onClick={handleDownloadInvoice}
-                              className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
-                            >
-                              <Download size={14} />
-                              Download
-                            </button>
-                            {existingInvoice.status !== 'paid' && (
-                              <button
-                                onClick={handleMarkAsPaid}
-                                className="flex items-center gap-2 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-colors"
-                                disabled={isMarkingAsPaid}
-                              >
-                                <CreditCard size={14} />
-                                {isMarkingAsPaid ? 'Wird markiert...' : 'Als bezahlt markieren'}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3">
-                          <p className="text-blue-300 text-sm">
-                            Warten auf Rechnung vom Dienstleister...
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
+              {/* Abnahme-Workflow-Bereich - nur wenn NICHT completion_requested (dann wird es oben angezeigt) */}
+              {completionStatus !== 'completion_requested' && renderAbnahmeWorkflow()}
 
               {/* Besichtigungs-Management */}
               {submittedQuotes.length > 0 && (

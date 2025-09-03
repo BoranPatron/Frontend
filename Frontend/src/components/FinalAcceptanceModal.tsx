@@ -112,12 +112,19 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
     setError(null);
 
     try {
-      // Markiere alle Mängel als behoben
+      // Markiere nur noch nicht behobene Mängel als behoben
       for (const defectId of checkedDefects) {
-        await api.put(`/acceptance/defects/${defectId}`, {
-          resolved: true,
-          resolved_at: new Date().toISOString()
-        });
+        const defect = defects.find(d => d.id === defectId);
+        // Überspringe bereits behobene Mängel um Konflikte zu vermeiden
+        if (defect && !defect.resolved) {
+          console.log('🔧 Quittiere Mangel (mit Bewertung):', defectId);
+          await api.put(`/acceptance/defects/${defectId}`, {
+            resolved: true,
+            resolved_at: new Date().toISOString()
+          });
+        } else {
+          console.log('ℹ️ Mangel bereits behoben, überspringe (mit Bewertung):', defectId);
+        }
       }
 
       // Wenn keine gültige acceptanceId vorhanden ist, verwende die automatisch erstellte vom Backend
@@ -162,12 +169,19 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
     setError(null);
 
     try {
-      // Markiere alle Mängel als behoben
+      // Markiere nur noch nicht behobene Mängel als behoben
       for (const defectId of checkedDefects) {
-        await api.put(`/acceptance/defects/${defectId}`, {
-          resolved: true,
-          resolved_at: new Date().toISOString()
-        });
+        const defect = defects.find(d => d.id === defectId);
+        // Überspringe bereits behobene Mängel um Konflikte zu vermeiden
+        if (defect && !defect.resolved) {
+          console.log('🔧 Quittiere Mangel (ohne Bewertung):', defectId);
+          await api.put(`/acceptance/defects/${defectId}`, {
+            resolved: true,
+            resolved_at: new Date().toISOString()
+          });
+        } else {
+          console.log('ℹ️ Mangel bereits behoben, überspringe (ohne Bewertung):', defectId);
+        }
       }
 
       // Wenn keine gültige acceptanceId vorhanden ist, verwende die automatisch erstellte vom Backend
