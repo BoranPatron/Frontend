@@ -654,8 +654,30 @@ export default function TradeProgress({
                 <button
                   onClick={() => {
                     const message = prompt('Begründung für Nachbesserung:');
-                    const deadline = prompt('Frist für Nachbesserung (YYYY-MM-DD):');
                     if (message) {
+                      // Benutzerfreundlichere Datumsauswahl
+                      const today = new Date();
+                      const defaultDate = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 Tage
+                      const defaultDateString = defaultDate.toISOString().split('T')[0];
+                      
+                      const deadline = prompt(
+                        `Wiedervorlage-Datum für finale Abnahme (YYYY-MM-DD):\n\n` +
+                        `Bei Eingabe eines Datums wird automatisch ein Wiedervorlage-Termin\n` +
+                        `für Sie und den Dienstleister erstellt.`,
+                        defaultDateString
+                      );
+                      
+                      if (deadline) {
+                        // Validiere das Datum
+                        const deadlineDate = new Date(deadline);
+                        if (isNaN(deadlineDate.getTime()) || deadlineDate <= today) {
+                          alert('⚠️ Bitte geben Sie ein gültiges zukünftiges Datum ein.');
+                          return;
+                        }
+                        
+                        console.log('📅 Erstelle Wiedervorlage-Termin für:', deadline);
+                      }
+                      
                       onCompletionResponse?.(false, message, deadline || undefined);
                     }
                   }}

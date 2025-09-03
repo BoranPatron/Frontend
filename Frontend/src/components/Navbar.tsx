@@ -40,7 +40,7 @@ import { getProject } from '../api/projectService';
 import { createProject } from '../api/projectService';
 import AddressAutocomplete from './AddressAutocomplete';
 import { uploadDocument } from '../api/documentService';
-import FavoritesManager from './FavoritesManager';
+
 import CreditIndicator from './CreditIndicator';
 import CreditDisplay from './CreditDisplay';
 import NavbarCalendar from './NavbarCalendar';
@@ -160,14 +160,7 @@ function getConstructionPhases(country: string) {
   }
 }
 
-interface FavoriteItem {
-  id: string;
-  title: string;
-  path: string;
-  icon: string;
-  category: 'navigation' | 'tools' | 'projects';
-  isActive?: boolean;
-}
+
 
 export default function Navbar() {
   const { user, logout, isServiceProvider } = useAuth();
@@ -175,8 +168,7 @@ export default function Navbar() {
   const pathname = location.pathname;
   const { selectedProject, projects } = useProject();
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
-  const [showFavoritesManager, setShowFavoritesManager] = useState(false);
+
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -281,41 +273,7 @@ export default function Navbar() {
     }
   }, [pathname, location.search, selectedProject, projects]);
 
-  // Favoriten laden
-  useEffect(() => {
-    const loadFavorites = () => {
-      try {
-        const storedFavorites = localStorage.getItem('favorites');
-        if (storedFavorites) {
-          const parsedFavorites = JSON.parse(storedFavorites);
-          setFavorites(parsedFavorites);
-          }
-      } catch (error) {
-        console.error('❌ Fehler beim Laden der Favoriten:', error);
-        setFavorites([]);
-      }
-    };
 
-    loadFavorites();
-    
-    const handleStorageChange = () => {
-      loadFavorites();
-    };
-
-    const handleCustomStorageChange = (event: Event) => {
-      if (event instanceof StorageEvent && event.key === 'favorites') {
-        loadFavorites();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('favoritesChanged', handleCustomStorageChange);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('favoritesChanged', handleCustomStorageChange);
-    };
-  }, []);
 
   // Öffne Projekt-Erstellungs-Modal, wenn ?create=project in der URL steht
   useEffect(() => {
@@ -327,20 +285,7 @@ export default function Navbar() {
     }
   }, [location.search, pathname]);
 
-  const renderIcon = (iconString: string) => {
-    const iconMap: { [key: string]: React.ReactNode } = {
-      '<Home size={16} />': <Home size={16} />,
-      '<FileText size={16} />': <FileText size={16} />,
-      '<CheckSquare size={16} />': <CheckSquare size={16} />,
-      '<Euro size={16} />': <Euro size={16} />,
-      '<MessageSquare size={16} />': <MessageSquare size={16} />,
-      '<BarChart3 size={16} />': <BarChart3 size={16} />,
-      '<Palette size={16} />': <Palette size={16} />,
-      '<Globe size={16} />': <Globe size={16} />,
-    };
-    
-    return iconMap[iconString] || <Star size={16} />;
-  };
+
 
   const handleLogout = () => {
     logout();
@@ -567,57 +512,7 @@ export default function Navbar() {
                     <span>Übersicht</span>
                   </Link>
 
-                  <div className="relative group" data-tour-id="navbar-favorites">
-                    <button className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                      isProjectActive() 
-                        ? 'bg-[#ffbd59] text-[#2c3539] font-semibold shadow-lg' 
-                        : 'text-white hover:bg-white/10 hover:text-[#ffbd59]'
-                    }`}>
-                      <Star size={18} />
-                      <span>Favoriten</span>
-                      <ChevronDown size={16} className="group-hover:rotate-180 transition-transform" />
-                    </button>
-                    
-                    <div className="absolute top-full left-0 mt-2 w-64 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
-                      <div className="p-2">
-                        <div className="flex items-center justify-between p-3 text-gray-300 text-sm border-b border-white/10">
-                          <span>Ihre konfigurierten Favoriten</span>
-                          <button
-                            onClick={() => setShowFavoritesManager(true)}
-                            className="p-1 hover:bg-white/10 rounded transition-colors"
-                            title="Favoriten verwalten"
-                          >
-                            <Settings size={14} className="text-[#ffbd59]" />
-                          </button>
-                        </div>
-                        <div className="mt-2 max-h-64 overflow-y-auto">
-                          {favorites.length > 0 ? (
-                            favorites.map((favorite) => (
-                              <Link
-                                key={favorite.id}
-                                to={favorite.path}
-                                className={`flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white ${
-                                  isActive(favorite.path) ? 'bg-white/10 text-[#ffbd59]' : ''
-                                }`}
-                              >
-                                <div className="text-[#ffbd59]">
-                                  {renderIcon(favorite.icon)}
-                                </div>
-                                <span>{favorite.title}</span>
-                              </Link>
-                            ))
-                          ) : (
-                            <div className="p-3 text-gray-400 text-sm text-center">
-                              <Star size={16} className="mx-auto mb-2 opacity-50" />
-                              <p>Keine Favoriten konfiguriert</p>
-                              <p className="text-xs mt-1">Klicken Sie auf das Zahnrad zum Konfigurieren</p>
-                              <p className="text-xs mt-1 text-gray-500">Debug: {favorites.length} Favoriten geladen</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+
 
                   {/* Pro Button für Bauträger deaktiviert */}
                   {/* 
@@ -962,11 +857,7 @@ export default function Navbar() {
         onClose={() => setShowCalendar(false)}
       />
 
-      {/* FavoritesManager Modal */}
-      <FavoritesManager 
-        isOpen={showFavoritesManager} 
-        onClose={() => setShowFavoritesManager(false)} 
-      />
+
 
       {/* Projekt-Erstellungs-Modal */}
       {showCreateProjectModal && (

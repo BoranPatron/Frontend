@@ -33,6 +33,9 @@ interface AcceptanceModalProps {
   onClose: () => void;
   trade: any;
   onComplete: (data: AcceptanceData) => void;
+  // Benötigt für Dienstleister-Einladung
+  acceptedQuote?: any;
+  project?: any;
   // Optional: Nach finaler Abnahme Bewertungsdialog öffnen
   onRequestServiceProviderRating?: (params: {
     serviceProviderId: number;
@@ -68,6 +71,8 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
   onClose, 
   trade, 
   onComplete,
+  acceptedQuote,
+  project,
   onRequestServiceProviderRating
 }) => {
   const [step, setStep] = useState(1); // 1: Checkliste, 2: Mängel & Fotos, 3: Bewertung, 4: Entscheidung
@@ -287,7 +292,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
     }
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     const data: AcceptanceData = {
       accepted: accepted || false,
       acceptanceNotes,
@@ -301,6 +306,31 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
       reviewNotes: hasIssues ? reviewNotes : undefined,
       checklist
     };
+
+    // Bei Abnahme unter Vorbehalt: Erstelle automatisch einen Wiedervorlage-Termin
+    if (hasIssues && reviewDate && accepted === false) {
+      try {
+        await createReviewAppointment();
+        
+        // Erfolgs-Benachrichtigung
+        const reviewDateFormatted = new Date(reviewDate).toLocaleDateString('de-DE', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        });
+        
+        alert(`✅ Wiedervorlage-Termin erfolgreich erstellt!\n\n` +
+              `📅 Datum: ${reviewDateFormatted} um 14:00 Uhr\n` +
+              `📍 Ort: ${trade?.project?.address || 'Projektadresse'}\n\n` +
+              `Sowohl Sie als auch der Dienstleister wurden automatisch eingeladen und können den Termin in ihrem Kalender einsehen.`);
+        
+      } catch (error) {
+        console.error('❌ Fehler beim Erstellen des Wiedervorlage-Termins:', error);
+        alert('⚠️ Abnahme wurde gespeichert, aber der Wiedervorlage-Termin konnte nicht automatisch erstellt werden. Bitte erstellen Sie den Termin manuell.');
+      }
+    }
+
     onComplete(data);
 
     // Direkt nach finaler Abnahme ohne Vorbehalt: Bewertungsdialog anstoßen
@@ -314,6 +344,107 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
           quoteId: trade?.accepted_quote_id || undefined
         });
       }
+    }
+  };
+
+  // Erstelle Wiedervorlage-Termin bei Abnahme unter Vorbehalt
+  const createReviewAppointment = async () => {
+    try {
+      console.log('📅 Erstelle Wiedervorlage-Termin für Abnahme unter Vorbehalt...');
+
+      // Berechne Terminzeit (standardmäßig 14:00 Uhr)
+      const appointmentDate = new Date(reviewDate);
+      appointmentDate.setHours(14, 0, 0, 0); // 14:00 Uhr
+
+      // Sammle alle relevanten Informationen für den Termin
+      const appointmentData = {
+        title: `Wiedervorlage: ${trade?.title || 'Gewerk-Abnahme'}`,
+        description: `Wiedervorlage-Termin für die finale Abnahme des Gewerks "${trade?.title}"\n\n` +
+          `Grund der Wiedervorlage:\n` +
+          `${defects.length > 0 ? `• ${defects.length} Mängel müssen behoben werden` : ''}` +
+          `${!checklistComplete ? `• Checkliste muss vollständig erfüllt werden` : ''}` +
+          `${reviewNotes ? `\n\nNotizen zur Wiedervorlage:\n${reviewNotes}` : ''}` +
+          `${acceptanceNotes ? `\n\nAllgemeine Notizen:\n${acceptanceNotes}` : ''}`,
+        scheduled_date: appointmentDate.toISOString(),
+        duration_minutes: 120, // 2 Stunden für Wiedervorlage
+        location: (project?.address || project?.location || trade?.project?.address || trade?.project?.location || 'Projektadresse'),
+        location_details: 'Wiedervorlage-Termin für finale Gewerk-Abnahme',
+        appointment_type: 'REVIEW' as const,
+        milestone_id: trade?.id,
+        project_id: (project?.id || trade?.project_id),
+        contact_person: (project?.owner_name || trade?.project?.owner_name || 'Bauträger'),
+        contact_phone: (project?.owner_phone || trade?.project?.owner_phone),
+        preparation_notes: 'Bitte prüfen Sie die behobenen Mängel vor dem Termin',
+        // KRITISCH: Verwende invited_service_provider_ids (nicht invited_service_providers)
+        invited_service_provider_ids: (() => {
+          const invitees: number[] = [];
+          
+          // Methode 1: Aus acceptedQuote (bevorzugt)
+          if (acceptedQuote?.service_provider_id) {
+            invitees.push(Number(acceptedQuote.service_provider_id));
+            console.log('👥 Dienstleister aus acceptedQuote zur Wiedervorlage eingeladen:', acceptedQuote.service_provider_id);
+          }
+          
+          // Methode 2: Aus trade (Fallback)
+          if (trade?.accepted_service_provider_id && !invitees.includes(Number(trade.accepted_service_provider_id))) {
+            invitees.push(Number(trade.accepted_service_provider_id));
+            console.log('👥 Dienstleister aus trade zur Wiedervorlage eingeladen:', trade.accepted_service_provider_id);
+          }
+          
+          // Methode 3: Aus trade.acceptedQuote (weiterer Fallback)
+          if (trade?.acceptedQuote?.service_provider_id && !invitees.includes(Number(trade.acceptedQuote.service_provider_id))) {
+            invitees.push(Number(trade.acceptedQuote.service_provider_id));
+            console.log('👥 Dienstleister aus trade.acceptedQuote zur Wiedervorlage eingeladen:', trade.acceptedQuote.service_provider_id);
+          }
+          
+          // Debug: Zeige alle verfügbaren Service Provider Informationen
+          console.log('👥 Wiedervorlage-Termin Einladungs-Debug:', {
+            tradeId: trade?.id,
+            acceptedQuote: acceptedQuote,
+            acceptedQuoteServiceProviderId: acceptedQuote?.service_provider_id,
+            tradeAcceptedServiceProviderId: trade?.accepted_service_provider_id,
+            tradeAcceptedQuote: trade?.acceptedQuote,
+            project: project,
+            projectOwner: project?.owner_id,
+            finalInvitees: invitees
+          });
+          
+          if (invitees.length === 0) {
+            console.warn('⚠️ Keine Dienstleister für Wiedervorlage-Termin gefunden!');
+          }
+          
+          return invitees;
+        })()
+      };
+
+      console.log('📅 Wiedervorlage-Termin Daten:', appointmentData);
+
+      // Erstelle den Termin über den appointmentService
+      const { appointmentService } = await import('../api/appointmentService');
+      const response = await appointmentService.createAppointment(appointmentData);
+
+      console.log('✅ Wiedervorlage-Termin erfolgreich erstellt:', response);
+
+      // Event für andere Komponenten auslösen
+      window.dispatchEvent(new CustomEvent('appointmentCreated', {
+        detail: {
+          type: 'review',
+          appointment: response,
+          milestoneId: trade?.id
+        }
+      }));
+
+      // Browser-Benachrichtigung falls erlaubt
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Wiedervorlage-Termin erstellt', {
+          body: `Termin für ${new Date(reviewDate).toLocaleDateString('de-DE')} wurde erstellt`,
+          icon: '/favicon.ico'
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ Fehler beim Erstellen des Wiedervorlage-Termins:', error);
+      throw error; // Weiterleiten für Fehlerbehandlung im handleComplete
     }
   };
 

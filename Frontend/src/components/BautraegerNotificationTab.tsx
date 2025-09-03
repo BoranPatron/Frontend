@@ -43,7 +43,7 @@ interface BautraegerNotificationTabProps {
 
 interface BautraegerNotificationData {
   id: string;
-  type: 'appointment' | 'quote_submitted' | 'quote_update';
+  type: 'appointment' | 'quote_submitted' | 'quote_update' | 'completion' | 'defects_resolved';
   title: string;
   message: string;
   timestamp: string;
@@ -88,6 +88,30 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
             notifications.push({
               id: `quote_${notification.id}`,
               type: 'quote_submitted',
+              title: notification.title,
+              message: notification.message,
+              timestamp: notification.created_at,
+              isHandled: notification.is_acknowledged,
+              isRead: notification.is_read,
+              priority: notification.priority as 'normal' | 'high' | 'urgent',
+              notification: notification
+            });
+          } else if (notification.type === 'completion') {
+            notifications.push({
+              id: `completion_${notification.id}`,
+              type: 'completion',
+              title: notification.title,
+              message: notification.message,
+              timestamp: notification.created_at,
+              isHandled: notification.is_acknowledged,
+              isRead: notification.is_read,
+              priority: notification.priority as 'normal' | 'high' | 'urgent',
+              notification: notification
+            });
+          } else if (notification.type === 'defects_resolved') {
+            notifications.push({
+              id: `defects_${notification.id}`,
+              type: 'defects_resolved',
               title: notification.title,
               message: notification.message,
               timestamp: notification.created_at,
@@ -235,6 +259,55 @@ Ihr BuildWise Team
     }
   };
 
+  const handleMarkAllAsRead = async () => {
+    // Markiere alle Benachrichtigungen als behandelt
+    setNotifications(prev => 
+      prev.map(n => ({ ...n, isHandled: true, isRead: true }))
+    );
+    
+    // Setze permanente Marker für alle Benachrichtigungen
+    notifications.forEach(notification => {
+      if (notification.type === 'appointment' && notification.appointment) {
+        // Marker für Terminantworten
+        const permanentHandledKey = `bautraeger_handled_${notification.appointment.id}_${userId}`;
+        localStorage.setItem(permanentHandledKey, JSON.stringify({
+          appointmentId: notification.appointment.id,
+          userId: userId,
+          handledAt: new Date().toISOString(),
+          action: 'marked_all_as_read'
+        }));
+        
+        // Marker für E-Mail-Status (als gelesen behandeln)
+        const emailSentKey = `bautraeger_email_sent_${notification.appointment.id}_${userId}`;
+        localStorage.setItem(emailSentKey, JSON.stringify({
+          appointmentId: notification.appointment.id,
+          userId: userId,
+          markedAllReadAt: new Date().toISOString(),
+          action: 'marked_all_as_read'
+        }));
+      }
+      
+      if ((notification.type === 'quote_submitted' || notification.type === 'completion' || notification.type === 'defects_resolved') && notification.notification) {
+        // Für Angebots-, Fertigstellungs- und Mängelbehebungsbenachrichtigungen - markiere als acknowledged
+        api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
+          console.error('Fehler beim Bestätigen der Benachrichtigung:', error);
+        });
+      }
+    });
+    
+    // Schließe Modal falls offen
+    setSelectedNotification(null);
+    
+    // Lade Benachrichtigungen neu
+    setTimeout(() => {
+      loadBautraegerNotifications();
+    }, 500);
+    
+    if (onResponseHandled) {
+      onResponseHandled();
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('de-DE', {
       weekday: 'short',
@@ -310,15 +383,26 @@ Ihr BuildWise Team
           <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Calendar size={20} />
-                <h3 className="font-semibold">Terminantworten</h3>
+                <Bell size={20} />
+                <h3 className="font-semibold">Benachrichtigungen</h3>
               </div>
-              <button 
-                onClick={() => setIsExpanded(false)}
-                className="hover:bg-white/20 rounded-full p-1 transition-colors"
-              >
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                {notifications.length > 0 && (
+                  <button 
+                    onClick={handleMarkAllAsRead}
+                    className="hover:bg-white/20 rounded-lg px-3 py-1 transition-colors text-sm font-medium"
+                    title="Alle gelesen"
+                  >
+                    Alle gelesen
+                  </button>
+                )}
+                <button 
+                  onClick={() => setIsExpanded(false)}
+                  className="hover:bg-white/20 rounded-full p-1 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -326,7 +410,7 @@ Ihr BuildWise Team
           <div className="max-h-96 overflow-y-auto">
             {notifications.map((notification, index) => (
               <div 
-                key={`${notification.appointment.id}-${index}`}
+                key={`${notification.appointment?.id || notification.id || `notif-${index}`}`}
                 className={`p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors ${
                   !notification.isHandled ? 'bg-green-50 border-l-4 border-l-green-400' : ''
                 }`}
@@ -359,12 +443,16 @@ Ihr BuildWise Team
                     <div className="flex items-center justify-between">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         notification.type === 'quote_submitted' ? 'bg-blue-100 text-blue-800' :
+                        notification.type === 'completion' ? 'bg-green-100 text-green-800' :
+                        notification.type === 'defects_resolved' ? 'bg-orange-100 text-orange-800' :
                         notification.appointmentType === 'confirmation' ? 'bg-green-100 text-green-800' :
                         notification.appointmentType === 'reschedule' ? 'bg-yellow-100 text-yellow-800' :
                         notification.appointmentType === 'rejection' ? 'bg-red-100 text-red-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
                         {notification.type === 'quote_submitted' && '📋 Neues Angebot'}
+                        {notification.type === 'completion' && '✅ Fertiggestellt'}
+                        {notification.type === 'defects_resolved' && '🔧 Mängel behoben'}
                         {notification.appointmentType === 'confirmation' && '✅ Bestätigt'}
                         {notification.appointmentType === 'reschedule' && '📅 Neuer Vorschlag'}
                         {notification.appointmentType === 'rejection' && '❌ Abgelehnt'}
@@ -373,7 +461,9 @@ Ihr BuildWise Team
                       {!notification.isHandled && (
                         <div className="animate-pulse">
                           <AlertCircle size={16} className={
-                            notification.type === 'quote_submitted' ? 'text-blue-500' : 'text-green-500'
+                            notification.type === 'quote_submitted' ? 'text-blue-500' : 
+                            notification.type === 'completion' ? 'text-green-500' : 
+                            notification.type === 'defects_resolved' ? 'text-orange-500' : 'text-green-500'
                           } />
                         </div>
                       )}
@@ -395,11 +485,17 @@ Ihr BuildWise Team
             <div className={`text-white p-6 rounded-t-xl ${
               selectedNotification.type === 'quote_submitted' 
                 ? 'bg-gradient-to-r from-blue-600 to-indigo-600' 
+                : selectedNotification.type === 'completion'
+                ? 'bg-gradient-to-r from-green-600 to-emerald-600'
+                : selectedNotification.type === 'defects_resolved'
+                ? 'bg-gradient-to-r from-orange-600 to-amber-600'
                 : 'bg-gradient-to-r from-green-600 to-blue-600'
             }`}>
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">
-                  {selectedNotification.type === 'quote_submitted' ? 'Neues Angebot' : 'Terminantwort Details'}
+                  {selectedNotification.type === 'quote_submitted' ? 'Neues Angebot' : 
+                   selectedNotification.type === 'completion' ? 'Fertigstellung' : 
+                   selectedNotification.type === 'defects_resolved' ? 'Mängelbehebung' : 'Terminantwort Details'}
                 </h3>
                 <button 
                   onClick={() => setSelectedNotification(null)}
@@ -450,6 +546,138 @@ Ihr BuildWise Team
                       className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
                     >
                       Angebot ansehen
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        if (selectedNotification.notification) {
+                          await api.patch(`/notifications/${selectedNotification.notification.id}/acknowledge`);
+                          setSelectedNotification(null);
+                          loadBautraegerNotifications();
+                        }
+                      }}
+                      className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                    >
+                      Quittieren
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Completion Details */}
+              {selectedNotification.type === 'completion' && selectedNotification.notification && (
+                <div className="bg-green-50 rounded-lg p-4 mb-6">
+                  <h4 className="font-medium text-gray-900 mb-3">{selectedNotification.title}</h4>
+                  <p className="text-sm text-gray-700 mb-3">{selectedNotification.message}</p>
+                  
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} />
+                      Fertiggestellt am {new Date(selectedNotification.timestamp).toLocaleDateString('de-DE', {
+                        day: '2-digit',
+                        month: '2-digit', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </div>
+                    {selectedNotification.notification.related_milestone_id && (
+                      <div className="flex items-center gap-2">
+                        <MessageSquare size={16} />
+                        Gewerk-ID: {selectedNotification.notification.related_milestone_id}
+                      </div>
+                    )}
+                    {selectedNotification.notification.related_project_id && (
+                      <div className="flex items-center gap-2">
+                        <MessageSquare size={16} />
+                        Projekt-ID: {selectedNotification.notification.related_project_id}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="mt-4 flex gap-2">
+                    <button 
+                      onClick={async () => {
+                        if (selectedNotification.notification) {
+                          await api.patch(`/notifications/${selectedNotification.notification.id}/acknowledge`);
+                          setSelectedNotification(null);
+                          loadBautraegerNotifications();
+                        }
+                      }}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
+                    >
+                      Zur Abnahme
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        if (selectedNotification.notification) {
+                          await api.patch(`/notifications/${selectedNotification.notification.id}/acknowledge`);
+                          setSelectedNotification(null);
+                          loadBautraegerNotifications();
+                        }
+                      }}
+                      className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                    >
+                      Quittieren
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Defects Resolved Details */}
+              {selectedNotification.type === 'defects_resolved' && selectedNotification.notification && (
+                <div className="bg-orange-50 rounded-lg p-4 mb-6">
+                  <h4 className="font-medium text-gray-900 mb-3">{selectedNotification.title}</h4>
+                  <p className="text-sm text-gray-700 mb-3">{selectedNotification.message}</p>
+                  
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} />
+                      Gemeldet am {new Date(selectedNotification.timestamp).toLocaleDateString('de-DE', {
+                        day: '2-digit',
+                        month: '2-digit', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </div>
+                    {selectedNotification.notification.related_milestone_id && (
+                      <div className="flex items-center gap-2">
+                        <MessageSquare size={16} />
+                        Gewerk-ID: {selectedNotification.notification.related_milestone_id}
+                      </div>
+                    )}
+                    {selectedNotification.notification.related_project_id && (
+                      <div className="flex items-center gap-2">
+                        <MessageSquare size={16} />
+                        Projekt-ID: {selectedNotification.notification.related_project_id}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="mt-4 bg-blue-50 rounded-lg p-3">
+                    <h5 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                      <AlertCircle size={16} className="text-blue-500" />
+                      Nächste Schritte
+                    </h5>
+                    <ul className="text-sm text-gray-700 space-y-1">
+                      <li>• Prüfen Sie die behobenen Mängel vor Ort</li>
+                      <li>• Führen Sie die finale Abnahme durch</li>
+                      <li>• Dokumentieren Sie das Ergebnis</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="mt-4 flex gap-2">
+                    <button 
+                      onClick={async () => {
+                        if (selectedNotification.notification) {
+                          await api.patch(`/notifications/${selectedNotification.notification.id}/acknowledge`);
+                          setSelectedNotification(null);
+                          loadBautraegerNotifications();
+                        }
+                      }}
+                      className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors text-sm"
+                    >
+                      Zur finalen Abnahme
                     </button>
                     <button 
                       onClick={async () => {

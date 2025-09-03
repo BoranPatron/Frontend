@@ -11,7 +11,8 @@ import {
   Bell,
   AlertCircle,
   FileText,
-  Phone
+  Phone,
+  CheckCircle
 } from 'lucide-react';
 import { appointmentService } from '../api/appointmentService';
 
@@ -23,13 +24,13 @@ interface NotificationTabProps {
 
 interface NotificationData {
   id: number;
-  type: 'appointment_invitation' | 'appointment_responses' | 'service_provider_selection_reminder';
+  type: 'appointment_invitation' | 'appointment_responses' | 'service_provider_selection_reminder' | 'quote_accepted';
   title: string;
   message: string;
   description?: string;
   timestamp: string;
   isNew: boolean;
-  appointmentId: number;
+  appointmentId?: number;
   scheduledDate?: string;
   duration_minutes?: number;
   location?: string;
@@ -41,6 +42,9 @@ interface NotificationData {
   responses?: any[];
   selectedServiceProviderId?: number;
   tradeId?: number;
+  // Für allgemeine Benachrichtigungen
+  notification?: any;
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
 }
 
 export default function NotificationTab({ userRole, userId, onResponseSent }: NotificationTabProps) {
@@ -80,10 +84,99 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
     localStorage.setItem(seenKey, JSON.stringify(Array.from(newSeen)));
   };
 
+  const handleMarkAllAsRead = () => {
+    // Markiere alle aktuellen Benachrichtigungen als gesehen
+    const allNotificationIds = notifications.map(n => n.id);
+    markAsSeen(allNotificationIds);
+    
+    // Für Dienstleister: Setze permanente Marker für alle Termine
+    if (userRole === 'DIENSTLEISTER') {
+      notifications.forEach(notification => {
+        if (notification.type === 'appointment_invitation') {
+          const permanentSeenKey = `appointment_response_${notification.appointmentId}_${userId}`;
+          localStorage.setItem(permanentSeenKey, JSON.stringify({
+            appointmentId: notification.appointmentId,
+            userId: userId,
+            status: 'marked_as_read',
+            markedAt: new Date().toISOString()
+          }));
+        }
+      });
+    }
+    
+    // Für Bauträger: Setze permanente Marker für alle Antworten
+    if (userRole === 'BAUTRAEGER') {
+      notifications.forEach(notification => {
+        if (notification.type === 'appointment_responses') {
+          const permanentSeenKey = `appointment_responses_${notification.appointmentId}_${userId}`;
+          localStorage.setItem(permanentSeenKey, JSON.stringify({
+            appointmentId: notification.appointmentId,
+            userId: userId,
+            markedAllReadAt: new Date().toISOString()
+          }));
+        }
+        if (notification.type === 'service_provider_selection_reminder') {
+          markAsSeen([notification.id]);
+        }
+      });
+    }
+    
+    // Aktualisiere die Benachrichtigungen
+    setTimeout(() => {
+      loadNotifications();
+    }, 500);
+  };
+
   const loadNotifications = async () => {
     try {
       let notifications: NotificationData[] = [];
       
+      // 1. Lade allgemeine Benachrichtigungen aus der Datenbank
+      try {
+        const notificationResponse = await fetch('http://localhost:8000/api/v1/notifications/', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          },
+          method: 'GET'
+        });
+        
+        if (notificationResponse.ok) {
+          const notificationData = await notificationResponse.json();
+          const generalNotifications = notificationData || [];
+          
+          console.log('🔔 NotificationTab: API Response:', notificationData);
+          console.log('🔔 NotificationTab: User Role:', userRole);
+          console.log('🔔 NotificationTab: User ID:', userId);
+          
+          // Filtere für Dienstleister relevante Benachrichtigungen
+          if (userRole === 'DIENSTLEISTER') {
+            console.log('🔔 NotificationTab: Processing notifications for DIENSTLEISTER');
+            generalNotifications.forEach((notification: any) => {
+              console.log('🔔 NotificationTab: Processing notification:', notification);
+              if (notification.type === 'quote_accepted') {
+                console.log('🔔 NotificationTab: Adding quote_accepted notification');
+                notifications.push({
+                  id: notification.id,
+                  type: 'quote_accepted',
+                  title: notification.title,
+                  message: notification.message,
+                  timestamp: notification.created_at,
+                  isNew: !notification.is_acknowledged,
+                  notification: notification,
+                  priority: notification.priority
+                });
+              }
+            });
+          }
+        } else {
+          console.error('🔔 NotificationTab: API Error:', notificationResponse.status, notificationResponse.statusText);
+        }
+      } catch (error) {
+        console.error('Fehler beim Laden der allgemeinen Benachrichtigungen:', error);
+      }
+      
+      // 2. Lade Termin-Benachrichtigungen (bestehende Logik)
       const response = await fetch('http://localhost:8000/api/v1/appointments/my-appointments-simple', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -96,7 +189,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
         const myAppointments = data.appointments || [];
         
         if (userRole === 'DIENSTLEISTER') {
-          notifications = myAppointments.map((apt: any) => {
+          const appointmentNotifications = myAppointments.map((apt: any) => {
             // Parse responses
             let responses = [];
             if (apt.responses_array && Array.isArray(apt.responses_array)) {
@@ -137,6 +230,9 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
               responses
             };
           });
+          
+          // Kombiniere allgemeine und Termin-Benachrichtigungen
+          notifications = [...notifications, ...appointmentNotifications];
         } else if (userRole === 'BAUTRAEGER') {
           myAppointments.forEach((apt: any) => {
             // Parse responses
@@ -218,6 +314,8 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
         console.error('❌ NotificationTab: Fehler beim Laden der Termine:', response.status);
       }
       
+      console.log('🔔 NotificationTab: Final notifications array:', notifications);
+      console.log('🔔 NotificationTab: Total notifications:', notifications.length);
       setNotifications(notifications);
       } catch (error) {
       console.error('❌ NotificationTab: Network error:', error);
@@ -351,15 +449,26 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
               <div className="flex items-center gap-2">
                 <Bell size={20} />
                 <h3 className="font-semibold">
-                  {userRole === 'DIENSTLEISTER' ? 'Termineinladungen' : 'Benachrichtigungen'}
+                  Benachrichtigungen
                 </h3>
               </div>
-              <button 
-                onClick={() => setIsExpanded(false)}
-                className="hover:bg-white/20 rounded-full p-1 transition-colors"
-              >
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                {notifications.length > 0 && (
+                  <button 
+                    onClick={handleMarkAllAsRead}
+                    className="hover:bg-white/20 rounded-lg px-3 py-1 transition-colors text-sm font-medium"
+                    title="Alle gelesen"
+                  >
+                    Alle gelesen
+                  </button>
+                )}
+                <button 
+                  onClick={() => setIsExpanded(false)}
+                  className="hover:bg-white/20 rounded-full p-1 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -381,6 +490,9 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                     onClick={() => {
                       if (userRole === 'DIENSTLEISTER' && notification.type === 'appointment_invitation') {
                         setSelectedNotification(notification);
+                      } else if (userRole === 'DIENSTLEISTER' && notification.type === 'quote_accepted') {
+                        setSelectedNotification(notification);
+                        markAsSeen([notification.id]);
                       } else if (userRole === 'BAUTRAEGER' && notification.type === 'appointment_responses') {
                         // Zeige die Antworten der Dienstleister an
                         setSelectedNotification(notification);
@@ -408,6 +520,8 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                           <div className="flex-shrink-0 mt-1">
                             {notification.type === 'appointment_invitation' ? (
                               <Calendar size={16} className="text-orange-500" />
+                            ) : notification.type === 'quote_accepted' ? (
+                              <CheckCircle size={16} className="text-green-500" />
                             ) : notification.type === 'service_provider_selection_reminder' ? (
                               <AlertCircle size={16} className="text-orange-400 animate-pulse" />
                             ) : (
@@ -863,6 +977,118 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                   className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
                 >
                   Schließen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quote Accepted Modal for Dienstleister */}
+      {selectedNotification && userRole === 'DIENSTLEISTER' && selectedNotification.type === 'quote_accepted' && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-6 rounded-t-xl">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Angebot angenommen!</h3>
+                <button 
+                  onClick={() => {
+                    setSelectedNotification(null);
+                    // Markiere Benachrichtigung als acknowledged
+                    if (selectedNotification.notification) {
+                      fetch(`http://localhost:8000/api/v1/notifications/${selectedNotification.notification.id}/acknowledge`, {
+                        method: 'PATCH',
+                        headers: {
+                          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                          'Content-Type': 'application/json'
+                        }
+                      }).catch(error => {
+                        console.error('Fehler beim Bestätigen der Benachrichtigung:', error);
+                      });
+                    }
+                  }}
+                  className="hover:bg-white/20 rounded-full p-1 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              
+              {/* Quote Accepted Details */}
+              <div className="bg-green-50 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <CheckCircle size={24} className="text-green-500" />
+                  <h4 className="font-medium text-gray-900">{selectedNotification.title}</h4>
+                </div>
+                
+                <p className="text-sm text-gray-700 mb-3">{selectedNotification.message}</p>
+                
+                <div className="space-y-2 text-sm text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <Clock size={16} />
+                    Angenommen am {new Date(selectedNotification.timestamp).toLocaleDateString('de-DE', {
+                      day: '2-digit',
+                      month: '2-digit', 
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </div>
+                  {selectedNotification.notification?.related_quote_id && (
+                    <div className="flex items-center gap-2">
+                      <FileText size={16} />
+                      Angebot-ID: {selectedNotification.notification.related_quote_id}
+                    </div>
+                  )}
+                  {selectedNotification.notification?.related_project_id && (
+                    <div className="flex items-center gap-2">
+                      <FileText size={16} />
+                      Projekt-ID: {selectedNotification.notification.related_project_id}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Next Steps */}
+              <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                <h5 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                  <AlertCircle size={16} className="text-blue-500" />
+                  Nächste Schritte
+                </h5>
+                <ul className="text-sm text-gray-700 space-y-1">
+                  <li>• Kontaktdaten des Bauträgers sind nun freigeschaltet</li>
+                  <li>• Sie können mit der Projektplanung beginnen</li>
+                  <li>• Vereinbaren Sie einen Starttermin</li>
+                  <li>• Dokumentieren Sie den Fortschritt regelmäßig</li>
+                </ul>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex justify-center">
+                <button
+                  onClick={() => {
+                    setSelectedNotification(null);
+                    // Markiere als acknowledged
+                    if (selectedNotification.notification) {
+                      fetch(`http://localhost:8000/api/v1/notifications/${selectedNotification.notification.id}/acknowledge`, {
+                        method: 'PATCH',
+                        headers: {
+                          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                          'Content-Type': 'application/json'
+                        }
+                      }).catch(error => {
+                        console.error('Fehler beim Bestätigen der Benachrichtigung:', error);
+                      });
+                    }
+                  }}
+                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium"
+                >
+                  Verstanden
                 </button>
               </div>
             </div>

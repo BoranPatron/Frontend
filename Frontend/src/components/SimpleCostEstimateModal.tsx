@@ -459,9 +459,7 @@ export default function SimpleCostEstimateModal({
   const [existingInvoice, setExistingInvoice] = useState<any>(null);
   const [showInvoiceViewer, setShowInvoiceViewer] = useState(false);
   const [isMarkingAsPaid, setIsMarkingAsPaid] = useState(false);
-  const [proposedDate, setProposedDate] = useState('');
-  const [proposedTime, setProposedTime] = useState('');
-  const [scheduleNotes, setScheduleNotes] = useState('');
+
   
   // Besichtigungs-States
   const [inspectionStatus, setInspectionStatus] = useState({
@@ -560,39 +558,7 @@ export default function SimpleCostEstimateModal({
     setShowAcceptanceModal(true);
   };
 
-  const handleScheduleAcceptance = async () => {
-    if (!proposedDate || !proposedTime) {
-      alert('Bitte wählen Sie Datum und Uhrzeit für den Abnahme-Termin.');
-      return;
-    }
 
-    try {
-      console.log('📅 Terminvorschlag für Abnahme:', { proposedDate, proposedTime, scheduleNotes });
-      
-      const proposedDateTime = new Date(`${proposedDate}T${proposedTime}`);
-      const { api } = await import('../api/api');
-      
-      const response = await api.post('/appointments/schedule', {
-        trade_id: trade.id,
-        appointment_type: 'acceptance',
-        proposed_date: proposedDateTime.toISOString(),
-        notes: scheduleNotes
-      });
-
-      const result = response.data || response;
-      console.log('✅ Abnahme-Termin vorgeschlagen:', result);
-      
-      setShowScheduleModal(false);
-      setProposedDate('');
-      setProposedTime('');
-      setScheduleNotes('');
-      
-      alert('Abnahme-Termin wurde vorgeschlagen. Der Dienstleister wird benachrichtigt.');
-    } catch (error) {
-      console.error('❌ Fehler bei Terminvereinbarung:', error);
-      alert('Fehler bei der Terminvereinbarung. Bitte versuchen Sie es erneut.');
-    }
-  };
 
   const handleCompleteAcceptance = async (acceptanceData: any) => {
     console.log('🏁 Abnahme wird abgeschlossen:', acceptanceData);
@@ -866,7 +832,53 @@ export default function SimpleCostEstimateModal({
               });
               return null;
             })()}
-            {existingInvoice ? (
+            {(() => {
+              // MEHRFACH-SCHUTZ: Prüfe ob eine ECHTE Rechnung existiert
+              if (!existingInvoice) {
+                console.log('🔍 ANZEIGE-PRÜFUNG: Keine existingInvoice vorhanden');
+                return false;
+              }
+              
+              // Robuste Status-Prüfung mit mehreren Formaten
+              const invoiceStatus = existingInvoice.status;
+              const normalizedStatus = typeof invoiceStatus === 'string' 
+                ? invoiceStatus.toLowerCase() 
+                : String(invoiceStatus).toLowerCase();
+              
+              const validStatuses = ['sent', 'viewed', 'paid', 'overdue'];
+              const isValidStatus = validStatuses.includes(normalizedStatus) || 
+                                   validStatuses.includes(invoiceStatus);
+              
+              // Zusätzliche Prüfungen für echte Rechnungen
+              const hasInvoiceNumber = existingInvoice.invoice_number && 
+                                      existingInvoice.invoice_number.trim() !== '';
+              const hasTotalAmount = existingInvoice.total_amount && 
+                                    existingInvoice.total_amount > 0;
+              
+              const isRealInvoice = isValidStatus && hasInvoiceNumber && hasTotalAmount;
+              
+              console.log('🔍 DETAILLIERTE ANZEIGE-PRÜFUNG:', {
+                existingInvoice: !!existingInvoice,
+                status: invoiceStatus,
+                normalizedStatus: normalizedStatus,
+                isValidStatus: isValidStatus,
+                hasInvoiceNumber: hasInvoiceNumber,
+                hasTotalAmount: hasTotalAmount,
+                isRealInvoice: isRealInvoice,
+                invoiceNumber: existingInvoice.invoice_number,
+                totalAmount: existingInvoice.total_amount
+              });
+              
+              if (!isRealInvoice && existingInvoice) {
+                console.log('⚠️ Rechnung ignoriert - nicht alle Kriterien erfüllt:', {
+                  reason: !isValidStatus ? 'Ungültiger Status' : 
+                         !hasInvoiceNumber ? 'Keine Rechnungsnummer' :
+                         !hasTotalAmount ? 'Kein Betrag' : 'Unbekannt'
+                });
+              }
+              
+              return isRealInvoice;
+            })() ? (
               <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3">
                 <div className="flex items-center justify-between mb-3">
                   <div>
@@ -929,11 +941,34 @@ export default function SimpleCostEstimateModal({
                 </div>
               </div>
             ) : (
-              <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3">
-                <p className="text-blue-300 text-sm">
-                  Warten auf Rechnung vom Dienstleister...
-                </p>
-              </div>
+              // Zeige nichts an wenn keine gültige Rechnung existiert oder diese noch nicht vom Dienstleister erstellt wurde
+              existingInvoice && !['sent', 'viewed', 'paid', 'overdue'].includes(existingInvoice.status) ? (
+                <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-orange-300 font-medium">Rechnung in Bearbeitung</h4>
+                      <p className="text-gray-400 text-sm">Die Rechnung wird noch vom Dienstleister erstellt</p>
+                      {/* DEBUG-INFO für Entwicklung */}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Debug: Status="{existingInvoice.status}" | ID={existingInvoice.id} | Amount={existingInvoice.total_amount}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // ZUSÄTZLICHE SICHERHEIT: Zeige Debug-Info wenn existingInvoice existiert aber nicht angezeigt wird
+                existingInvoice ? (
+                  <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-3">
+                    <div className="text-red-300 text-sm">
+                      🔍 DEBUG: Rechnung existiert aber wird nicht angezeigt
+                      <br />Status: "{existingInvoice.status}" (Type: {typeof existingInvoice.status})
+                      <br />ID: {existingInvoice.id} | Nummer: {existingInvoice.invoice_number}
+                      <br />Betrag: {existingInvoice.total_amount}
+                      <br />Service Provider: {existingInvoice.service_provider_id}
+                    </div>
+                  </div>
+                ) : null
+              )
             )}
           </div>
         )}
@@ -978,8 +1013,56 @@ export default function SimpleCostEstimateModal({
       const response = await api.get(`/invoices/milestone/${trade.id}`);
       
       if (response.data) {
-        setExistingInvoice(response.data);
-        console.log('✅ Bestehende Rechnung geladen:', response.data);
+        // TIEFGREIFENDE ANALYSE: Logge alle Rechnung-Details
+        console.log('🔍 DETAILLIERTE RECHNUNG-ANALYSE:', {
+          id: response.data.id,
+          status: response.data.status,
+          statusType: typeof response.data.status,
+          statusValue: JSON.stringify(response.data.status),
+          invoice_number: response.data.invoice_number,
+          total_amount: response.data.total_amount,
+          created_at: response.data.created_at,
+          type: response.data.type,
+          service_provider_id: response.data.service_provider_id,
+          milestone_id: response.data.milestone_id,
+          rawData: response.data
+        });
+        
+        // ROBUST: Prüfe verschiedene Status-Formate
+        const invoiceStatus = response.data.status;
+        const normalizedStatus = typeof invoiceStatus === 'string' 
+          ? invoiceStatus.toLowerCase() 
+          : String(invoiceStatus).toLowerCase();
+        
+        // Gültige Status für "echte" Rechnungen (nicht Entwürfe)
+        const validInvoiceStatuses = [
+          'sent', 'viewed', 'paid', 'overdue',
+          'SENT', 'VIEWED', 'PAID', 'OVERDUE'
+        ];
+        
+        const isValidInvoice = validInvoiceStatuses.some(status => 
+          status.toLowerCase() === normalizedStatus ||
+          invoiceStatus === status
+        );
+        
+        console.log('🔍 STATUS-PRÜFUNG:', {
+          originalStatus: invoiceStatus,
+          normalizedStatus: normalizedStatus,
+          isValidInvoice: isValidInvoice,
+          validStatuses: validInvoiceStatuses
+        });
+        
+        // Nur echte Rechnungen setzen, keine Entwürfe oder ungültige Status
+        if (isValidInvoice) {
+          setExistingInvoice(response.data);
+          console.log('✅ Gültige Rechnung geladen:', response.data);
+        } else {
+          console.log('⚠️ Rechnung mit ungültigem Status ignoriert:', {
+            status: invoiceStatus,
+            reason: 'Status nicht in validInvoiceStatuses enthalten'
+          });
+          setExistingInvoice(null);
+        }
       } else {
         console.log('ℹ️ Keine Rechnung in Response gefunden');
         setExistingInvoice(null);
@@ -3569,76 +3652,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
       )}
 
       {/* Terminvereinbarungs-Modal */}
-      {showScheduleModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-70 p-4">
-          <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-md w-full">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Abnahme-Termin vereinbaren</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Datum *
-                  </label>
-                  <input
-                    type="date"
-                    value={proposedDate}
-                    onChange={(e) => setProposedDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Uhrzeit *
-                  </label>
-                  <input
-                    type="time"
-                    value={proposedTime}
-                    onChange={(e) => setProposedTime(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Notizen (optional)
-                  </label>
-                  <textarea
-                    value={scheduleNotes}
-                    onChange={(e) => setScheduleNotes(e.target.value)}
-                    placeholder="Zusätzliche Informationen zum Termin..."
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    rows={3}
-                  />
-                </div>
-              </div>
-              
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowScheduleModal(false);
-                    setProposedDate('');
-                    setProposedTime('');
-                    setScheduleNotes('');
-                  }}
-                  className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  onClick={handleScheduleAcceptance}
-                  disabled={!proposedDate || !proposedTime}
-                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-                >
-                  Termin vorschlagen
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Finale Abnahme-Modal - entfernt, da doppelt vorhanden */}
 

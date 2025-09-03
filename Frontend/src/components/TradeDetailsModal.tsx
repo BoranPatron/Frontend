@@ -999,7 +999,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       existingInvoice: existingInvoice,
       isBautraeger: isBautraeger(),
       existingQuotes: existingQuotes,
-      shouldShowInvoiceButton: !isBautraeger() && completionStatus === 'completed' && hasFinalAcceptance && !existingInvoice,
+      shouldShowInvoiceButton: !isBautraeger() && completionStatus === 'completed' && (!existingInvoice || !['sent', 'viewed', 'paid', 'overdue'].includes(existingInvoice.status)),
       hasFinalAcceptance: hasFinalAcceptance
     });
     
@@ -1049,7 +1049,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       try {
         if (!trade?.id) return;
         const all = await appointmentService.getMyAppointments();
-        const relevant = all.filter(a => a.milestone_id === (trade as any).id && a.appointment_type === 'INSPECTION');
+        const relevant = all.filter(a => a.milestone_id === (trade as any).id && (a.appointment_type === 'INSPECTION' || a.appointment_type === 'REVIEW'));
         if (!cancelled) setAppointmentsForTrade(relevant);
       } catch (e) {
         console.error('âŒ Termine laden fehlgeschlagen:', e);
@@ -1060,7 +1060,46 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       loadFullTradeData();
       loadAppointments();
     }
-    return () => { cancelled = true; };
+
+    // Event-Listener für neu erstellte Termine (z.B. Wiedervorlage-Termine)
+    const handleAppointmentCreated = (event: CustomEvent) => {
+      console.log('📅 Neuer Termin erstellt, lade Termine neu:', event.detail);
+      if (event.detail.milestoneId === trade?.id) {
+        console.log('🔄 Lade Termine neu für Trade:', trade?.id);
+        loadAppointments();
+      }
+    };
+
+    // Debug-Funktion: Teste Termine-Erstellung direkt
+    const testCreateReviewAppointment = async () => {
+      const acceptedQuote = existingQuotes?.find(q => q.status === 'accepted');
+      if (!acceptedQuote) {
+        alert('Kein angenommenes Angebot gefunden für Test');
+        return;
+      }
+      
+      const testDate = new Date();
+      testDate.setDate(testDate.getDate() + 7); // 7 Tage in der Zukunft
+      const deadline = testDate.toISOString().split('T')[0];
+      
+      try {
+        await createReviewAppointmentForTrade(deadline, 'Test-Wiedervorlage-Termin');
+        console.log('✅ Test-Termin erfolgreich erstellt');
+      } catch (error) {
+        console.error('❌ Test-Termin-Erstellung fehlgeschlagen:', error);
+        alert('Fehler beim Erstellen des Test-Termins: ' + error.message);
+      }
+    };
+
+    // Temporärer Debug-Button (kann später entfernt werden)
+    (window as any).testCreateReviewAppointment = testCreateReviewAppointment;
+
+    window.addEventListener('appointmentCreated', handleAppointmentCreated as EventListener);
+
+    return () => { 
+      cancelled = true; 
+      window.removeEventListener('appointmentCreated', handleAppointmentCreated as EventListener);
+    };
   }, [isOpen, trade?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Hilfsfunktion: Ist aktueller Nutzer (Dienstleister) zur Besichtigung eingeladen?
@@ -1080,6 +1119,83 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     10: "Angebot_Sanitaer_Heizung_Boran",
     12: "Lettenstrasse_Baumeister - F-LV_V2", 
     13: "LSOB-EN"
+  };
+
+  // Erstelle Wiedervorlage-Termin bei Abnahme unter Vorbehalt
+  const createReviewAppointmentForTrade = async (deadline: string, notes?: string) => {
+    try {
+      console.log('📅 Erstelle Wiedervorlage-Termin für Trade:', trade?.id);
+
+      // Berechne Terminzeit (standardmäßig 14:00 Uhr)
+      const appointmentDate = new Date(deadline);
+      appointmentDate.setHours(14, 0, 0, 0); // 14:00 Uhr
+
+      // Finde den beauftragten Dienstleister aus den existingQuotes
+      const acceptedQuote = existingQuotes?.find(q => q.status === 'accepted');
+      const serviceProviderId = acceptedQuote?.service_provider_id;
+
+      if (!serviceProviderId) {
+        console.warn('⚠️ Kein beauftragter Dienstleister gefunden für Wiedervorlage-Termin');
+        throw new Error('Kein beauftragter Dienstleister gefunden');
+      }
+
+      // Sammle alle relevanten Informationen für den Termin
+      const appointmentData = {
+        title: `Wiedervorlage: ${trade?.title || 'Gewerk-Abnahme'}`,
+        description: `Wiedervorlage-Termin für die finale Abnahme des Gewerks "${trade?.title}"\n\n` +
+          `Grund der Wiedervorlage: Abnahme unter Vorbehalt\n` +
+          `${notes ? `\nNotizen: ${notes}` : ''}` +
+          `\nBitte prüfen Sie die behobenen Mängel vor dem Termin.`,
+        scheduled_date: appointmentDate.toISOString(),
+        duration_minutes: 120, // 2 Stunden für Wiedervorlage
+        location: project?.address || project?.location || 'Projektadresse',
+        location_details: 'Wiedervorlage-Termin für finale Gewerk-Abnahme',
+        appointment_type: 'REVIEW' as const,
+        milestone_id: trade?.id,
+        project_id: project?.id,
+        contact_person: project?.owner_name || user?.full_name || 'Bauträger',
+        contact_phone: project?.owner_phone || user?.phone,
+        preparation_notes: 'Bitte prüfen Sie die behobenen Mängel vor dem Termin',
+        // KRITISCH: Lade nur den beauftragten Dienstleister ein
+        invited_service_provider_ids: [Number(serviceProviderId)]
+      };
+
+      console.log('📅 Wiedervorlage-Termin Daten:', appointmentData);
+      console.log('👥 Eingeladener Dienstleister:', serviceProviderId);
+      console.log('👤 Beauftragter Dienstleister Details:', acceptedQuote);
+
+      // Erstelle den Termin über den appointmentService
+      const createdAppointment = await appointmentService.createAppointment(appointmentData);
+
+      console.log('✅ Wiedervorlage-Termin erfolgreich erstellt:', createdAppointment);
+
+      // Event für andere Komponenten auslösen
+      window.dispatchEvent(new CustomEvent('appointmentCreated', {
+        detail: {
+          type: 'review',
+          appointment: createdAppointment,
+          milestoneId: trade?.id
+        }
+      }));
+
+      // Erfolgs-Benachrichtigung
+      const reviewDateFormatted = new Date(deadline).toLocaleDateString('de-DE', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+      
+      alert(`✅ Wiedervorlage-Termin erfolgreich erstellt!\n\n` +
+            `📅 Datum: ${reviewDateFormatted} um 14:00 Uhr\n` +
+            `📍 Ort: ${project?.address || 'Projektadresse'}\n` +
+            `👤 Dienstleister: ${acceptedQuote?.company_name || acceptedQuote?.contact_person}\n\n` +
+            `Der Termin wurde automatisch erstellt und beide Parteien können ihn in ihrem Kalender einsehen.`);
+
+    } catch (error) {
+      console.error('❌ Fehler beim Erstellen des Wiedervorlage-Termins:', error);
+      throw error;
+    }
   };
 
   // Hilfsfunktion: Robuste Dokumentenverarbeitung
@@ -1695,12 +1811,12 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       }
     };
 
-    // Lade bestehende Rechnung wenn Modal geÃ¶ffnet wird - nur nach finaler Abnahme
+    // Lade bestehende Rechnung wenn Modal geöffnet wird - nach Abschluss des Gewerks
     useEffect(() => {
-      if (isOpen && trade?.id && (completionStatus === 'completed' || completionStatus === 'completed_with_defects') && hasFinalAcceptance) {
+      if (isOpen && trade?.id && (completionStatus === 'completed' || completionStatus === 'completed_with_defects')) {
         loadExistingInvoice();
       }
-    }, [isOpen, trade?.id, completionStatus, hasFinalAcceptance]);
+    }, [isOpen, trade?.id, completionStatus]);
 
     // Prüfe finale Abnahme-Status wenn Modal geöffnet wird
     useEffect(() => {
@@ -1944,8 +2060,11 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         })
       });
       
-      console.log('âœ… TradeDetailsModal - Abnahme-Anfrage erfolgreich:', response);
+      console.log('✅ TradeDetailsModal - Abnahme-Anfrage erfolgreich:', response);
       setCompletionStatus('completion_requested');
+      
+      // Führe Post-Completion-Aktionen aus
+      await handlePostCompletionActions();
       
       // Aktualisiere auch den Fortschritt
       if (trade?.id) {
@@ -1954,6 +2073,151 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     } catch (error) {
       console.error('âŒ TradeDetailsModal - Fehler bei Fertigstellungsmeldung:', error);
       alert('Fehler beim Anfordern der Abnahme. Bitte versuchen Sie es erneut.');
+    }
+  };
+
+  // Post-Completion-Aktionen: Benachrichtigung und Kanban-Task erstellen
+  const handlePostCompletionActions = async () => {
+    if (!trade || !user) {
+      console.log('⚠️ Keine Trade- oder User-Daten verfügbar');
+      return;
+    }
+
+    // Verhindere mehrfache Ausführung - prüfe ob bereits eine Task für diese Trade existiert
+    const taskCheckKey = `completion_task_created_${trade.id}`;
+    if (sessionStorage.getItem(taskCheckKey)) {
+      console.log('⚠️ Post-Completion-Aktionen bereits ausgeführt für Trade:', trade.id);
+      return;
+    }
+
+    try {
+      console.log('🔄 Starte Post-Completion-Aktionen für Trade:', trade.id);
+      
+      // Markiere als in Bearbeitung
+      sessionStorage.setItem(taskCheckKey, 'true');
+
+      // 1. Benachrichtigung für Bauträger erstellen
+      await createCompletionNotification();
+      
+      // 2. Kanban-Task für Abnahme erstellen
+      await createAcceptanceTask();
+      
+      // 3. Optional: E-Mail-Benachrichtigung senden
+      await sendCompletionEmailNotification();
+      
+      console.log('✅ Alle Post-Completion-Aktionen erfolgreich abgeschlossen');
+    } catch (error: any) {
+      console.error('❌ Fehler bei Post-Completion-Aktionen:', error);
+      // Entferne den Lock bei Fehlern, damit es erneut versucht werden kann
+      sessionStorage.removeItem(taskCheckKey);
+    }
+  };
+
+  // Benachrichtigung für Bauträger erstellen
+  const createCompletionNotification = async () => {
+    try {
+      console.log('🔔 Erstelle Benachrichtigung für Bauträger...');
+      
+      const notificationData = {
+        project_id: trade?.project_id,
+        title: 'Ausschreibung fertiggestellt',
+        message: `Die Ausschreibung "${trade?.title}" wurde vom Dienstleister als fertiggestellt markiert und wartet auf Ihre Abnahme.`,
+        type: 'completion',
+        related_id: trade?.id,
+        priority: 'high'
+      };
+
+      const response = await apiCall('/notifications', {
+        method: 'POST',
+        body: JSON.stringify(notificationData)
+      });
+
+      console.log('✅ Benachrichtigung erstellt:', response);
+      
+      // Event für Echtzeit-Updates
+      window.dispatchEvent(new CustomEvent('notificationCreated', { 
+        detail: response 
+      }));
+
+    } catch (error: any) {
+      console.error('❌ Fehler beim Erstellen der Benachrichtigung:', error);
+      throw error;
+    }
+  };
+
+  // Kanban-Task für Abnahme erstellen
+  const createAcceptanceTask = async () => {
+    try {
+      console.log('📋 Erstelle Kanban-Task für Abnahme...');
+      
+      const taskData = {
+        title: `Abnahme: ${trade?.title}`,
+        description: `**Ausschreibung fertiggestellt - Abnahme erforderlich**
+
+📋 **Ausschreibung:** ${trade?.title}
+🏗️ **Gewerk:** ${trade?.category || 'Nicht spezifiziert'}
+👤 **Dienstleister:** ${user?.first_name} ${user?.last_name}
+📅 **Fertiggestellt am:** ${new Date().toLocaleDateString('de-DE')}
+
+**Nächste Schritte:**
+- [ ] Arbeiten vor Ort prüfen
+- [ ] Qualität bewerten
+- [ ] Abnahme durchführen oder Mängel dokumentieren
+
+**Status:** Wartet auf Bauträger-Abnahme`,
+        status: 'todo',
+        priority: 'high',
+        project_id: trade?.project_id || 1,
+        assigned_to: null, // Wird vom Backend basierend auf project_id zugewiesen
+        due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 Tage
+        estimated_hours: 2
+      };
+
+      const response = await apiCall('/tasks', {
+        method: 'POST',
+        body: JSON.stringify(taskData)
+      });
+
+      console.log('✅ Kanban-Task erstellt:', response);
+      
+      // Event für Echtzeit-Updates
+      window.dispatchEvent(new CustomEvent('taskCreated', { 
+        detail: response 
+      }));
+
+    } catch (error: any) {
+      console.error('❌ Fehler beim Erstellen des Kanban-Tasks:', error);
+      throw error;
+    }
+  };
+
+  // E-Mail-Benachrichtigung senden
+  const sendCompletionEmailNotification = async () => {
+    try {
+      console.log('📧 Sende E-Mail-Benachrichtigung...');
+      
+      const emailData = {
+        project_id: trade?.project_id,
+        subject: `Ausschreibung fertiggestellt: ${trade?.title}`,
+        template: 'completion_notification',
+        data: {
+          trade_title: trade?.title,
+          service_provider_name: `${user?.first_name} ${user?.last_name}`,
+          completion_date: new Date().toLocaleDateString('de-DE'),
+          trade_category: trade?.category || 'Nicht spezifiziert'
+        }
+      };
+
+      const response = await apiCall('/notifications/email', {
+        method: 'POST',
+        body: JSON.stringify(emailData)
+      });
+
+      console.log('✅ E-Mail-Benachrichtigung gesendet:', response);
+
+    } catch (error: any) {
+      console.error('❌ Fehler beim Senden der E-Mail-Benachrichtigung:', error);
+      // E-Mail-Fehler sind nicht kritisch, daher werfen wir hier keinen Error
     }
   };
 
@@ -2065,20 +2329,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         </div>
       </div>
 
-      {/* Abnahme-Aktionen für Dienstleister */}
+      {/* Abnahme-Aktionen für Dienstleister - Fertigstellung wird über TradeProgress-Komponente gehandhabt */}
       <div className="space-y-3">
-        {completionStatus === 'in_progress' && !isBautraeger() && (
-          <div className="flex gap-3 flex-wrap">
-            <button
-              onClick={handleCompletionRequest}
-              disabled={false}
-              className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-            >
-              <CheckCircle size={16} />
-              Als fertiggestellt markieren
-            </button>
-          </div>
-        )}
         
         {completionStatus === 'completed_with_defects' && !isBautraeger() && (
           <div className="space-y-3">
@@ -2216,6 +2468,29 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         <div className="absolute top-2 right-2 bg-red-500/90 text-white px-3 py-1 rounded-lg text-sm font-bold z-50 shadow-lg">
           🔍 DEBUG: TradeDetailsModal
         </div>
+        
+        {/* TEST BUTTON für Wiedervorlage-Termine */}
+        {isBautraeger() && existingQuotes?.some(q => q.status === 'accepted') && (
+          <div className="absolute top-2 left-2 z-50">
+            <button
+              onClick={async () => {
+                const testDate = new Date();
+                testDate.setDate(testDate.getDate() + 7);
+                const deadline = testDate.toISOString().split('T')[0];
+                
+                try {
+                  await createReviewAppointmentForTrade(deadline, 'Test-Wiedervorlage-Termin erstellt über Debug-Button');
+                } catch (error) {
+                  console.error('Test fehlgeschlagen:', error);
+                }
+              }}
+              className="bg-blue-500/90 text-white px-3 py-1 rounded-lg text-sm font-bold shadow-lg hover:bg-blue-600 transition-colors"
+              title="Test: Erstelle Wiedervorlage-Termin"
+            >
+              📅 Test Wiedervorlage
+            </button>
+          </div>
+        )}
         
         <div className="flex items-center justify-between p-6 border-b border-gray-600/30 flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -2435,11 +2710,22 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                 Number(r.service_provider_id) === Number(user?.id)
               );
               
-              const isInvited = invitedProviders.some((provider: any) => 
-                provider.id === user?.id || 
-                String(provider.id) === String(user?.id) ||
-                Number(provider.id) === Number(user?.id)
-              );
+              const isInvited = invitedProviders.some((provider: any) => {
+                // Robuste Prüfung für verschiedene Datenstrukturen
+                if (typeof provider === 'number') {
+                  return provider === user?.id || 
+                         String(provider) === String(user?.id) ||
+                         Number(provider) === Number(user?.id);
+                } else if (typeof provider === 'object' && provider !== null) {
+                  return provider.id === user?.id || 
+                         String(provider.id) === String(user?.id) ||
+                         Number(provider.id) === Number(user?.id);
+                } else if (typeof provider === 'string') {
+                  return provider === String(user?.id) ||
+                         Number(provider) === Number(user?.id);
+                }
+                return false;
+              });
               
               return hasUserResponse || isInvited;
             }
@@ -2461,20 +2747,43 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           });
 
           return relevantAppointments.length > 0 && !inspectionCompleted && (
-            <div className="px-6 py-4 bg-gradient-to-r from-blue-600/20 to-cyan-500/20 border-b border-blue-400/30 flex-shrink-0">
+            <div className={`px-6 py-4 border-b flex-shrink-0 ${
+              relevantAppointments[0]?.appointment_type === 'REVIEW'
+                ? 'bg-gradient-to-r from-orange-600/20 to-amber-500/20 border-orange-400/30'
+                : 'bg-gradient-to-r from-blue-600/20 to-cyan-500/20 border-blue-400/30'
+            }`}>
               <div className="flex items-start gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-blue-500/20 rounded-xl">
-                    <Calendar size={24} className="text-blue-300" />
+                  <div className={`p-3 rounded-xl ${
+                    relevantAppointments[0]?.appointment_type === 'REVIEW'
+                      ? 'bg-orange-500/20'
+                      : 'bg-blue-500/20'
+                  }`}>
+                    <Calendar size={24} className={
+                      relevantAppointments[0]?.appointment_type === 'REVIEW'
+                        ? 'text-orange-300'
+                        : 'text-blue-300'
+                    } />
                   </div>
                   <div className="space-y-1">
                     <h3 className="text-white font-semibold text-lg">
-                      {relevantAppointments[0]?.title || 'Besichtigungstermin vereinbart'}
+                      {relevantAppointments[0]?.appointment_type === 'REVIEW' 
+                        ? (relevantAppointments[0]?.title || 'Wiedervorlage-Termin vereinbart')
+                        : (relevantAppointments[0]?.title || 'Besichtigungstermin vereinbart')
+                      }
                     </h3>
                     <div className="flex items-center gap-4 text-sm">
                       <div className="flex items-center gap-2">
-                        <Clock size={16} className="text-blue-300" />
-                        <span className="text-blue-200">
+                        <Clock size={16} className={
+                          relevantAppointments[0]?.appointment_type === 'REVIEW'
+                            ? 'text-orange-300'
+                            : 'text-blue-300'
+                        } />
+                        <span className={
+                          relevantAppointments[0]?.appointment_type === 'REVIEW'
+                            ? 'text-orange-200'
+                            : 'text-blue-200'
+                        }>
                           {relevantAppointments[0]?.scheduled_date ? 
                             new Date(relevantAppointments[0].scheduled_date).toLocaleDateString('de-DE', {
                               weekday: 'long',
@@ -2575,11 +2884,22 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                 Number(r.service_provider_id) === Number(user?.id)
               );
               
-              const isInvited = invitedProviders.some((provider: any) => 
-                provider.id === user?.id || 
-                String(provider.id) === String(user?.id) ||
-                Number(provider.id) === Number(user?.id)
-              );
+              const isInvited = invitedProviders.some((provider: any) => {
+                // Robuste Prüfung für verschiedene Datenstrukturen
+                if (typeof provider === 'number') {
+                  return provider === user?.id || 
+                         String(provider) === String(user?.id) ||
+                         Number(provider) === Number(user?.id);
+                } else if (typeof provider === 'object' && provider !== null) {
+                  return provider.id === user?.id || 
+                         String(provider.id) === String(user?.id) ||
+                         Number(provider.id) === Number(user?.id);
+                } else if (typeof provider === 'string') {
+                  return provider === String(user?.id) ||
+                         Number(provider) === Number(user?.id);
+                }
+                return false;
+              });
               
               return hasUserResponse || isInvited;
             }
@@ -3781,8 +4101,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               />
             )}
 
-            {/* Abnahme-Workflow für Dienstleister */}
-            {!isBautraeger() && completionStatus === 'completed_with_defects' && (
+            {/* Abnahme-Workflow für Bauträger - finale Abnahme */}
+            {isBautraeger() && completionStatus === 'completed_with_defects' && (
               <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-orange-300 mb-3 flex items-center gap-2">
                   <Settings size={20} />
@@ -3822,15 +4142,15 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               </div>
             )}
 
-            {/* Rechnungsstellung für Dienstleister - nur nach finaler Bauträger-Abnahme */}
-            {!isBautraeger() && completionStatus === 'completed' && hasFinalAcceptance && (
+            {/* Rechnungsstellung für Dienstleister - nach Abschluss des Gewerks */}
+            {!isBautraeger() && completionStatus === 'completed' && (
               <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-green-300 mb-3 flex items-center gap-2">
                   <Receipt size={20} />
                   Rechnungsstellung
                 </h3>
                 
-                {existingInvoice ? (
+                {existingInvoice && ['sent', 'viewed', 'paid', 'overdue'].includes(existingInvoice.status) ? (
                   // Bestehende Rechnung anzeigen
                   <div className="space-y-3">
                     <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
@@ -3881,22 +4201,33 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                     </div>
                   </div>
                 ) : (
-                  // Rechnung erstellen
+                  // Rechnung erstellen oder Status anzeigen
                   <div className="space-y-3">
-                    <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
-                      <h4 className="text-green-300 font-medium mb-2">Ausschreibung erfolgreich abgenommen</h4>
-                      <p className="text-gray-300 text-sm">
-                        Die Ausschreibung wurde vollständig abgenommen. Sie können jetzt Ihre Rechnung erstellen.
-                      </p>
-                    </div>
-                    
-                    <button
-                      onClick={() => setShowInvoiceModal(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
-                    >
-                      <FileText size={16} />
-                      Rechnung stellen
-                    </button>
+                    {existingInvoice && !['sent', 'viewed', 'paid', 'overdue'].includes(existingInvoice.status) ? (
+                      <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg p-3">
+                        <h4 className="text-orange-300 font-medium mb-2">Rechnung in Bearbeitung</h4>
+                        <p className="text-gray-300 text-sm">
+                          Ihre Rechnung wird noch bearbeitet und ist noch nicht versendet.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
+                          <h4 className="text-green-300 font-medium mb-2">Ausschreibung erfolgreich abgenommen</h4>
+                          <p className="text-gray-300 text-sm">
+                            Die Ausschreibung wurde vollständig abgenommen. Sie können jetzt Ihre Rechnung erstellen.
+                          </p>
+                        </div>
+                        
+                        <button
+                          onClick={() => setShowInvoiceModal(true)}
+                          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
+                        >
+                          <FileText size={16} />
+                          Rechnung stellen
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

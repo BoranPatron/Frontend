@@ -2,6 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, User, Flag, Building, Edit2, Save, Trash2 } from 'lucide-react';
 import { api } from '../api/api';
 
+// Simple Markdown Renderer Component for handling base64 images
+const MarkdownRenderer: React.FC<{ content: string }> = ({ content }) => {
+  // Convert markdown image syntax to HTML img tags
+  const renderMarkdown = (text: string): string => {
+    // Replace ![alt](data:image/...) with proper img tags
+    return text.replace(
+      /!\[([^\]]*)\]\((data:image\/[^;]+;base64,[^)]+)\)/g,
+      '<img src="$2" alt="$1" style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;" />'
+    );
+  };
+
+  const htmlContent = renderMarkdown(content);
+  
+  return (
+    <div 
+      dangerouslySetInnerHTML={{ __html: htmlContent }}
+      className="markdown-content"
+    />
+  );
+};
+
 interface Task {
   id: number;
   title: string;
@@ -241,9 +262,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               />
             ) : (
               <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-gray-700 whitespace-pre-wrap">
-                  {task.description || 'Keine Beschreibung verfügbar'}
-                </p>
+                <div className="text-gray-700 whitespace-pre-wrap">
+                  <MarkdownRenderer content={task.description || 'Keine Beschreibung verfügbar'} />
+                </div>
               </div>
             )}
           </div>
