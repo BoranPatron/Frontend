@@ -422,9 +422,9 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
       </div>
 
       {/* Kanban Board */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 h-[calc(100vh-250px)]">
+      <div className="kanban-desktop-grid">
         {columns.map(column => (
-          <div key={column.id} className="flex flex-col">
+          <div key={column.id} className="kanban-column-desktop">
             {/* Column Header */}
             <div 
               className="text-white p-4 rounded-t-xl shadow-lg"
@@ -460,7 +460,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
             {/* Column Content */}
             <div 
-              className={`${column.color} flex-1 p-4 rounded-b-xl min-h-[400px] space-y-4 transition-all duration-300 shadow-lg ${
+              className={`${column.color} flex-1 p-4 rounded-b-xl kanban-column-content space-y-4 transition-all duration-300 shadow-lg ${
                 draggedTask && draggedTask.status !== column.id ? 'border-2 border-dashed border-[#ffbd59] bg-gradient-to-br from-orange-50 to-amber-50' : ''
               }`}
               onDragOver={handleDragOver}
@@ -691,7 +691,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
               ))}
               
               {getTasksByStatus(column.id).length === 0 && (
-                <div className="flex items-center justify-center h-40 text-gray-400">
+                <div className="flex items-center justify-center flex-1 min-h-[150px] text-gray-400">
                   <div className="text-center">
                     <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
                       <span className="text-2xl opacity-50">{column.icon}</span>

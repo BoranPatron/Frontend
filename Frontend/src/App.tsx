@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider } from './context/ProjectContext';
 import CacheDebugPanel from './components/CacheDebugPanel';
 import './utils/serviceWorkerManager'; // Service Worker initialisieren
+import './styles/grid-optimizations.css'; // Grid-Optimierungen für dynamische Kachel-Größen
 import Navbar from './components/Navbar';
 import CreditNotification from './components/CreditNotification';
 import WelcomeCreditNotification from './components/WelcomeCreditNotification';
@@ -299,7 +300,11 @@ function AppContent() {
         <BautraegerNotificationTab
           userId={user.id}
           onResponseHandled={() => {
-            }}
+            // Event für Dashboard auslösen, um Daten neu zu laden
+            window.dispatchEvent(new CustomEvent('notificationHandled', {
+              detail: { userId: user.id }
+            }));
+          }}
         />
       )}
       

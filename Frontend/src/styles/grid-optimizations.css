@@ -1,0 +1,444 @@
+/* Grid Optimierungen für dynamische Kachel-Größen */
+
+/* Auto-Rows für bessere Höhenanpassung */
+.auto-rows-max {
+  grid-auto-rows: max-content;
+}
+
+/* Spezielle Klassen für Angebotsverfahren-Kacheln */
+.bidding-cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.bidding-card {
+  width: 100%;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  margin-bottom: 0;
+}
+
+.bidding-card:not(:last-child) {
+  margin-bottom: 1rem;
+}
+
+/* Wichtig: Verhindere Überlappungen */
+.bidding-card {
+  clear: both;
+  display: block;
+  overflow: visible;
+}
+
+/* Container-Optimierungen für bessere Stapelung */
+.bidding-cards-container > * {
+  position: static !important;
+  float: none !important;
+  clear: both;
+}
+
+/* Zusätzliche Sicherheitsmaßnahmen gegen Überlappungen */
+.bidding-cards-container {
+  overflow: visible;
+  height: auto;
+  min-height: fit-content;
+}
+
+/* Spezielle Regeln für ServiceProvider Dashboard */
+.service-provider-dashboard .bidding-cards-container {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch;
+}
+
+.service-provider-dashboard .bidding-card {
+  width: 100% !important;
+  margin: 0 0 1rem 0 !important;
+  position: relative !important;
+  z-index: auto !important;
+}
+
+/* ===== MOBILE OPTIMIERUNGEN ===== */
+
+/* Kanban Board Base Styles - Desktop First */
+.kanban-desktop-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 1.5rem !important;
+  height: calc(100vh - 250px) !important;
+}
+
+.kanban-column-desktop {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+}
+
+/* Kanban Column Content - Dynamische Höhenanpassung */
+.kanban-column-content {
+  min-height: 200px !important;
+  height: auto !important;
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+}
+
+/* Dynamische Höhenanpassung für Container */
+.kanban-column-content:empty {
+  min-height: 200px !important;
+}
+
+.kanban-column-content:not(:empty) {
+  height: fit-content !important;
+  min-height: fit-content !important;
+}
+
+/* Gleichmäßige Höhen für alle Spalten */
+.kanban-desktop-grid .kanban-column-desktop {
+  align-self: stretch !important;
+}
+
+.kanban-desktop-grid .kanban-column-content {
+  flex-grow: 1 !important;
+  align-self: stretch !important;
+}
+
+/* Mobile-First Approach für bessere Performance */
+@media (max-width: 768px) {
+  /* Kanban Board Mobile Optimierungen */
+  .kanban-desktop-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1rem !important;
+    height: auto !important;
+    min-height: auto !important;
+  }
+  
+  .kanban-column-desktop {
+    width: 100% !important;
+    min-height: 300px !important;
+    max-height: 400px !important;
+    overflow-y: auto !important;
+    margin-bottom: 1rem !important;
+    height: auto !important;
+  }
+  
+  .kanban-column-content {
+    min-height: 200px !important;
+    max-height: 350px !important;
+    height: auto !important;
+    overflow-y: auto !important;
+    flex: none !important;
+  }
+  
+  /* Mobile Grid Layouts */
+  .mobile-stack {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+  
+  .mobile-stack > * {
+    width: 100% !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  /* Mobile Card Optimierungen */
+  .mobile-card {
+    padding: 1rem !important;
+    margin-bottom: 1rem !important;
+    border-radius: 0.75rem !important;
+  }
+  
+  /* Mobile Navigation Fixes */
+  .mobile-nav-fix {
+    position: relative !important;
+    z-index: 9999 !important;
+  }
+  
+  .mobile-nav-fix button,
+  .mobile-nav-fix a {
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: rgba(255, 189, 89, 0.2) !important;
+  }
+  
+  /* Mobile Menu Overlay */
+  .mobile-menu-overlay {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    z-index: 9998 !important;
+    backdrop-filter: blur(4px) !important;
+  }
+  
+  /* Mobile Spacing Optimierungen */
+  .mobile-spacing {
+    padding: 1rem !important;
+    margin: 0.5rem 0 !important;
+  }
+  
+  /* Verhindere horizontales Scrollen */
+  .mobile-container {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+  
+  /* Mobile Touch Optimierungen */
+  .mobile-touch-target {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    padding: 0.75rem !important;
+  }
+  
+  /* Mobile Button Optimierungen */
+  .mobile-button {
+    min-height: 48px !important;
+    padding: 0.75rem 1rem !important;
+    font-size: 1rem !important;
+    border-radius: 0.5rem !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: rgba(255, 189, 89, 0.2) !important;
+  }
+  
+  /* Mobile Link Optimierungen */
+  .mobile-link {
+    min-height: 44px !important;
+    padding: 0.75rem !important;
+    display: flex !important;
+    align-items: center !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: rgba(255, 189, 89, 0.2) !important;
+  }
+  
+  /* Mobile Text Optimierungen */
+  .mobile-text {
+    font-size: 1rem !important;
+    line-height: 1.5 !important;
+  }
+  
+  .mobile-text-small {
+    font-size: 0.875rem !important;
+    line-height: 1.4 !important;
+  }
+  
+  /* Mobile Scroll Optimierungen */
+  .mobile-scroll {
+    -webkit-overflow-scrolling: touch !important;
+    scroll-behavior: smooth !important;
+  }
+  
+  /* Mobile Z-Index Fixes */
+  .mobile-modal {
+    z-index: 10000 !important;
+  }
+  
+  .mobile-dropdown {
+    z-index: 9999 !important;
+  }
+  
+  .mobile-overlay {
+    z-index: 9998 !important;
+  }
+}
+
+/* Tablet Optimierungen */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .tablet-grid-2 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 1rem !important;
+  }
+  
+  .kanban-desktop-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 1rem !important;
+    height: calc(100vh - 250px) !important;
+  }
+  
+  .kanban-column-desktop {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+  }
+  
+  .kanban-column-content {
+    min-height: 300px !important;
+    height: auto !important;
+    flex: 1 !important;
+    overflow-y: auto !important;
+  }
+}
+
+/* Desktop Optimierungen */
+@media (min-width: 1025px) {
+  .kanban-desktop-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 1.5rem !important;
+    height: calc(100vh - 250px) !important;
+  }
+  
+  .kanban-column-desktop {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+  }
+  
+  .kanban-column-content {
+    min-height: 400px !important;
+    height: auto !important;
+    flex: 1 !important;
+    overflow-y: auto !important;
+  }
+  
+  .desktop-grid-4 {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 1.5rem !important;
+  }
+}
+
+/* Flexbox-basierte Container für bessere Größenanpassung */
+.flex-dynamic-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.flex-dynamic-container > * {
+  flex-shrink: 0;
+  height: auto;
+  min-height: fit-content;
+}
+
+/* Grid-Container mit optimierter Größenanpassung */
+.grid-dynamic {
+  display: grid;
+  grid-auto-rows: max-content;
+  align-items: start;
+  gap: 1rem;
+}
+
+/* Responsive Grid-Layouts */
+.grid-responsive-1-2 {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  .grid-responsive-1-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.grid-responsive-1-2-3 {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .grid-responsive-1-2-3 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-responsive-1-2-3 {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+/* Kachel-spezifische Optimierungen */
+.card-dynamic {
+  height: auto;
+  min-height: fit-content;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-dynamic-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* Masonry-ähnliches Layout für ungleiche Höhen */
+.masonry-container {
+  columns: 1;
+  column-gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .masonry-container {
+    columns: 2;
+  }
+}
+
+@media (min-width: 1024px) {
+  .masonry-container {
+    columns: 3;
+  }
+}
+
+.masonry-item {
+  break-inside: avoid;
+  margin-bottom: 1rem;
+  display: inline-block;
+  width: 100%;
+}
+
+/* Animationen für bessere UX */
+.card-hover-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card-hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Overflow-Schutz für lange Inhalte */
+.text-overflow-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-overflow-multiline {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+/* Container für bessere Scrollbar-Behandlung */
+.scroll-container {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 189, 89, 0.3) transparent;
+}
+
+.scroll-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll-container::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 189, 89, 0.3);
+  border-radius: 3px;
+}
+
+.scroll-container::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 189, 89, 0.5);
+}

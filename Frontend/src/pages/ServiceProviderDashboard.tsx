@@ -175,6 +175,42 @@ export default function ServiceProviderDashboard() {
     }
   }, [location.search, trades, geoTrades]);
 
+  // Event-Listener für Benachrichtigungs-Klicks (TradeDetailsModal öffnen)
+  useEffect(() => {
+    const handleOpenTradeDetails = (event: CustomEvent) => {
+      console.log('📋 Event empfangen: TradeDetails öffnen für Trade:', event.detail.tradeId);
+      const tradeId = event.detail.tradeId;
+      
+      // Finde das Trade in den lokalen Daten
+      const trade = trades.find(t => t.id === tradeId) || geoTrades.find(t => t.id === tradeId);
+      
+      if (trade) {
+        console.log('✅ Trade gefunden, öffne TradeDetailsModal:', trade);
+        setSelectedTrade(trade);
+                      // setShowDetailsModal(true); // TODO: Implement details modal
+      } else {
+        console.warn('⚠️ Trade nicht gefunden in lokalen Daten, lade neu...');
+        // Fallback: Lade Trades neu und versuche erneut
+        loadTrades().then(() => {
+          const refreshedTrade = trades.find(t => t.id === tradeId) || geoTrades.find(t => t.id === tradeId);
+          if (refreshedTrade) {
+            setSelectedTrade(refreshedTrade);
+                      // setShowDetailsModal(true); // TODO: Implement details modal
+          } else {
+            console.error('❌ Trade auch nach Neuladen nicht gefunden:', tradeId);
+            alert('Die Ausschreibung konnte nicht gefunden werden. Bitte versuchen Sie es erneut.');
+          }
+        });
+      }
+    };
+
+    window.addEventListener('openTradeDetails', handleOpenTradeDetails as EventListener);
+    
+    return () => {
+      window.removeEventListener('openTradeDetails', handleOpenTradeDetails as EventListener);
+    };
+  }, [trades, geoTrades]);
+
   // Weiterleitung wenn nicht authentifiziert oder nicht Dienstleister
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -744,6 +780,13 @@ export default function ServiceProviderDashboard() {
       });
 
       const newQuote = await createQuote(quoteData);
+      
+      console.log('✅ ServiceProviderDashboard: Angebot erfolgreich erstellt:', newQuote);
+      console.log('🔍 ServiceProviderDashboard: Trade-Daten für Benachrichtigung:', selectedTradeForQuote);
+      
+      // Erstelle Erfolgs-Benachrichtigung für Dienstleister
+      await createQuoteSubmissionNotification(newQuote, selectedTradeForQuote);
+      
       // Form schließen und Erfolgsmeldung
       setShowCostEstimateForm(false);
       setSelectedTradeForQuote(null);
@@ -767,6 +810,154 @@ export default function ServiceProviderDashboard() {
       
       } catch (error) {
       console.error('❌ Fehler beim Erstellen des Angebots:', error);
+    }
+  };
+
+  // Erstelle Benachrichtigung nach Angebot-Abgabe
+  const createQuoteSubmissionNotification = async (quote: any, trade: any) => {
+    try {
+      console.log('📢 ServiceProviderDashboard: Erstelle Angebot-Benachrichtigung...');
+      console.log('📢 ServiceProviderDashboard: Quote-Daten:', quote);
+      console.log('📢 ServiceProviderDashboard: Trade-Daten:', trade);
+      
+      // Erstelle lokale Benachrichtigung für sofortige Anzeige
+      const notification = {
+        id: Date.now(), // Temporäre ID
+        type: 'quote_submitted' as const,
+        title: 'Angebot erfolgreich eingereicht! 🎉',
+        message: `Ihr Angebot für "${trade?.title || 'Gewerk'}" wurde erfolgreich eingereicht.`,
+        description: `Angebotssumme: ${new Intl.NumberFormat('de-DE', { 
+          style: 'currency', 
+          currency: quote.currency || 'CHF' 
+        }).format(quote.total_amount || 0)} | Projekt: ${trade?.project_name || 'Unbekannt'}`,
+        timestamp: new Date().toISOString(),
+        isNew: true,
+        tradeId: trade?.id,
+        quoteId: quote.id,
+        priority: 'normal' as const,
+        actionRequired: false,
+        projectName: trade?.project_name,
+        quoteSummary: {
+          amount: quote.total_amount,
+          currency: quote.currency,
+          validUntil: quote.valid_until,
+          startDate: quote.start_date,
+          completionDate: quote.completion_date
+        }
+      };
+
+      console.log('📢 Benachrichtigung erstellt:', notification);
+
+      // Event für NotificationTab auslösen (Dienstleister)
+      window.dispatchEvent(new CustomEvent('quoteSubmitted', {
+        detail: {
+          notification: notification,
+          quote: quote,
+          trade: trade
+        }
+      }));
+      
+      // Separates Event für BautraegerNotificationTab auslösen
+      console.log('📢 ServiceProviderDashboard: Löse quoteSubmittedForBautraeger Event aus...');
+      window.dispatchEvent(new CustomEvent('quoteSubmittedForBautraeger', {
+        detail: {
+          quote: quote,
+          trade: trade,
+          serviceProvider: {
+            id: user.id,
+            name: quote.company_name || quote.contact_person,
+            email: user.email
+          }
+        }
+      }));
+      console.log('✅ ServiceProviderDashboard: quoteSubmittedForBautraeger Event ausgelöst');
+
+      // Browser-Benachrichtigung falls erlaubt
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const browserNotification = new Notification('Angebot eingereicht! 🎉', {
+          body: `Ihr Angebot für "${trade?.title}" wurde erfolgreich eingereicht.`,
+          icon: '/favicon.ico',
+          tag: `quote-${quote.id}`,
+          requireInteraction: true
+        });
+        
+        // Klick auf Browser-Benachrichtigung öffnet die Ausschreibung
+        browserNotification.onclick = () => {
+          window.dispatchEvent(new CustomEvent('openTradeDetails', {
+            detail: {
+              tradeId: trade?.id,
+              source: 'browser_notification'
+            }
+          }));
+          browserNotification.close();
+        };
+      }
+
+      // Erstelle Backend-Benachrichtigungen für beide Parteien
+      try {
+        const { api } = await import('../api/api');
+        
+        // 1. Benachrichtigung für Dienstleister (Bestätigung)
+        await api.post('/notifications/', {
+          type: 'quote_submitted',
+          title: notification.title,
+          message: notification.message,
+          description: notification.description,
+          priority: 'normal',
+          user_id: user.id, // Dienstleister
+          metadata: {
+            quote_id: quote.id,
+            milestone_id: trade?.id,
+            project_id: trade?.project_id,
+            quote_amount: quote.total_amount,
+            quote_currency: quote.currency
+          }
+        });
+        console.log('✅ Dienstleister-Benachrichtigung erstellt');
+        
+        // 2. Benachrichtigung für Bauträger (neues Angebot eingegangen)
+        if (trade?.project_id) {
+          // Finde den Bauträger (Projekteigentümer)
+          try {
+            const projectResponse = await api.get(`/projects/${trade.project_id}`);
+            const projectData = projectResponse.data;
+            const bautraegerId = projectData.owner_id || projectData.created_by;
+            
+            if (bautraegerId && bautraegerId !== user.id) {
+              await api.post('/notifications/', {
+                type: 'quote_submitted',
+                title: 'Neues Angebot eingegangen! 📋',
+                message: `Ein Dienstleister hat ein Angebot für "${trade?.title}" eingereicht.`,
+                description: `Angebotssumme: ${new Intl.NumberFormat('de-DE', { 
+                  style: 'currency', 
+                  currency: quote.currency || 'CHF' 
+                }).format(quote.total_amount || 0)} | Von: ${quote.company_name || quote.contact_person || 'Dienstleister'}`,
+                priority: 'high',
+                user_id: bautraegerId, // Bauträger
+                metadata: {
+                  quote_id: quote.id,
+                  milestone_id: trade?.id,
+                  project_id: trade?.project_id,
+                  quote_amount: quote.total_amount,
+                  quote_currency: quote.currency,
+                  service_provider_id: user.id,
+                  service_provider_name: quote.company_name || quote.contact_person
+                }
+              });
+              console.log('✅ Bauträger-Benachrichtigung erstellt für User:', bautraegerId);
+            }
+          } catch (projectError) {
+            console.warn('⚠️ Projekt-Daten konnten nicht geladen werden für Bauträger-Benachrichtigung:', projectError);
+          }
+        }
+        
+      } catch (backendError) {
+        console.warn('⚠️ Backend-Benachrichtigung fehlgeschlagen (nicht kritisch):', backendError);
+      }
+
+    } catch (error) {
+      console.error('❌ Fehler beim Erstellen der Angebot-Benachrichtigung:', error);
+      // Nicht kritisch - Angebot wurde trotzdem erstellt
     }
   };
 
@@ -798,7 +989,7 @@ export default function ServiceProviderDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6">
+    <div className="service-provider-dashboard mobile-container min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6">
       {/* Header mit Dienstleister-Informationen */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
@@ -933,14 +1124,11 @@ export default function ServiceProviderDashboard() {
               </div>
 
               {/* Content-Bereich mit Smooth Transition */}
-              <div className="min-h-[400px] relative">
+              <div className="min-h-[400px]">
                 {/* Angebotsverfahren Content */}
-                <div className={`absolute inset-0 transition-all duration-500 ${
-                  activeLeftTab === 'bidding' 
-                    ? 'opacity-100 transform translate-x-0' 
-                    : 'opacity-0 transform translate-x-4 pointer-events-none'
-                }`}>
-                  <div className="grid grid-cols-1 gap-4">
+                {activeLeftTab === 'bidding' && (
+                <div className="transition-all duration-500 opacity-100">
+                  <div className="bidding-cards-container">
                     {getAllTradesWithQuotes()
                       .filter(trade => getServiceProviderQuoteStatus(trade.id) !== 'accepted')
                       .map((trade) => {
@@ -948,7 +1136,7 @@ export default function ServiceProviderDashboard() {
                         const quote = getServiceProviderQuote(trade.id);
                         
                         return (
-                          <div key={trade.id} className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-xl p-4 border border-blue-500/20 hover:border-blue-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20">
+                          <div key={trade.id} className="bidding-card bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-xl p-4 border border-blue-500/20 hover:border-blue-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20">
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex items-center gap-3">
                                 <div className="p-2 bg-blue-500/20 rounded-lg">
@@ -1045,14 +1233,12 @@ export default function ServiceProviderDashboard() {
                     </div>
                   )}
                 </div>
+                )}
 
                 {/* Gewonnene Ausschreibungen Content */}
-                <div className={`absolute inset-0 transition-all duration-500 ${
-                  activeLeftTab === 'awarded' 
-                    ? 'opacity-100 transform translate-x-0' 
-                    : 'opacity-0 transform -translate-x-4 pointer-events-none'
-                }`}>
-                  <div className="grid grid-cols-1 gap-4">
+                {activeLeftTab === 'awarded' && (
+                <div className="transition-all duration-500 opacity-100">
+                  <div className="bidding-cards-container">
                     {getAllTradesWithQuotes()
                       .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted')
                       .map((trade) => {
@@ -1062,7 +1248,7 @@ export default function ServiceProviderDashboard() {
                         const actualCompletionStatus = trade.completion_status;
                         
                         return (
-                          <div key={trade.id} className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl p-4 border border-green-500/20 hover:border-green-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
+                          <div key={trade.id} className="bidding-card bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl p-4 border border-green-500/20 hover:border-green-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex items-center gap-3">
                                 <div className="p-2 bg-green-500/20 rounded-lg">
@@ -1175,6 +1361,7 @@ export default function ServiceProviderDashboard() {
                     </div>
                   )}
                 </div>
+                )}
               </div>
             </div>
           </div>
@@ -1521,7 +1708,7 @@ export default function ServiceProviderDashboard() {
                   }
                   
                   return (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 auto-rows-max items-start">
                       {combinedTrades.map((trade: any, index: number) => {
                     const quotes = allTradeQuotes[trade.id] || [];
                     // Verwende die erweiterte isUserQuote Funktion für robuste Erkennung
@@ -1534,7 +1721,7 @@ export default function ServiceProviderDashboard() {
                     return (
                       <div 
                         key={`trade-${trade.id}-${index}`}
-                        className={`group relative bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-[#ffbd59]/50 hover:shadow-[0_0_30px_rgba(255,189,89,0.2)] transition-all duration-500 transform hover:-translate-y-1 cursor-pointer overflow-hidden ${
+                        className={`group relative bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-[#ffbd59]/50 hover:shadow-[0_0_30px_rgba(255,189,89,0.2)] transition-all duration-500 transform hover:-translate-y-1 cursor-pointer overflow-hidden h-auto min-h-fit ${
                           hasQuote ? 'border-[#ffbd59]/50 shadow-lg shadow-[#ffbd59]/10' : ''
                         } ${
                           quoteStatus === 'accepted' 
@@ -1907,9 +2094,9 @@ export default function ServiceProviderDashboard() {
       </div>
 
       {/* Dienstleister-Aktionen und Tipps */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="mobile-stack lg:grid lg:grid-cols-2 gap-6">
         {/* Aktuelle Aktivitäten */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+        <div className="mobile-card bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
           <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <Clock size={24} className="text-[#ffbd59]" />
             Aktuelle Aktivitäten
@@ -1940,7 +2127,7 @@ export default function ServiceProviderDashboard() {
         </div>
 
         {/* Tipps für Dienstleister */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+        <div className="mobile-card bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
             <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <Sparkles size={24} className="text-[#ffbd59]" />
             Tipps für mehr Erfolg

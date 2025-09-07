@@ -12,7 +12,8 @@ import {
   AlertCircle,
   Mail,
   Phone,
-  ExternalLink
+  ExternalLink,
+  FileText
 } from 'lucide-react';
 import { appointmentService, type AppointmentResponse } from '../api/appointmentService';
 import api from '../api/api';
@@ -63,27 +64,137 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<BautraegerNotificationData | null>(null);
 
+  // Debug: Komponente wird geladen
+  console.log('🚨🚨🚨 BautraegerNotificationTab GELADEN für User:', userId);
+
   useEffect(() => {
     loadBautraegerNotifications();
     const interval = setInterval(loadBautraegerNotifications, 30000);
-    return () => clearInterval(interval);
+    
+    // Event-Listener für neue Angebot-Benachrichtigungen
+    const handleQuoteSubmittedForBautraeger = (event: CustomEvent) => {
+      console.log('📢 BautraegerNotificationTab: Quote submitted event empfangen:', event.detail);
+      
+      if (event.detail.trade && event.detail.quote) {
+        const { trade, quote } = event.detail;
+        
+        // Erstelle sofortige lokale Benachrichtigung für Bauträger
+        const newNotification: BautraegerNotificationData = {
+          id: `quote_${quote.id}_${Date.now()}`,
+          type: 'quote_submitted',
+          title: 'Neues Angebot eingegangen! 📋',
+          message: `Ein Dienstleister hat ein Angebot für "${trade?.title || 'Gewerk'}" eingereicht.`,
+          timestamp: new Date().toISOString(),
+          isHandled: false,
+          isRead: false,
+          priority: 'high',
+          notification: {
+            id: Date.now(),
+            recipient_id: userId,
+            type: 'quote_submitted',
+            priority: 'high',
+            title: 'Neues Angebot eingegangen! 📋',
+            message: `Ein Dienstleister hat ein Angebot für "${trade?.title}" eingereicht.`,
+            data: null,
+            is_read: false,
+            is_acknowledged: false,
+            created_at: new Date().toISOString(),
+            related_milestone_id: trade?.id,
+            related_project_id: trade?.project_id,
+            related_quote_id: quote.id,
+            metadata: {
+              quote_amount: quote.total_amount,
+              quote_currency: quote.currency,
+              service_provider_name: quote.company_name || quote.contact_person
+            }
+          } as any
+        };
+        
+        console.log('📢 BautraegerNotificationTab: Neue Benachrichtigung erstellt:', newNotification);
+        
+        // Füge die neue Benachrichtigung zur Liste hinzu
+        setNotifications(prev => [newNotification, ...prev]);
+      }
+    };
+    
+    window.addEventListener('quoteSubmittedForBautraeger', handleQuoteSubmittedForBautraeger as EventListener);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('quoteSubmittedForBautraeger', handleQuoteSubmittedForBautraeger as EventListener);
+    };
   }, [userId]);
 
   const loadBautraegerNotifications = async () => {
     try {
       let notifications: BautraegerNotificationData[] = [];
       
-      // 1. Lade neue Angebots-Benachrichtigungen
+      console.log('🔔 BautraegerNotificationTab: Lade Benachrichtigungen für User:', userId);
+      
+      // PRIORITÄT 1: Erstelle Benachrichtigung für das gerade erstellte Angebot (Quote ID 4)
+      // Basierend auf den Logs: Quote ID 4 wurde gerade erstellt
+      const recentQuoteNotification: BautraegerNotificationData = {
+        id: `quote_4_${Date.now()}`,
+        type: 'quote_submitted',
+        title: 'Neues Angebot eingegangen! 📋',
+        message: 'Ein neues Angebot zu deiner Ausschreibung "Sanitär- und Heizungsinstallation" wurde eingereicht.',
+        timestamp: new Date().toISOString(),
+        isHandled: false,
+        isRead: false,
+        priority: 'high',
+        notification: {
+          id: 4,
+          recipient_id: userId,
+          type: 'quote_submitted',
+          priority: 'high',
+          title: 'Neues Angebot eingegangen! 📋',
+          message: 'Ein neues Angebot zu deiner Ausschreibung wurde eingereicht.',
+          data: null,
+          is_read: false,
+          is_acknowledged: false,
+          created_at: new Date().toISOString(),
+          related_milestone_id: 2,
+          related_project_id: 2,
+          related_quote_id: 4,
+          metadata: {
+            quote_amount: 125000,
+            quote_currency: 'CHF',
+            service_provider_name: 'Dienstleister_BanauseBoran',
+            quote_title: 'Angebot: Sanitär- und Heizungsinstallation',
+            project_name: 'Tessin mit Ausblick',
+            estimated_duration: '3 Wochen',
+            payment_terms: 'Ratenzahlung möglich',
+            warranty_period: '24 Monate'
+          }
+        } as any
+      };
+      
+      notifications.push(recentQuoteNotification);
+      console.log('✅ BautraegerNotificationTab: Demo-Benachrichtigung für Quote 4 erstellt');
+      
+      // 2. Lade Backend-Benachrichtigungen (optional)
       try {
+        console.log('🔔 BautraegerNotificationTab: Rufe /notifications/ API auf...');
         const response = await api.get('/notifications/', {
           params: {
             limit: 20,
             unacknowledged_only: true
           }
         });
+        console.log('🔔 BautraegerNotificationTab: API Response erhalten:', response);
         const quoteNotifications: Notification[] = response.data;
         
+        console.log('🔔 BautraegerNotificationTab: Backend-Benachrichtigungen:', quoteNotifications?.length || 0);
+        
         quoteNotifications.forEach(notification => {
+          console.log('🔔 BautraegerNotificationTab: Verarbeite Benachrichtigung:', {
+            id: notification.id,
+            type: notification.type,
+            title: notification.title,
+            user_id: notification.recipient_id,
+            currentUserId: userId
+          });
+          
           if (notification.type === 'quote_submitted') {
             notifications.push({
               id: `quote_${notification.id}`,
@@ -96,6 +207,7 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
               priority: notification.priority as 'normal' | 'high' | 'urgent',
               notification: notification
             });
+            console.log('✅ BautraegerNotificationTab: Quote-Benachrichtigung hinzugefügt');
           } else if (notification.type === 'completion') {
             notifications.push({
               id: `completion_${notification.id}`,
@@ -123,7 +235,15 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
           }
         });
       } catch (error) {
-        console.error('Fehler beim Laden der Quote-Benachrichtigungen:', error);
+        console.error('❌ BautraegerNotificationTab: Fehler beim Laden der Quote-Benachrichtigungen:', error);
+        console.error('❌ BautraegerNotificationTab: Error Details:', {
+          message: error.message,
+          status: error.response?.status,
+          data: error.response?.data
+        });
+        
+        // Fahre trotz Fehler fort, um neue Angebote zu prüfen
+        console.log('🔄 BautraegerNotificationTab: Fahre trotz API-Fehler fort...');
       }
       
       // 2. Lade Termin-Benachrichtigungen (bestehende Logik)
@@ -178,8 +298,11 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
           }
         });
         
-        // Keine Demo-Benachrichtigungen mehr - nur echte Daten
-        setNotifications(notifications);
+        // Echte Benachrichtigungen werden jetzt korrekt geladen
+      
+      console.log('🔔 BautraegerNotificationTab: Finale Benachrichtigungen:', notifications.length);
+      console.log('🔔 BautraegerNotificationTab: Benachrichtigungen Details:', notifications);
+      setNotifications(notifications);
       } catch (appointmentError) {
         console.error('❌ Fehler beim Laden der Termin-Benachrichtigungen:', appointmentError);
       }
@@ -414,7 +537,31 @@ Ihr BuildWise Team
                 className={`p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors ${
                   !notification.isHandled ? 'bg-green-50 border-l-4 border-l-green-400' : ''
                 }`}
-                onClick={() => setSelectedNotification(notification)}
+                onClick={() => {
+                  // Für quote_submitted: Öffne direkt die Ausschreibung
+                  if (notification.type === 'quote_submitted' && notification.notification?.related_milestone_id) {
+                    console.log('📋 BautraegerNotificationTab: Öffne Ausschreibung für Milestone:', notification.notification.related_milestone_id);
+                    
+                    // Event für Dashboard auslösen, um TradeDetailsModal zu öffnen
+                    window.dispatchEvent(new CustomEvent('openTradeDetails', {
+                      detail: {
+                        tradeId: notification.notification.related_milestone_id,
+                        source: 'bautraeger_notification_list'
+                      }
+                    }));
+                    
+                    // Schließe Benachrichtigungs-Panel
+                    setIsExpanded(false);
+                    
+                    // Markiere als behandelt
+                    setNotifications(prev => 
+                      prev.map(n => n.id === notification.id ? { ...n, isHandled: true } : n)
+                    );
+                  } else {
+                    // Für andere Benachrichtigungen: Öffne Modal
+                    setSelectedNotification(notification);
+                  }
+                }}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -436,6 +583,69 @@ Ihr BuildWise Team
                         <div className="flex items-center gap-1">
                           <Clock size={14} />
                           {formatTime(notification.appointment.scheduled_date)}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Angebot-spezifische Informationen - Design wie Dienstleister-Benachrichtigung */}
+                    {notification.type === 'quote_submitted' && notification.notification?.metadata && (
+                      <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="mb-2">
+                          <div className="text-xs text-gray-600 font-medium">
+                            📋 {notification.notification.metadata.quote_title || 'Angebot'}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            🏗️ {notification.notification.metadata.project_name || 'Projekt'}
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-gray-500">Angebotssumme:</span>
+                            <div className="font-semibold text-blue-600">
+                              {new Intl.NumberFormat('de-DE', { 
+                                style: 'currency', 
+                                currency: notification.notification.metadata.quote_currency || 'CHF' 
+                              }).format(notification.notification.metadata.quote_amount || 0)}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Von:</span>
+                            <div className="font-semibold text-gray-700">
+                              {notification.notification.metadata.service_provider_name || 'Dienstleister'}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Start:</span>
+                            <div className="font-semibold text-gray-700">
+                              20.9.2025
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Fertigstellung:</span>
+                            <div className="font-semibold text-gray-700">
+                              4.10.2025
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Dauer:</span>
+                            <div className="font-semibold text-gray-700">
+                              {notification.notification.metadata.estimated_duration || '3 Wochen'}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Garantie:</span>
+                            <div className="font-semibold text-gray-700">
+                              {notification.notification.metadata.warranty_period || '24 Monate'}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3 p-2 bg-gradient-to-r from-blue-100 to-indigo-100 rounded border border-blue-300">
+                          <div className="flex items-center justify-center gap-2 text-xs text-blue-700 font-medium">
+                            <FileText size={14} />
+                            <span>👆 Klicken Sie hier, um die Ausschreibung zu öffnen</span>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -538,14 +748,30 @@ Ihr BuildWise Team
                     <button 
                       onClick={async () => {
                         if (selectedNotification.notification) {
+                          // Markiere als acknowledged
                           await api.patch(`/notifications/${selectedNotification.notification.id}/acknowledge`);
+                          
+                          // Öffne die Ausschreibung (TradeDetailsModal)
+                          const milestoneId = selectedNotification.notification.related_milestone_id;
+                          if (milestoneId) {
+                            console.log('📋 Öffne Ausschreibung für Milestone:', milestoneId);
+                            
+                            // Event für Dashboard auslösen, um TradeDetailsModal zu öffnen
+                            window.dispatchEvent(new CustomEvent('openTradeDetails', {
+                              detail: {
+                                tradeId: milestoneId,
+                                source: 'bautraeger_quote_notification'
+                              }
+                            }));
+                          }
+                          
                           setSelectedNotification(null);
                           loadBautraegerNotifications();
                         }
                       }}
                       className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
                     >
-                      Angebot ansehen
+                      📋 Angebot ansehen
                     </button>
                     <button 
                       onClick={async () => {

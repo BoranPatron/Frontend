@@ -136,6 +136,7 @@ interface UploadFile {
   status: 'pending' | 'uploading' | 'success' | 'error';
   progress: number;
   error?: string;
+  id?: string;
 }
 
 interface Project {
@@ -383,6 +384,56 @@ export default function Dashboard() {
     window.addEventListener('startDashboardTour', handleStartTour);
     return () => window.removeEventListener('startDashboardTour', handleStartTour);
   }, [user]);
+
+  // Event-Listener für TradeDetailsModal öffnen (von Benachrichtigungen)
+  useEffect(() => {
+    const handleOpenTradeDetails = async (event: CustomEvent) => {
+      console.log('📋 Dashboard: Event empfangen - TradeDetails öffnen für Trade:', event.detail.tradeId);
+      const tradeId = event.detail.tradeId;
+      
+      try {
+        // Lade das spezifische Milestone direkt von der API
+        const milestone = await getMilestones(selectedProject?.id || 0);
+        const trade = milestone.find((m: any) => m.id === tradeId);
+        
+        if (trade) {
+          console.log('✅ Dashboard: Trade gefunden, öffne TradeDetailsModal:', trade);
+          setSelectedTradeForDetails(trade);
+          setShowTradeDetailsModal(true);
+        } else {
+          console.warn('⚠️ Dashboard: Trade nicht gefunden, versuche direkte API-Abfrage...');
+          
+          // Fallback: Versuche alle Projekte zu durchsuchen
+          for (const project of projects) {
+            try {
+              const projectMilestones = await getMilestones(project.id);
+              const foundTrade = projectMilestones.find((m: any) => m.id === tradeId);
+              if (foundTrade) {
+                console.log('✅ Dashboard: Trade in anderem Projekt gefunden:', foundTrade);
+                setSelectedTradeForDetails(foundTrade);
+                setShowTradeDetailsModal(true);
+                return;
+              }
+            } catch (error) {
+              console.warn(`⚠️ Fehler beim Durchsuchen von Projekt ${project.id}:`, error);
+            }
+          }
+          
+          console.error('❌ Dashboard: Trade in keinem Projekt gefunden:', tradeId);
+          alert('Die Ausschreibung konnte nicht gefunden werden. Bitte laden Sie die Seite neu.');
+        }
+      } catch (error) {
+        console.error('❌ Dashboard: Fehler beim Laden der Milestones:', error);
+        alert('Fehler beim Laden der Ausschreibung. Bitte versuchen Sie es erneut.');
+      }
+    };
+
+    window.addEventListener('openTradeDetails', handleOpenTradeDetails as any);
+    
+    return () => {
+      window.removeEventListener('openTradeDetails', handleOpenTradeDetails as any);
+    };
+  }, [selectedProject, projects]);
 
   // Swipe-Handler für Projekt-Navigation
   const handleSwipe = (direction: 'left' | 'right') => {
@@ -1913,9 +1964,9 @@ export default function Dashboard() {
           
           {/* Zweigeteiltes Layout: Links offene Ausschreibungen, rechts angenommene Ausschreibungen */}
           {/* Mobile: Gestapelt | Tablet: 1 Spalte | Desktop: 2 Spalten */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 items-start">
+          <div className="mobile-stack lg:grid lg:grid-cols-2 gap-4 md:gap-6 items-start auto-rows-max">
             {/* Linke Spalte: Offene Ausschreibungen */}
-            <div className="space-y-4 w-full">
+            <div className="space-y-4 w-full h-auto min-h-fit">
               <div className="flex items-center justify-between">
                 <h3 className="text-base md:text-lg font-semibold text-white flex items-center gap-2 md:gap-3">
                   <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
@@ -1934,8 +1985,8 @@ export default function Dashboard() {
                 </h3>
               </div>
               
-              <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden relative">
-                <div className="p-4 md:p-6 space-y-3 relative z-10">
+              <div className="mobile-card bg-white/5 rounded-xl border border-white/10 overflow-hidden relative h-auto min-h-fit">
+                <div className="mobile-spacing p-4 md:p-6 space-y-3 relative z-10 h-auto min-h-fit">
                   {(() => {
                     const openTrades = projectTrades.filter(trade => {
                       const quotes = allTradeQuotes[trade.id] || [];
@@ -2006,7 +2057,7 @@ export default function Dashboard() {
             </div>
             
             {/* Rechte Spalte: Angenommene Ausschreibungen */}
-            <div className="space-y-4 w-full">
+            <div className="space-y-4 w-full h-auto min-h-fit">
               <div className="flex items-center justify-between">
                 <h3 className="text-base md:text-lg font-semibold text-white flex items-center gap-2 md:gap-3">
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
@@ -2025,8 +2076,8 @@ export default function Dashboard() {
                 </h3>
               </div>
               
-              <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden relative">
-                <div className="p-4 md:p-6 space-y-3 relative z-10">
+              <div className="mobile-card bg-white/5 rounded-xl border border-white/10 overflow-hidden relative h-auto min-h-fit">
+                <div className="mobile-spacing p-4 md:p-6 space-y-3 relative z-10 h-auto min-h-fit">
                   {(() => {
                     const acceptedTrades = projectTrades.filter(trade => {
                       const quotes = allTradeQuotes[trade.id] || [];
@@ -2847,49 +2898,22 @@ export default function Dashboard() {
 
                 {/* Adresse */}
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-200 mb-3">
-                        Straße & Hausnummer
-                      </label>
-                      <input
-                        type="text"
-                        name="address_street"
-                        value={projectForm.address_street}
-                        onChange={handleProjectFormChange}
-                        className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
-                        placeholder="z.B. Musterstraße 123"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-200 mb-3">
-                        PLZ
-                      </label>
-                      <input
-                        type="text"
-                        name="address_zip"
-                        value={projectForm.address_zip}
-                        onChange={handleProjectFormChange}
-                        className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
-                        placeholder="z.B. 80331"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-200 mb-3">
-                        Ort
-                      </label>
-                      <input
-                        type="text"
-                        name="address_city"
-                        value={projectForm.address_city}
-                        onChange={handleProjectFormChange}
-                        className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
-                        placeholder="z.B. München"
-                      />
-                    </div>
-                  </div>
+                  <AddressAutocomplete
+                    label="Adresse"
+                    value={{
+                      address_street: projectForm.address_street,
+                      address_zip: projectForm.address_zip,
+                      address_city: projectForm.address_city,
+                      address_country: projectForm.address_country,
+                    }}
+                    onChange={(addr) => setProjectForm(prev => ({
+                      ...prev,
+                      address_street: addr.address_street,
+                      address_zip: addr.address_zip,
+                      address_city: addr.address_city,
+                      address_country: addr.address_country || prev.address_country,
+                    }))}
+                  />
                 </div>
 
                 {/* Projektdetails */}
@@ -3250,6 +3274,7 @@ export default function Dashboard() {
           }}
         />
       )}
+
     </div>
   );
 } 

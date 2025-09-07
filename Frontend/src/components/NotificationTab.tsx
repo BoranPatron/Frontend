@@ -24,7 +24,7 @@ interface NotificationTabProps {
 
 interface NotificationData {
   id: number;
-  type: 'appointment_invitation' | 'appointment_responses' | 'service_provider_selection_reminder' | 'quote_accepted';
+  type: 'appointment_invitation' | 'appointment_responses' | 'service_provider_selection_reminder' | 'quote_accepted' | 'quote_submitted';
   title: string;
   message: string;
   description?: string;
@@ -42,6 +42,16 @@ interface NotificationData {
   responses?: any[];
   selectedServiceProviderId?: number;
   tradeId?: number;
+  quoteId?: number;
+  projectName?: string;
+  quoteSummary?: {
+    amount: number;
+    currency: string;
+    validUntil?: string;
+    startDate?: string;
+    completionDate?: string;
+  };
+  actionRequired?: boolean;
   // Für allgemeine Benachrichtigungen
   notification?: any;
   priority?: 'low' | 'normal' | 'high' | 'urgent';
@@ -60,7 +70,29 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
   useEffect(() => {
     loadNotifications();
     const interval = setInterval(loadNotifications, 30000);
-    return () => clearInterval(interval);
+    
+    // Event-Listener für neue Angebot-Benachrichtigungen
+    const handleQuoteSubmitted = (event: CustomEvent) => {
+      console.log('📢 Quote submitted event empfangen:', event.detail);
+      const newNotification = event.detail.notification;
+      
+      // Füge die neue Benachrichtigung zur Liste hinzu
+      setNotifications(prev => [newNotification, ...prev]);
+      
+      // Setze automatisch als "neu" für 10 Sekunden
+      setTimeout(() => {
+        setNotifications(prev => 
+          prev.map(n => n.id === newNotification.id ? { ...n, isNew: false } : n)
+        );
+      }, 10000);
+    };
+    
+    window.addEventListener('quoteSubmitted', handleQuoteSubmitted as EventListener);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('quoteSubmitted', handleQuoteSubmitted as EventListener);
+    };
   }, [userId, userRole]);
 
   useEffect(() => {
@@ -493,6 +525,21 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                       } else if (userRole === 'DIENSTLEISTER' && notification.type === 'quote_accepted') {
                         setSelectedNotification(notification);
                         markAsSeen([notification.id]);
+                      } else if (userRole === 'DIENSTLEISTER' && notification.type === 'quote_submitted') {
+                        // Öffne die betroffene Ausschreibung
+                        console.log('📋 Öffne Ausschreibung für Quote:', notification.tradeId);
+                        markAsSeen([notification.id]);
+                        
+                        // Event für ServiceProviderDashboard auslösen, um TradeDetailsModal zu öffnen
+                        window.dispatchEvent(new CustomEvent('openTradeDetails', {
+                          detail: {
+                            tradeId: notification.tradeId,
+                            source: 'quote_notification'
+                          }
+                        }));
+                        
+                        // Schließe Benachrichtigungs-Panel
+                        setIsExpanded(false);
                       } else if (userRole === 'BAUTRAEGER' && notification.type === 'appointment_responses') {
                         // Zeige die Antworten der Dienstleister an
                         setSelectedNotification(notification);
@@ -522,6 +569,8 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                               <Calendar size={16} className="text-orange-500" />
                             ) : notification.type === 'quote_accepted' ? (
                               <CheckCircle size={16} className="text-green-500" />
+                            ) : notification.type === 'quote_submitted' ? (
+                              <FileText size={16} className="text-blue-500" />
                             ) : notification.type === 'service_provider_selection_reminder' ? (
                               <AlertCircle size={16} className="text-orange-400 animate-pulse" />
                             ) : (
@@ -556,6 +605,50 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                                 </div>
                               )}
                             </div>
+                            
+                            {/* Zusätzliche Informationen für quote_submitted */}
+                            {notification.type === 'quote_submitted' && notification.quoteSummary && (
+                              <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div>
+                                    <span className="text-gray-500">Angebotssumme:</span>
+                                    <div className="font-semibold text-blue-600">
+                                      {new Intl.NumberFormat('de-DE', { 
+                                        style: 'currency', 
+                                        currency: notification.quoteSummary.currency || 'CHF' 
+                                      }).format(notification.quoteSummary.amount || 0)}
+                                    </div>
+                                  </div>
+                                  {notification.quoteSummary.validUntil && (
+                                    <div>
+                                      <span className="text-gray-500">Gültig bis:</span>
+                                      <div className="font-semibold text-gray-700">
+                                        {new Date(notification.quoteSummary.validUntil).toLocaleDateString('de-DE')}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {notification.quoteSummary.startDate && (
+                                    <div>
+                                      <span className="text-gray-500">Start:</span>
+                                      <div className="font-semibold text-gray-700">
+                                        {new Date(notification.quoteSummary.startDate).toLocaleDateString('de-DE')}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {notification.quoteSummary.completionDate && (
+                                    <div>
+                                      <span className="text-gray-500">Fertigstellung:</span>
+                                      <div className="font-semibold text-gray-700">
+                                        {new Date(notification.quoteSummary.completionDate).toLocaleDateString('de-DE')}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="mt-2 text-xs text-blue-600 font-medium">
+                                  👆 Klicken Sie hier, um die Ausschreibung zu öffnen
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

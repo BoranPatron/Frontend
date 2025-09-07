@@ -443,7 +443,7 @@ export default function Navbar() {
   const isProjectActive = () => pathname.includes('/project/');
 
   return (
-    <nav className="bg-gradient-to-r from-[#2c3539] to-[#3d4952] text-white shadow-xl border-b border-[#ffbd59]/20">
+    <nav className="mobile-nav-fix bg-gradient-to-r from-[#2c3539] to-[#3d4952] text-white shadow-xl border-b border-[#ffbd59]/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo und Hauptnavigation */}
@@ -724,7 +724,7 @@ export default function Navbar() {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="md:hidden p-2 hover:bg-white/10 rounded-lg transition-colors"
+              className="md:hidden mobile-touch-target hover:bg-white/10 rounded-lg transition-colors"
             >
               {showMobileMenu ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -733,14 +733,14 @@ export default function Navbar() {
 
         {/* Mobile Menu */}
         {showMobileMenu && (
-          <div className="md:hidden border-t border-white/10 py-4">
+          <div className="md:hidden mobile-container border-t border-white/10 py-4">
             <div className="space-y-2">
               {isServiceProvider() ? (
                 /* Dienstleister Mobile Menu: nur Dashboard und Gebühren */
                 <>
                   <Link
                     to="/service-provider"
-                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                    className={`mobile-link flex items-center gap-3 p-3 rounded-lg transition-colors ${
                       isActive('/service-provider') ? 'bg-[#ffbd59] text-[#2c3539]' : 'text-white hover:bg-white/10'
                     }`}
                     onClick={() => setShowMobileMenu(false)}
@@ -843,7 +843,7 @@ export default function Navbar() {
       {/* Click outside to close dropdowns */}
       {(showUserMenu || showMobileMenu) && (
         <div 
-          className="fixed inset-0 z-40" 
+          className="mobile-menu-overlay fixed inset-0 z-40" 
           onClick={() => {
             setShowUserMenu(false);
             setShowMobileMenu(false);

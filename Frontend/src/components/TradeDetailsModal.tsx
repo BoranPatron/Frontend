@@ -1,4 +1,7 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿
+
+
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Eye, 
@@ -293,9 +296,9 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         return isValid;
       });
       
-      // Entferne Duplikate basierend auf ID
+      // Entferne Duplikate basierend auf ID (String/Number-sicher)
       const uniqueDocs = validDocs.filter((doc, index, self) => 
-        index === self.findIndex(d => d.id === doc.id)
+        index === self.findIndex(d => String(d.id) === String(doc.id))
       );
       
       console.log('🔧 safeDocuments Result:', { 
@@ -1087,7 +1090,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         console.log('✅ Test-Termin erfolgreich erstellt');
       } catch (error) {
         console.error('❌ Test-Termin-Erstellung fehlgeschlagen:', error);
-        alert('Fehler beim Erstellen des Test-Termins: ' + error.message);
+        alert('Fehler beim Erstellen des Test-Termins: ' + (error as Error).message);
       }
     };
 
@@ -1486,7 +1489,12 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               const validSharedDocs = sharedDocs; // Alle Dokumente sind jetzt gültig (Fallbacks erstellt)
               
               console.log('ðŸ“„ TradeDetailsModal - Geteilte Dokumente geladen:', validSharedDocs);
-              documents = [...documents, ...validSharedDocs];
+              // Kombiniere Dokumente und entferne Duplikate basierend auf ID (String/Number-sicher)
+              const allDocs = [...documents, ...validSharedDocs];
+              documents = allDocs.filter((doc, index, self) => 
+                index === self.findIndex(d => String(d.id) === String(doc.id))
+              );
+              console.log('ðŸ"„ TradeDetailsModal - Duplikate entfernt. Vorher:', allDocs.length, 'Nachher:', documents.length);
             }
           } catch (e) {
             console.error('âŒ Fehler beim Verarbeiten der geteilten Dokumente:', e);
@@ -1631,7 +1639,12 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               const validSharedDocs = sharedDocs; // Alle Dokumente sind jetzt gültig (Fallbacks erstellt)
               
               console.log('ðŸ“„ TradeDetailsModal - Geteilte Dokumente geladen:', validSharedDocs);
-              documents = [...documents, ...validSharedDocs];
+              // Kombiniere Dokumente und entferne Duplikate basierend auf ID (String/Number-sicher)
+              const allDocs = [...documents, ...validSharedDocs];
+              documents = allDocs.filter((doc, index, self) => 
+                index === self.findIndex(d => String(d.id) === String(doc.id))
+              );
+              console.log('ðŸ"„ TradeDetailsModal - Duplikate entfernt. Vorher:', allDocs.length, 'Nachher:', documents.length);
             }
           } catch (e) {
             console.error('âŒ Fehler beim Verarbeiten der geteilten Dokumente:', e);
@@ -4060,12 +4073,18 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       {(() => {
                         const tradeDocsArray = trade?.documents && Array.isArray(trade.documents) ? trade.documents : [];
                         const loadedDocsArray = loadedDocuments && Array.isArray(loadedDocuments) ? loadedDocuments : [];
-                        const combinedDocs = [...tradeDocsArray, ...loadedDocsArray];
+                        
+                        // Kombiniere Dokumente und entferne Duplikate basierend auf ID (String/Number-sicher)
+                        const allDocs = [...tradeDocsArray, ...loadedDocsArray];
+                        const combinedDocs = allDocs.filter((doc, index, self) => 
+                          index === self.findIndex(d => String(d.id) === String(doc.id))
+                        );
                         
                         console.log(`🔍 DOKUMENT-QUELLEN DEBUG:`);
                         console.log(`📁 trade.documents (${tradeDocsArray.length}):`, tradeDocsArray.map(d => `${d.id}: "${(d as any).title || d.name}"`));
                         console.log(`📁 loadedDocuments (${loadedDocsArray.length}):`, loadedDocsArray.map(d => `${d.id}: "${(d as any).title || d.name}"`));
-                        console.log(`📁 combinedDocs (${combinedDocs.length}):`, combinedDocs.map(d => `${d.id}: "${(d as any).title || d.name}"`));
+                        console.log(`📁 allDocs vor Duplikatsentfernung (${allDocs.length}):`, allDocs.map(d => `${d.id}: "${(d as any).title || d.name}"`));
+                        console.log(`📁 combinedDocs nach Duplikatsentfernung (${combinedDocs.length}):`, combinedDocs.map(d => `${d.id}: "${(d as any).title || d.name}"`));
                         
                         return (
                           <TradeDocumentViewer 

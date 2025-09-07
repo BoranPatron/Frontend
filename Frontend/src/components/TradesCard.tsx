@@ -632,7 +632,7 @@ export default function TradesCard({
       {/* Header entfernt - wird jetzt vom übergeordneten Dashboard verwaltet */}
       
       {isExpanded && (
-        <div className="space-y-3">
+        <div className="space-y-3 flex flex-col">
           {trades.length === 0 ? (
             <div className="text-center py-8">
               <Wrench size={48} className="text-gray-400 mx-auto mb-4" />
@@ -648,7 +648,7 @@ export default function TradesCard({
               )}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 flex flex-col auto-rows-max">
               {(showAll ? trades : trades.slice(0, 5)).map((trade) => {
                 const currentQuoteStatus = quoteStatus[trade.id] || 'unknown';
                 const currentQuoteData = quoteData[trade.id];
@@ -662,7 +662,7 @@ export default function TradesCard({
                 return (
                   <div
                     key={trade.id}
-                    className={`bg-white/10 rounded-lg p-4 cursor-pointer hover:bg-white/20 transition-all duration-300 ${
+                    className={`bg-white/10 rounded-lg p-4 cursor-pointer hover:bg-white/20 transition-all duration-300 h-auto min-h-fit flex-shrink-0 ${
                       (tradeStatsForTrade?.acceptedQuote || currentQuoteStatus === 'accepted') 
                         ? 'border-2 border-green-500/40 bg-gradient-to-r from-green-500/5 to-emerald-500/5 shadow-lg shadow-green-500/10' 
                         : 'border border-white/10'
