@@ -16,8 +16,10 @@ import {
   AlertTriangle,
   Award,
   Shield,
-  Clock as ClockIcon
+  Clock as ClockIcon,
+  Upload
 } from 'lucide-react';
+import QuoteDocumentUpload from './QuoteDocumentUpload';
 
 interface QuoteDetailsModalProps {
   isOpen: boolean;
@@ -532,6 +534,26 @@ export default function QuoteDetailsModal({
 
 
 
+            {/* Dokument-Upload (nur für den Dienstleister der das Angebot erstellt hat) */}
+            {user && displayQuote.service_provider_id === user.id && displayQuote.status !== 'accepted' && (
+              <div className="bg-white/5 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Upload size={20} className="text-[#ffbd59]" />
+                  Dokument hochladen
+                </h3>
+                <QuoteDocumentUpload 
+                  quoteId={displayQuote.id}
+                  onUploadSuccess={(updatedQuote) => {
+                    setFullQuoteData(updatedQuote);
+                    console.log('✅ Dokument erfolgreich hochgeladen:', updatedQuote);
+                  }}
+                  onUploadError={(error) => {
+                    console.error('❌ Upload-Fehler:', error);
+                  }}
+                />
+              </div>
+            )}
+
             {/* Angebot-Dokumente - Erweiterte Logik */}
             {(() => {
               const hasDocuments = displayQuote.pdf_upload_path || displayQuote.additional_documents || 
@@ -543,10 +565,13 @@ export default function QuoteDetailsModal({
                   <div className="bg-gray-500/10 border border-gray-500/30 rounded-lg p-4">
                     <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
                       <FileText size={20} className="text-gray-400" />
-                      Keine Dokumente hochgeladen
+                      Keine Dokumente vorhanden
                     </h3>
                     <p className="text-gray-300 text-sm">
-                      Für dieses Angebot wurden keine Dokumente hochgeladen.
+                      {user && displayQuote.service_provider_id === user.id 
+                        ? 'Laden Sie Dokumente über den Upload-Bereich oben hoch.'
+                        : 'Für dieses Angebot wurden keine Dokumente hochgeladen.'
+                      }
                     </p>
                   </div>
                 );
@@ -574,17 +599,20 @@ export default function QuoteDetailsModal({
                             </div>
                           </div>
                         </div>
-                        <button
-                          onClick={() => {
-                            const path = displayQuote.pdf_upload_path || displayQuote.document_path || displayQuote.file_path;
-                            const fullPath = path?.startsWith('/') ? `/api/v1${path}` : `/api/v1/${path}`;
-                            window.open(fullPath, '_blank');
-                          }}
-                          className="flex items-center gap-2 px-3 py-1.5 bg-[#ffbd59] text-[#0f172a] rounded-lg font-medium hover:bg-[#ffa726] transition-colors"
-                        >
-                          <Download size={14} />
-                          Download
-                        </button>
+                      <button
+                        onClick={() => {
+                          const path = displayQuote.pdf_upload_path || displayQuote.document_path || displayQuote.file_path;
+                          // Extrahiere Dateiname aus dem Pfad
+                          const filename = path?.split('/').pop() || 'document.pdf';
+                          // Verwende den neuen Download-Endpunkt
+                          const downloadUrl = `/api/v1/quotes/${displayQuote.id}/documents/${filename}`;
+                          window.open(downloadUrl, '_blank');
+                        }}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-[#ffbd59] text-[#0f172a] rounded-lg font-medium hover:bg-[#ffa726] transition-colors"
+                      >
+                        <Download size={14} />
+                        Download
+                      </button>
                       </div>
                     )}
                     
@@ -624,8 +652,11 @@ export default function QuoteDetailsModal({
                               <button
                                 onClick={() => {
                                   const path = doc.url || doc.path || doc.file_path;
-                                  const fullPath = path?.startsWith('/') ? `/api/v1${path}` : `/api/v1/${path}`;
-                                  window.open(fullPath, '_blank');
+                                  // Extrahiere Dateiname aus dem Pfad
+                                  const filename = path?.split('/').pop() || doc.name || `document_${index + 1}`;
+                                  // Verwende den neuen Download-Endpunkt
+                                  const downloadUrl = `/api/v1/quotes/${displayQuote.id}/documents/${filename}`;
+                                  window.open(downloadUrl, '_blank');
                                 }}
                                 className="flex items-center gap-2 px-3 py-1.5 bg-[#ffbd59] text-[#0f172a] rounded-lg font-medium hover:bg-[#ffa726] transition-colors"
                               >

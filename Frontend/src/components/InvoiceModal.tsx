@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { X, FileText, Upload, Calculator, Euro, Calendar, Building } from 'lucide-react';
 import { api } from '../api/api';
+import { useAuth } from '../context/AuthContext';
+import { notificationService } from '../api/notificationService';
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -9,6 +11,8 @@ interface InvoiceModalProps {
   milestoneTitle: string;
   contractValue: number;
   onInvoiceSubmitted: () => void;
+  projectId?: number;
+  serviceProviderId?: number;
 }
 
 const InvoiceModal: React.FC<InvoiceModalProps> = ({
@@ -17,8 +21,11 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
   milestoneId,
   milestoneTitle,
   contractValue,
-  onInvoiceSubmitted
+  onInvoiceSubmitted,
+  projectId,
+  serviceProviderId
 }) => {
+  const { user, isServiceProvider } = useAuth();
   const [invoiceType, setInvoiceType] = useState<'manual' | 'upload'>('manual');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,31 +102,62 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
   const removeCostPosition = (id: number) => {
     if (costPositions.length > 1) {
-      setCostPositions(prev => prev.filter(p => p.id !== id));
-      // Neuberechnung nach Löschen
-      setTimeout(recalculateTotal, 0);
+      setCostPositions(prev => {
+        const updated = prev.filter(p => p.id !== id);
+        
+        // Sofortige Neuberechnung mit den aktualisierten Daten
+        const netAmount = updated.reduce((sum, pos) => sum + (pos.amount || 0), 0);
+        const { vat, total } = calculateVAT(netAmount, manualInvoice.vatRate);
+        
+        setManualInvoice(prevInvoice => ({
+          ...prevInvoice,
+          netAmount,
+          vatAmount: vat,
+          totalAmount: total
+        }));
+        
+        return updated;
+      });
     }
   };
 
   const updateCostPosition = (id: number, field: 'description' | 'amount' | 'category' | 'cost_type' | 'status', value: string | number) => {
-    setCostPositions(prev => 
-      prev.map(pos => 
+    setCostPositions(prev => {
+      const updated = prev.map(pos => 
         pos.id === id 
           ? { ...pos, [field]: value }
           : pos
-      )
-    );
-    
-    // Neuberechnung bei Betrag-Änderung
-    if (field === 'amount') {
-      setTimeout(recalculateTotal, 0);
-    }
+      );
+      
+      // Sofortige Neuberechnung bei Betrag-Änderung direkt mit den aktualisierten Daten
+      if (field === 'amount') {
+        const netAmount = updated.reduce((sum, pos) => sum + (pos.amount || 0), 0);
+        const { vat, total } = calculateVAT(netAmount, manualInvoice.vatRate);
+        
+        setManualInvoice(prevInvoice => ({
+          ...prevInvoice,
+          netAmount,
+          vatAmount: vat,
+          totalAmount: total
+        }));
+      }
+      
+      return updated;
+    });
   };
 
-  // Automatische Neuberechnung wenn sich costPositions ändern
+  // Automatische Neuberechnung wenn sich die Anzahl der Positionen ändert
   React.useEffect(() => {
-    recalculateTotal();
-  }, [costPositions.length]); // Nur bei Änderung der Anzahl, nicht bei jedem Update
+    const netAmount = costPositions.reduce((sum, pos) => sum + (pos.amount || 0), 0);
+    const { vat, total } = calculateVAT(netAmount, manualInvoice.vatRate);
+    
+    setManualInvoice(prev => ({
+      ...prev,
+      netAmount,
+      vatAmount: vat,
+      totalAmount: total
+    }));
+  }, [costPositions.length, manualInvoice.vatRate]); // Bei Änderung der Anzahl oder MwSt-Satz
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -155,9 +193,9 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
       }
 
                    const invoiceData = {
-        project_id: 7,  // ✅ Hinzugefügt: project_id
+        project_id: projectId || 7,  // Verwende übergebene projectId oder Fallback
         milestone_id: milestoneId,
-        service_provider_id: 6,  // ✅ Hinzugefügt: service_provider_id
+        service_provider_id: serviceProviderId || user?.id || 6,  // Verwende übergebene serviceProviderId oder User-ID
         invoice_number: manualInvoice.invoiceNumber,
         invoice_date: new Date(manualInvoice.invoiceDate).toISOString(),
         due_date: new Date(manualInvoice.dueDate).toISOString(),
@@ -170,7 +208,8 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
         work_period_to: manualInvoice.workPeriodTo ? new Date(manualInvoice.workPeriodTo).toISOString() : null,
         cost_positions: costPositions.filter(pos => pos.description.trim() && pos.amount > 0),
         notes: manualInvoice.notes,
-        type: 'manual'
+        type: 'manual',
+        user_role: isServiceProvider() ? 'service_provider' : 'bautraeger'  // Füge User-Rolle für Backend-Validierung hinzu
       };
 
       const response = await api.post('/invoices/create', invoiceData);
@@ -178,6 +217,45 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
       // Sichere Behandlung der Antwort
       if (response.data && typeof response.data === 'object') {
         console.log('✅ Rechnung-Daten:', JSON.stringify(response.data, null, 2));
+        
+        // Erstelle Benachrichtigung für Bauträger
+        try {
+          await notificationService.createNotification({
+            type: 'general',
+            title: '🧾 Neue Rechnung eingegangen',
+            message: `Eine neue Rechnung für "${milestoneTitle}" wurde erstellt`,
+            description: `Rechnungsnummer: ${manualInvoice.invoiceNumber}\nBetrag: ${new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(manualInvoice.totalAmount)}`,
+            priority: 'high',
+            requires_action: true,
+            action_type: 'invoice_review',
+            project_id: projectId,
+            milestone_id: milestoneId,
+            metadata: {
+              invoice_id: response.data.id,
+              invoice_number: manualInvoice.invoiceNumber,
+              total_amount: manualInvoice.totalAmount,
+              invoice_type: 'manual',
+              service_provider_id: serviceProviderId || user?.id
+            }
+          });
+          
+          // Sende Custom Event für sofortige UI-Aktualisierung
+          const invoiceEvent = new CustomEvent('invoiceSubmitted', {
+            detail: {
+              invoice: response.data,
+              milestoneId: milestoneId,
+              milestoneTitle: milestoneTitle,
+              invoiceNumber: manualInvoice.invoiceNumber,
+              totalAmount: manualInvoice.totalAmount
+            }
+          });
+          window.dispatchEvent(invoiceEvent);
+          
+          console.log('🔔 Benachrichtigung für neue Rechnung erstellt');
+        } catch (notificationError) {
+          console.error('⚠️ Fehler beim Erstellen der Benachrichtigung:', notificationError);
+          // Fehler bei Benachrichtigung sollte nicht die Rechnungserstellung blockieren
+        }
       }
       
       onInvoiceSubmitted();
@@ -219,6 +297,12 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
       const formData = new FormData();
       formData.append('file', uploadData.file);
       formData.append('milestone_id', milestoneId.toString());
+      formData.append('project_id', (projectId || 7).toString());
+      formData.append('service_provider_id', (serviceProviderId || user?.id || 6).toString());
+      // Füge User-Rolle hinzu für Backend-Validierung
+      if (isServiceProvider()) {
+        formData.append('user_role', 'service_provider');
+      }
       formData.append('invoice_number', uploadData.invoiceNumber);
       formData.append('total_amount', uploadData.totalAmount.toString());
       formData.append('notes', uploadData.notes);
@@ -229,6 +313,52 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
           'Content-Type': 'multipart/form-data'
         }
       });
+      
+      // Sichere Behandlung der Antwort
+      if (response.data && typeof response.data === 'object') {
+        console.log('✅ PDF-Rechnung hochgeladen:', response.data);
+        
+        // Erstelle Benachrichtigung für Bauträger
+        try {
+          await notificationService.createNotification({
+            type: 'general',
+            title: '🧾 Neue Rechnung (PDF) eingegangen',
+            message: `Eine neue Rechnung für "${milestoneTitle}" wurde hochgeladen`,
+            description: `Rechnungsnummer: ${uploadData.invoiceNumber}\nBetrag: ${new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(uploadData.totalAmount)}`,
+            priority: 'high',
+            requires_action: true,
+            action_type: 'invoice_review',
+            project_id: projectId,
+            milestone_id: milestoneId,
+            metadata: {
+              invoice_id: response.data.id,
+              invoice_number: uploadData.invoiceNumber,
+              total_amount: uploadData.totalAmount,
+              invoice_type: 'upload',
+              has_pdf: true,
+              service_provider_id: serviceProviderId || user?.id
+            }
+          });
+          
+          // Sende Custom Event für sofortige UI-Aktualisierung
+          const invoiceEvent = new CustomEvent('invoiceSubmitted', {
+            detail: {
+              invoice: response.data,
+              milestoneId: milestoneId,
+              milestoneTitle: milestoneTitle,
+              invoiceNumber: uploadData.invoiceNumber,
+              totalAmount: uploadData.totalAmount,
+              isPDF: true
+            }
+          });
+          window.dispatchEvent(invoiceEvent);
+          
+          console.log('🔔 Benachrichtigung für neue PDF-Rechnung erstellt');
+        } catch (notificationError) {
+          console.error('⚠️ Fehler beim Erstellen der Benachrichtigung:', notificationError);
+          // Fehler bei Benachrichtigung sollte nicht die Rechnungserstellung blockieren
+        }
+      }
 
       onInvoiceSubmitted();
       onClose();
@@ -462,7 +592,16 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
                           step="0.01"
                           placeholder="Betrag"
                           value={position.amount || ''}
-                          onChange={(e) => updateCostPosition(position.id, 'amount', parseFloat(e.target.value) || 0)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            // Verwende den String-Wert direkt während der Eingabe, parse erst beim Blur
+                            updateCostPosition(position.id, 'amount', value === '' ? 0 : parseFloat(value) || 0);
+                          }}
+                          onBlur={(e) => {
+                            // Finale Validierung beim Verlassen des Feldes
+                            const finalValue = parseFloat(e.target.value) || 0;
+                            updateCostPosition(position.id, 'amount', finalValue);
+                          }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-transparent"
                           style={{ backgroundColor: '#51636f09' }}
                         />

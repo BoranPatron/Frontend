@@ -1,7 +1,5 @@
-﻿
-
-
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
+import QuoteDocumentUpload from './QuoteDocumentUpload';
 import { 
   X, 
   Eye, 
@@ -9,6 +7,7 @@ import {
   ExternalLink, 
   FileText, 
   ChevronDown,
+  Upload,
   Calendar,
   MapPin,
   CheckCircle,
@@ -30,7 +29,9 @@ import {
   Phone,
   Mail,
   Globe,
-  Package
+  Package,
+  Trash2,
+  Save
 } from 'lucide-react';
 import type { TradeSearchResult } from '../api/geoService';
 import { useAuth } from '../context/AuthContext';
@@ -42,7 +43,7 @@ import { appointmentService, type AppointmentResponse } from '../api/appointment
 import ServiceProviderRating from './ServiceProviderRating';
 import InvoiceModal from './InvoiceModal';
 // import FullDocumentViewer from './DocumentViewer';
-import { updateMilestone } from '../api/milestoneService';
+import { updateMilestone, deleteMilestone } from '../api/milestoneService';
 
 // PDF Viewer Komponente
 const PDFViewer: React.FC<{ url: string; filename: string; onError: (error: string) => void }> = ({ url, filename, onError }) => {
@@ -171,6 +172,7 @@ interface TradeDetailsModalProps {
   onCreateInspection?: (tradeId: number, selectedQuoteIds: number[]) => void;
   onAcceptQuote?: (quoteId: number) => void;
   onRejectQuote?: (quoteId: number, reason: string) => void;
+  onTradeUpdate?: (updatedTrade: any) => void;
 }
 
 interface Quote {
@@ -645,7 +647,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   existingQuotes = [],
   onCreateInspection,
   onAcceptQuote,
-  onRejectQuote
+  onRejectQuote,
+  onTradeUpdate
 }: TradeDetailsModalProps) {
   
   // DEBUG: Modal Rendering
@@ -884,6 +887,38 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<{ title: string; description: string; category?: string; priority?: string; planned_date?: string; notes?: string; requires_inspection?: boolean }>({ title: '', description: '' });
   const [isUpdatingTrade, setIsUpdatingTrade] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeletingTrade, setIsDeletingTrade] = useState(false);
+
+  // Prüft, ob das Gewerk gelöscht werden kann (keine Angebote vorhanden)
+  const canDeleteTrade = () => {
+    return (existingQuotes || []).length === 0;
+  };
+
+  // Löscht das Gewerk
+  const handleDeleteTrade = async () => {
+    if (!canDeleteTrade()) {
+      alert('Gewerk kann nicht gelöscht werden, da bereits Angebote vorliegen');
+      return;
+    }
+
+    try {
+      setIsDeletingTrade(true);
+      await deleteMilestone((trade as any).id);
+      
+      // Schließe das Modal und rufe onClose auf
+      onClose();
+      
+      // Optional: Zeige Erfolgsmeldung
+      alert('Ausschreibung wurde erfolgreich gelöscht');
+    } catch (error) {
+      console.error('❌ Fehler beim Löschen des Gewerks:', error);
+      alert('Fehler beim Löschen der Ausschreibung');
+    } finally {
+      setIsDeletingTrade(false);
+      setShowDeleteConfirm(false);
+    }
+  };
   
   // Neue States fÃ¼r dynamisches Laden der Dokumente
   const [loadedDocuments, setLoadedDocuments] = useState<any[]>([]);
@@ -1053,7 +1088,17 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         if (!trade?.id) return;
         const all = await appointmentService.getMyAppointments();
         const relevant = all.filter(a => a.milestone_id === (trade as any).id && (a.appointment_type === 'INSPECTION' || a.appointment_type === 'REVIEW'));
-        if (!cancelled) setAppointmentsForTrade(relevant);
+        if (!cancelled) {
+          setAppointmentsForTrade(relevant);
+          
+          // Prüfe ob eine Besichtigung bereits als abgeschlossen markiert wurde
+          const hasCompletedInspection = relevant.some(appointment => 
+            appointment.appointment_type === 'INSPECTION' && appointment.inspection_completed
+          );
+          if (hasCompletedInspection) {
+            setInspectionCompleted(true);
+          }
+        }
       } catch (e) {
         console.error('âŒ Termine laden fehlgeschlagen:', e);
       }
@@ -1115,6 +1160,47 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       const inResponses = responsesArr.some((r: any) => Number(r.service_provider_id) === Number(user.id));
       return inInvites || inResponses;
     });
+  }, [appointmentsForTrade, user, isBautraeger]);
+
+  // Hilfsfunktion: Hat aktueller Nutzer (Dienstleister) einen Termin zugesagt?
+  const userAcceptedAppointments = React.useMemo(() => {
+    if (!user || isBautraeger()) return [];
+    
+    const acceptedAppointments: Array<{appointment: AppointmentResponse, response: any}> = [];
+    
+    if (Array.isArray(appointmentsForTrade)) {
+      appointmentsForTrade.forEach(ap => {
+        // Prüfe verschiedene Response-Strukturen
+        let responsesArr: any[] = [];
+        
+        if (Array.isArray(ap.responses)) {
+          responsesArr = ap.responses;
+        } else if (Array.isArray((ap as any).responses_array)) {
+          responsesArr = (ap as any).responses_array;
+        } else if (typeof (ap as any).responses === 'string') {
+          try {
+            responsesArr = JSON.parse((ap as any).responses);
+          } catch (e) {
+            responsesArr = [];
+          }
+        }
+        
+        // Finde akzeptierte Antworten des aktuellen Benutzers
+        const userResponse = responsesArr.find((r: any) => 
+          Number(r.service_provider_id) === Number(user.id) && 
+          r.status === 'accepted'
+        );
+        
+        if (userResponse) {
+          acceptedAppointments.push({
+            appointment: ap,
+            response: userResponse
+          });
+        }
+      });
+    }
+    
+    return acceptedAppointments;
   }, [appointmentsForTrade, user, isBautraeger]);
 
   // Bekannte Dokumentennamen (Fallback wenn API versagt)
@@ -2076,6 +2162,11 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       console.log('✅ TradeDetailsModal - Abnahme-Anfrage erfolgreich:', response);
       setCompletionStatus('completion_requested');
       
+      // Benachrichtige Parent-Komponente über Status-Änderung
+      if (onTradeUpdate && trade) {
+        onTradeUpdate({ ...trade, completion_status: 'completion_requested' });
+      }
+      
       // Führe Post-Completion-Aktionen aus
       await handlePostCompletionActions();
       
@@ -2252,7 +2343,13 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       });
       
       console.log('âœ… TradeDetailsModal - Abnahme-Antwort erfolgreich:', response);
-      setCompletionStatus(accepted ? 'completed' : 'under_review');
+      const newStatus = accepted ? 'completed' : 'under_review';
+      setCompletionStatus(newStatus);
+      
+      // Benachrichtige Parent-Komponente über Status-Änderung
+      if (onTradeUpdate && trade) {
+        onTradeUpdate({ ...trade, completion_status: newStatus });
+      }
       
       // Aktualisiere auch den Fortschritt
       if (trade?.id) {
@@ -2449,13 +2546,39 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   // Handler für Besichtigung abschließen
   const handleInspectionCompleted = async () => {
     try {
-      // Optional: API-Call um Besichtigung als abgeschlossen zu markieren
-      // await appointmentService.completeInspection({ appointment_id: appointmentsForTrade[0].id });
+      // Finde den relevanten Besichtigungstermin
+      const relevantAppointments = appointmentsForTrade.filter(appointment => {
+        if (isBautraeger()) {
+          return appointment.created_by === user?.id && appointment.appointment_type === 'INSPECTION';
+        }
+        return false; // Nur Bauträger können Besichtigungen als abgeschlossen markieren
+      });
+
+      if (relevantAppointments.length === 0) {
+        console.error('❌ Kein relevanter Besichtigungstermin gefunden');
+        return;
+      }
+
+      const appointmentId = relevantAppointments[0].id;
+      
+      // API-Call um Besichtigung als abgeschlossen zu markieren
+      await appointmentService.markInspectionCompleted(appointmentId);
       
       setInspectionCompleted(true);
       console.log('✅ Besichtigung als abgeschlossen markiert');
+      
+      // Aktualisiere die Appointments um den neuen Status zu reflektieren
+      const updatedAppointments = appointmentsForTrade.map(apt => 
+        apt.id === appointmentId 
+          ? { ...apt, inspection_completed: true }
+          : apt
+      );
+      setAppointmentsForTrade(updatedAppointments);
+      
     } catch (error) {
       console.error('❌ Fehler beim Markieren der Besichtigung als abgeschlossen:', error);
+      // Zeige Fehlermeldung an
+      alert('Fehler beim Markieren der Besichtigung als abgeschlossen. Bitte versuchen Sie es erneut.');
     }
   };
 
@@ -2475,8 +2598,9 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   });
 
   return (
+    <>
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-2xl border border-gray-600/30 max-w-6xl w-full max-h-[95vh] overflow-hidden relative flex flex-col">
+      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-2xl border border-gray-600/30 max-w-6xl w-full max-h-[95vh] overflow-visible relative flex flex-col">
         {/* DEBUG HINWEIS */}
         <div className="absolute top-2 right-2 bg-red-500/90 text-white px-3 py-1 rounded-lg text-sm font-bold z-50 shadow-lg">
           🔍 DEBUG: TradeDetailsModal
@@ -2531,6 +2655,24 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                     </button>
                   );
                 })()}
+                
+                {/* Löschen Button: nur wenn keine Angebote vorliegen */}
+                {(() => {
+                  const canDelete = canDeleteTrade();
+                  const title = canDelete ? 'Ausschreibung löschen' : 'Löschen nicht möglich, es liegen bereits Angebote vor';
+                  return (
+                    <button
+                      onClick={() => { if (canDelete) { setShowDeleteConfirm(true); } }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${canDelete ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30' : 'bg-white/5 text-gray-400 cursor-not-allowed opacity-50'}`}
+                      title={title}
+                      disabled={!canDelete}
+                    >
+                      <Trash2 size={14} />
+                      Löschen
+                    </button>
+                  );
+                })()}
+                
                 {(completionStatus === 'completed' || completionStatus === 'completed_with_defects' || completionStatus === 'completion_requested') && (
                   <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
                     completionStatus === 'completed' 
@@ -2703,6 +2845,72 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             </button>
           </div>
         </div>
+        
+        {/* Banner für Terminzusagen */}
+        {userAcceptedAppointments.length > 0 && (
+          <div className="mx-6 mt-4 mb-2">
+            {userAcceptedAppointments.map(({appointment, response}, index) => (
+              <div key={`${appointment.id}-${index}`} className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/40 rounded-lg p-4 mb-3 shadow-lg">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-green-500/30 rounded-full flex items-center justify-center">
+                      <CheckCircle size={20} className="text-green-400" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h4 className="text-green-300 font-semibold text-sm">Terminzusage bestätigt</h4>
+                      <span className="px-2 py-1 bg-green-500/20 text-green-300 text-xs rounded-full font-medium">
+                        Zugesagt
+                      </span>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex items-center gap-2 text-gray-300">
+                        <Calendar size={14} className="text-green-400" />
+                        <span className="font-medium">{appointment.title}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-300">
+                        <Clock size={14} className="text-green-400" />
+                        <span>
+                          {new Date(appointment.scheduled_date).toLocaleDateString('de-DE', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      {appointment.location && (
+                        <div className="flex items-center gap-2 text-gray-300">
+                          <MapPin size={14} className="text-green-400" />
+                          <span>{appointment.location}</span>
+                        </div>
+                      )}
+                      {response.message && (
+                        <div className="mt-2 p-2 bg-green-500/10 rounded border-l-2 border-green-500/50">
+                          <p className="text-gray-300 text-xs italic">"{response.message}"</p>
+                        </div>
+                      )}
+                      {response.responded_at && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          Zugesagt am: {new Date(response.responded_at).toLocaleDateString('de-DE', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         
         {/* Besichtigungstermin-Anzeige */}
         {(() => {
@@ -3085,15 +3293,18 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   e.preventDefault();
                   try {
                     setIsUpdatingTrade(true);
-                    const payload: any = {
-                      title: editForm.title,
-                      description: editForm.description,
-                      category: editForm.category || undefined,
-                      priority: editForm.priority || undefined,
-                      planned_date: editForm.planned_date || undefined,
-                      notes: editForm.notes || undefined,
-                      requires_inspection: !!editForm.requires_inspection,
-                    };
+                    const payload: any = {};
+                    
+                    // Nur definierte Werte hinzufügen - KEINE undefined Werte!
+                    if (editForm.title && editForm.title.trim()) payload.title = editForm.title;
+                    if (editForm.description && editForm.description.trim()) payload.description = editForm.description;
+                    if (editForm.category && editForm.category.trim()) payload.category = editForm.category;
+                    if (editForm.priority && editForm.priority.trim()) payload.priority = editForm.priority;
+                    if (editForm.planned_date && editForm.planned_date.trim()) payload.planned_date = editForm.planned_date;
+                    if (editForm.notes && editForm.notes.trim()) payload.notes = editForm.notes;
+                    payload.requires_inspection = !!editForm.requires_inspection;
+                    
+                    console.log('🔧 [DEBUG] Sending update payload:', payload);
                     await updateMilestone((trade as any).id, payload);
                     // Lokal aktualisieren
                     (trade as any).title = payload.title || (trade as any).title;
@@ -3116,30 +3327,80 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-gray-300 mb-1">Titel</label>
-                    <input value={editForm.title} onChange={(e)=>setEditForm(p=>({...p,title:e.target.value}))} className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white" />
+                    <input 
+                      value={editForm.title} 
+                      onChange={(e) => setEditForm(p => ({ ...p, title: e.target.value }))} 
+                      className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59]" 
+                      placeholder="z.B. Elektroinstallation Erdgeschoss"
+                      required
+                    />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-300 mb-1">Kategorie</label>
-                    <input value={editForm.category||''} onChange={(e)=>setEditForm(p=>({...p,category:e.target.value}))} className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white" />
+                    <select 
+                      value={editForm.category || ''} 
+                      onChange={(e) => setEditForm(p => ({ ...p, category: e.target.value }))} 
+                      className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59]"
+                      required
+                    >
+                      <option value="">Kategorie wählen</option>
+                      <option value="electrical">Elektro</option>
+                      <option value="plumbing">Sanitär</option>
+                      <option value="heating">Heizung</option>
+                      <option value="flooring">Bodenbelag</option>
+                      <option value="painting">Malerei</option>
+                      <option value="carpentry">Zimmerei</option>
+                      <option value="roofing">Dachdeckerei</option>
+                      <option value="landscaping">Garten- & Landschaftsbau</option>
+                      <option value="civil_engineering">Tiefbau</option>
+                      <option value="structural">Hochbau</option>
+                      <option value="interior">Innenausbau / Interior</option>
+                      <option value="facade">Fassade</option>
+                      <option value="windows_doors">Fenster & Türen</option>
+                      <option value="drywall">Trockenbau</option>
+                      <option value="tiling">Fliesenarbeiten</option>
+                      <option value="insulation">Dämmung</option>
+                      <option value="hvac">Klima / Lüftung (HVAC)</option>
+                      <option value="smart_home">Smart Home</option>
+                      <option value="site_preparation">Erdarbeiten / Baustellenvorbereitung</option>
+                      <option value="other">Sonstiges</option>
+                    </select>
                   </div>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-300 mb-1">Beschreibung & Leistungsumfang</label>
-                  <textarea rows={3} value={editForm.description} onChange={(e)=>setEditForm(p=>({...p,description:e.target.value}))} className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white" />
+                    <textarea 
+                      rows={4} 
+                      value={editForm.description} 
+                      onChange={(e) => setEditForm(p => ({ ...p, description: e.target.value }))} 
+                      className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59] resize-none" 
+                      placeholder="Detaillierte Beschreibung des Gewerks..."
+                      required
+                    />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs text-gray-300 mb-1">PrioritÃ¤t</label>
-                    <select value={editForm.priority||'medium'} onChange={(e)=>setEditForm(p=>({...p,priority:e.target.value}))} className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white">
+                    <select 
+                      value={editForm.priority || 'medium'} 
+                      onChange={(e) => setEditForm(p => ({ ...p, priority: e.target.value }))} 
+                      className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59]"
+                    >
                       <option value="low">Niedrig</option>
                       <option value="medium">Mittel</option>
                       <option value="high">Hoch</option>
-                      <option value="critical">Kritisch</option>
+                      <option value="urgent">Dringend</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-xs text-gray-300 mb-1">Geplantes Datum</label>
-                    <input type="date" value={editForm.planned_date||''} onChange={(e)=>setEditForm(p=>({...p,planned_date:e.target.value}))} className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white" />
+                    <input 
+                      type="date" 
+                      value={editForm.planned_date || ''} 
+                      onChange={(e) => setEditForm(p => ({ ...p, planned_date: e.target.value }))} 
+                      className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59]"
+                      required
+                    />
                   </div>
                   <div className="flex items-center gap-2 mt-6">
                     <input id="requires_inspection_td" type="checkbox" checked={!!editForm.requires_inspection} onChange={(e)=>setEditForm(p=>({...p,requires_inspection:e.target.checked}))} className="w-4 h-4 text-[#ffbd59] bg-[#2c3539]/50 border-gray-600 rounded" />
@@ -3148,7 +3409,13 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                 </div>
                 <div>
                   <label className="block text-xs text-gray-300 mb-1">Notizen</label>
-                  <textarea rows={2} value={editForm.notes||''} onChange={(e)=>setEditForm(p=>({...p,notes:e.target.value}))} className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white" />
+                    <textarea 
+                      rows={3} 
+                      value={editForm.notes || ''} 
+                      onChange={(e) => setEditForm(p => ({ ...p, notes: e.target.value }))} 
+                      className="w-full px-3 py-2 bg-[#1a1a2e] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59] resize-none" 
+                      placeholder="Zusätzliche Notizen oder Anweisungen..."
+                    />
                 </div>
                 <div className="flex justify-end gap-2">
                   <button type="button" onClick={()=>setIsEditing(false)} className="px-4 py-2 text-gray-300 hover:text-white">Abbrechen</button>
@@ -3268,6 +3535,86 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               </div>
             )}
           </div>
+
+          {/* Rechnungsstellung für Dienstleister - direkt nach Ausschreibungsdetails wenn abgeschlossen */}
+          {!isBautraeger() && completionStatus === 'completed' && (
+            <div className="mb-6 bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-green-300 mb-3 flex items-center gap-2">
+                <Receipt size={20} />
+                Rechnungsstellung
+              </h3>
+              
+              {existingInvoice && ['sent', 'viewed', 'paid', 'overdue'].includes(existingInvoice.status) ? (
+                // Bestehende Rechnung anzeigen
+                <div className="space-y-3">
+                  <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-green-300 font-medium">Rechnung erstellt</h4>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        existingInvoice.status === 'paid' 
+                          ? 'bg-green-500/20 text-green-300'
+                          : existingInvoice.status === 'sent'
+                          ? 'bg-blue-500/20 text-blue-300'
+                          : 'bg-yellow-500/20 text-yellow-300'
+                      }`}>
+                        {existingInvoice.status === 'paid' ? 'Bezahlt' : 
+                         existingInvoice.status === 'sent' ? 'Versendet' : 'Entwurf'}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-300 space-y-1">
+                      <div className="flex justify-between">
+                        <span>Rechnungsnummer:</span>
+                        <span className="text-white font-medium">{existingInvoice.invoice_number}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Betrag:</span>
+                        <span className="text-white font-medium">
+                          {new Intl.NumberFormat('de-DE', {
+                            style: 'currency',
+                            currency: existingInvoice.currency || 'EUR'
+                          }).format(existingInvoice.total_amount || 0)}
+                        </span>
+                      </div>
+                      {existingInvoice.created_at && (
+                        <div className="flex justify-between">
+                          <span>Erstellt:</span>
+                          <span className="text-white font-medium">
+                            {new Date(existingInvoice.created_at).toLocaleDateString('de-DE')}
+                          </span>
+                        </div>
+                      )}
+                      {existingInvoice.status === 'paid' && existingInvoice.paid_at && (
+                        <div className="flex justify-between">
+                          <span>Bezahlt am:</span>
+                          <span className="text-green-300 font-medium">
+                            {new Date(existingInvoice.paid_at).toLocaleDateString('de-DE')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Rechnung erstellen - behandle draft und cancelled als "keine Rechnung"
+                <div className="space-y-3">
+                  <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
+                    <h4 className="text-green-300 font-medium mb-2">Ausschreibung erfolgreich abgenommen</h4>
+                    <p className="text-gray-300 text-sm">
+                      Die Ausschreibung wurde vollständig abgenommen. Sie können jetzt Ihre Rechnung erstellen.
+                    </p>
+                  </div>
+                  
+                  <button
+                    onClick={() => setShowInvoiceModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
+                  >
+                    <FileText size={16} />
+                    Rechnung stellen
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Abnahme-Workflow direkt unterhalb der Ausschreibungsdetails für Dienstleister - nur wenn Angebot angenommen */}
           {!isBautraeger() && acceptedQuote && completionStatus === 'completed_with_defects' && (
@@ -3701,6 +4048,26 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                           </div>
                         )}
                       </div>
+                      
+                      {/* Dokument-Upload für eigenes Angebot */}
+                      {userQuote && userQuote.status !== 'accepted' && (
+                        <div className="bg-black/20 rounded-lg p-4 border border-green-500/20">
+                          <h5 className="text-white font-semibold mb-3 flex items-center gap-2">
+                            <Upload size={16} className="text-green-400" />
+                            Dokumente hinzufügen
+                          </h5>
+                          <QuoteDocumentUpload 
+                            quoteId={userQuote.id}
+                            onUploadSuccess={(updatedQuote) => {
+                              setUserQuote(updatedQuote);
+                              console.log('✅ Dokument für eigenes Angebot hochgeladen:', updatedQuote);
+                            }}
+                            onUploadError={(error) => {
+                              console.error('❌ Upload-Fehler für eigenes Angebot:', error);
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -3892,23 +4259,15 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                         <div className="flex items-center gap-2">
                           {/* Annehmen Button: nur deaktiviert wenn Besichtigung erforderlich aber nicht vereinbart */}
                           {(trade as any).requires_inspection && (!appointmentsForTrade || appointmentsForTrade.length === 0) ? (
-                            <div className="relative group">
+                            <div className="flex items-center gap-2">
                               <button
                                 disabled
                                 className="px-3 py-1.5 bg-gray-500/20 text-gray-400 rounded-lg cursor-not-allowed transition-colors text-sm font-medium flex items-center gap-1 opacity-60"
+                                title="Besichtigung erforderlich: Vereinbaren Sie zuerst eine Besichtigung über den Button 'Besichtigung vereinbaren' oben, bevor Sie das Angebot annehmen können."
                               >
-                                <CheckCircle size={14} />
-                                Annehmen
+                                <Eye size={14} className="text-[#ffbd59]" />
+                                Besichtigung erforderlich
                               </button>
-                              <div className="absolute bottom-full right-0 mb-2 w-64 bg-[#0f172a] border border-[#ffbd59]/30 rounded-xl shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition p-3 z-20">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Eye size={14} className="text-[#ffbd59]" />
-                                  <span className="text-xs font-medium text-[#ffbd59]">Besichtigung erforderlich</span>
-                                </div>
-                                <p className="text-xs text-gray-300">
-                                  Vereinbaren Sie zuerst eine Besichtigung über den Button "Besichtigung vereinbaren" oben, bevor Sie das Angebot annehmen können.
-                                </p>
-                              </div>
                             </div>
                           ) : (
                             <button
@@ -4161,96 +4520,6 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               </div>
             )}
 
-            {/* Rechnungsstellung für Dienstleister - nach Abschluss des Gewerks */}
-            {!isBautraeger() && completionStatus === 'completed' && (
-              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-green-300 mb-3 flex items-center gap-2">
-                  <Receipt size={20} />
-                  Rechnungsstellung
-                </h3>
-                
-                {existingInvoice && ['sent', 'viewed', 'paid', 'overdue'].includes(existingInvoice.status) ? (
-                  // Bestehende Rechnung anzeigen
-                  <div className="space-y-3">
-                    <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-green-300 font-medium">Rechnung erstellt</h4>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          existingInvoice.status === 'paid' 
-                            ? 'bg-green-500/20 text-green-300'
-                            : existingInvoice.status === 'sent'
-                            ? 'bg-blue-500/20 text-blue-300'
-                            : 'bg-yellow-500/20 text-yellow-300'
-                        }`}>
-                          {existingInvoice.status === 'paid' ? 'Bezahlt' : 
-                           existingInvoice.status === 'sent' ? 'Versendet' : 'Entwurf'}
-                        </span>
-                      </div>
-                      <div className="text-sm text-gray-300 space-y-1">
-                        <div className="flex justify-between">
-                          <span>Rechnungsnummer:</span>
-                          <span className="text-white font-medium">{existingInvoice.invoice_number}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Betrag:</span>
-                          <span className="text-white font-medium">
-                            {new Intl.NumberFormat('de-DE', {
-                              style: 'currency',
-                              currency: existingInvoice.currency || 'EUR'
-                            }).format(existingInvoice.total_amount || 0)}
-                          </span>
-                        </div>
-                        {existingInvoice.created_at && (
-                          <div className="flex justify-between">
-                            <span>Erstellt:</span>
-                            <span className="text-white font-medium">
-                              {new Date(existingInvoice.created_at).toLocaleDateString('de-DE')}
-                            </span>
-                          </div>
-                        )}
-                        {existingInvoice.status === 'paid' && existingInvoice.paid_at && (
-                          <div className="flex justify-between">
-                            <span>Bezahlt am:</span>
-                            <span className="text-green-300 font-medium">
-                              {new Date(existingInvoice.paid_at).toLocaleDateString('de-DE')}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  // Rechnung erstellen oder Status anzeigen
-                  <div className="space-y-3">
-                    {existingInvoice && !['sent', 'viewed', 'paid', 'overdue'].includes(existingInvoice.status) ? (
-                      <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg p-3">
-                        <h4 className="text-orange-300 font-medium mb-2">Rechnung in Bearbeitung</h4>
-                        <p className="text-gray-300 text-sm">
-                          Ihre Rechnung wird noch bearbeitet und ist noch nicht versendet.
-                        </p>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
-                          <h4 className="text-green-300 font-medium mb-2">Ausschreibung erfolgreich abgenommen</h4>
-                          <p className="text-gray-300 text-sm">
-                            Die Ausschreibung wurde vollständig abgenommen. Sie können jetzt Ihre Rechnung erstellen.
-                          </p>
-                        </div>
-                        
-                        <button
-                          onClick={() => setShowInvoiceModal(true)}
-                          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
-                        >
-                          <FileText size={16} />
-                          Rechnung stellen
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -4276,10 +4545,16 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           milestoneId={trade.id}
           milestoneTitle={trade.title}
           contractValue={(acceptedQuote?.total_price || userQuote?.total_amount || 0)}
+          projectId={trade?.project_id || project?.id}
+          serviceProviderId={acceptedQuote?.service_provider_id || userQuote?.service_provider_id || user?.id}
           onInvoiceSubmitted={() => {
             setShowInvoiceModal(false);
             // Lade die Rechnung neu
             loadExistingInvoice();
+            // Trigger eine Aktualisierung des Trades
+            if (onTradeUpdate) {
+              onTradeUpdate({ ...trade, has_invoice: true });
+            }
           }}
         />
       )}
@@ -4433,6 +4708,69 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         </div>
       )}
 
+      </div>
+      
+      {/* Löschbestätigungs-Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-2xl shadow-2xl w-full max-w-md border border-red-500/30">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Ausschreibung löschen</h3>
+                  <p className="text-sm text-gray-400">Diese Aktion kann nicht rückgängig gemacht werden</p>
+                </div>
+              </div>
+              
+              <div className="mb-6">
+                <p className="text-gray-300 mb-3">
+                  Möchten Sie die Ausschreibung <strong className="text-white">"{trade?.title}"</strong> wirklich löschen?
+                </p>
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-red-300">
+                      <p className="font-medium mb-1">Wichtiger Hinweis:</p>
+                      <p>Diese Ausschreibung kann nur gelöscht werden, wenn noch keine Angebote von Dienstleistern vorliegen.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+                  disabled={isDeletingTrade}
+                >
+                  Abbrechen
+                </button>
+                <button
+                  onClick={handleDeleteTrade}
+                  disabled={isDeletingTrade}
+                  className="px-6 py-2 bg-red-500 hover:bg-red-600 disabled:bg-red-500/50 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+                >
+                  {isDeletingTrade ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Löschen...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={16} />
+                      Endgültig löschen
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* FinalAcceptanceModal für finale Abnahme */}
       {showFinalAcceptanceModal && (
         <FinalAcceptanceModal
@@ -4454,6 +4792,6 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           }}
         />
       )}
-    </div>
+    </>
   );
 }

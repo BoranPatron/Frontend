@@ -448,10 +448,21 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
     }
   };
 
+  // Prüft ob es nicht gespeicherte Mangel-Daten gibt
+  const hasUnsavedDefectData = () => {
+    return currentDefect.title.trim() !== '' || 
+           currentDefect.description.trim() !== '' || 
+           currentDefect.room.trim() !== '' || 
+           currentDefect.location.trim() !== '' ||
+           currentDefect.photos.length > 0;
+  };
+
   const canProceedFromStep = (currentStep: number) => {
     switch (currentStep) {
       case 1: return true; // Checkliste kann immer übersprungen werden
-      case 2: return true; // Mängel & Fotos sind optional
+      case 2: 
+        // Schritt 2: Warnen wenn nicht gespeicherte Mangel-Daten vorhanden sind
+        return !hasUnsavedDefectData();
       case 3: 
         if (hasIssues) {
           // Bei Abnahme unter Vorbehalt: Wiedervorlage-Datum erforderlich
@@ -569,6 +580,24 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                 <p className="text-orange-200 text-sm mb-4">
                   Dokumentieren Sie alle festgestellten Mängel detailliert. Jeder Mangel sollte präzise beschrieben werden.
                 </p>
+                
+                {/* Wichtiger Hinweis */}
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Plus size={14} className="text-white" />
+                    </div>
+                    <div>
+                      <p className="text-blue-300 font-medium text-sm mb-1">
+                        Wichtig: Mangel speichern nicht vergessen!
+                      </p>
+                      <p className="text-blue-200 text-xs">
+                        Klicken Sie nach dem Ausfüllen der Felder unbedingt auf <span className="font-semibold text-blue-300">"+ Mangel hinzufügen"</span>, 
+                        damit der Mangel gespeichert wird. Andernfalls gehen Ihre Eingaben beim Weiterklicken verloren.
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Neuen Mangel hinzufügen */}
                 <div className="bg-white/5 rounded-lg p-4 mb-4">
@@ -696,10 +725,19 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                   <button
                     onClick={addDefect}
                     disabled={!currentDefect.title.trim() || !currentDefect.description.trim()}
-                    className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                      hasUnsavedDefectData() && currentDefect.title.trim() && currentDefect.description.trim()
+                        ? 'bg-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-500/30 animate-pulse'
+                        : 'bg-orange-500 text-white hover:bg-orange-600'
+                    }`}
                   >
                     <Plus size={16} />
                     Mangel hinzufügen
+                    {hasUnsavedDefectData() && currentDefect.title.trim() && currentDefect.description.trim() && (
+                      <span className="ml-1 text-xs bg-white/20 px-2 py-0.5 rounded-full">
+                        Jetzt speichern!
+                      </span>
+                    )}
                   </button>
                 </div>
 
@@ -1129,13 +1167,25 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                 </button>
               </div>
             ) : step < (hasIssues ? 3 : 4) ? (
-              <button
-                onClick={() => setStep(step + 1)}
-                disabled={!canProceedFromStep(step)}
-                className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Weiter
-              </button>
+              <div className="flex flex-col items-end gap-2">
+                <button
+                  onClick={() => setStep(step + 1)}
+                  disabled={!canProceedFromStep(step)}
+                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Weiter
+                </button>
+                
+                {/* Warnung bei nicht gespeicherten Mangel-Daten */}
+                {step === 2 && hasUnsavedDefectData() && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg">
+                    <AlertTriangle size={14} className="text-red-400 flex-shrink-0" />
+                    <p className="text-red-300 text-xs">
+                      Sie haben nicht gespeicherte Mangel-Daten. Klicken Sie auf <span className="font-semibold">"+ Mangel hinzufügen"</span> um fortzufahren.
+                    </p>
+                  </div>
+                )}
+              </div>
             ) : (
               <button
                 onClick={handleComplete}

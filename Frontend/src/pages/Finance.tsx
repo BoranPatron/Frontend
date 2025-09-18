@@ -231,11 +231,12 @@ export default function Finance() {
         }
         
         const costPositionsData = await costPositionService.getCostPositions(parseInt(selectedProject));
-        if (costPositionsData.length === 0) {
-          }
+        console.log(`✅ Kostenpositionen geladen: ${costPositionsData.length} Einträge`);
         
         setCostPositions(costPositionsData);
-        setSuccess(`Finanzdaten erfolgreich geladen (${costPositionsData.length} Kostenpositionen)`);
+        if (costPositionsData.length > 0) {
+          setSuccess(`Finanzdaten erfolgreich geladen (${costPositionsData.length} Kostenpositionen)`);
+        }
         
       } catch (error: any) {
         console.error('❌ Fehler beim Laden der Kostenpositionen:', error);

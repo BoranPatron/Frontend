@@ -218,6 +218,12 @@ export const appointmentService = {
     await api.post(`/appointments/${appointmentId}/follow-up-sent`);
   },
 
+  // Besichtigung als abgeschlossen markieren
+  async markInspectionCompleted(appointmentId: number): Promise<{ message: string; appointment_id: number }> {
+    const response = await api.post(`/appointments/${appointmentId}/mark-completed`);
+    return response.data;
+  },
+
   // Separaten Termin für einzelnen Dienstleister erstellen
   async createSeparateAppointment(data: {
     project_id: number;

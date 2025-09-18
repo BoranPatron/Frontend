@@ -116,6 +116,7 @@ export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
       // Lade Kostenpositionen
       try {
         const costPositionsData = await costPositionService.getCostPositions(projectId);
+        console.log(`✅ FinanceWidget: ${costPositionsData.length} Kostenpositionen geladen`);
         setCostPositions(costPositionsData);
       } catch (error: any) {
         console.error('❌ Fehler beim Laden der Kostenpositionen:', error);

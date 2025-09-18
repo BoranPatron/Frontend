@@ -1803,7 +1803,7 @@ export default function Dashboard() {
                   </div>
                   
                   {/* Hover-Tooltip mit vollständiger Adresse */}
-                  <div className="absolute bottom-full left-0 right-0 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 pointer-events-none z-10">
+                  <div className="absolute bottom-full left-0 right-0 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 pointer-events-none z-[100]">
                     <div className="bg-gray-800/95 backdrop-blur-md border border-gray-600/50 rounded-lg p-3 shadow-xl">
                       <div className="flex items-start gap-2">
                         <div className="flex-shrink-0 w-5 h-5 bg-[#ffbd59] rounded-full flex items-center justify-center mt-0.5">
@@ -2173,12 +2173,14 @@ export default function Dashboard() {
               </div>
             </div>
             
-            {/* Kanban Board Container */}
-            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+            {/* Kanban Board Container - Kompakte horizontale Darstellung analog Dienstleister */}
+            <div className="bg-white/5 rounded-xl p-4 border border-white/10 mobile-container">
               <KanbanBoard 
                 showOnlyAssignedToMe={false}
                 showArchived={false}
                 projectId={selectedProject.id}
+                className="compact mobile-scroll"
+                mobileViewMode="auto"
               />
             </div>
           </div>

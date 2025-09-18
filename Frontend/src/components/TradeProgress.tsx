@@ -518,7 +518,7 @@ export default function TradeProgress({
                   
                   {/* Tooltip für ausgegrauten Button */}
                   {(progress !== 100 || completionStatus !== 'in_progress') && (
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 bg-[#0f172a] border border-gray-500/30 rounded-xl shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition p-3 z-20">
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 bg-[#0f172a] border border-gray-500/30 rounded-xl shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition p-3 z-[100]">
                       <div className="flex items-center gap-2 mb-2">
                         <AlertTriangle size={14} className="text-yellow-400" />
                         <span className="text-xs font-medium text-yellow-400">Voraussetzungen nicht erfüllt</span>

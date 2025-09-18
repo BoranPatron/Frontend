@@ -52,6 +52,7 @@ interface KanbanBoardProps {
   showOnlyAssignedToMe?: boolean;
   className?: string;
   showArchived?: boolean;
+  mobileViewMode?: 'vertical' | 'horizontal' | 'auto';
 }
 
 interface Milestone {
@@ -73,7 +74,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   projectId, 
   showOnlyAssignedToMe = false,
   className = "",
-  showArchived = false
+  showArchived = false,
+  mobileViewMode = 'auto'
 }) => {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -85,6 +87,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showTaskDetailModal, setShowTaskDetailModal] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [currentMobileView, setCurrentMobileView] = useState<'vertical' | 'horizontal'>('vertical');
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -163,6 +167,27 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     loadTasks();
     loadMilestones();
   }, [projectId, showOnlyAssignedToMe, showArchived]);
+
+  // Mobile Detection und View Mode Management
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      
+      if (mobileViewMode === 'auto') {
+        if (mobile) {
+          // Für sehr kleine Bildschirme (< 480px) horizontal, sonst vertikal
+          setCurrentMobileView(window.innerWidth < 480 ? 'horizontal' : 'vertical');
+        }
+      } else if (mobile) {
+        setCurrentMobileView(mobileViewMode as 'vertical' | 'horizontal');
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [mobileViewMode]);
 
   const loadTasks = async () => {
     try {
@@ -412,17 +437,37 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
             </p>
           </div>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ff9500] text-white rounded-xl hover:from-[#ff9500] hover:to-[#ffbd59] transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 font-semibold"
-        >
-          <Plus size={20} />
-          Neue Aufgabe
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Mobile View Toggle */}
+          {isMobile && mobileViewMode === 'auto' && (
+            <button
+              onClick={() => setCurrentMobileView(currentMobileView === 'vertical' ? 'horizontal' : 'vertical')}
+              className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm"
+              title={`Zu ${currentMobileView === 'vertical' ? 'horizontaler' : 'vertikaler'} Ansicht wechseln`}
+            >
+              {currentMobileView === 'vertical' ? '↔️' : '↕️'}
+              <span className="hidden sm:inline">
+                {currentMobileView === 'vertical' ? 'Horizontal' : 'Vertikal'}
+              </span>
+            </button>
+          )}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ff9500] text-white rounded-xl hover:from-[#ff9500] hover:to-[#ffbd59] transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 font-semibold"
+          >
+            <Plus size={20} />
+            <span className="hidden sm:inline">Neue Aufgabe</span>
+            <span className="sm:hidden">Neu</span>
+          </button>
+        </div>
       </div>
 
       {/* Kanban Board */}
-      <div className="kanban-desktop-grid">
+      <div className={`${
+        isMobile && currentMobileView === 'horizontal' 
+          ? 'kanban-mobile-horizontal' 
+          : 'kanban-desktop-grid'
+      } ${className.includes('compact') ? 'kanban-compact-grid' : ''}`}>
         {columns.map(column => (
           <div key={column.id} className="kanban-column-desktop">
             {/* Column Header */}

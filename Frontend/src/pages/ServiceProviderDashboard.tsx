@@ -13,10 +13,8 @@ import {
   AlertTriangle,
   MapPin,
   Search,
-  List,
   Map,
   RefreshCw,
-  Eye,
   XCircle,
   Award,
   Gavel,
@@ -30,6 +28,7 @@ import {
 import CostEstimateForm from '../components/CostEstimateForm';
 import TradeMap from '../components/TradeMap';
 import TradeDetailsModal from '../components/TradeDetailsModal';
+import AddressAutocomplete from '../components/AddressAutocomplete';
 // import CostEstimateDetailsModal from '../components/CostEstimateDetailsModal';
 import ServiceProviderQuoteModal from '../components/ServiceProviderQuoteModal';
 import ArchivedTrades from '../components/ArchivedTrades';
@@ -39,6 +38,7 @@ import { RadialMenu } from '../components/RadialMenu';
 import KanbanBoard from '../components/KanbanBoard';
 import { 
   searchTradesInRadius, 
+  geocodeAddress,
   type TradeSearchRequest, 
   type TradeSearchResult
 } from '../api/geoService';
@@ -59,9 +59,34 @@ export default function ServiceProviderDashboard() {
   // Geo-Search State für Dienstleister
   const [showGeoSearch, setShowGeoSearch] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<'list' | 'map'>('map');
+  const [activeTab, setActiveTab] = useState<'rows' | 'cards' | 'map'>('cards');
   const [manualAddress, setManualAddress] = useState('');
   const [isGeocoding, setIsGeocoding] = useState(false);
+  
+  // Adressvorschlag State
+  const [selectedAddress, setSelectedAddress] = useState({
+    address_street: '',
+    address_zip: '',
+    address_city: '',
+    address_country: 'Deutschland'
+  });
+
+  // Mobile Optimierung: Wechsle zu Zeilen-Ansicht auf mobilen Geräten
+  useEffect(() => {
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 768; // md breakpoint
+      if (isMobile && activeTab === 'cards') {
+        setActiveTab('rows');
+      }
+    };
+
+    // Initial check
+    handleResize();
+
+    // Listen for resize events
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [activeTab]);
   const [showAcceptedTrades, setShowAcceptedTrades] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
   const [showInvoiceManagement, setShowInvoiceManagement] = useState(false);
@@ -103,7 +128,18 @@ export default function ServiceProviderDashboard() {
   const [detailTrade, setDetailTrade] = useState<TradeSearchResult | null>(null);
 
   // Neue Layout-State für moderne Umstrukturierung
-  const [activeLeftTab, setActiveLeftTab] = useState<'bidding' | 'awarded'>('bidding'); // 'bidding' = Angebotsverfahren, 'awarded' = Gewonnene Ausschreibungen
+  const [activeLeftTab, setActiveLeftTab] = useState<'bidding' | 'awarded' | 'completed'>('bidding'); // 'bidding' = Angebotsverfahren, 'awarded' = Gewonnene Ausschreibungen, 'completed' = Abgeschlossene Projekte
+  
+  // Funktion zum Wechseln der Tabs mit Datenaktualisierung
+  const handleTabChange = (tab: 'bidding' | 'awarded' | 'completed') => {
+    console.log(`🔄 Tab-Wechsel zu: ${tab}, aktualisiere Daten...`);
+    setActiveLeftTab(tab);
+    
+    // Aktualisiere Daten beim Tab-Wechsel
+    loadServiceProviderQuotes().catch(error => {
+      console.error('❌ Fehler beim Aktualisieren der Daten nach Tab-Wechsel:', error);
+    });
+  };
   const [geoSearchExpanded, setGeoSearchExpanded] = useState(false); // State für erweiterte Geo-Search
 
   // Quotes-Integration State
@@ -117,6 +153,9 @@ export default function ServiceProviderDashboard() {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [tradesError, setTradesError] = useState('');
+  
+  // Rechnungs-State für abgeschlossene Projekte
+  const [tradeInvoices, setTradeInvoices] = useState<{ [tradeId: number]: any }>({});
   // Gewerk-Erstellung
   const [showTradeCreationForm, setShowTradeCreationForm] = useState(false);
   const [selectedProjectIdForCreation, setSelectedProjectIdForCreation] = useState<number | null>(null);
@@ -270,6 +309,46 @@ export default function ServiceProviderDashboard() {
     }
   };
 
+  const handleSelectedAddressGeocode = async () => {
+    if (!selectedAddress.address_street.trim()) return;
+    
+    setIsGeocoding(true);
+    try {
+      // Echte Geocoding-Funktionalität für ausgewählte Adresse
+      const fullAddress = [
+        selectedAddress.address_street,
+        selectedAddress.address_zip,
+        selectedAddress.address_city,
+        selectedAddress.address_country
+      ].filter(Boolean).join(', ');
+
+      const geocodingResult = await geocodeAddress({
+        street: selectedAddress.address_street,
+        zip_code: selectedAddress.address_zip,
+        city: selectedAddress.address_city,
+        country: selectedAddress.address_country || 'Deutschland'
+      });
+
+      if (geocodingResult.latitude && geocodingResult.longitude) {
+        const location = {
+          latitude: geocodingResult.latitude,
+          longitude: geocodingResult.longitude
+        };
+        setCurrentLocation(location);
+        localStorage.setItem('buildwise_geo_location', JSON.stringify(location));
+        setGeoError(null);
+        console.log('✅ Adresse erfolgreich geocodiert:', fullAddress);
+      } else {
+        throw new Error('Geocoding fehlgeschlagen - keine Koordinaten erhalten');
+      }
+    } catch (error) {
+      console.error('❌ Geocoding-Fehler:', error);
+      setGeoError('Adresse konnte nicht gefunden werden');
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
   const performGeoSearch = async () => {
     if (!currentLocation) {
       setGeoError('Bitte wählen Sie einen Standort aus');
@@ -308,6 +387,23 @@ export default function ServiceProviderDashboard() {
       performGeoSearch();
     }
   }, [currentLocation, radiusKm, geoTradeCategory, geoTradeStatus, geoTradePriority, geoMinBudget, geoMaxBudget]);
+
+  // Periodischer Refresh der Trade-Daten für aktuelle Projekte
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      const tradesWithQuotes = getAllTradesWithQuotes();
+      const activeTradeIds = tradesWithQuotes
+        .filter((trade: any) => getServiceProviderQuoteStatus(trade.id) === 'accepted')
+        .map((trade: any) => trade.id);
+      
+      if (activeTradeIds.length > 0) {
+        console.log('🔄 Periodischer Refresh für aktive Trades:', activeTradeIds);
+        activeTradeIds.forEach(tradeId => refreshTradeData(tradeId));
+      }
+    }, 60000); // Alle 60 Sekunden
+
+    return () => clearInterval(refreshInterval);
+  }, []);
 
   // Auto-Dismissal Logic: Clear errors wenn entsprechende API erfolgreich wird
   useEffect(() => {
@@ -399,6 +495,87 @@ export default function ServiceProviderDashboard() {
     }
   };
 
+  // Lade Rechnungen für abgeschlossene Projekte
+  const loadTradeInvoices = async () => {
+    if (!user) return;
+    
+    try {
+      const completedTrades = getAllTradesWithQuotes()
+        .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed');
+      
+      const invoicePromises = completedTrades.map(async (trade) => {
+        try {
+          const { api } = await import('../api/api');
+          const response = await api.get(`/invoices/milestone/${trade.id}`);
+          return { tradeId: trade.id, invoice: response.data };
+        } catch (error: any) {
+          if (error.response?.status === 404) {
+            // Keine Rechnung gefunden - das ist OK
+            return { tradeId: trade.id, invoice: null };
+          }
+          console.error(`Fehler beim Laden der Rechnung für Trade ${trade.id}:`, error);
+          return { tradeId: trade.id, invoice: null };
+        }
+      });
+      
+      const invoiceResults = await Promise.all(invoicePromises);
+      const invoicesMap: { [tradeId: number]: any } = {};
+      
+      invoiceResults.forEach(({ tradeId, invoice }) => {
+        invoicesMap[tradeId] = invoice;
+      });
+      
+      setTradeInvoices(invoicesMap);
+    } catch (error) {
+      console.error('Fehler beim Laden der Rechnungen:', error);
+    }
+  };
+
+  // Prüfe ob eine Rechnung für ein Trade existiert und versendet wurde
+  const hasValidInvoice = (tradeId: number): boolean => {
+    const invoice = tradeInvoices[tradeId];
+    return invoice && ['sent', 'viewed', 'paid', 'overdue'].includes(invoice.status);
+  };
+
+  // Erstelle Benachrichtigung für fehlende Rechnung
+  const createMissingInvoiceNotification = async (trade: any) => {
+    if (!user) return;
+    
+    try {
+      const { api } = await import('../api/api');
+      
+      const notificationData = {
+        recipient_id: user.id,
+        type: 'missing_invoice',
+        title: 'Rechnung ausstehend',
+        message: `Das Projekt "${trade.title}" ist abgeschlossen, aber Sie haben noch keine Rechnung gestellt.`,
+        description: `Projekt: ${trade.title} (ID: ${trade.project_id})\nAuftragswert: ${getServiceProviderQuote(trade.id)?.total_amount || 'N/A'} CHF\n\nErstellen Sie jetzt Ihre Rechnung, um die Bezahlung zu erhalten.`,
+        priority: 'high',
+        metadata: {
+          trade_id: trade.id,
+          project_id: trade.project_id,
+          completion_date: trade.created_at,
+          action_required: 'create_invoice'
+        }
+      };
+
+      await api.post('/notifications/', notificationData);
+      
+      console.log('📢 Benachrichtigung für fehlende Rechnung erstellt:', notificationData);
+      
+      // Event für NotificationTab auslösen
+      window.dispatchEvent(new CustomEvent('notificationCreated', { 
+        detail: { 
+          notification: notificationData,
+          tradeId: trade.id
+        } 
+      }));
+      
+    } catch (error) {
+      console.error('Fehler beim Erstellen der Benachrichtigung für fehlende Rechnung:', error);
+    }
+  };
+
   // Lade alle Angebote des Service Providers
   const loadServiceProviderQuotes = async () => {
     if (!user) return;
@@ -415,14 +592,36 @@ export default function ServiceProviderDashboard() {
       console.log('🔍 loadServiceProviderQuotes: Unique Trade IDs:', uniqueTradeIds);
       
       if (uniqueTradeIds.length > 0) {
-        // Hier müssten wir eigentlich die Trades über die Milestone IDs laden
-        // Für jetzt verwenden wir die bereits geladenen Trades
-        const relevantTrades = [...geoTrades, ...trades].filter(trade => 
+        // ROBUSTE LÖSUNG: Lade Trades direkt vom Backend für jede milestone_id
+        const tradePromises = uniqueTradeIds.map(async (tradeId) => {
+          try {
+            const { api } = await import('../api/api');
+            const response = await api.get(`/milestones/${tradeId}`);
+            console.log('🔍 Geladene Trade-Daten für ID', tradeId, ':', response.data);
+            return response.data;
+          } catch (error) {
+            console.error('❌ Fehler beim Laden von Trade', tradeId, ':', error);
+            return null;
+          }
+        });
+        
+        const loadedTrades = (await Promise.all(tradePromises)).filter(Boolean);
+        console.log('🔍 loadServiceProviderQuotes: Alle geladenen Trades:', loadedTrades);
+        setServiceProviderTrades(loadedTrades);
+        
+        // Zusätzlich: Kombiniere mit bereits vorhandenen Trades aus geoTrades
+        const existingTrades = [...geoTrades, ...trades].filter(trade => 
           uniqueTradeIds.includes(trade.id)
         );
         
-        console.log('🔍 loadServiceProviderQuotes: Relevante Trades:', relevantTrades);
-        setServiceProviderTrades(relevantTrades);
+        // Merge beide Listen und dedupliziere
+        const allRelevantTrades = [...loadedTrades, ...existingTrades];
+        const deduplicatedTrades = allRelevantTrades.filter((trade, index, self) => 
+          index === self.findIndex(t => t.id === trade.id)
+        );
+        
+        console.log('🔍 loadServiceProviderQuotes: Finale deduplizierte Trades:', deduplicatedTrades);
+        setServiceProviderTrades(deduplicatedTrades);
       }
       
     } catch (error) {
@@ -471,57 +670,327 @@ export default function ServiceProviderDashboard() {
     });
   }, []);
 
+  // Zusätzlicher useEffect für regelmäßige Aktualisierung der Service Provider Quotes
+  useEffect(() => {
+    if (!user) return;
+    
+    const refreshServiceProviderData = () => {
+      console.log('🔄 Regelmäßige Aktualisierung der Service Provider Daten...');
+      loadServiceProviderQuotes().catch(error => {
+        console.error('❌ Fehler bei regelmäßiger Aktualisierung:', error);
+      });
+    };
+    
+    // Sofortige Aktualisierung
+    refreshServiceProviderData();
+    
+    // Dann alle 30 Sekunden
+    const interval = setInterval(refreshServiceProviderData, 30000);
+    
+    return () => clearInterval(interval);
+  }, [user?.id]); // Abhängig von user.id, damit es bei User-Wechsel neu lädt
+
+  // Lade Rechnungen wenn Tab auf 'completed' gewechselt wird
+  useEffect(() => {
+    if (activeLeftTab === 'completed' && user) {
+      loadTradeInvoices();
+    }
+  }, [activeLeftTab, user]);
+
+  // Erstelle Benachrichtigungen für abgeschlossene Projekte ohne Rechnung
+  useEffect(() => {
+    if (activeLeftTab === 'completed' && Object.keys(tradeInvoices).length > 0) {
+      const completedTrades = getAllTradesWithQuotes()
+        .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed');
+      
+      completedTrades.forEach(trade => {
+        if (!hasValidInvoice(trade.id)) {
+          // Prüfe ob bereits eine Benachrichtigung für dieses Projekt existiert
+          const notificationKey = `missing_invoice_notification_${trade.id}`;
+          if (!localStorage.getItem(notificationKey)) {
+            createMissingInvoiceNotification(trade);
+            // Markiere als erstellt, um Duplikate zu vermeiden
+            localStorage.setItem(notificationKey, new Date().toISOString());
+          }
+        }
+      });
+    }
+  }, [activeLeftTab, tradeInvoices]);
+
   // Hilfsfunktion: Kombiniert alle Trades für die der Service Provider Angebote hat
   const getAllTradesWithQuotes = () => {
     try {
-      // Temporäre Vereinfachung: Verwende nur geoTrades
-      return geoTrades.filter(trade => {
+      console.log('🔍 getAllTradesWithQuotes START');
+      
+      // SOFORT-FIX: Wenn serviceProviderQuotes vorhanden sind, erstelle Trades direkt daraus
+      if (serviceProviderQuotes.length > 0) {
+        console.log('🔍 SOFORT-FIX: Erstelle Trades aus serviceProviderQuotes');
+        
+        const tradesFromQuotes = serviceProviderQuotes.map(quote => {
+          // Suche nach existierendem Trade
+          let existingTrade = [...geoTrades, ...serviceProviderTrades].find(t => t.id === quote.milestone_id);
+          
+          if (!existingTrade) {
+            // Erstelle minimalen Trade aus Quote-Daten
+            existingTrade = {
+              id: quote.milestone_id,
+              title: quote.title || `Gewerk ${quote.milestone_id}`,
+              project_id: quote.project_id,
+              completion_status: 'in_progress',
+              category: 'unknown',
+              description: quote.description || '',
+              project_name: `Projekt ${quote.project_id}`,
+              project_status: 'active'
+            };
+          }
+          
+          return existingTrade;
+        });
+        
+        console.log('🔍 SOFORT-FIX: Trades aus Quotes erstellt:', tradesFromQuotes.length);
+        return tradesFromQuotes;
+      }
+      
+      // ORIGINAL LOGIK (falls keine serviceProviderQuotes)
+      const allTrades = [...geoTrades, ...serviceProviderTrades];
+      
+      // ZUSÄTZLICH: Lade auch Trades aus serviceProviderQuotes, falls sie nicht in den anderen Listen sind
+      const quotesTradeIds = serviceProviderQuotes.map(q => q.milestone_id).filter(Boolean);
+      const missingTrades: any[] = [];
+      
+      for (const tradeId of quotesTradeIds) {
+        const existsInTrades = allTrades.some(t => t.id === tradeId);
+        if (!existsInTrades) {
+          // Erstelle einen minimalen Trade-Eintrag aus den Quote-Daten
+          const quote = serviceProviderQuotes.find(q => q.milestone_id === tradeId);
+          if (quote) {
+            missingTrades.push({
+              id: tradeId,
+              title: quote.title || `Gewerk ${tradeId}`,
+              project_id: quote.project_id,
+              completion_status: 'in_progress', // Default-Status
+              category: 'unknown',
+              description: quote.description || '',
+              project_name: `Projekt ${quote.project_id}`,
+              project_status: 'active'
+            });
+          }
+        }
+      }
+      
+      const combinedTrades = [...allTrades, ...missingTrades];
+      
+      console.log('🔍 getAllTradesWithQuotes DEBUG:', {
+        geoTradesCount: geoTrades.length,
+        serviceProviderTradesCount: serviceProviderTrades.length,
+        allTradesCount: allTrades.length,
+        missingTradesCount: missingTrades.length,
+        combinedTradesCount: combinedTrades.length,
+        allTradeQuotesKeys: Object.keys(allTradeQuotes),
+        serviceProviderQuotesCount: serviceProviderQuotes.length,
+        quotesTradeIds: quotesTradeIds,
+        userId: user?.id
+      });
+      
+      // Dedupliziere basierend auf ID und verwende die neueste Version
+      const tradeMap = new Map<number, any>();
+      combinedTrades.forEach((trade: any) => {
+        const existingTrade = tradeMap.get(trade.id);
+        if (!existingTrade || (trade.updated_at && existingTrade.updated_at && new Date(trade.updated_at) > new Date(existingTrade.updated_at))) {
+          tradeMap.set(trade.id, trade);
+        }
+      });
+      
+      // Filtere nur Trades mit Service Provider Angeboten
+      const tradesWithQuotes = Array.from(tradeMap.values()).filter(trade => {
         try {
-          return hasServiceProviderQuote(trade.id);
+          const hasQuote = hasServiceProviderQuote(trade.id);
+          console.log('🔍 Trade', trade.id, 'hasQuote:', hasQuote, 'completion_status:', trade.completion_status);
+          return hasQuote;
         } catch (error) {
           console.error('❌ Fehler in hasServiceProviderQuote für Trade:', trade.id, error);
+          console.error('❌ Error Stack:', error.stack);
           return false;
         }
       });
+      
+      console.log('🔍 getAllTradesWithQuotes RESULT:', {
+        totalTradesWithQuotes: tradesWithQuotes.length,
+        trades: tradesWithQuotes.map(t => ({ id: t.id, title: t.title, completion_status: t.completion_status }))
+      });
+      
+      return tradesWithQuotes;
     } catch (error) {
       console.error('❌ Fehler in getAllTradesWithQuotes:', error);
-      // Fallback: Leere Liste
+      console.error('❌ Error Stack:', error.stack);
+      
+      // NOTFALL-FALLBACK: Erstelle Trades direkt aus serviceProviderQuotes
+      if (serviceProviderQuotes.length > 0) {
+        console.log('🚨 NOTFALL-FALLBACK: Erstelle Trades aus serviceProviderQuotes');
+        return serviceProviderQuotes.map(quote => ({
+          id: quote.milestone_id,
+          title: quote.title || `Gewerk ${quote.milestone_id}`,
+          project_id: quote.project_id,
+          completion_status: 'in_progress',
+          category: 'unknown',
+          description: quote.description || '',
+          project_name: `Projekt ${quote.project_id}`,
+          project_status: 'active'
+        }));
+      }
+      
       return [];
+    }
+  };
+
+  // Funktion zum Aktualisieren eines einzelnen Trades (z.B. nach Statusänderung)
+  const refreshTradeData = async (tradeId: number) => {
+    try {
+      console.log('🔄 Aktualisiere Trade-Daten für ID:', tradeId);
+      
+      // Lade aktuelle Trade-Daten vom Backend
+      const { api } = await import('../api/api');
+      const response = await api.get(`/milestones/${tradeId}`);
+      const updatedTrade = response.data;
+      
+      console.log('✅ Aktualisierte Trade-Daten erhalten:', updatedTrade);
+      
+      // Aktualisiere geoTrades
+      setGeoTrades(prevGeoTrades => {
+        const updated = prevGeoTrades.map(trade => 
+          trade.id === tradeId ? { ...trade, ...updatedTrade } : trade
+        );
+        console.log('🔄 geoTrades aktualisiert für Trade', tradeId);
+        return updated;
+      });
+      
+      // Aktualisiere serviceProviderTrades
+      setServiceProviderTrades(prevTrades => {
+        const updated = prevTrades.map(trade => 
+          trade.id === tradeId ? { ...trade, ...updatedTrade } : trade
+        );
+        
+        // Falls Trade nicht in serviceProviderTrades ist, aber ein Quote existiert, füge es hinzu
+        const tradeExists = prevTrades.some(trade => trade.id === tradeId);
+        if (!tradeExists && hasServiceProviderQuote(tradeId)) {
+          console.log('🔄 Füge Trade', tradeId, 'zu serviceProviderTrades hinzu');
+          updated.push(updatedTrade);
+        }
+        
+        console.log('🔄 serviceProviderTrades aktualisiert für Trade', tradeId);
+        return updated;
+      });
+      
+      // Zusätzlich: Aktualisiere auch die allTradeQuotes falls nötig
+      try {
+        const quotes = await getQuotesForMilestone(tradeId);
+        setAllTradeQuotes(prev => ({
+          ...prev,
+          [tradeId]: quotes
+        }));
+        console.log('🔄 allTradeQuotes aktualisiert für Trade', tradeId, ':', quotes.length, 'Quotes');
+      } catch (quotesError) {
+        console.warn('⚠️ Fehler beim Aktualisieren der Quotes für Trade', tradeId, ':', quotesError);
+      }
+      
+      console.log('✅ Trade-Daten erfolgreich aktualisiert für ID:', tradeId);
+      
+    } catch (error) {
+      console.error('❌ Fehler beim Aktualisieren der Trade-Daten:', error);
+    }
+  };
+
+  // Funktion zum kompletten Neuladen aller Daten (Fallback bei Problemen)
+  const reloadAllData = async () => {
+    try {
+      console.log('🔄 Starte komplettes Neuladen aller Daten...');
+      
+      // Parallel alle Datenquellen neu laden
+      const promises = [
+        loadServiceProviderQuotes(),
+        performGeoSearch(),
+        loadTrades()
+      ];
+      
+      await Promise.all(promises);
+      console.log('✅ Komplettes Neuladen aller Daten abgeschlossen');
+      
+    } catch (error) {
+      console.error('❌ Fehler beim kompletten Neuladen der Daten:', error);
     }
   };
 
   // Hilfsfunktion: Prüft ob ein Quote dem aktuellen User gehört
   const isUserQuote = (quote: any, user: any): boolean => {
-    if (!quote || !user) return false;
+    if (!quote || !user) {
+      console.log('🔍 isUserQuote: quote oder user ist null/undefined', { quote: !!quote, user: !!user });
+      return false;
+    }
+    
+    const directMatch = quote.service_provider_id === user.id;
+    const looseMatch = quote.service_provider_id == user.id;
+    const stringMatch = String(quote.service_provider_id) === String(user.id);
+    const numberMatch = Number(quote.service_provider_id) === Number(user.id);
+    
+    // ZUSÄTZLICHE CHECKS: Manchmal ist service_provider_id null/undefined
+    const hasServiceProviderId = quote.service_provider_id !== null && quote.service_provider_id !== undefined;
+    const hasUserId = user.id !== null && user.id !== undefined;
     
     console.log('🔍 ServiceProvider isUserQuote Vergleich:', {
+      quoteId: quote.id,
       quoteServiceProviderId: quote.service_provider_id,
       quoteServiceProviderIdType: typeof quote.service_provider_id,
       userId: user.id,
       userIdType: typeof user.id,
-      directMatch: quote.service_provider_id === user.id,
-      looseMatch: quote.service_provider_id == user.id,
-      stringMatch: String(quote.service_provider_id) === String(user.id)
+      hasServiceProviderId,
+      hasUserId,
+      directMatch,
+      looseMatch,
+      stringMatch,
+      numberMatch,
+      // ZUSÄTZLICHE DEBUG-INFO
+      quoteTitle: quote.title,
+      quoteEmail: quote.email,
+      userEmail: user.email,
+      emailMatch: quote.email === user.email
     });
     
     // Robuste ID-Vergleiche (number vs string handling)
-    const isMatch = quote.service_provider_id === user.id || 
-                   quote.service_provider_id == user.id ||
-                   String(quote.service_provider_id) === String(user.id) ||
-                   Number(quote.service_provider_id) === Number(user.id);
+    let isMatch = directMatch || looseMatch || stringMatch || numberMatch;
     
-    if (isMatch) {
-      console.log('✅ ServiceProvider Quote-User-Match gefunden über ID-Vergleich!');
-    } else {
-      console.log('❌ ServiceProvider Kein Quote-User-Match über ID-Vergleich');
+    // FALLBACK: Wenn service_provider_id fehlt, vergleiche über Email
+    if (!isMatch && !hasServiceProviderId && quote.email && user.email) {
+      isMatch = quote.email === user.email;
+      console.log('🔍 isUserQuote: Fallback Email-Vergleich:', { 
+        quoteEmail: quote.email, 
+        userEmail: user.email, 
+        emailMatch: isMatch 
+      });
     }
+    
+    console.log('🔍 isUserQuote RESULT:', { 
+      quoteId: quote.id, 
+      isMatch, 
+      matchReason: directMatch ? 'directId' : looseMatch ? 'looseId' : stringMatch ? 'stringId' : numberMatch ? 'numberId' : isMatch ? 'email' : 'none'
+    });
     
     return isMatch;
   };
 
   // Prüfe ob der aktuelle Dienstleister bereits ein Angebot für ein Gewerk abgegeben hat
   const hasServiceProviderQuote = (tradeId: number): boolean => {
-    if (!user || (user.user_type !== 'service_provider' && user.user_role !== 'DIENSTLEISTER')) {
+    console.log('🔍 hasServiceProviderQuote START für Trade:', tradeId);
+    
+    if (!user) {
+      console.log('🔍 hasServiceProviderQuote: Kein User vorhanden');
+      return false;
+    }
+    
+    if (user.user_type !== 'service_provider' && user.user_role !== 'DIENSTLEISTER') {
+      console.log('🔍 hasServiceProviderQuote: User ist kein Service Provider', { 
+        user_type: user.user_type, 
+        user_role: user.user_role 
+      });
       return false;
     }
     
@@ -530,22 +999,27 @@ export default function ServiceProviderDashboard() {
     const serviceQuotes = serviceProviderQuotes.filter(q => q.milestone_id === tradeId);
     const allQuotes = [...quotes, ...serviceQuotes];
     
-    // DEBUG: Ausgabe für Analyse
+    // DEBUG: Erweiterte Ausgabe für Analyse
     console.log('🔍 hasServiceProviderQuote DEBUG:', {
       tradeId,
       userId: user.id,
       userIdType: typeof user.id,
+      userEmail: user.email,
       quotesCount: quotes.length,
       serviceQuotesCount: serviceQuotes.length,
       totalQuotesCount: allQuotes.length,
+      allTradeQuotesKeys: Object.keys(allTradeQuotes),
+      serviceProviderQuotesTotal: serviceProviderQuotes.length,
       quotes: allQuotes.map(q => ({
         id: q.id,
+        milestone_id: q.milestone_id,
         service_provider_id: q.service_provider_id,
         service_provider_id_type: typeof q.service_provider_id,
         status: q.status,
         email: q.email,
         company_name: q.company_name,
-        contact_person: q.contact_person
+        contact_person: q.contact_person,
+        title: q.title
       })),
       userObject: {
         id: user.id,
@@ -553,15 +1027,40 @@ export default function ServiceProviderDashboard() {
         first_name: user.first_name,
         last_name: user.last_name,
         user_role: user.user_role,
+        user_type: user.user_type,
         company_name: user.company_name
-      },
-      userObjectFull: user
+      }
     });
     
-    // Verwende die erweiterte isUserQuote Funktion für robuste Erkennung
-    const hasQuote = allQuotes.some(quote => isUserQuote(quote, user));
+    // Prüfe jedes Quote einzeln mit detailliertem Logging
+    console.log('🔍 hasServiceProviderQuote: Prüfe jedes Quote einzeln...');
+    const matchingQuotes: any[] = [];
     
-    console.log('🔍 hasServiceProviderQuote RESULT:', { tradeId, hasQuote });
+    allQuotes.forEach((quote, index) => {
+      console.log(`🔍 Prüfe Quote ${index + 1}/${allQuotes.length}:`, {
+        quoteId: quote.id,
+        milestone_id: quote.milestone_id,
+        service_provider_id: quote.service_provider_id,
+        email: quote.email
+      });
+      
+      const isMatch = isUserQuote(quote, user);
+      if (isMatch) {
+        matchingQuotes.push(quote);
+        console.log(`✅ Quote ${quote.id} gehört zum User!`);
+      } else {
+        console.log(`❌ Quote ${quote.id} gehört NICHT zum User`);
+      }
+    });
+    
+    const hasQuote = matchingQuotes.length > 0;
+    
+    console.log('🔍 hasServiceProviderQuote FINAL RESULT:', { 
+      tradeId, 
+      hasQuote,
+      matchingQuotesCount: matchingQuotes.length,
+      matchingQuotes: matchingQuotes.map(q => ({ id: q.id, status: q.status, email: q.email }))
+    });
     
     return hasQuote;
   };
@@ -669,6 +1168,33 @@ export default function ServiceProviderDashboard() {
     }
   };
 
+  // Neue Funktionen für completion_status anstelle von status
+  const getCompletionStatusLabel = (completionStatus: string) => {
+    switch (completionStatus) {
+      case 'in_progress': return '🔧 In Bearbeitung';
+      case 'completion_requested': return '📋 Fertigstellung gemeldet';
+      case 'under_review': return '🔍 In Prüfung';
+      case 'completed': return '✅ Abgeschlossen';
+      case 'completed_with_defects': return '⚠️ Abgeschlossen mit Mängeln';
+      case 'defects_resolved': return '🔧 Mängel behoben';
+      case 'archived': return '📦 Archiviert';
+      default: return '🔧 In Bearbeitung';
+    }
+  };
+
+  const getCompletionStatusColor = (completionStatus: string) => {
+    switch (completionStatus) {
+      case 'in_progress': return 'bg-blue-500/20 text-blue-300 border border-blue-500/40';
+      case 'completion_requested': return 'bg-orange-500/20 text-orange-300 border border-orange-500/40';
+      case 'under_review': return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/40';
+      case 'completed': return 'bg-green-500/20 text-green-300 border border-green-500/40';
+      case 'completed_with_defects': return 'bg-amber-500/20 text-amber-300 border border-amber-500/40';
+      case 'defects_resolved': return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+      case 'archived': return 'bg-gray-500/20 text-gray-300 border border-gray-500/40';
+      default: return 'bg-blue-500/20 text-blue-300 border border-blue-500/40';
+    }
+  };
+
   const getQuoteStatusColor = (status: string) => {
     switch (status) {
       case 'draft': return 'text-gray-400';
@@ -695,18 +1221,23 @@ export default function ServiceProviderDashboard() {
 
   const getCategoryIcon = (category: string | undefined | null) => {
     const cat = category?.toLowerCase() || '';
-    switch (cat) {
-      case 'electrical':
-      case 'elektro':
-        return React.createElement(Wrench, { size: 20, className: "text-white" });
-      case 'plumbing':
-      case 'sanitaer':
-        return React.createElement(Wrench, { size: 20, className: "text-white" });
-      case 'heating':
-      case 'heizung':
-        return React.createElement(Wrench, { size: 20, className: "text-white" });
-      default:
-        return React.createElement(Building, { size: 20, className: "text-white" });
+    try {
+      switch (cat) {
+        case 'electrical':
+        case 'elektro':
+          return <Wrench size={20} className="text-white" />;
+        case 'plumbing':
+        case 'sanitaer':
+          return <Wrench size={20} className="text-white" />;
+        case 'heating':
+        case 'heizung':
+          return <Wrench size={20} className="text-white" />;
+        default:
+          return <Building size={20} className="text-white" />;
+      }
+    } catch (error) {
+      console.error('❌ Fehler in getCategoryIcon:', error);
+      return <Building size={20} className="text-white" />;
     }
   };
 
@@ -1088,7 +1619,7 @@ export default function ServiceProviderDashboard() {
               {/* Moderner Tab-Toggle - Mobile-optimiert */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center p-1 bg-white/10 rounded-xl backdrop-blur-sm mb-6 gap-1 sm:gap-0">
                 <button
-                  onClick={() => setActiveLeftTab('bidding')}
+                  onClick={() => handleTabChange('bidding')}
                   className={`flex-1 px-4 sm:px-6 py-3 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
                     activeLeftTab === 'bidding'
                       ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg shadow-blue-500/30 transform scale-[1.02]'
@@ -1105,7 +1636,7 @@ export default function ServiceProviderDashboard() {
                   </div>
                 </button>
                 <button
-                  onClick={() => setActiveLeftTab('awarded')}
+                  onClick={() => handleTabChange('awarded')}
                   className={`flex-1 px-4 sm:px-6 py-3 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
                     activeLeftTab === 'awarded'
                       ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg shadow-green-500/30 transform scale-[1.02]'
@@ -1118,10 +1649,38 @@ export default function ServiceProviderDashboard() {
                   <div className={`ml-2 px-2 py-1 rounded-full text-xs ${
                     activeLeftTab === 'awarded' ? 'bg-white/20 text-white' : 'bg-green-500/20 text-green-400'
                   }`}>
-                    {getAllTradesWithQuotes().filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted').length}
+                    {getAllTradesWithQuotes().filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status !== 'completed').length}
                   </div>
                 </button>
+                <button
+                  onClick={() => handleTabChange('completed')}
+                  className={`flex-1 px-4 sm:px-6 py-3 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                    activeLeftTab === 'completed'
+                      ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/30 transform scale-[1.02]'
+                      : 'text-gray-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <CheckCircle size={16} />
+                  <span className="hidden sm:inline">Abgeschlossene Projekte</span>
+                  <span className="sm:hidden">Abgeschlossen</span>
+                  <div className={`ml-2 px-2 py-1 rounded-full text-xs ${
+                    activeLeftTab === 'completed' ? 'bg-white/20 text-white' : 'bg-purple-500/20 text-purple-400'
+                  }`}>
+                    {getAllTradesWithQuotes().filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed').length}
+                  </div>
+                  {/* Badge für Projekte ohne Rechnung */}
+                  {getAllTradesWithQuotes().filter(trade => 
+                    getServiceProviderQuoteStatus(trade.id) === 'accepted' && 
+                    trade.completion_status === 'completed' && 
+                    !hasValidInvoice(trade.id)
+                  ).length > 0 && (
+                    <div className="ml-1 px-1.5 py-0.5 bg-red-500 text-white rounded-full text-xs font-bold animate-pulse">
+                      !
+                    </div>
+                  )}
+                </button>
               </div>
+
 
               {/* Content-Bereich mit Smooth Transition */}
               <div className="min-h-[400px]">
@@ -1240,12 +1799,12 @@ export default function ServiceProviderDashboard() {
                 <div className="transition-all duration-500 opacity-100">
                   <div className="bidding-cards-container">
                     {getAllTradesWithQuotes()
-                      .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted')
+                      .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status !== 'completed')
                       .map((trade) => {
                         const quote = getServiceProviderQuote(trade.id);
                         
                         // Verwende nur den tatsächlichen completion_status aus den Daten
-                        const actualCompletionStatus = trade.completion_status;
+                        const actualCompletionStatus = trade.completion_status || 'in_progress';
                         
                         return (
                           <div key={trade.id} className="bidding-card bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl p-4 border border-green-500/20 hover:border-green-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
@@ -1321,7 +1880,7 @@ export default function ServiceProviderDashboard() {
                               <div className="flex justify-between">
                                 <span>Status:</span>
                                 <span className="text-green-400">
-                                  {getStatusLabel(trade.status)}
+                                  {getCompletionStatusLabel(trade.completion_status || 'in_progress')}
                                 </span>
                               </div>
                             </div>
@@ -1351,12 +1910,158 @@ export default function ServiceProviderDashboard() {
                       })}
                   </div>
                   
-                  {getAllTradesWithQuotes().filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted').length === 0 && (
+                  {getAllTradesWithQuotes().filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status !== 'completed').length === 0 && (
                     <div className="text-center py-12">
                       <Award size={48} className="mx-auto mb-4 text-gray-500" />
                       <h3 className="text-lg font-semibold text-gray-300 mb-2">Noch keine gewonnenen Ausschreibungen</h3>
                       <p className="text-gray-400 text-sm max-w-md mx-auto">
                         Sobald Ihre Angebote angenommen werden, erscheinen sie hier als aktive Projekte.
+                      </p>
+                    </div>
+                  )}
+                </div>
+                )}
+
+                {/* Abgeschlossene Projekte Content */}
+                {activeLeftTab === 'completed' && (
+                <div className="transition-all duration-500 opacity-100">
+                  <div className="bidding-cards-container">
+                    {getAllTradesWithQuotes()
+                      .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed')
+                      .map((trade) => {
+                        const quote = getServiceProviderQuote(trade.id);
+                        
+                        return (
+                          <div key={trade.id} className="bidding-card bg-gradient-to-br from-purple-500/10 to-indigo-500/10 rounded-xl p-4 border border-purple-500/20 hover:border-purple-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-purple-500/20 rounded-lg">
+                                  {getCategoryIcon(trade.category)}
+                                </div>
+                                <div>
+                                  <h3 className="font-semibold text-white text-sm">{trade.title}</h3>
+                                  <p className="text-gray-400 text-xs">Projekt ID: {trade.project_id}</p>
+                                  {/* Beschreibung mit Trunkierung */}
+                                  {trade.description && (
+                                    <div className="mt-1">
+                                      <p className="text-gray-300 text-xs leading-relaxed">
+                                        {isDescriptionExpanded(trade.id) 
+                                          ? trade.description 
+                                          : truncateText(trade.description, 80)
+                                        }
+                                      </p>
+                                      {trade.description.length > 80 && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleDescriptionExpansion(trade.id);
+                                          }}
+                                          className="inline-flex items-center gap-1 mt-1 text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                                        >
+                                          {isDescriptionExpanded(trade.id) ? 'Weniger' : 'Mehr'}
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                                <span className="text-purple-400 text-xs font-medium">Abgeschlossen</span>
+                              </div>
+                            </div>
+                            
+                            {/* Prominente Warnung für fehlende Rechnung - nur wenn keine gültige Rechnung existiert */}
+                            {!hasValidInvoice(trade.id) && (
+                              <div className="mb-3 p-3 bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30 rounded-lg animate-pulse">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <AlertTriangle size={16} className="text-red-400" />
+                                  <span className="text-red-400 font-semibold text-sm">Rechnung ausstehend!</span>
+                                </div>
+                                <p className="text-red-300 text-xs">
+                                  Das Projekt ist abgeschlossen, aber Sie haben noch keine Rechnung gestellt. 
+                                  Erstellen Sie jetzt Ihre Rechnung, um die Bezahlung zu erhalten.
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Rechnung bereits erstellt - Erfolgs-Anzeige */}
+                            {hasValidInvoice(trade.id) && (
+                              <div className="mb-3 p-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-lg">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <CheckCircle size={16} className="text-green-400" />
+                                  <span className="text-green-400 font-semibold text-sm">Rechnung erstellt</span>
+                                </div>
+                                <p className="text-green-300 text-xs">
+                                  Ihre Rechnung wurde erfolgreich erstellt und versendet. Status: {tradeInvoices[trade.id]?.status || 'Unbekannt'}
+                                </p>
+                              </div>
+                            )}
+                            
+                            <div className="space-y-2 text-xs text-gray-300">
+                              <div className="flex justify-between">
+                                <span>Auftragswert:</span>
+                                <span className="font-semibold text-purple-400">
+                                  {quote?.total_amount ? `${Number(quote.total_amount).toLocaleString('de-DE')} ${quote.currency || 'CHF'}` : 'N/A'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Abgeschlossen:</span>
+                                <span>{trade.created_at ? new Date(trade.created_at).toLocaleDateString('de-DE') : 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Status:</span>
+                                <span className="text-purple-400 font-medium">
+                                  Abgeschlossen
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="mt-4 flex gap-2">
+                              {!hasValidInvoice(trade.id) ? (
+                                <button
+                                  onClick={() => {
+                                    setDetailTrade(trade);
+                                    setShowTradeDetails(true);
+                                  }}
+                                  className="flex-1 px-3 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors text-xs font-medium border border-red-500/30 animate-pulse"
+                                >
+                                  <AlertTriangle size={14} className="inline mr-1" />
+                                  Rechnung erstellen
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setDetailTrade(trade);
+                                    setShowTradeDetails(true);
+                                  }}
+                                  className="flex-1 px-3 py-2 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition-colors text-xs font-medium"
+                                >
+                                  <CheckCircle size={14} className="inline mr-1" />
+                                  Rechnung anzeigen
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setDetailTrade(trade);
+                                  setShowTradeDetails(true);
+                                }}
+                                className="px-3 py-2 bg-purple-500/20 text-purple-300 rounded-lg hover:bg-purple-500/30 transition-colors text-xs font-medium"
+                              >
+                                Projekt öffnen
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                  
+                  {getAllTradesWithQuotes().filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed').length === 0 && (
+                    <div className="text-center py-12">
+                      <CheckCircle size={48} className="mx-auto mb-4 text-gray-500" />
+                      <h3 className="text-lg font-semibold text-gray-300 mb-2">Noch keine abgeschlossenen Projekte</h3>
+                      <p className="text-gray-400 text-sm max-w-md mx-auto">
+                        Sobald Ihre Projekte abgeschlossen sind, erscheinen sie hier zur Rechnungsstellung.
                       </p>
                     </div>
                   )}
@@ -1430,32 +2135,50 @@ export default function ServiceProviderDashboard() {
                   </div>
                 </div>
               </div>
-              {/* Toolbar: Tabs + Search Icon */}
+              {/* Toolbar: Drei Haupttabs + Search Icon */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  {/* Tabs - Einheitliches Design wie Angebots-Management */}
+                  {/* Responsive Tabs - Kacheln nur auf Desktop */}
                   <div className="flex items-center p-1 bg-white/10 rounded-xl backdrop-blur-sm">
                     <button
-                      onClick={() => setActiveTab('list')}
-                      className={`flex-1 px-4 sm:px-6 py-3 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
-                        activeTab === 'list'
+                      onClick={() => setActiveTab('rows')}
+                      className={`flex-1 px-3 sm:px-4 py-3 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                        activeTab === 'rows'
                           ? 'bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] shadow-lg shadow-[#ffbd59]/30 transform scale-[1.02]'
                           : 'text-gray-300 hover:text-white hover:bg-white/10'
                       }`}
+                      title="Zeilenansicht"
                     >
-                      <List size={16} />
-                      <span>Liste</span>
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/>
+                      </svg>
+                      <span className="hidden sm:inline">Zeilen</span>
+                    </button>
+                    {/* Kacheln-Tab nur auf Desktop anzeigen */}
+                    <button
+                      onClick={() => setActiveTab('cards')}
+                      className={`hidden md:flex flex-1 px-3 sm:px-4 py-3 rounded-lg font-medium text-sm transition-all duration-300 items-center justify-center gap-2 ${
+                        activeTab === 'cards'
+                          ? 'bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] shadow-lg shadow-[#ffbd59]/30 transform scale-[1.02]'
+                          : 'text-gray-300 hover:text-white hover:bg-white/10'
+                      }`}
+                      title="Kachelansicht"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/>
+                      </svg>
+                      <span className="hidden sm:inline">Kacheln</span>
                     </button>
                     <button
                       onClick={() => setActiveTab('map')}
-                      className={`flex-1 px-4 sm:px-6 py-3 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                      className={`flex-1 px-3 sm:px-4 py-3 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
                         activeTab === 'map'
                           ? 'bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] shadow-lg shadow-[#ffbd59]/30 transform scale-[1.02]'
                           : 'text-gray-300 hover:text-white hover:bg-white/10'
                       }`}
                     >
                       <Map size={16} />
-                      <span>Karte</span>
+                      <span className="hidden sm:inline">Karte</span>
                     </button>
                   </div>
 
@@ -1475,28 +2198,28 @@ export default function ServiceProviderDashboard() {
                 </div>
               </div>
           
-          {/* Modern Location Input with Glow */}
+          {/* Modern Location Input with Address Autocomplete */}
           <div className="bg-white/5 rounded-xl p-4 mb-4 border border-white/10 hover:border-[#ffbd59]/30 transition-all duration-300">
             <label className="text-white text-sm font-medium mb-2 block">📍 Standort festlegen</label>
             <div className="flex items-center gap-3">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
+              <div className="flex-1">
+                <AddressAutocomplete
+                  label=""
                   placeholder="Straße, PLZ Ort eingeben..."
-                  value={manualAddress}
-                  onChange={(e) => setManualAddress(e.target.value)}
-                  className="w-full px-4 py-3 bg-white/10 text-white rounded-xl text-sm border border-white/20 focus:outline-none focus:border-[#ffbd59] focus:shadow-[0_0_15px_rgba(255,189,89,0.2)] placeholder-white/40 transition-all duration-300"
+                  value={selectedAddress}
+                  onChange={(next) => setSelectedAddress({
+                    address_street: next.address_street,
+                    address_zip: next.address_zip,
+                    address_city: next.address_city,
+                    address_country: next.address_country || 'Deutschland'
+                  })}
+                  className=""
                 />
-                {currentLocation && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  </div>
-                )}
               </div>
               
               <button
-                onClick={handleManualAddressGeocode}
-                disabled={isGeocoding || !manualAddress.trim()}
+                onClick={handleSelectedAddressGeocode}
+                disabled={isGeocoding || !selectedAddress.address_street.trim()}
                 className="px-5 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-[#ffbd59]/30"
               >
                 {isGeocoding ? (
@@ -1518,7 +2241,7 @@ export default function ServiceProviderDashboard() {
                 className="group px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl hover:from-emerald-600 hover:to-green-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-emerald-500/30"
                 title="Aktuellen Standort verwenden"
               >
-                <User size={16} className="group-hover:animate-pulse" />
+                <MapPin size={16} className="group-hover:animate-pulse" />
               </button>
             </div>
           </div>
@@ -1638,7 +2361,7 @@ export default function ServiceProviderDashboard() {
           
 
           {/* Modern Content Area with Smooth Transitions */}
-              {activeTab === 'list' ? (
+              {activeTab === 'rows' || activeTab === 'cards' ? (
             <div>
               {(isLoadingTrades || geoLoading) ? (
                 <div className="bg-gradient-to-br from-white/5 to-white/10 rounded-2xl p-12 text-center backdrop-blur-sm border border-white/10">
@@ -1708,31 +2431,33 @@ export default function ServiceProviderDashboard() {
                   }
                   
                   return (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 auto-rows-max items-start">
+                    <div className={activeTab === 'cards' 
+                      ? "grid grid-cols-1 lg:grid-cols-2 gap-6 auto-rows-max items-start"
+                      : "space-y-3"
+                    }>
                       {combinedTrades.map((trade: any, index: number) => {
-                    const quotes = allTradeQuotes[trade.id] || [];
-                    // Verwende die erweiterte isUserQuote Funktion für robuste Erkennung
-                    const userQuote = quotes.find(quote => isUserQuote(quote, user));
-                    const hasQuote = !!userQuote;
+                    // Verwende die robuste hasServiceProviderQuote Funktion
+                    const hasQuote = hasServiceProviderQuote(trade.id);
+                    const userQuote = getServiceProviderQuote(trade.id);
                     const quoteStatus = userQuote?.status || null;
                     // Verwende nur den tatsächlichen completion_status aus den Daten
-                    const actualCompletionStatus = trade.completion_status;
+                    const actualCompletionStatus = trade.completion_status || 'in_progress';
 
-                    return (
+                    return activeTab === 'cards' ? (
                       <div 
                         key={`trade-${trade.id}-${index}`}
-                        className={`group relative bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-[#ffbd59]/50 hover:shadow-[0_0_30px_rgba(255,189,89,0.2)] transition-all duration-500 transform hover:-translate-y-1 cursor-pointer overflow-hidden h-auto min-h-fit ${
-                          hasQuote ? 'border-[#ffbd59]/50 shadow-lg shadow-[#ffbd59]/10' : ''
+                        className={`group relative bg-gradient-to-br from-white/8 to-white/4 backdrop-blur-xl rounded-xl p-5 border border-white/20 hover:border-[#ffbd59]/50 hover:shadow-lg transition-all duration-300 cursor-pointer h-full flex flex-col ${
+                          hasQuote ? 'border-[#ffbd59]/40 shadow-md shadow-[#ffbd59]/10' : ''
                         } ${
                           quoteStatus === 'accepted' 
-                            ? 'border-2 border-green-500/40 bg-gradient-to-r from-green-500/5 to-emerald-500/5 shadow-xl shadow-green-500/20' 
+                            ? 'border-l-4 border-l-green-500 bg-gradient-to-r from-green-500/8 to-transparent' 
                             : quoteStatus === 'under_review'
-                            ? 'border-2 border-yellow-500/40 bg-gradient-to-r from-yellow-500/5 to-orange-500/5 shadow-xl shadow-yellow-500/20'
+                            ? 'border-l-4 border-l-yellow-500 bg-gradient-to-r from-yellow-500/8 to-transparent'
                             : quoteStatus === 'rejected'
-                            ? 'border-2 border-red-500/40 bg-gradient-to-r from-red-500/5 to-pink-500/5 shadow-xl shadow-red-500/20'
+                            ? 'border-l-4 border-l-red-500 bg-gradient-to-r from-red-500/8 to-transparent'
+                            : hasQuote
+                            ? 'border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-500/8 to-transparent'
                             : ''
-                        } ${
-                          trade.isGeoResult ? 'border-blue-500/30' : ''
                         }`}
                         onClick={() => {
                           console.log('🔍 CLICK DEBUG: Trade clicked', {
@@ -1768,271 +2493,228 @@ export default function ServiceProviderDashboard() {
                           // }
                         }}
                       >
-                        {/* Hover Glow Effect */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/0 to-[#ffa726]/0 group-hover:from-[#ffbd59]/5 group-hover:to-[#ffa726]/5 transition-all duration-500 pointer-events-none"></div>
+                        {/* Optimierter Kachel-Inhalt - Balance zwischen kompakt und lesbar */}
                         
-                        {/* Quote Status Indicator - Left Border */}
-                        {hasQuote && (
-                          <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl ${
-                            quoteStatus === 'accepted' ? 'bg-gradient-to-b from-green-400 to-green-600' :
-                            quoteStatus === 'under_review' ? 'bg-gradient-to-b from-yellow-400 to-yellow-600' :
-                            quoteStatus === 'rejected' ? 'bg-gradient-to-b from-red-400 to-red-600' :
-                            'bg-gradient-to-b from-blue-400 to-blue-600'
-                          }`}></div>
-                        )}
-                        
-                        {/* Status Badge Overlay - Top Right */}
-                        {hasQuote && (
-                          <div className="absolute top-3 right-3 z-20">
-                            <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border backdrop-blur-sm ${
-                              quoteStatus === 'accepted' 
-                                ? 'bg-green-500/20 text-green-300 border-green-500/40 shadow-lg shadow-green-500/20' 
-                                : quoteStatus === 'under_review'
-                                ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40 shadow-lg shadow-yellow-500/20'
-                                : quoteStatus === 'rejected'
-                                ? 'bg-red-500/20 text-red-300 border-red-500/40 shadow-lg shadow-red-500/20'
-                                : 'bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-lg shadow-blue-500/20'
-                            }`}>
-                              <div className={`w-2 h-2 rounded-full ${
-                                quoteStatus === 'accepted' ? 'bg-green-400 animate-pulse' :
-                                quoteStatus === 'under_review' ? 'bg-yellow-400 animate-pulse' :
-                                quoteStatus === 'rejected' ? 'bg-red-400' :
-                                'bg-blue-400'
-                              }`}></div>
-                              <span>
-                                {quoteStatus === 'accepted' ? 'Gewonnen' :
-                                 quoteStatus === 'under_review' ? 'In Prüfung' :
-                                 quoteStatus === 'rejected' ? 'Abgelehnt' :
-                                 'Angebot'}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Modern Geo-Badge with Glow */}
-                        {trade.isGeoResult && (
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-blue-500/20 to-blue-400/20 rounded-full border border-blue-400/30">
-                              <MapPin size={14} className="text-blue-400 animate-pulse" />
-                              <span className="text-blue-400 text-xs font-medium">
-                                {trade.distance_km?.toFixed(1)}km entfernt
-                              </span>
-                            </div>
-                            {trade.project_name && (
-                              <span className="text-gray-400 text-xs">
-                                {trade.project_name}
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="flex items-start justify-between mb-4 relative z-10">
-                          <div className="flex items-center gap-3">
-                            <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg shadow-[#ffbd59]/20 group-hover:shadow-[#ffbd59]/40 transition-all duration-300 group-hover:scale-110">
+                        {/* Header mit Titel und Status */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg">
                               {getCategoryIcon(trade.category || '')}
                             </div>
-                            <div>
-                              <h3 className="text-lg font-bold text-white group-hover:text-[#ffbd59] transition-all duration-300 flex items-center gap-2">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-white font-bold text-lg leading-tight mb-1">
                                 {trade.title}
-                                {hasQuote && (
-                                  <div className="flex items-center gap-1">
-                                    <div className={`w-2 h-2 rounded-full ${
-                                      quoteStatus === 'accepted' ? 'bg-green-400 animate-pulse' :
-                                      quoteStatus === 'under_review' ? 'bg-yellow-400 animate-pulse' :
-                                      quoteStatus === 'rejected' ? 'bg-red-400' :
-                                      'bg-blue-400 animate-pulse'
-                                    }`}></div>
-                                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                                      quoteStatus === 'accepted' ? 'bg-green-500/20 text-green-400' :
-                                      quoteStatus === 'under_review' ? 'bg-yellow-500/20 text-yellow-400' :
-                                      quoteStatus === 'rejected' ? 'bg-red-500/20 text-red-400' :
-                                      'bg-blue-500/20 text-blue-400'
-                                    }`}>
-                                      {quoteStatus === 'accepted' ? '✓ Gewonnen' :
-                                       quoteStatus === 'under_review' ? '⏳ In Prüfung' :
-                                       quoteStatus === 'rejected' ? '✗ Abgelehnt' :
-                                       '📋 Angebot abgegeben'}
-                                    </span>
-                                  </div>
-                                )}
                               </h3>
-                              {/* Erweiterte Beschreibung mit Mehr/Weniger Funktionalität */}
-                              {trade.description && (
-                                <div className="mt-2">
-                                  <p className="text-gray-300 text-sm leading-relaxed">
-                                    {isDescriptionExpanded(trade.id) 
-                                      ? trade.description 
-                                      : truncateText(trade.description, 120)
-                                    }
-                                  </p>
-                                  {trade.description.length > 120 && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleDescriptionExpansion(trade.id);
-                                      }}
-                                      className="inline-flex items-center gap-1 mt-2 text-xs text-[#ffbd59] hover:text-[#ffa726] transition-colors font-medium"
-                                    >
-                                      {isDescriptionExpanded(trade.id) ? (
-                                        <>
-                                          <span>Weniger anzeigen</span>
-                                          <svg className="w-3 h-3 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                          </svg>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <span>Mehr anzeigen</span>
-                                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                          </svg>
-                                        </>
-                                      )}
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                              {trade.isGeoResult && trade.address_street && (
-                                <p className="text-gray-400 text-xs mt-2 flex items-center gap-1">
-                                  <MapPin size={12} className="text-gray-500" />
-                                  {trade.address_street}, {trade.address_zip} {trade.address_city}
-                                </p>
-                              )}
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-300 text-sm font-medium">{trade.category || 'Unbekannt'}</span>
+                                {trade.isGeoResult && (
+                                  <span className="text-blue-400 text-sm flex items-center gap-1 bg-blue-500/20 px-2 py-1 rounded-full">
+                                    <MapPin size={12} />
+                                    {trade.distance_km?.toFixed(1)}km
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm ${getStatusColor(trade.status)} shadow-lg`}>
-                              {getStatusLabel(trade.status)}
+                          
+                          {/* Status Badge - rechts oben */}
+                          <div className="flex flex-col items-end gap-2">
+                            <span className={`px-3 py-1.5 rounded-lg text-sm font-medium ${getCompletionStatusColor(actualCompletionStatus)}`}>
+                              {getCompletionStatusLabel(actualCompletionStatus)}
                             </span>
-                            {/* Completion Status Badge für gewonnene Projekte - nur wenn tatsächlich gesetzt */}
-                            {quoteStatus === 'accepted' && actualCompletionStatus === 'completion_requested' && (
-                              <span className="px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm bg-orange-500/20 text-orange-300 border border-orange-500/40 shadow-lg flex items-center gap-1">
-                                <Clock size={12} />
-                                Als fertiggestellt markiert
-                              </span>
-                            )}
-                            {quoteStatus === 'accepted' && actualCompletionStatus === 'completed' && (
-                              <span className="px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm bg-green-500/20 text-green-300 border border-green-500/40 shadow-lg flex items-center gap-1">
-                                <CheckCircle size={12} />
-                                Abgeschlossen
-                              </span>
-                            )}
-                            {quoteStatus === 'accepted' && actualCompletionStatus === 'completed_with_defects' && (
-                              <span className="px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 shadow-lg flex items-center gap-1">
-                                <AlertTriangle size={12} />
-                                Unter Vorbehalt
+                            {hasQuote && (
+                              <span className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                                quoteStatus === 'accepted' ? 'bg-green-500/30 text-green-300 border border-green-500/50' :
+                                quoteStatus === 'under_review' ? 'bg-yellow-500/30 text-yellow-300 border border-yellow-500/50' :
+                                quoteStatus === 'rejected' ? 'bg-red-500/30 text-red-300 border border-red-500/50' :
+                                'bg-blue-500/30 text-blue-300 border border-blue-500/50'
+                              }`}>
+                                {quoteStatus === 'accepted' ? '✓ Gewonnen' :
+                                 quoteStatus === 'under_review' ? '⏳ In Prüfung' :
+                                 quoteStatus === 'rejected' ? '✗ Abgelehnt' :
+                                 '📋 Angebot abgegeben'}
                               </span>
                             )}
                           </div>
                         </div>
 
-                        {/* Erweiterte Informationen Grid */}
+                        {/* Wichtige Informationen */}
                         <div className="grid grid-cols-2 gap-4 mb-4">
                           <div>
-                            <p className="text-gray-400 text-sm">Kategorie</p>
-                            <span className="text-white text-sm font-medium">
-                              {trade.category || 'Unbekannt'}
-                            </span>
+                            <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Datum</p>
+                            <p className="text-white text-sm font-medium">
+                              📅 {formatDate(trade.planned_date || trade.start_date)}
+                            </p>
                           </div>
                           <div>
-                            <p className="text-gray-400 text-sm">Budget</p>
-                            <span className="text-white text-sm font-medium">
-                              {trade.budget ? formatCurrency(trade.budget) : 'Nicht festgelegt'}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="text-gray-400 text-sm">Priorität</p>
-                            <span className="text-white text-sm font-medium">
-                              {trade.priority || 'Normal'}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="text-gray-400 text-sm">Besichtigung</p>
-                            <div className="flex items-center gap-1">
-                              {trade.requires_inspection ? (
-                                <>
-                                  <Eye size={14} className="text-orange-400" />
-                                  <span className="text-orange-400 text-sm font-medium">Erforderlich</span>
-                                </>
-                              ) : (
-                                <>
-                                  <XCircle size={14} className="text-gray-400" />
-                                  <span className="text-gray-400 text-sm font-medium">Nicht erforderlich</span>
-                                </>
-                          )}
-                        </div>
+                            <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Budget</p>
+                            <p className="text-white text-sm font-medium">
+                              💰 {trade.budget ? formatCurrency(trade.budget) : 'Nicht festgelegt'}
+                            </p>
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between text-sm text-gray-300 mb-4">
-                          <div className="flex items-center gap-4">
-                            <span>📅 {formatDate(trade.planned_date || trade.start_date)}</span>
-                            <span>📊 {(() => {
-                              // Verwende Quote-Stats aus Backend wenn verfügbar, sonst aus allTradeQuotes
-                              const quoteCount = trade.quote_stats?.total_quotes ?? quotes.length;
-                              return `${quoteCount} Angebote`;
-                            })()} </span>
-                            {trade.isGeoResult && trade.distance_km && (
-                              <span>📍 {trade.distance_km.toFixed(1)}km</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Angebot-Status */}
-                        <div className="pt-4 border-t border-white/10">
+                        {/* Angebots-Bereich - bleibt am unteren Rand */}
+                        <div className="mt-auto pt-4 border-t border-white/10">
                           <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                              {hasQuote ? (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-gray-400">Ihr Angebot:</span>
-                                  <span className={`text-sm font-medium ${getQuoteStatusColor(quoteStatus || '')}`}>
-                                    {getQuoteStatusLabel(quoteStatus || '')}
-                                  </span>
-                                  {userQuote && (
-                                    <span className="text-[#ffbd59] text-sm font-bold">
-                                      {formatCurrency(userQuote.total_amount)}
-                                    </span>
-                                  )}
-                                  {/* Completion Status für gewonnene Angebote - nur wenn tatsächlich gesetzt */}
-                                  {quoteStatus === 'accepted' && actualCompletionStatus === 'completion_requested' && (
-                                    <span className="text-xs px-2 py-1 bg-orange-500/20 text-orange-300 border border-orange-500/30 rounded-full flex items-center gap-1">
-                                      <Clock size={10} />
-                                      Als fertiggestellt markiert
-                                    </span>
-                                  )}
-                                  {quoteStatus === 'accepted' && actualCompletionStatus === 'completed' && (
-                                    <span className="text-xs px-2 py-1 bg-green-500/20 text-green-300 border border-green-500/30 rounded-full flex items-center gap-1">
-                                      <CheckCircle size={10} />
-                                      Abgeschlossen
-                                    </span>
-                                  )}
-                                  {quoteStatus === 'accepted' && actualCompletionStatus === 'completed_with_defects' && (
-                                    <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 rounded-full flex items-center gap-1">
-                                      <AlertTriangle size={10} />
-                                      Unter Vorbehalt
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-sm text-gray-400">Noch kein Angebot abgegeben</span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm text-gray-400">
+                                📊 {(() => {
+                                  const quoteCount = trade.quote_stats?.total_quotes ?? (allTradeQuotes[trade.id] || []).length;
+                                  return `${quoteCount} Angebote`;
+                                })()} 
+                              </span>
+                              {!hasQuote && (
+                                <span className="text-sm px-3 py-1 bg-orange-500/20 text-orange-300 rounded-full border border-orange-500/30 animate-pulse">
+                                  ⚡ Verfügbar
+                                </span>
                               )}
                             </div>
                             
-                            {!hasQuote && (
-                          <button
+                            {!hasQuote ? (
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleCreateQuote(trade);
                                 }}
-                                className="px-4 py-2 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-colors text-sm font-medium flex items-center gap-2"
+                                className="px-4 py-2.5 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-colors text-sm font-medium flex items-center gap-2 shadow-lg hover:shadow-xl"
                               >
                                 <Plus size={16} />
-                            Angebot abgeben
-                          </button>
+                                Angebot abgeben
+                              </button>
+                            ) : (
+                              <div className="text-right">
+                                <div className={`text-sm font-medium mb-1 ${getQuoteStatusColor(quoteStatus || '')}`}>
+                                  {getQuoteStatusLabel(quoteStatus || '')}
+                                </div>
+                                {userQuote && (
+                                  <div className="text-[#ffbd59] text-lg font-bold">
+                                    {formatCurrency(userQuote.total_amount)}
+                                  </div>
+                                )}
+                              </div>
                             )}
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      // Zeilenansicht - kompakte Darstellung
+                      <div 
+                        key={`trade-row-${trade.id}-${index}`}
+                        className={`group relative bg-gradient-to-r from-white/5 to-white/10 backdrop-blur-xl rounded-xl p-4 border border-white/20 hover:border-[#ffbd59]/50 hover:shadow-[0_0_20px_rgba(255,189,89,0.15)] transition-all duration-300 cursor-pointer ${
+                          hasQuote ? 'border-[#ffbd59]/50 shadow-lg shadow-[#ffbd59]/10' : ''
+                        } ${
+                          quoteStatus === 'accepted' 
+                            ? 'border-l-4 border-l-green-500 bg-gradient-to-r from-green-500/15 to-transparent shadow-lg shadow-green-500/20' 
+                            : quoteStatus === 'under_review'
+                            ? 'border-l-4 border-l-yellow-500 bg-gradient-to-r from-yellow-500/15 to-transparent shadow-lg shadow-yellow-500/20'
+                            : quoteStatus === 'rejected'
+                            ? 'border-l-4 border-l-red-500 bg-gradient-to-r from-red-500/15 to-transparent shadow-lg shadow-red-500/20'
+                            : hasQuote
+                            ? 'border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-500/15 to-transparent shadow-lg shadow-blue-500/20'
+                            : ''
+                        }`}
+                        onClick={() => {
+                          console.log('🔍 ROW CLICK DEBUG: Trade clicked', {
+                            tradeId: trade.id,
+                            tradeTitle: trade.title,
+                            userId: user?.id,
+                            userRole: user?.user_role
+                          });
+                          
+                          setDetailTrade(trade);
+                          setShowTradeDetails(true);
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          {/* Linke Seite: Hauptinformationen */}
+                          <div className="flex items-center gap-4 flex-1">
+                            {/* Icon */}
+                            <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg shadow-lg shadow-[#ffbd59]/20 flex-shrink-0">
+                              {getCategoryIcon(trade.category || '')}
+                            </div>
+                            
+                            {/* Titel und Beschreibung */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-white font-semibold truncate">{trade.title}</h3>
+                                {trade.isGeoResult && (
+                                  <span className="text-blue-400 text-xs bg-blue-500/20 px-2 py-1 rounded-full flex items-center gap-1">
+                                    <MapPin size={10} />
+                                    {trade.distance_km?.toFixed(1)}km
+                                  </span>
+                                )}
+                                {hasQuote && (
+                                  <span className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 font-medium shadow-lg ${
+                                    quoteStatus === 'accepted' ? 'bg-green-500/30 text-green-300 border border-green-500/50' :
+                                    quoteStatus === 'under_review' ? 'bg-yellow-500/30 text-yellow-300 border border-yellow-500/50' :
+                                    quoteStatus === 'rejected' ? 'bg-red-500/30 text-red-300 border border-red-500/50' :
+                                    'bg-blue-500/30 text-blue-300 border border-blue-500/50'
+                                  }`}>
+                                    <div className={`w-1.5 h-1.5 rounded-full ${
+                                      quoteStatus === 'accepted' ? 'bg-green-300 animate-pulse' :
+                                      quoteStatus === 'under_review' ? 'bg-yellow-300 animate-pulse' :
+                                      quoteStatus === 'rejected' ? 'bg-red-300' :
+                                      'bg-blue-300 animate-pulse'
+                                    }`}></div>
+                                    {quoteStatus === 'accepted' ? '✓ Gewonnen' :
+                                     quoteStatus === 'under_review' ? '⏳ In Prüfung' :
+                                     quoteStatus === 'rejected' ? '✗ Abgelehnt' :
+                                     '📋 Angebot abgegeben'}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-gray-400">
+                                <span>{trade.category || 'Unbekannt'}</span>
+                                <span>{trade.budget ? formatCurrency(trade.budget) : 'Budget n.a.'}</span>
+                                <span>📅 {formatDate(trade.planned_date || trade.start_date)}</span>
+                                <span>📊 {(() => {
+                                  const quoteCount = trade.quote_stats?.total_quotes ?? (allTradeQuotes[trade.id] || []).length;
+                                  return `${quoteCount} Angebote`;
+                                })()}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Rechte Seite: Status und Aktionen */}
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            {/* Status Badge */}
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${getCompletionStatusColor(actualCompletionStatus)}`}>
+                              {getCompletionStatusLabel(actualCompletionStatus)}
+                            </span>
+                            
+                            {/* Angebot Button oder Status */}
+                            {hasQuote ? (
+                              <div className="text-right">
+                                <div className={`text-sm font-medium ${getQuoteStatusColor(quoteStatus || '')}`}>
+                                  {getQuoteStatusLabel(quoteStatus || '')}
+                                </div>
+                                {userQuote && (
+                                  <div className="text-[#ffbd59] text-sm font-bold">
+                                    {formatCurrency(userQuote.total_amount)}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-end gap-2">
+                                <span className="text-xs px-2 py-1 bg-orange-500/20 text-orange-400 rounded-full border border-orange-500/30 animate-pulse">
+                                  ⚡ Verfügbar
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCreateQuote(trade);
+                                  }}
+                                  className="px-3 py-2 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-colors text-sm font-medium flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
+                                >
+                                  <Plus size={14} />
+                                  Angebot abgeben
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     );
                       })}
                     </div>
@@ -2084,10 +2766,12 @@ export default function ServiceProviderDashboard() {
           </div>
           
           {/* Kanban Board Container */}
-          <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+          <div className="bg-white/5 rounded-xl p-4 border border-white/10 mobile-container">
             <KanbanBoard 
               showOnlyAssignedToMe={true}
               showArchived={false}
+              className="compact mobile-scroll"
+              mobileViewMode="auto"
             />
           </div>
         </div>
@@ -2197,6 +2881,11 @@ export default function ServiceProviderDashboard() {
           setDetailTrade(null);
         }}
         onCreateQuote={handleCreateQuote}
+        onTradeUpdate={(updatedTrade) => {
+          // Aktualisiere Trade-Daten nach Änderungen (z.B. completion_status)
+          console.log('🔄 Trade aktualisiert, refreshe Daten für ID:', updatedTrade.id);
+          refreshTradeData(updatedTrade.id);
+        }}
         existingQuotes={(() => {
           if (!detailTrade) return [];
           

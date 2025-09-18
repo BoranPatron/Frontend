@@ -101,12 +101,13 @@ const TasksPage: React.FC = () => {
           </div>
 
         {/* Kanban Board */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-6">
+        <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-6 mobile-container">
           <KanbanBoard
             projectId={isServiceProvider ? undefined : selectedProjectId}
             showOnlyAssignedToMe={showOnlyAssignedToMe}
             showArchived={showArchived}
-            className="h-full"
+            className="h-full mobile-scroll"
+            mobileViewMode="auto"
           />
         </div>
       </div>

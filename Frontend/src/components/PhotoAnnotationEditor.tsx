@@ -55,6 +55,9 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [history, setHistory] = useState<Annotation[][]>([initialAnnotations]);
   const [historyIndex, setHistoryIndex] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [spacePressed, setSpacePressed] = useState(false);
 
   const image = useRef(new Image());
 
@@ -62,10 +65,54 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
     image.current.crossOrigin = 'anonymous';
     image.current.onload = () => {
       setImageLoaded(true);
-      fitImageToContainer();
+      // Automatisch optimal einpassen beim Laden
+      setTimeout(() => {
+        zoomToFit();
+      }, 100);
     };
     image.current.src = imageUrl;
   }, [imageUrl]);
+
+  // Mausrad-Zoom hinzufügen
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      const newZoom = Math.max(0.1, Math.min(5, zoom + delta));
+      setZoom(newZoom);
+    };
+
+    canvas.addEventListener('wheel', handleWheel);
+    return () => canvas.removeEventListener('wheel', handleWheel);
+  }, [zoom]);
+
+  // Keyboard-Events für Leertaste (Pan-Modus)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setSpacePressed(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setSpacePressed(false);
+        setIsDragging(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
 
   useEffect(() => {
     if (imageLoaded) {
@@ -132,12 +179,13 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
     canvas.width = Math.floor(containerWidth);
     canvas.height = Math.floor(containerHeight);
 
-    // Compute scale to fit image fully (contain)
+    // Compute scale to fit image fully (contain) with some padding
+    const padding = 20; // 20px padding on all sides
     const scale = Math.min(
-      canvas.width / image.current.width,
-      canvas.height / image.current.height
+      (canvas.width - padding * 2) / image.current.width,
+      (canvas.height - padding * 2) / image.current.height
     );
-    setZoom(scale);
+    setZoom(Math.max(0.1, scale)); // Ensure minimum zoom
 
     // Center image
     const offsetX = (canvas.width / scale - image.current.width) / 2;
@@ -146,6 +194,29 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
 
     // Redraw with new settings
     requestAnimationFrame(drawCanvas);
+  };
+
+  // Neue Funktion: Zoom to fit (ohne Padding für maximale Sicht)
+  const zoomToFit = () => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container || !imageLoaded) return;
+
+    const rect = container.getBoundingClientRect();
+    const containerWidth = Math.max(320, rect.width);
+    const containerHeight = Math.max(240, rect.height);
+
+    // Compute scale to fit image fully (contain)
+    const scale = Math.min(
+      containerWidth / image.current.width,
+      containerHeight / image.current.height
+    );
+    setZoom(Math.max(0.1, scale));
+
+    // Center image
+    const offsetX = (containerWidth / scale - image.current.width) / 2;
+    const offsetY = (containerHeight / scale - image.current.height) / 2;
+    setOffset({ x: offsetX, y: offsetY });
   };
 
   const drawAnnotation = (ctx: CanvasRenderingContext2D, annotation: Annotation, isSelected: boolean) => {
@@ -206,6 +277,13 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const coords = getCanvasCoordinates(e);
 
+    // Pan-Modus (Leertaste gedrückt oder rechte Maustaste)
+    if (spacePressed || e.button === 2) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX, y: e.clientY });
+      return;
+    }
+
     if (currentTool === 'select') {
       // Check if clicking on existing annotation
       const clickedAnnotation = annotations.find(ann => 
@@ -244,6 +322,18 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Pan-Modus: Bild verschieben
+    if (isDragging) {
+      const deltaX = (e.clientX - dragStart.x) / zoom;
+      const deltaY = (e.clientY - dragStart.y) / zoom;
+      setOffset(prev => ({
+        x: prev.x + deltaX,
+        y: prev.y + deltaY
+      }));
+      setDragStart({ x: e.clientX, y: e.clientY });
+      return;
+    }
+
     if (!isDrawing || !currentAnnotation) return;
 
     const coords = getCanvasCoordinates(e);
@@ -263,6 +353,12 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
   };
 
   const handleMouseUp = () => {
+    // Pan-Modus beenden
+    if (isDragging) {
+      setIsDragging(false);
+      return;
+    }
+
     if (!isDrawing || !currentAnnotation) return;
 
     if (currentAnnotation.type !== 'text') {
@@ -352,11 +448,11 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
   };
 
   const tools = [
-    { id: 'select', icon: MousePointer, label: 'Auswählen' },
-    { id: 'circle', icon: Circle, label: 'Kreis' },
-    { id: 'rectangle', icon: Square, label: 'Rechteck' },
-    { id: 'text', icon: Type, label: 'Text' },
-    { id: 'freehand', icon: Pencil, label: 'Freihand' }
+    { id: 'select', icon: MousePointer, label: 'Auswählen', description: 'Markierungen auswählen und bearbeiten' },
+    { id: 'circle', icon: Circle, label: 'Kreis', description: 'Runden Bereich markieren' },
+    { id: 'rectangle', icon: Square, label: 'Rechteck', description: 'Rechteckigen Bereich markieren' },
+    { id: 'text', icon: Type, label: 'Text', description: 'Textnotiz hinzufügen' },
+    { id: 'freehand', icon: Pencil, label: 'Freihand', description: 'Frei zeichnen' }
   ];
 
   const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#000000', '#ffffff'];
@@ -365,17 +461,41 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
       <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-7xl w-full max-h-[95vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-white/10 flex-shrink-0">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <Pencil size={24} className="text-blue-400" />
-            Foto Markierung
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            <X size={24} />
-          </button>
+        <div className="p-4 border-b border-white/10 flex-shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <Pencil size={24} className="text-blue-400" />
+              Foto Markierung
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <X size={24} />
+            </button>
+          </div>
+          
+          {/* Anweisungen */}
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Pencil size={12} className="text-white" />
+              </div>
+              <div>
+                <p className="text-blue-300 font-medium text-sm mb-1">
+                  So verwenden Sie die Foto-Markierung:
+                </p>
+                <ul className="text-blue-200 text-xs space-y-1">
+                  <li>• <span className="font-medium">Werkzeug wählen:</span> Klicken Sie links auf ein Markierungs-Werkzeug (Kreis, Rechteck, Text, etc.)</li>
+                  <li>• <span className="font-medium">Markierung erstellen:</span> Klicken und ziehen Sie auf dem Foto um zu markieren</li>
+                  <li>• <span className="font-medium">Zoom:</span> Mausrad scrollen oder Zoom-Buttons verwenden</li>
+                  <li>• <span className="font-medium">Bild verschieben:</span> Leertaste halten + ziehen oder rechte Maustaste + ziehen</li>
+                  <li>• <span className="font-medium">Bearbeiten:</span> "Auswählen"-Werkzeug aktivieren und auf Markierung klicken</li>
+                  <li>• <span className="font-medium">Optimal einpassen:</span> Blauen "Optimal einpassen" Button verwenden</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-1 min-h-0">
@@ -385,19 +505,25 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
               {/* Tools */}
               <div>
                 <h3 className="text-white font-medium mb-2">Werkzeuge</h3>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   {tools.map((tool) => (
                     <button
                       key={tool.id}
                       onClick={() => setCurrentTool(tool.id as any)}
-                      className={`p-3 rounded-lg border transition-all ${
+                      className={`p-3 rounded-lg border transition-all text-left ${
                         currentTool === tool.id
                           ? 'border-blue-500 bg-blue-500/20 text-blue-300'
                           : 'border-gray-600 bg-gray-600/10 text-gray-300 hover:border-blue-500'
                       }`}
+                      title={tool.description}
                     >
-                      <tool.icon size={20} className="mx-auto mb-1" />
-                      <div className="text-xs">{tool.label}</div>
+                      <div className="flex items-center gap-3">
+                        <tool.icon size={18} className="flex-shrink-0" />
+                        <div>
+                          <div className="text-sm font-medium">{tool.label}</div>
+                          <div className="text-xs opacity-75">{tool.description}</div>
+                        </div>
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -466,29 +592,57 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
 
               {/* Zoom Controls */}
               <div>
-                <h3 className="text-white font-medium mb-2">Zoom</h3>
-                <div className="flex gap-2 mb-2">
+                <h3 className="text-white font-medium mb-2">Zoom & Navigation</h3>
+                <div className="grid grid-cols-2 gap-2 mb-2">
                   <button
-                    onClick={() => setZoom(Math.max(0.1, zoom - 0.1))}
-                    className="flex-1 p-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                    onClick={() => setZoom(Math.max(0.1, zoom - 0.2))}
+                    className="p-2 bg-gray-600 text-white rounded hover:bg-gray-700 flex items-center justify-center gap-1"
+                    title="Herauszoomen"
                   >
-                    <ZoomOut size={16} className="mx-auto" />
+                    <ZoomOut size={14} />
+                    <span className="text-xs">-</span>
                   </button>
                   <button
-                    onClick={() => setZoom(Math.min(3, zoom + 0.1))}
-                    className="flex-1 p-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                    onClick={() => setZoom(Math.min(5, zoom + 0.2))}
+                    className="p-2 bg-gray-600 text-white rounded hover:bg-gray-700 flex items-center justify-center gap-1"
+                    title="Hineinzoomen"
                   >
-                    <ZoomIn size={16} className="mx-auto" />
+                    <ZoomIn size={14} />
+                    <span className="text-xs">+</span>
                   </button>
                 </div>
-                <div className="text-gray-400 text-sm text-center">{Math.round(zoom * 100)}%</div>
-                <button
-                  onClick={() => fitImageToContainer()}
-                  className="w-full p-2 bg-gray-600 text-white rounded hover:bg-gray-700 mt-2 flex items-center justify-center gap-2"
-                >
-                  <RotateCcw size={16} />
-                  An Bild anpassen
-                </button>
+                
+                <div className="text-gray-400 text-sm text-center mb-2 bg-gray-700/50 rounded py-1">
+                  {Math.round(zoom * 100)}%
+                </div>
+                
+                <div className="space-y-2">
+                  <button
+                    onClick={zoomToFit}
+                    className="w-full p-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-2 text-sm"
+                    title="Bild optimal einpassen"
+                  >
+                    <RotateCcw size={14} />
+                    Optimal einpassen
+                  </button>
+                  
+                  <button
+                    onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }); }}
+                    className="w-full p-2 bg-gray-600 text-white rounded hover:bg-gray-700 flex items-center justify-center gap-2 text-sm"
+                    title="Originalgröße anzeigen"
+                  >
+                    <MousePointer size={14} />
+                    100% Größe
+                  </button>
+                </div>
+                
+                <div className="mt-3 p-2 bg-gray-700/30 rounded text-xs text-gray-400">
+                  <p className="mb-1"><strong>Schnelle Navigation:</strong></p>
+                  <p>• Mausrad: Zoomen</p>
+                  <p>• Leertaste + Ziehen: Verschieben</p>
+                  <p>• Rechte Maustaste + Ziehen: Verschieben</p>
+                  <p>• Doppelklick: Optimal einpassen</p>
+                </div>
               </div>
             </div>
           </div>
@@ -501,9 +655,12 @@ const PhotoAnnotationEditor: React.FC<PhotoAnnotationEditorProps> = ({
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
+              onDoubleClick={zoomToFit}
               style={{
-                cursor: currentTool === 'select' ? 'default' : 'crosshair'
+                cursor: spacePressed || isDragging ? 'grab' : 
+                       currentTool === 'select' ? 'default' : 'crosshair'
               }}
+              onContextMenu={(e) => e.preventDefault()}
             />
           </div>
         </div>

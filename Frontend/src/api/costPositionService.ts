@@ -113,8 +113,64 @@ export interface CostPositionStatistics {
 export const costPositionService = {
   // Get all cost positions for a project (neuer Backend-Endpoint)
   getCostPositions: async (projectId: number, _category?: string, _status?: string): Promise<CostPosition[]> => {
-    const response = await api.get(`/cost-positions/project/${projectId}`);
-    return response.data;
+    try {
+      // Versuche zuerst echte Kostenpositionen zu laden
+      const response = await api.get(`/cost-positions/project/${projectId}`);
+      const costPositions = response.data || [];
+      
+      // Wenn keine Kostenpositionen vorhanden sind, lade angenommene Angebote
+      if (costPositions.length === 0) {
+        console.log('🔄 Keine Kostenpositionen gefunden, lade angenommene Angebote...');
+        const quotesResponse = await api.get(`/quotes/?project_id=${projectId}`);
+        const allQuotes = quotesResponse.data || [];
+        
+        // Filtere angenommene Angebote
+        const acceptedQuotes = allQuotes.filter((quote: any) => quote.status === 'accepted');
+        console.log(`✅ ${acceptedQuotes.length} angenommene Angebote gefunden`);
+        
+        // Konvertiere angenommene Angebote zu Kostenpositionen-Format
+        return acceptedQuotes.map((quote: any) => ({
+          id: quote.id,
+          title: quote.title || 'Angebot ohne Titel',
+          description: quote.description || '',
+          amount: quote.total_amount || 0,
+          currency: quote.currency || 'EUR',
+          category: 'services', // Standard-Kategorie für Angebote
+          cost_type: 'quote_accepted',
+          status: 'active',
+          contractor_name: quote.company_name,
+          contractor_contact: quote.contact_person,
+          contractor_phone: quote.phone,
+          contractor_email: quote.email,
+          contractor_website: quote.website,
+          progress_percentage: 0,
+          paid_amount: 0,
+          payment_terms: quote.payment_terms,
+          warranty_period: quote.warranty_period,
+          estimated_duration: quote.estimated_duration,
+          start_date: quote.start_date,
+          completion_date: quote.completion_date,
+          labor_cost: quote.labor_cost,
+          material_cost: quote.material_cost,
+          overhead_cost: quote.overhead_cost,
+          risk_score: quote.risk_score,
+          price_deviation: quote.price_deviation,
+          ai_recommendation: quote.ai_recommendation,
+          quote_id: quote.id,
+          milestone_id: quote.milestone_id,
+          project_id: projectId,
+          service_provider_name: quote.company_name,
+          milestone_title: quote.milestone_title || `Gewerk #${quote.milestone_id}`,
+          created_at: quote.accepted_at || quote.created_at,
+          updated_at: quote.updated_at
+        }));
+      }
+      
+      return costPositions;
+    } catch (error) {
+      console.error('❌ Fehler beim Laden der Kostenpositionen:', error);
+      return [];
+    }
   },
 
   // Get a specific cost position
@@ -162,10 +218,66 @@ export const costPositionService = {
     return response.data;
   },
 
-  // Get cost positions from accepted quotes → verwende gleiche Projektliste
+  // Get cost positions from accepted quotes → lade angenommene Angebote als Kostenpositionen
   getCostPositionsFromAcceptedQuotes: async (projectId: number): Promise<CostPosition[]> => {
-    const response = await api.get(`/cost-positions/project/${projectId}`);
-    return response.data;
+    try {
+      // Versuche zuerst echte Kostenpositionen zu laden
+      const response = await api.get(`/cost-positions/project/${projectId}`);
+      const costPositions = response.data || [];
+      
+      // Wenn keine Kostenpositionen vorhanden sind, lade angenommene Angebote
+      if (costPositions.length === 0) {
+        console.log('🔄 Keine Kostenpositionen gefunden, lade angenommene Angebote...');
+        const quotesResponse = await api.get(`/quotes/?project_id=${projectId}`);
+        const allQuotes = quotesResponse.data || [];
+        
+        // Filtere angenommene Angebote
+        const acceptedQuotes = allQuotes.filter((quote: any) => quote.status === 'accepted');
+        console.log(`✅ ${acceptedQuotes.length} angenommene Angebote gefunden`);
+        
+        // Konvertiere angenommene Angebote zu Kostenpositionen-Format
+        return acceptedQuotes.map((quote: any) => ({
+          id: quote.id,
+          title: quote.title || 'Angebot ohne Titel',
+          description: quote.description || '',
+          amount: quote.total_amount || 0,
+          currency: quote.currency || 'EUR',
+          category: 'services', // Standard-Kategorie für Angebote
+          cost_type: 'quote_accepted',
+          status: 'active',
+          contractor_name: quote.company_name,
+          contractor_contact: quote.contact_person,
+          contractor_phone: quote.phone,
+          contractor_email: quote.email,
+          contractor_website: quote.website,
+          progress_percentage: 0,
+          paid_amount: 0,
+          payment_terms: quote.payment_terms,
+          warranty_period: quote.warranty_period,
+          estimated_duration: quote.estimated_duration,
+          start_date: quote.start_date,
+          completion_date: quote.completion_date,
+          labor_cost: quote.labor_cost,
+          material_cost: quote.material_cost,
+          overhead_cost: quote.overhead_cost,
+          risk_score: quote.risk_score,
+          price_deviation: quote.price_deviation,
+          ai_recommendation: quote.ai_recommendation,
+          quote_id: quote.id,
+          milestone_id: quote.milestone_id,
+          project_id: projectId,
+          service_provider_name: quote.company_name,
+          milestone_title: quote.milestone_title || `Gewerk #${quote.milestone_id}`,
+          created_at: quote.accepted_at || quote.created_at,
+          updated_at: quote.updated_at
+        }));
+      }
+      
+      return costPositions;
+    } catch (error) {
+      console.error('❌ Fehler beim Laden der Kostenpositionen:', error);
+      return [];
+    }
   },
 
   // Get cost position statistics for accepted quotes only

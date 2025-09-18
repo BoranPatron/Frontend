@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Wrench, User, Euro, BarChart3, Calendar, Tag, CheckCircle, XCircle, AlertTriangle, Eye, FileText, ChevronDown, ChevronUp, Clock, Users, Trophy, Sparkles, MessageCircle, Edit, Trash2, MoreHorizontal, StickyNote } from 'lucide-react';
-import { updateMilestone } from '../api/milestoneService';
+import { updateMilestone, deleteMilestone } from '../api/milestoneService';
 import { useNavigate } from 'react-router-dom';
 import { getQuotesForMilestone } from '../api/quoteService';
 
@@ -592,15 +592,16 @@ export default function TradesCard({
     if (!editingTrade) return;
     try {
       setIsUpdatingTrade(true);
-      const payload: any = {
-        title: editForm.title,
-        description: editForm.description,
-        category: editForm.category || undefined,
-        priority: editForm.priority,
-        planned_date: editForm.planned_date || undefined,
-        notes: editForm.notes || undefined,
-        requires_inspection: editForm.requires_inspection,
-      };
+      const payload: any = {};
+      
+      // Nur definierte Werte hinzufügen - KEINE undefined Werte!
+      if (editForm.title && editForm.title.trim()) payload.title = editForm.title;
+      if (editForm.description && editForm.description.trim()) payload.description = editForm.description;
+      if (editForm.category && editForm.category.trim()) payload.category = editForm.category;
+      if (editForm.priority && editForm.priority.trim()) payload.priority = editForm.priority;
+      if (editForm.planned_date && editForm.planned_date.trim()) payload.planned_date = editForm.planned_date;
+      if (editForm.notes && editForm.notes.trim()) payload.notes = editForm.notes;
+      payload.requires_inspection = !!editForm.requires_inspection;
       await updateMilestone(editingTrade.id, payload);
       setUpdatedTrades(prev => ({ ...prev, [editingTrade.id]: { ...payload } }));
       setEditingTrade(null);
@@ -620,10 +621,28 @@ export default function TradesCard({
     }
   };
 
-  const handleDeleteTrade = (tradeId: number) => {
-    if (onDeleteTrade && canEditOrDeleteTrade(tradeId)) {
-      onDeleteTrade(tradeId);
+  const handleDeleteTrade = async (tradeId: number) => {
+    if (!canEditOrDeleteTrade(tradeId)) {
+      alert('Gewerk kann nicht gelöscht werden, da bereits Angebote vorliegen');
+      return;
+    }
+
+    try {
+      await deleteMilestone(tradeId);
+      
+      // Entferne das Gewerk aus der lokalen Liste
+      setTrades(prev => prev.filter(trade => trade.id !== tradeId));
+      
+      // Rufe den onDeleteTrade Callback auf, falls vorhanden
+      if (onDeleteTrade) {
+        onDeleteTrade(tradeId);
+      }
+      
       setShowDeleteConfirm(prev => ({ ...prev, [tradeId]: false }));
+      alert('Ausschreibung wurde erfolgreich gelöscht');
+    } catch (error) {
+      console.error('❌ Fehler beim Löschen des Gewerks:', error);
+      alert('Fehler beim Löschen der Ausschreibung');
     }
   };
 
@@ -724,7 +743,7 @@ export default function TradesCard({
                                   </div>
                                   
                                   {/* Tooltip */}
-                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50">
+                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100]">
                                     <div className="bg-gradient-to-b from-gray-900 to-gray-800 text-white text-xs rounded-xl py-3 px-4 shadow-2xl border border-gray-600/50 backdrop-blur-sm min-w-[200px]">
                                       <div className="flex items-center gap-2 mb-2">
                                         <Calendar size={14} className="text-blue-400" />
@@ -764,7 +783,7 @@ export default function TradesCard({
                                   </div>
                                   
                                   {/* Erweiterter Tooltip mit Best Practice Design */}
-                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50">
+                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100]">
                                     <div className="bg-gradient-to-b from-gray-900 to-gray-800 text-white text-xs rounded-xl py-3 px-4 shadow-2xl border border-gray-600/50 backdrop-blur-sm min-w-[280px]">
                                       <div className="flex items-center gap-2 mb-2">
                                         <Trophy size={14} className="text-green-400" />
@@ -878,7 +897,7 @@ export default function TradesCard({
                                       </div>
                                       
                                       {/* Tooltip */}
-                                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50">
+                                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100]">
                                         <div className="bg-gradient-to-b from-gray-900 to-gray-800 text-white text-xs rounded-xl py-3 px-4 shadow-2xl border border-gray-600/50 backdrop-blur-sm min-w-[200px]">
                                           <div className="flex items-center gap-2 mb-2">
                                             {actualCompletionStatus === 'completion_requested' ? (
@@ -971,17 +990,22 @@ export default function TradesCard({
                                 </button>
                               );
                             })()}
-                            {/* Löschen über Menü nur wenn keine Angebote */}
-                            {canEditOrDeleteTrade(trade.id) && onDeleteTrade && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(prev => ({ ...prev, [trade.id]: true })); }}
-                                className="px-2 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 bg-red-500/10 text-red-300 hover:bg-red-500/20"
-                                title="Gewerk löschen"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                                Löschen
-                              </button>
-                            )}
+                            {/* Löschen-Button: nur wenn keine Angebote vorhanden */}
+                            {(() => {
+                              const canDelete = canEditOrDeleteTrade(trade.id);
+                              const title = canDelete ? 'Gewerk löschen' : 'Löschen nicht möglich, es liegen bereits Angebote vor';
+                              return (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); if (canDelete) setShowDeleteConfirm(prev => ({ ...prev, [trade.id]: true })); }}
+                                  className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${canDelete ? 'bg-red-500/10 text-red-300 hover:bg-red-500/20' : 'bg-white/5 text-gray-400 cursor-not-allowed opacity-50'}`}
+                                  title={title}
+                                  disabled={!canDelete}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  Löschen
+                                </button>
+                              );
+                            })()}
                           </div>
                         </div>
                       </div>
@@ -1359,12 +1383,33 @@ export default function TradesCard({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">Kategorie</label>
-                  <input
-                    type="text"
+                  <select
                     value={editForm.category}
                     onChange={(e) => setEditForm(prev => ({ ...prev, category: e.target.value }))}
                     className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[#ffbd59]"
-                  />
+                  >
+                    <option value="">Kategorie wählen</option>
+                    <option value="electrical">Elektro</option>
+                    <option value="plumbing">Sanitär</option>
+                    <option value="heating">Heizung</option>
+                    <option value="flooring">Bodenbelag</option>
+                    <option value="painting">Malerei</option>
+                    <option value="carpentry">Zimmerei</option>
+                    <option value="roofing">Dachdeckerei</option>
+                    <option value="landscaping">Garten- & Landschaftsbau</option>
+                    <option value="civil_engineering">Tiefbau</option>
+                    <option value="structural">Hochbau</option>
+                    <option value="interior">Innenausbau / Interior</option>
+                    <option value="facade">Fassade</option>
+                    <option value="windows_doors">Fenster & Türen</option>
+                    <option value="drywall">Trockenbau</option>
+                    <option value="tiling">Fliesenarbeiten</option>
+                    <option value="insulation">Dämmung</option>
+                    <option value="hvac">Klima / Lüftung (HVAC)</option>
+                    <option value="smart_home">Smart Home</option>
+                    <option value="site_preparation">Erdarbeiten / Baustellenvorbereitung</option>
+                    <option value="other">Sonstiges</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">Priorität</label>
@@ -1376,7 +1421,7 @@ export default function TradesCard({
                     <option value="low">Niedrig</option>
                     <option value="medium">Mittel</option>
                     <option value="high">Hoch</option>
-                    <option value="critical">Kritisch</option>
+                    <option value="urgent">Dringend</option>
                   </select>
                 </div>
               </div>
@@ -1420,6 +1465,62 @@ export default function TradesCard({
           </div>
         </div>
       )}
+
+      {/* Löschbestätigungs-Modal */}
+      {Object.entries(showDeleteConfirm).map(([tradeId, show]) => {
+        if (!show) return null;
+        const trade = trades.find(t => t.id === parseInt(tradeId));
+        if (!trade) return null;
+        
+        return (
+          <div key={tradeId} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+            <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-2xl shadow-2xl w-full max-w-md border border-red-500/30">
+              <div className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center">
+                    <AlertTriangle className="w-6 h-6 text-red-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Ausschreibung löschen</h3>
+                    <p className="text-sm text-gray-400">Diese Aktion kann nicht rückgängig gemacht werden</p>
+                  </div>
+                </div>
+                
+                <div className="mb-6">
+                  <p className="text-gray-300 mb-3">
+                    Möchten Sie die Ausschreibung <strong className="text-white">"{trade.title}"</strong> wirklich löschen?
+                  </p>
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-red-300">
+                        <p className="font-medium mb-1">Wichtiger Hinweis:</p>
+                        <p>Diese Ausschreibung kann nur gelöscht werden, wenn noch keine Angebote von Dienstleistern vorliegen.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setShowDeleteConfirm(prev => ({ ...prev, [tradeId]: false }))}
+                    className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    onClick={() => handleDeleteTrade(parseInt(tradeId))}
+                    className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+                  >
+                    <Trash2 size={16} />
+                    Endgültig löschen
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 } 

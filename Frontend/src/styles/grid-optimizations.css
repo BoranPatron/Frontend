@@ -108,30 +108,70 @@
 
 /* Mobile-First Approach für bessere Performance */
 @media (max-width: 768px) {
-  /* Kanban Board Mobile Optimierungen */
+  /* Kanban Board Mobile Optimierungen - Dynamische Höhen */
   .kanban-desktop-grid {
     display: flex !important;
     flex-direction: column !important;
-    gap: 1rem !important;
+    gap: 0.75rem !important;
     height: auto !important;
     min-height: auto !important;
+    padding: 0.5rem !important;
   }
   
   .kanban-column-desktop {
     width: 100% !important;
-    min-height: 300px !important;
-    max-height: 400px !important;
-    overflow-y: auto !important;
-    margin-bottom: 1rem !important;
+    min-height: 200px !important;
+    max-height: 50vh !important;
+    overflow: hidden !important;
+    margin-bottom: 0.75rem !important;
     height: auto !important;
+    border-radius: 0.75rem !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
   }
   
   .kanban-column-content {
-    min-height: 200px !important;
-    max-height: 350px !important;
+    min-height: 150px !important;
+    max-height: calc(50vh - 80px) !important;
     height: auto !important;
     overflow-y: auto !important;
-    flex: none !important;
+    overflow-x: hidden !important;
+    flex: 1 !important;
+    padding: 0.75rem !important;
+    -webkit-overflow-scrolling: touch !important;
+    scroll-behavior: smooth !important;
+  }
+  
+  /* Kompakte Kanban-Ansicht für Mobile - Optimiert für Touch */
+  .kanban-compact-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 0.5rem !important;
+  }
+  
+  .kanban-compact-grid .kanban-column-desktop {
+    width: 100% !important;
+    min-height: 180px !important;
+    max-height: 40vh !important;
+    overflow: hidden !important;
+    margin-bottom: 0.5rem !important;
+    height: auto !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  .kanban-compact-grid .kanban-column-content {
+    min-height: 120px !important;
+    max-height: calc(40vh - 60px) !important;
+    height: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    flex: 1 !important;
+    padding: 0.5rem !important;
+    -webkit-overflow-scrolling: touch !important;
+    scroll-behavior: smooth !important;
   }
   
   /* Mobile Grid Layouts */
@@ -239,13 +279,167 @@
   .mobile-modal {
     z-index: 10000 !important;
   }
-  
+
   .mobile-dropdown {
     z-index: 9999 !important;
   }
-  
+
   .mobile-overlay {
     z-index: 9998 !important;
+  }
+
+  /* Mobile Kanban Task Cards - Optimiert für Touch */
+  .kanban-column-content .bg-gradient-to-br {
+    margin-bottom: 0.5rem !important;
+    padding: 0.75rem !important;
+    min-height: 80px !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    transition: all 0.2s ease !important;
+  }
+
+  .kanban-column-content .bg-gradient-to-br:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+  }
+
+  /* Mobile Task Card Text Optimierungen */
+  .kanban-column-content h4 {
+    font-size: 0.875rem !important;
+    line-height: 1.3 !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .kanban-column-content p {
+    font-size: 0.75rem !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Mobile Button Optimierungen für Kanban */
+  .kanban-column-content button {
+    min-height: 36px !important;
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.75rem !important;
+    border-radius: 0.375rem !important;
+    touch-action: manipulation !important;
+  }
+
+  /* Mobile Scrollbar für Kanban */
+  .kanban-column-content::-webkit-scrollbar {
+    width: 3px !important;
+  }
+
+  .kanban-column-content::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05) !important;
+    border-radius: 1.5px !important;
+  }
+
+  .kanban-column-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 189, 89, 0.4) !important;
+    border-radius: 1.5px !important;
+  }
+
+  .kanban-column-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 189, 89, 0.6) !important;
+  }
+
+  /* Mobile Header Optimierungen für Kanban */
+  .kanban-column-desktop > div:first-child {
+    padding: 0.75rem !important;
+    border-radius: 0.75rem 0.75rem 0 0 !important;
+  }
+
+  .kanban-column-desktop > div:first-child span {
+    font-size: 0.875rem !important;
+  }
+
+  .kanban-column-desktop > div:first-child .text-xl {
+    font-size: 1rem !important;
+  }
+
+  /* Mobile Empty State Optimierungen */
+  .kanban-column-content .text-center {
+    padding: 1rem 0.5rem !important;
+    min-height: 100px !important;
+  }
+
+  .kanban-column-content .text-center .w-16 {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+  }
+
+  .kanban-column-content .text-center p {
+    font-size: 0.75rem !important;
+    margin-top: 0.5rem !important;
+  }
+
+  /* Alternative: Horizontaler Scroll für sehr kleine Bildschirme */
+  @media (max-width: 480px) {
+    .kanban-mobile-horizontal {
+      display: flex !important;
+      flex-direction: row !important;
+      gap: 0.75rem !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      padding: 0.5rem !important;
+      -webkit-overflow-scrolling: touch !important;
+      scroll-snap-type: x mandatory !important;
+    }
+
+    .kanban-mobile-horizontal .kanban-column-desktop {
+      flex: 0 0 280px !important;
+      width: 280px !important;
+      min-width: 280px !important;
+      max-width: 280px !important;
+      height: 60vh !important;
+      max-height: 60vh !important;
+      margin-bottom: 0 !important;
+      scroll-snap-align: start !important;
+    }
+
+    .kanban-mobile-horizontal .kanban-column-content {
+      max-height: calc(60vh - 80px) !important;
+      min-height: calc(60vh - 80px) !important;
+    }
+
+    /* Horizontaler Scrollbar für Mobile Kanban */
+    .kanban-mobile-horizontal::-webkit-scrollbar {
+      height: 4px !important;
+      width: auto !important;
+    }
+
+    .kanban-mobile-horizontal::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.05) !important;
+      border-radius: 2px !important;
+    }
+
+    .kanban-mobile-horizontal::-webkit-scrollbar-thumb {
+      background: rgba(255, 189, 89, 0.4) !important;
+      border-radius: 2px !important;
+    }
+
+    .kanban-mobile-horizontal::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 189, 89, 0.6) !important;
+    }
+
+    /* Scroll-Indikator für bessere UX */
+    .kanban-mobile-horizontal::after {
+      content: "← Wischen für weitere Spalten →" !important;
+      position: absolute !important;
+      bottom: -1.5rem !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      font-size: 0.625rem !important;
+      color: rgba(81, 99, 111, 0.6) !important;
+      text-align: center !important;
+      white-space: nowrap !important;
+      pointer-events: none !important;
+    }
+
+    .kanban-mobile-horizontal {
+      position: relative !important;
+      margin-bottom: 2rem !important;
+    }
   }
 }
 
@@ -276,6 +470,33 @@
     flex: 1 !important;
     overflow-y: auto !important;
   }
+  
+  /* Kompakte Kanban-Ansicht für Tablets - 2x2 Grid */
+  .kanban-compact-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-rows: 1fr 1fr !important;
+    gap: 0.75rem !important;
+    height: auto !important;
+    max-height: 600px !important;
+  }
+  
+  .kanban-compact-grid .kanban-column-desktop {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    min-height: 250px !important;
+    max-height: 280px !important;
+  }
+  
+  .kanban-compact-grid .kanban-column-content {
+    min-height: 180px !important;
+    max-height: 200px !important;
+    height: auto !important;
+    flex: 1 !important;
+    overflow-y: auto !important;
+    padding: 0.5rem !important;
+  }
 }
 
 /* Desktop Optimierungen */
@@ -304,6 +525,57 @@
     display: grid !important;
     grid-template-columns: repeat(4, 1fr) !important;
     gap: 1.5rem !important;
+  }
+  
+  /* Spezielle Klasse für kompakte Kanban-Ansicht (alle Spalten in einer Zeile) */
+  .kanban-compact-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 0.75rem !important;
+    height: auto !important;
+    max-height: 500px !important;
+    background: linear-gradient(135deg, rgba(81, 99, 111, 0.05) 0%, rgba(255, 189, 89, 0.05) 100%) !important;
+    border-radius: 1rem !important;
+    padding: 0.5rem !important;
+  }
+  
+  .kanban-compact-grid .kanban-column-desktop {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    min-height: 400px !important;
+    max-height: 450px !important;
+    border-radius: 0.75rem !important;
+    overflow: hidden !important;
+  }
+  
+  .kanban-compact-grid .kanban-column-content {
+    min-height: 300px !important;
+    max-height: 350px !important;
+    height: auto !important;
+    flex: 1 !important;
+    overflow-y: auto !important;
+    padding: 0.75rem !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(255, 189, 89, 0.3) transparent !important;
+  }
+  
+  /* Scrollbar-Styling für kompakte Ansicht */
+  .kanban-compact-grid .kanban-column-content::-webkit-scrollbar {
+    width: 4px !important;
+  }
+  
+  .kanban-compact-grid .kanban-column-content::-webkit-scrollbar-track {
+    background: transparent !important;
+  }
+  
+  .kanban-compact-grid .kanban-column-content::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 189, 89, 0.3) !important;
+    border-radius: 2px !important;
+  }
+  
+  .kanban-compact-grid .kanban-column-content::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 189, 89, 0.5) !important;
   }
 }
 
@@ -424,6 +696,31 @@
 .scroll-container {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 189, 89, 0.3) transparent;
+}
+
+/* Zusätzliche mobile Optimierungen für Kanban in Dashboard-Kontexten */
+.mobile-container .kanban-desktop-grid,
+.mobile-container .kanban-mobile-horizontal {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+@media (max-width: 768px) {
+  .mobile-container {
+    padding: 0.5rem !important;
+    overflow-x: hidden !important;
+  }
+  
+  .mobile-container .kanban-desktop-grid {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  .mobile-container .kanban-column-desktop {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
 }
 
 .scroll-container::-webkit-scrollbar {

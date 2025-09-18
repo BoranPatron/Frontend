@@ -44,7 +44,7 @@ interface BautraegerNotificationTabProps {
 
 interface BautraegerNotificationData {
   id: string;
-  type: 'appointment' | 'quote_submitted' | 'quote_update' | 'completion' | 'defects_resolved';
+  type: 'appointment' | 'quote_submitted' | 'quote_update' | 'completion' | 'defects_resolved' | 'invoice_received';
   title: string;
   message: string;
   timestamp: string;
@@ -57,6 +57,12 @@ interface BautraegerNotificationData {
   appointmentType?: 'confirmation' | 'rejection' | 'reschedule';
   // Quote-spezifische Daten
   notification?: Notification;
+  // Invoice-spezifische Daten
+  invoiceId?: number;
+  invoiceNumber?: string;
+  invoiceAmount?: number;
+  milestoneId?: number;
+  milestoneTitle?: string;
 }
 
 export default function BautraegerNotificationTab({ userId, onResponseHandled }: BautraegerNotificationTabProps) {
@@ -70,6 +76,35 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
   useEffect(() => {
     loadBautraegerNotifications();
     const interval = setInterval(loadBautraegerNotifications, 30000);
+    
+    // Event-Listener für neue Rechnungs-Benachrichtigungen
+    const handleInvoiceSubmitted = (event: CustomEvent) => {
+      console.log('💰 BautraegerNotificationTab: Invoice submitted event empfangen:', event.detail);
+      
+      const { invoice, milestoneId, milestoneTitle, invoiceNumber, totalAmount } = event.detail;
+      
+      // Erstelle sofortige lokale Benachrichtigung für Bauträger
+      const newNotification: BautraegerNotificationData = {
+        id: `invoice_${invoice?.id || Date.now()}_${Date.now()}`,
+        type: 'invoice_received',
+        title: '🧾 Neue Rechnung eingegangen',
+        message: `Eine neue Rechnung für "${milestoneTitle}" wurde erstellt`,
+        timestamp: new Date().toISOString(),
+        isHandled: false,
+        isRead: false,
+        priority: 'high',
+        invoiceId: invoice?.id,
+        invoiceNumber: invoiceNumber,
+        invoiceAmount: totalAmount,
+        milestoneId: milestoneId,
+        milestoneTitle: milestoneTitle
+      };
+      
+      console.log('💰 BautraegerNotificationTab: Neue Rechnungs-Benachrichtigung erstellt:', newNotification);
+      
+      // Füge die neue Benachrichtigung zur Liste hinzu
+      setNotifications(prev => [newNotification, ...prev]);
+    };
     
     // Event-Listener für neue Angebot-Benachrichtigungen
     const handleQuoteSubmittedForBautraeger = (event: CustomEvent) => {
@@ -117,11 +152,33 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
       }
     };
     
+    // Event-Listener für Rechnung angesehen
+    const handleInvoiceViewed = (event: CustomEvent) => {
+      console.log('📖 BautraegerNotificationTab: Invoice viewed event empfangen:', event.detail);
+      
+      const { invoiceId, milestoneId } = event.detail;
+      
+      // Markiere alle Benachrichtigungen für diese Rechnung als gelesen
+      setNotifications(prev => 
+        prev.map(n => {
+          if (n.type === 'invoice_received' && 
+              (n.invoiceId === invoiceId || n.milestoneId === milestoneId)) {
+            return { ...n, isHandled: true, isRead: true };
+          }
+          return n;
+        })
+      );
+    };
+    
     window.addEventListener('quoteSubmittedForBautraeger', handleQuoteSubmittedForBautraeger as EventListener);
+    window.addEventListener('invoiceSubmitted', handleInvoiceSubmitted as EventListener);
+    window.addEventListener('invoiceViewed', handleInvoiceViewed as EventListener);
     
     return () => {
       clearInterval(interval);
       window.removeEventListener('quoteSubmittedForBautraeger', handleQuoteSubmittedForBautraeger as EventListener);
+      window.removeEventListener('invoiceSubmitted', handleInvoiceSubmitted as EventListener);
+      window.removeEventListener('invoiceViewed', handleInvoiceViewed as EventListener);
     };
   }, [userId]);
 
@@ -131,48 +188,7 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
       
       console.log('🔔 BautraegerNotificationTab: Lade Benachrichtigungen für User:', userId);
       
-      // PRIORITÄT 1: Erstelle Benachrichtigung für das gerade erstellte Angebot (Quote ID 4)
-      // Basierend auf den Logs: Quote ID 4 wurde gerade erstellt
-      const recentQuoteNotification: BautraegerNotificationData = {
-        id: `quote_4_${Date.now()}`,
-        type: 'quote_submitted',
-        title: 'Neues Angebot eingegangen! 📋',
-        message: 'Ein neues Angebot zu deiner Ausschreibung "Sanitär- und Heizungsinstallation" wurde eingereicht.',
-        timestamp: new Date().toISOString(),
-        isHandled: false,
-        isRead: false,
-        priority: 'high',
-        notification: {
-          id: 4,
-          recipient_id: userId,
-          type: 'quote_submitted',
-          priority: 'high',
-          title: 'Neues Angebot eingegangen! 📋',
-          message: 'Ein neues Angebot zu deiner Ausschreibung wurde eingereicht.',
-          data: null,
-          is_read: false,
-          is_acknowledged: false,
-          created_at: new Date().toISOString(),
-          related_milestone_id: 2,
-          related_project_id: 2,
-          related_quote_id: 4,
-          metadata: {
-            quote_amount: 125000,
-            quote_currency: 'CHF',
-            service_provider_name: 'Dienstleister_BanauseBoran',
-            quote_title: 'Angebot: Sanitär- und Heizungsinstallation',
-            project_name: 'Tessin mit Ausblick',
-            estimated_duration: '3 Wochen',
-            payment_terms: 'Ratenzahlung möglich',
-            warranty_period: '24 Monate'
-          }
-        } as any
-      };
-      
-      notifications.push(recentQuoteNotification);
-      console.log('✅ BautraegerNotificationTab: Demo-Benachrichtigung für Quote 4 erstellt');
-      
-      // 2. Lade Backend-Benachrichtigungen (optional)
+      // Lade Backend-Benachrichtigungen (Hauptquelle)
       try {
         console.log('🔔 BautraegerNotificationTab: Rufe /notifications/ API auf...');
         const response = await api.get('/notifications/', {
@@ -192,10 +208,35 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
             type: notification.type,
             title: notification.title,
             user_id: notification.recipient_id,
-            currentUserId: userId
+            currentUserId: userId,
+            related_milestone_id: notification.related_milestone_id
           });
           
-          if (notification.type === 'quote_submitted') {
+          // Prüfe, ob die Benachrichtigung gültig ist (alle verknüpften Entitäten existieren)
+          if (notification.related_milestone_id && !notification.related_milestone_id) {
+            console.warn('⚠️ BautraegerNotificationTab: Verwaiste Benachrichtigung übersprungen:', notification.id);
+            return; // Überspringe verwaiste Benachrichtigungen
+          }
+          
+          // Verarbeite Rechnungs-Benachrichtigungen
+          if (notification.metadata?.invoice_id) {
+            notifications.push({
+              id: `invoice_${notification.id}`,
+              type: 'invoice_received',
+              title: notification.title,
+              message: notification.message,
+              timestamp: notification.created_at,
+              isHandled: notification.is_acknowledged,
+              isRead: notification.is_read,
+              priority: notification.priority as any,
+              notification: notification,
+              invoiceId: notification.metadata.invoice_id,
+              invoiceNumber: notification.metadata.invoice_number,
+              invoiceAmount: notification.metadata.total_amount,
+              milestoneId: notification.related_milestone_id,
+              milestoneTitle: notification.metadata.milestone_title
+            });
+          } else if (notification.type === 'quote_submitted') {
             notifications.push({
               id: `quote_${notification.id}`,
               type: 'quote_submitted',
@@ -410,11 +451,22 @@ Ihr BuildWise Team
         }));
       }
       
-      if ((notification.type === 'quote_submitted' || notification.type === 'completion' || notification.type === 'defects_resolved') && notification.notification) {
-        // Für Angebots-, Fertigstellungs- und Mängelbehebungsbenachrichtigungen - markiere als acknowledged
+      if ((notification.type === 'quote_submitted' || notification.type === 'completion' || notification.type === 'defects_resolved' || notification.type === 'invoice_received') && notification.notification) {
+        // Für Angebots-, Fertigstellungs-, Mängelbehebungs- und Rechnungsbenachrichtigungen - markiere als acknowledged
         api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
           console.error('Fehler beim Bestätigen der Benachrichtigung:', error);
         });
+      }
+      
+      // Speziell für Rechnungsbenachrichtigungen
+      if (notification.type === 'invoice_received') {
+        const invoiceHandledKey = `invoice_handled_${notification.invoiceId}_${userId}`;
+        localStorage.setItem(invoiceHandledKey, JSON.stringify({
+          invoiceId: notification.invoiceId,
+          userId: userId,
+          handledAt: new Date().toISOString(),
+          action: 'marked_all_as_read'
+        }));
       }
     });
     
@@ -535,11 +587,40 @@ Ihr BuildWise Team
               <div 
                 key={`${notification.appointment?.id || notification.id || `notif-${index}`}`}
                 className={`p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors ${
-                  !notification.isHandled ? 'bg-green-50 border-l-4 border-l-green-400' : ''
+                  !notification.isHandled ? 'bg-green-50 border-l-4 border-l-green-400' : 
+                  notification.isRead ? 'opacity-60 bg-gray-50' : ''
                 }`}
                 onClick={() => {
+                  // Für invoice_received: Öffne direkt die Rechnung
+                  if (notification.type === 'invoice_received' && notification.milestoneId) {
+                    console.log('🧾 BautraegerNotificationTab: Öffne Rechnung für Milestone:', notification.milestoneId);
+                    
+                    // Event für Dashboard auslösen, um SimpleCostEstimateModal mit Rechnung zu öffnen
+                    window.dispatchEvent(new CustomEvent('openInvoiceDetails', {
+                      detail: {
+                        milestoneId: notification.milestoneId,
+                        invoiceId: notification.invoiceId,
+                        source: 'bautraeger_notification_invoice'
+                      }
+                    }));
+                    
+                    // Schließe Benachrichtigungs-Panel
+                    setIsExpanded(false);
+                    
+                    // Markiere als gelesen
+                    setNotifications(prev => 
+                      prev.map(n => n.id === notification.id ? { ...n, isHandled: true, isRead: true } : n)
+                    );
+                    
+                    // Markiere Backend-Benachrichtigung als gelesen
+                    if (notification.notification?.id) {
+                      api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
+                        console.error('Fehler beim Bestätigen der Benachrichtigung:', error);
+                      });
+                    }
+                  }
                   // Für quote_submitted: Öffne direkt die Ausschreibung
-                  if (notification.type === 'quote_submitted' && notification.notification?.related_milestone_id) {
+                  else if (notification.type === 'quote_submitted' && notification.notification?.related_milestone_id) {
                     console.log('📋 BautraegerNotificationTab: Öffne Ausschreibung für Milestone:', notification.notification.related_milestone_id);
                     
                     // Event für Dashboard auslösen, um TradeDetailsModal zu öffnen
@@ -583,6 +664,36 @@ Ihr BuildWise Team
                         <div className="flex items-center gap-1">
                           <Clock size={14} />
                           {formatTime(notification.appointment.scheduled_date)}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Rechnung-spezifische Informationen */}
+                    {notification.type === 'invoice_received' && (
+                      <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                        <div className="mb-2">
+                          <div className="text-xs text-gray-600 font-medium">
+                            🧾 Rechnung für: {notification.milestoneTitle}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            📄 Rechnungsnummer: {notification.invoiceNumber}
+                          </div>
+                        </div>
+                        
+                        <div className="text-center my-3">
+                          <div className="text-2xl font-bold text-green-600">
+                            {new Intl.NumberFormat('de-DE', { 
+                              style: 'currency', 
+                              currency: 'EUR' 
+                            }).format(notification.invoiceAmount || 0)}
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3 p-2 bg-gradient-to-r from-green-100 to-emerald-100 rounded border border-green-300">
+                          <div className="flex items-center justify-center gap-2 text-xs text-green-700 font-medium">
+                            <FileText size={14} />
+                            <span>👆 Klicken Sie hier, um die Rechnung anzuzeigen</span>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -652,6 +763,7 @@ Ihr BuildWise Team
 
                     <div className="flex items-center justify-between">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        notification.type === 'invoice_received' ? 'bg-green-100 text-green-800' :
                         notification.type === 'quote_submitted' ? 'bg-blue-100 text-blue-800' :
                         notification.type === 'completion' ? 'bg-green-100 text-green-800' :
                         notification.type === 'defects_resolved' ? 'bg-orange-100 text-orange-800' :
@@ -660,6 +772,7 @@ Ihr BuildWise Team
                         notification.appointmentType === 'rejection' ? 'bg-red-100 text-red-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
+                        {notification.type === 'invoice_received' && '🧾 Neue Rechnung'}
                         {notification.type === 'quote_submitted' && '📋 Neues Angebot'}
                         {notification.type === 'completion' && '✅ Fertiggestellt'}
                         {notification.type === 'defects_resolved' && '🔧 Mängel behoben'}
@@ -671,6 +784,7 @@ Ihr BuildWise Team
                       {!notification.isHandled && (
                         <div className="animate-pulse">
                           <AlertCircle size={16} className={
+                            notification.type === 'invoice_received' ? 'text-green-500' :
                             notification.type === 'quote_submitted' ? 'text-blue-500' : 
                             notification.type === 'completion' ? 'text-green-500' : 
                             notification.type === 'defects_resolved' ? 'text-orange-500' : 'text-green-500'

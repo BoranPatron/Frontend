@@ -576,7 +576,7 @@ export default function Tasks() {
                     <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
                       <MoreHorizontal size={16} className="text-gray-300" />
                     </button>
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-[#3d4952] rounded-xl shadow-lg border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-10">
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-[#3d4952] rounded-xl shadow-lg border border-white/20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100]">
                       <button
                         onClick={() => openEditModal(task)}
                         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/10 transition-colors rounded-t-xl text-white"
