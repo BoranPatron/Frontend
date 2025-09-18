@@ -17,7 +17,12 @@ import {
   Award,
   Shield,
   Clock as ClockIcon,
-  Upload
+  Upload,
+  Mail,
+  MessageCircle,
+  Link,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 import QuoteDocumentUpload from './QuoteDocumentUpload';
 
@@ -45,6 +50,8 @@ export default function QuoteDetailsModal({
   
   const [fullQuoteData, setFullQuoteData] = useState<any>(quote);
   const [isLoadingFullData, setIsLoadingFullData] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   // Lade vollständige Quote-Details beim Öffnen
   useEffect(() => {
@@ -136,13 +143,595 @@ export default function QuoteDetailsModal({
 
   const statusInfo = getStatusInfo();
 
-  const handleDownloadPDF = () => {
-    // PDF-Download Funktionalität hier implementieren
-    };
+  const handleDownloadPDF = async () => {
+    try {
+      if (!displayQuote?.id) {
+        alert('Kein Angebot ausgewählt');
+        return;
+      }
+
+      // Generiere ein PDF aus den Angebotsdaten
+      await generateQuotePDF(displayQuote);
+    } catch (error) {
+      console.error('Fehler beim PDF-Download:', error);
+      alert('Fehler beim Herunterladen des PDFs');
+    }
+  };
+
+  const generateQuotePDF = async (quote: any) => {
+    try {
+      // Erstelle HTML-Inhalt für das PDF
+      const htmlContent = generateQuoteHTML(quote);
+      
+      // Erstelle ein neues Fenster mit dem HTML-Inhalt
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        alert('Popup-Blocker verhindert das Öffnen des PDF-Fensters. Bitte erlauben Sie Popups für diese Seite.');
+        return;
+      }
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Angebot - ${quote.title}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 20px;
+              color: #333;
+              line-height: 1.6;
+            }
+            .header {
+              border-bottom: 2px solid #ffbd59;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .header h1 {
+              color: #ffbd59;
+              margin: 0;
+              font-size: 28px;
+            }
+            .header p {
+              color: #666;
+              margin: 5px 0;
+            }
+            .section {
+              margin-bottom: 25px;
+              padding: 15px;
+              border: 1px solid #ddd;
+              border-radius: 8px;
+              background-color: #f9f9f9;
+            }
+            .section h2 {
+              color: #333;
+              margin-top: 0;
+              margin-bottom: 15px;
+              font-size: 18px;
+              border-bottom: 1px solid #ffbd59;
+              padding-bottom: 5px;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+              margin-bottom: 20px;
+            }
+            .info-item {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 8px;
+            }
+            .info-label {
+              font-weight: bold;
+              color: #555;
+            }
+            .info-value {
+              color: #333;
+            }
+            .amount {
+              font-size: 24px;
+              font-weight: bold;
+              color: #ffbd59;
+            }
+            .description {
+              white-space: pre-wrap;
+              background-color: white;
+              padding: 15px;
+              border-radius: 5px;
+              border-left: 4px solid #ffbd59;
+            }
+            .footer {
+              margin-top: 40px;
+              padding-top: 20px;
+              border-top: 1px solid #ddd;
+              text-align: center;
+              color: #666;
+              font-size: 12px;
+            }
+            .status {
+              display: inline-block;
+              padding: 4px 12px;
+              border-radius: 20px;
+              font-size: 12px;
+              font-weight: bold;
+              text-transform: uppercase;
+            }
+            .status.submitted {
+              background-color: #e3f2fd;
+              color: #1976d2;
+            }
+            .status.accepted {
+              background-color: #e8f5e8;
+              color: #2e7d32;
+            }
+            .status.rejected {
+              background-color: #ffebee;
+              color: #c62828;
+            }
+            @media print {
+              body { margin: 0; }
+              .section { break-inside: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          ${htmlContent}
+        </body>
+        </html>
+      `);
+
+      printWindow.document.close();
+      
+      // Warte kurz und drucke dann
+      setTimeout(() => {
+        printWindow.print();
+        // Optional: Schließe das Fenster nach dem Drucken
+        setTimeout(() => {
+          printWindow.close();
+        }, 1000);
+      }, 500);
+
+    } catch (error) {
+      console.error('Fehler beim Generieren des PDFs:', error);
+      throw error;
+    }
+  };
+
+  const generateQuoteHTML = (quote: any) => {
+    const statusText = quote.status === 'accepted' ? 'Angenommen' : 
+                      quote.status === 'rejected' ? 'Abgelehnt' : 'Eingereicht';
+    const statusClass = quote.status;
+
+    return `
+      <div class="header">
+        <h1>Angebot Details</h1>
+        <p><strong>Titel:</strong> ${quote.title || 'Nicht angegeben'}</p>
+        <p><strong>Angebots-ID:</strong> #${quote.id}</p>
+        <p><strong>Status:</strong> <span class="status ${statusClass}">${statusText}</span></p>
+        <p><strong>Erstellt am:</strong> ${formatDate(quote.created_at)}</p>
+      </div>
+
+      <div class="section">
+        <h2>📊 Angebotsübersicht</h2>
+        <div class="info-grid">
+          <div>
+            <div class="info-item">
+              <span class="info-label">Gesamtbetrag:</span>
+              <span class="info-value amount">${formatCurrency(quote.total_amount, quote.currency)}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Währung:</span>
+              <span class="info-value">${quote.currency || 'EUR'}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Gültig bis:</span>
+              <span class="info-value">${formatDate(quote.valid_until || quote.validity_date || quote.valid_till || quote.expires_at)}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Geschätzte Dauer:</span>
+              <span class="info-value">${quote.estimated_duration || 0} Tage</span>
+            </div>
+          </div>
+          <div>
+            <div class="info-item">
+              <span class="info-label">Startdatum:</span>
+              <span class="info-value">${formatDate(quote.start_date)}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Fertigstellung:</span>
+              <span class="info-value">${formatDate(quote.completion_date)}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Garantie:</span>
+              <span class="info-value">${quote.warranty_period || 0} Monate</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Zahlungsbedingungen:</span>
+              <span class="info-value">${quote.payment_terms || 'Nicht angegeben'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      ${quote.labor_cost || quote.material_cost || quote.overhead_cost ? `
+      <div class="section">
+        <h2>💰 Kostenaufschlüsselung</h2>
+        ${quote.labor_cost ? `
+        <div class="info-item">
+          <span class="info-label">Arbeitskosten:</span>
+          <span class="info-value">${formatCurrency(quote.labor_cost, quote.currency)}</span>
+        </div>
+        ` : ''}
+        ${quote.material_cost ? `
+        <div class="info-item">
+          <span class="info-label">Materialkosten:</span>
+          <span class="info-value">${formatCurrency(quote.material_cost, quote.currency)}</span>
+        </div>
+        ` : ''}
+        ${quote.overhead_cost ? `
+        <div class="info-item">
+          <span class="info-label">Gemeinkosten:</span>
+          <span class="info-value">${formatCurrency(quote.overhead_cost, quote.currency)}</span>
+        </div>
+        ` : ''}
+      </div>
+      ` : ''}
+
+      <div class="section">
+        <h2>🏢 Unternehmensinformationen</h2>
+        <div class="info-grid">
+          <div>
+            <div class="info-item">
+              <span class="info-label">Unternehmen:</span>
+              <span class="info-value">${quote.company_name || 'Nicht angegeben'}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Ansprechpartner:</span>
+              <span class="info-value">${quote.contact_person || 'Nicht angegeben'}</span>
+            </div>
+          </div>
+          <div>
+            <div class="info-item">
+              <span class="info-label">E-Mail:</span>
+              <span class="info-value">${quote.email || 'Nicht angegeben'}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Telefon:</span>
+              <span class="info-value">${quote.phone || 'Nicht angegeben'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      ${quote.description ? `
+      <div class="section">
+        <h2>📝 Beschreibung</h2>
+        <div class="description">${quote.description}</div>
+      </div>
+      ` : ''}
+
+      ${quote.qualifications ? `
+      <div class="section">
+        <h2>🏆 Qualifikationen</h2>
+        <div class="description">${quote.qualifications}</div>
+      </div>
+      ` : ''}
+
+      ${quote.technical_approach ? `
+      <div class="section">
+        <h2>🔧 Technischer Ansatz</h2>
+        <div class="description">${quote.technical_approach}</div>
+      </div>
+      ` : ''}
+
+      ${quote.quality_standards ? `
+      <div class="section">
+        <h2>⭐ Qualitätsstandards</h2>
+        <div class="description">${quote.quality_standards}</div>
+      </div>
+      ` : ''}
+
+      ${quote.safety_measures ? `
+      <div class="section">
+        <h2>🛡️ Sicherheitsmaßnahmen</h2>
+        <div class="description">${quote.safety_measures}</div>
+      </div>
+      ` : ''}
+
+      ${quote.environmental_compliance ? `
+      <div class="section">
+        <h2>🌱 Umwelt-Compliance</h2>
+        <div class="description">${quote.environmental_compliance}</div>
+      </div>
+      ` : ''}
+
+      ${quote.risk_assessment ? `
+      <div class="section">
+        <h2>⚠️ Risikobewertung</h2>
+        <div class="description">${quote.risk_assessment}</div>
+      </div>
+      ` : ''}
+
+      ${quote.contingency_plan ? `
+      <div class="section">
+        <h2>🚨 Notfallplan</h2>
+        <div class="description">${quote.contingency_plan}</div>
+      </div>
+      ` : ''}
+
+      ${quote.additional_notes ? `
+      <div class="section">
+        <h2>📋 Zusätzliche Notizen</h2>
+        <div class="description">${quote.additional_notes}</div>
+      </div>
+      ` : ''}
+
+      <div class="footer">
+        <p>Erstellt am ${new Date().toLocaleDateString('de-DE')} um ${new Date().toLocaleTimeString('de-DE')}</p>
+        <p>Angebots-ID: #${quote.id}</p>
+      </div>
+    `;
+  };
 
   const handleShareQuote = () => {
-    // Teilen-Funktionalität hier implementieren
-    };
+    if (!displayQuote?.id) {
+      alert('Kein Angebot ausgewählt');
+      return;
+    }
+    setShowShareModal(true);
+  };
+
+  // PDF für Sharing generieren
+  const generatePDFForSharing = async () => {
+    setIsGeneratingPDF(true);
+    try {
+      const htmlContent = generateQuoteHTML(displayQuote);
+      
+      // Erstelle ein verstecktes iframe für PDF-Generierung
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.style.width = '210mm';
+      iframe.style.height = '297mm';
+      document.body.appendChild(iframe);
+
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!iframeDoc) throw new Error('Iframe konnte nicht erstellt werden');
+
+      iframeDoc.open();
+      iframeDoc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Angebot - ${displayQuote.title}</title>
+          <style>
+            @page {
+              size: A4;
+              margin: 15mm;
+            }
+            body {
+              font-family: Arial, sans-serif;
+              margin: 0;
+              color: #333;
+              line-height: 1.6;
+              font-size: 12px;
+            }
+            .header {
+              border-bottom: 2px solid #ffbd59;
+              padding-bottom: 15px;
+              margin-bottom: 20px;
+            }
+            .header h1 {
+              color: #ffbd59;
+              margin: 0;
+              font-size: 20px;
+            }
+            .header p {
+              color: #666;
+              margin: 3px 0;
+              font-size: 11px;
+            }
+            .section {
+              margin-bottom: 15px;
+              padding: 10px;
+              border: 1px solid #ddd;
+              border-radius: 5px;
+              background-color: #f9f9f9;
+              page-break-inside: avoid;
+            }
+            .section h2 {
+              color: #333;
+              margin-top: 0;
+              margin-bottom: 10px;
+              font-size: 14px;
+              border-bottom: 1px solid #ffbd59;
+              padding-bottom: 3px;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 10px;
+              margin-bottom: 10px;
+            }
+            .info-item {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 5px;
+              font-size: 11px;
+            }
+            .info-label {
+              font-weight: bold;
+              color: #555;
+            }
+            .info-value {
+              color: #333;
+            }
+            .amount {
+              font-size: 16px;
+              font-weight: bold;
+              color: #ffbd59;
+            }
+            .description {
+              white-space: pre-wrap;
+              background-color: white;
+              padding: 10px;
+              border-radius: 3px;
+              border-left: 3px solid #ffbd59;
+              font-size: 11px;
+            }
+            .footer {
+              margin-top: 20px;
+              padding-top: 10px;
+              border-top: 1px solid #ddd;
+              text-align: center;
+              color: #666;
+              font-size: 10px;
+            }
+            .status {
+              display: inline-block;
+              padding: 2px 8px;
+              border-radius: 10px;
+              font-size: 9px;
+              font-weight: bold;
+              text-transform: uppercase;
+            }
+            .status.submitted {
+              background-color: #e3f2fd;
+              color: #1976d2;
+            }
+            .status.accepted {
+              background-color: #e8f5e8;
+              color: #2e7d32;
+            }
+            .status.rejected {
+              background-color: #ffebee;
+              color: #c62828;
+            }
+          </style>
+        </head>
+        <body>
+          ${htmlContent}
+        </body>
+        </html>
+      `);
+      iframeDoc.close();
+
+      // Warte auf das Laden des Inhalts
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Generiere PDF mit jsPDF (falls verfügbar) oder verwende Print
+      if (window.jsPDF) {
+        const pdf = new window.jsPDF('p', 'mm', 'a4');
+        pdf.html(iframeDoc.body, {
+          callback: function (doc) {
+            const pdfBlob = doc.output('blob');
+            return pdfBlob;
+          }
+        });
+      } else {
+        // Fallback: Verwende Print-Funktionalität
+        iframe.contentWindow?.print();
+      }
+
+      document.body.removeChild(iframe);
+      return true;
+    } catch (error) {
+      console.error('Fehler beim Generieren des PDFs für Sharing:', error);
+      throw error;
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  // Sharing-Funktionen
+  const shareViaEmail = async () => {
+    try {
+      await generatePDFForSharing();
+      
+      const subject = `Angebot: ${displayQuote.title}`;
+      const body = `Hallo,
+
+ich teile Ihnen das folgende Angebot mit:
+
+${displayQuote.title}
+Gesamtbetrag: ${formatCurrency(displayQuote.total_amount, displayQuote.currency)}
+
+${displayQuote.description ? displayQuote.description.substring(0, 300) + '...' : 'Weitere Details finden Sie im angehängten PDF.'}
+
+Mit freundlichen Grüßen
+${displayQuote.contact_person || displayQuote.company_name || 'Ihr Ansprechpartner'}`;
+
+      const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.open(mailtoUrl, '_blank');
+    } catch (error) {
+      console.error('Fehler beim E-Mail-Sharing:', error);
+      alert('Fehler beim Öffnen des E-Mail-Clients');
+    }
+  };
+
+  const shareViaWhatsApp = async () => {
+    try {
+      await generatePDFForSharing();
+      
+      const text = `📋 *Angebot: ${displayQuote.title}*
+
+💰 *Gesamtbetrag:* ${formatCurrency(displayQuote.total_amount, displayQuote.currency)}
+
+${displayQuote.description ? displayQuote.description.substring(0, 200) + '...' : 'Weitere Details finden Sie im PDF-Anhang.'}
+
+📎 Das vollständige Angebot als PDF finden Sie im Chat.`;
+
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      window.open(whatsappUrl, '_blank');
+    } catch (error) {
+      console.error('Fehler beim WhatsApp-Sharing:', error);
+      alert('Fehler beim Öffnen von WhatsApp');
+    }
+  };
+
+  const shareViaWebShare = async () => {
+    try {
+      if (!navigator.share) {
+        throw new Error('Web Share API nicht unterstützt');
+      }
+
+      await generatePDFForSharing();
+      
+      const shareData = {
+        title: `Angebot: ${displayQuote.title}`,
+        text: `Angebot für ${displayQuote.title} - ${formatCurrency(displayQuote.total_amount, displayQuote.currency)}`,
+        url: `${window.location.origin}/quote/${displayQuote.id}`
+      };
+
+      await navigator.share(shareData);
+    } catch (error) {
+      console.error('Fehler beim Web Share:', error);
+      // Fallback zu Link kopieren
+      await copyLinkToClipboard();
+    }
+  };
+
+  const copyLinkToClipboard = async () => {
+    try {
+      const shareUrl = `${window.location.origin}/quote/${displayQuote.id}`;
+      await navigator.clipboard.writeText(shareUrl);
+      alert('✅ Link wurde in die Zwischenablage kopiert!');
+    } catch (error) {
+      console.error('Fehler beim Kopieren:', error);
+      alert('❌ Fehler beim Kopieren des Links');
+    }
+  };
+
+  const downloadPDF = async () => {
+    try {
+      await generateQuotePDF(displayQuote);
+    } catch (error) {
+      console.error('Fehler beim PDF-Download:', error);
+      alert('Fehler beim Herunterladen des PDFs');
+    }
+  };
 
   const handleEditQuote = () => {
     if (onEditQuote) {
@@ -792,6 +1381,154 @@ export default function QuoteDetailsModal({
           </div>
         </div>
       </div>
+
+      {/* Share Modal */}
+      {showShareModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-[#0f172a]/95 rounded-2xl shadow-2xl border border-white/10 max-w-md w-full">
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-[#ffbd59]/15 rounded-lg">
+                    <Share2 size={20} className="text-[#ffbd59]" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white">Angebot teilen</h3>
+                </div>
+                <button
+                  onClick={() => setShowShareModal(false)}
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                >
+                  <X size={20} className="text-gray-400" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="space-y-4">
+                <p className="text-gray-300 text-sm">
+                  Wählen Sie, wie Sie das Angebot teilen möchten:
+                </p>
+
+                {/* Sharing-Optionen */}
+                <div className="grid grid-cols-1 gap-3">
+                  
+                  {/* E-Mail */}
+                  <button
+                    onClick={shareViaEmail}
+                    disabled={isGeneratingPDF}
+                    className="flex items-center gap-3 p-4 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-all duration-200 group"
+                  >
+                    <div className="p-2 bg-blue-500/20 rounded-lg group-hover:bg-blue-500/30 transition-colors">
+                      <Mail size={20} className="text-blue-400" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="text-white font-medium">E-Mail senden</div>
+                      <div className="text-gray-400 text-sm">PDF per E-Mail versenden</div>
+                    </div>
+                    <ExternalLink size={16} className="text-gray-400" />
+                  </button>
+
+                  {/* WhatsApp */}
+                  <button
+                    onClick={shareViaWhatsApp}
+                    disabled={isGeneratingPDF}
+                    className="flex items-center gap-3 p-4 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-all duration-200 group"
+                  >
+                    <div className="p-2 bg-green-500/20 rounded-lg group-hover:bg-green-500/30 transition-colors">
+                      <MessageCircle size={20} className="text-green-400" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="text-white font-medium">WhatsApp</div>
+                      <div className="text-gray-400 text-sm">Nachricht mit PDF-Link</div>
+                    </div>
+                    <ExternalLink size={16} className="text-gray-400" />
+                  </button>
+
+                  {/* Web Share API */}
+                  {navigator.share && (
+                    <button
+                      onClick={shareViaWebShare}
+                      disabled={isGeneratingPDF}
+                      className="flex items-center gap-3 p-4 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-all duration-200 group"
+                    >
+                      <div className="p-2 bg-purple-500/20 rounded-lg group-hover:bg-purple-500/30 transition-colors">
+                        <Share2 size={20} className="text-purple-400" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <div className="text-white font-medium">Teilen</div>
+                        <div className="text-gray-400 text-sm">System-Sharing verwenden</div>
+                      </div>
+                      <ExternalLink size={16} className="text-gray-400" />
+                    </button>
+                  )}
+
+                  {/* Link kopieren */}
+                  <button
+                    onClick={copyLinkToClipboard}
+                    className="flex items-center gap-3 p-4 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-all duration-200 group"
+                  >
+                    <div className="p-2 bg-orange-500/20 rounded-lg group-hover:bg-orange-500/30 transition-colors">
+                      <Copy size={20} className="text-orange-400" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="text-white font-medium">Link kopieren</div>
+                      <div className="text-gray-400 text-sm">Link in Zwischenablage kopieren</div>
+                    </div>
+                    <Copy size={16} className="text-gray-400" />
+                  </button>
+
+                  {/* PDF herunterladen */}
+                  <button
+                    onClick={downloadPDF}
+                    disabled={isGeneratingPDF}
+                    className="flex items-center gap-3 p-4 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-all duration-200 group"
+                  >
+                    <div className="p-2 bg-[#ffbd59]/20 rounded-lg group-hover:bg-[#ffbd59]/30 transition-colors">
+                      <Download size={20} className="text-[#ffbd59]" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="text-white font-medium">PDF herunterladen</div>
+                      <div className="text-gray-400 text-sm">PDF direkt herunterladen</div>
+                    </div>
+                    <Download size={16} className="text-gray-400" />
+                  </button>
+                </div>
+
+                {/* Loading State */}
+                {isGeneratingPDF && (
+                  <div className="flex items-center justify-center gap-3 p-4 bg-[#ffbd59]/10 rounded-lg border border-[#ffbd59]/20">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#ffbd59]"></div>
+                    <span className="text-[#ffbd59] text-sm font-medium">PDF wird generiert...</span>
+                  </div>
+                )}
+
+                {/* Info */}
+                <div className="mt-4 p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                  <div className="flex items-start gap-2">
+                    <div className="p-1 bg-blue-500/20 rounded">
+                      <FileText size={14} className="text-blue-400" />
+                    </div>
+                    <div className="text-sm text-blue-300">
+                      <p className="font-medium mb-1">💡 Tipp:</p>
+                      <p>Das PDF enthält alle Angebotsdetails und kann als Anhang versendet werden.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="mt-6 pt-4 border-t border-white/10">
+                <button
+                  onClick={() => setShowShareModal(false)}
+                  className="w-full px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/15 transition-colors"
+                >
+                  Schließen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

@@ -229,6 +229,8 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
         material_cost: parseFloat(formData.material_cost) || 0,
         overhead_cost: parseFloat(formData.overhead_cost) || 0,
         estimated_duration: formData.estimated_duration ? parseInt(formData.estimated_duration) : null,
+        // Verwende custom_payment_terms wenn payment_terms auf 'custom' gesetzt ist
+        payment_terms: formData.payment_terms === 'custom' ? formData.custom_payment_terms : formData.payment_terms,
         // Entferne das documents Array für die Quote API
         documents: undefined
       };
