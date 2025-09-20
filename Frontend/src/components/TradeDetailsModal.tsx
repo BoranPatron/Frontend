@@ -1016,6 +1016,47 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     return isMatch;
   };
   const [showTradeDetails, setShowTradeDetails] = useState(false);
+  
+  // Smart default tab selection based on user role and context
+  const getDefaultTab = () => {
+    // If service provider with accepted quote and completion status indicates action needed
+    if (!isBautraeger() && acceptedQuote && 
+        (completionStatus === 'completed_with_defects' || completionStatus === 'completion_requested')) {
+      return 'progress';
+    }
+    // If Bautraeger with new quotes to review
+    if (isBautraeger() && existingQuotes && existingQuotes.length > 0 && 
+        existingQuotes.some(q => q.status === 'submitted')) {
+      return 'quotes';
+    }
+    // If service provider without quote, focus on overview
+    if (!isBautraeger() && !acceptedQuote && (!existingQuotes || !existingQuotes.some(q => isUserQuote(q, user)))) {
+      return 'overview';
+    }
+    // Default to overview for most cases
+    return 'overview';
+  };
+  
+  const [activeTab, setActiveTab] = useState(getDefaultTab());
+  
+  // Keyboard navigation for tabs
+  const tabs = ['overview', 'quotes', 'documents', 'progress'];
+  
+  const handleTabKeyDown = (e: React.KeyboardEvent, tabIndex: number) => {
+    if (e.key === 'ArrowLeft' && tabIndex > 0) {
+      e.preventDefault();
+      setActiveTab(tabs[tabIndex - 1]);
+    } else if (e.key === 'ArrowRight' && tabIndex < tabs.length - 1) {
+      e.preventDefault();
+      setActiveTab(tabs[tabIndex + 1]);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setActiveTab(tabs[0]);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setActiveTab(tabs[tabs.length - 1]);
+    }
+  };
 
       // KRITISCH: Verwende NUR den Backend-Status, NICHT das trade Objekt
   // useEffect(() => {
@@ -3160,16 +3201,134 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           );
         })()}
 
-        <div className="flex-1 overflow-y-auto p-6">
-          {/* Angenommenes Angebot - Dienstleister-Informationen */}
-          {isBautraeger() && acceptedQuote && (
-            <div className="mb-6 p-6 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 rounded-xl border border-emerald-500/20">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-emerald-500/20 rounded-lg">
-                  <CheckCircle size={20} className="text-emerald-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-white">Beauftragter Dienstleister</h3>
+        {/* Tab Navigation */}
+        <div className="flex-shrink-0 border-b border-gray-600/30 bg-gradient-to-r from-[#1a1a2e]/80 to-[#2c3539]/80 overflow-x-auto">
+          <div className="flex px-6 min-w-max" role="tablist" aria-label="Ausschreibungsdetails">
+            {/* Overview Tab - Always visible */}
+            <button
+              onClick={() => setActiveTab('overview')}
+              onKeyDown={(e) => handleTabKeyDown(e, 0)}
+              role="tab"
+              aria-selected={activeTab === 'overview'}
+              aria-controls="overview-panel"
+              id="overview-tab"
+              tabIndex={activeTab === 'overview' ? 0 : -1}
+              className={`px-4 py-3 font-medium text-sm border-b-2 transition-all duration-200 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:ring-offset-2 focus:ring-offset-[#2c3539] ${
+                activeTab === 'overview'
+                  ? 'border-[#ffbd59] text-[#ffbd59] bg-[#ffbd59]/5'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Info size={16} />
+                <span className="hidden sm:inline">Überblick</span>
+                <span className="sm:hidden">Info</span>
               </div>
+            </button>
+            
+            {/* Quotes Tab */}
+            <button
+              onClick={() => setActiveTab('quotes')}
+              onKeyDown={(e) => handleTabKeyDown(e, 1)}
+              role="tab"
+              aria-selected={activeTab === 'quotes'}
+              aria-controls="quotes-panel"
+              id="quotes-tab"
+              tabIndex={activeTab === 'quotes' ? 0 : -1}
+              className={`px-4 py-3 font-medium text-sm border-b-2 transition-all duration-200 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:ring-offset-2 focus:ring-offset-[#2c3539] ${
+                activeTab === 'quotes'
+                  ? 'border-[#ffbd59] text-[#ffbd59] bg-[#ffbd59]/5'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Package size={16} />
+                <span className="hidden md:inline">
+                  {isBautraeger() ? `Angebote (${existingQuotes?.length || 0})` : 'Mein Angebot'}
+                </span>
+                <span className="md:hidden">
+                  {isBautraeger() ? `${existingQuotes?.length || 0}` : 'Angebot'}
+                </span>
+                {isBautraeger() && existingQuotes && existingQuotes.length > 0 && existingQuotes.some(q => q.status === 'submitted') && (
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                )}
+              </div>
+            </button>
+            
+            {/* Documents Tab */}
+            <button
+              onClick={() => setActiveTab('documents')}
+              onKeyDown={(e) => handleTabKeyDown(e, 2)}
+              role="tab"
+              aria-selected={activeTab === 'documents'}
+              aria-controls="documents-panel"
+              id="documents-tab"
+              tabIndex={activeTab === 'documents' ? 0 : -1}
+              className={`px-4 py-3 font-medium text-sm border-b-2 transition-all duration-200 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:ring-offset-2 focus:ring-offset-[#2c3539] ${
+                activeTab === 'documents'
+                  ? 'border-[#ffbd59] text-[#ffbd59] bg-[#ffbd59]/5'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <FileText size={16} />
+                <span className="hidden sm:inline">
+                  Dokumente ({documentsLoading ? '...' : (loadedDocuments && Array.isArray(loadedDocuments) ? loadedDocuments.length : 0)})
+                </span>
+                <span className="sm:hidden">
+                  Docs ({documentsLoading ? '...' : (loadedDocuments && Array.isArray(loadedDocuments) ? loadedDocuments.length : 0)})
+                </span>
+                {loadedDocuments && loadedDocuments.length > 0 && (
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                )}
+              </div>
+            </button>
+            
+            {/* Progress Tab */}
+            <button
+              onClick={() => setActiveTab('progress')}
+              onKeyDown={(e) => handleTabKeyDown(e, 3)}
+              role="tab"
+              aria-selected={activeTab === 'progress'}
+              aria-controls="progress-panel"
+              id="progress-tab"
+              tabIndex={activeTab === 'progress' ? 0 : -1}
+              className={`px-4 py-3 font-medium text-sm border-b-2 transition-all duration-200 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:ring-offset-2 focus:ring-offset-[#2c3539] ${
+                activeTab === 'progress'
+                  ? 'border-[#ffbd59] text-[#ffbd59] bg-[#ffbd59]/5'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Settings size={16} />
+                <span className="hidden sm:inline">Fortschritt</span>
+                <span className="sm:hidden">Status</span>
+                {(completionStatus === 'completed' || completionStatus === 'completion_requested' || completionStatus === 'completed_with_defects') && (
+                  <div className="w-2 h-2 bg-[#ffbd59] rounded-full animate-pulse"></div>
+                )}
+              </div>
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* Tab Content */}
+          {activeTab === 'overview' && (
+            <div 
+              role="tabpanel" 
+              id="overview-panel" 
+              aria-labelledby="overview-tab"
+              className="space-y-6"
+            >
+              {/* Accepted Quote - Service Provider Information */}
+              {isBautraeger() && acceptedQuote && (
+                <div className="mb-6 p-6 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 rounded-xl border border-emerald-500/20">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-emerald-500/20 rounded-lg">
+                      <CheckCircle size={20} className="text-emerald-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-white">Beauftragter Dienstleister</h3>
+                  </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Firma und Kontaktperson */}
@@ -3284,8 +3443,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             </div>
           )}
 
-          {/* Edit Modal Inline */}
-          {isEditing && (
+              {/* Edit Modal Inline */}
+              {isEditing && (
             <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
               <h3 className="text-white font-semibold mb-3">Ausschreibung bearbeiten</h3>
               <form
@@ -3425,25 +3584,25 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             </div>
           )}
 
-          {/* Ausschreibungsdetails - Klappbarer Bereich */}
-          <div className="mb-6 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl overflow-hidden">
-            {/* Klappbarer Header */}
-            <button
-              onClick={() => setShowTradeDetails(!showTradeDetails)}
-              className="w-full p-4 flex items-center justify-between hover:bg-blue-500/5 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <Info size={20} className="text-blue-400" />
-                <h3 className="text-lg font-bold text-blue-300">Ausschreibungsdetails</h3>
-              </div>
-              <ChevronDown 
-                size={20} 
-                className={`text-blue-400 transition-transform duration-200 ${showTradeDetails ? 'rotate-180' : ''}`} 
-              />
-            </button>
-            
-            {/* Klappbarer Inhalt */}
-            {showTradeDetails && (
+              {/* Ausschreibungsdetails - Klappbarer Bereich */}
+              <div className="mb-6 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl overflow-hidden">
+                {/* Klappbarer Header */}
+                <button
+                  onClick={() => setShowTradeDetails(!showTradeDetails)}
+                  className="w-full p-4 flex items-center justify-between hover:bg-blue-500/5 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Info size={20} className="text-blue-400" />
+                    <h3 className="text-lg font-bold text-blue-300">Ausschreibungsdetails</h3>
+                  </div>
+                  <ChevronDown 
+                    size={20} 
+                    className={`text-blue-400 transition-transform duration-200 ${showTradeDetails ? 'rotate-180' : ''}`} 
+                  />
+                </button>
+                
+                {/* Klappbarer Inhalt */}
+                {showTradeDetails && (
               <div className="px-6 pb-6 space-y-4">
               {/* Beschreibung */}
               <div>
@@ -3536,8 +3695,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             )}
           </div>
 
-          {/* Rechnungsstellung für Dienstleister - direkt nach Ausschreibungsdetails wenn abgeschlossen */}
-          {!isBautraeger() && completionStatus === 'completed' && (
+              {/* Rechnungsstellung für Dienstleister - direkt nach Ausschreibungsdetails wenn abgeschlossen */}
+              {!isBautraeger() && completionStatus === 'completed' && (
             <div className="mb-6 bg-green-500/10 border border-green-500/30 rounded-lg p-4">
               <h3 className="text-lg font-semibold text-green-300 mb-3 flex items-center gap-2">
                 <Receipt size={20} />
@@ -3616,14 +3775,24 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             </div>
           )}
 
-          {/* Abnahme-Workflow direkt unterhalb der Ausschreibungsdetails für Dienstleister - nur wenn Angebot angenommen */}
-          {!isBautraeger() && acceptedQuote && completionStatus === 'completed_with_defects' && (
-            <div className="mb-6">
-              {renderAbnahmeWorkflow()}
+              {/* Abnahme-Workflow direkt unterhalb der Ausschreibungsdetails für Dienstleister - nur wenn Angebot angenommen */}
+              {!isBautraeger() && acceptedQuote && completionStatus === 'completed_with_defects' && (
+                <div className="mb-6">
+                  {renderAbnahmeWorkflow()}
+                </div>
+              )}
             </div>
           )}
-
-          {/* Dienstleister: Mein Angebot Abschnitt - NUR für Dienstleister */}
+          
+          {/* Quotes Tab */}
+          {activeTab === 'quotes' && (
+            <div 
+              role="tabpanel" 
+              id="quotes-panel" 
+              aria-labelledby="quotes-tab"
+              className="space-y-6"
+            >
+              {/* Dienstleister: Mein Angebot Abschnitt - NUR für Dienstleister */}
           {!isBautraeger() && (
             <div className="mb-6 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-xl overflow-hidden">
               <button 
@@ -4075,36 +4244,36 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             </div>
           )}
 
-          {/* DEBUG: Angebote für Bauträger */}
-          {(() => {
-            console.log('🔍 TradeDetailsModal DEBUG - Angebots-Sektion Bedingungen:', {
-              isBautraeger: isBautraeger(),
-              existingQuotes: existingQuotes,
-              existingQuotesLength: existingQuotes?.length,
-              existingQuotesType: typeof existingQuotes,
-              shouldShow: isBautraeger() && existingQuotes && existingQuotes.length > 0
-            });
-            return null;
-          })()}
-          
-          {/* TEMPORÄRE DEBUG-ANZEIGE für Bauträger */}
-          {isBautraeger() && (
-            <div className="mb-6 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-xl p-4">
-              <h3 className="text-yellow-300 font-bold mb-2">🔍 DEBUG: Angebots-Status</h3>
-              <div className="text-sm text-gray-300 space-y-1">
-                <div>existingQuotes: {existingQuotes ? 'vorhanden' : 'null/undefined'}</div>
-                <div>existingQuotes.length: {existingQuotes?.length || 0}</div>
-                <div>existingQuotes Typ: {typeof existingQuotes}</div>
-                <div>isBautraeger(): {isBautraeger() ? 'true' : 'false'}</div>
-                <div>Bedingung erfüllt: {(isBautraeger() && existingQuotes && existingQuotes.length > 0) ? 'JA' : 'NEIN'}</div>
-                {existingQuotes && existingQuotes.length > 0 && (
-                  <div>Angebote: {existingQuotes.map(q => `${q.id}:${q.status}`).join(', ')}</div>
-                )}
-              </div>
-            </div>
-          )}
+              {/* DEBUG: Angebote für Bauträger */}
+              {(() => {
+                console.log('🔍 TradeDetailsModal DEBUG - Angebots-Sektion Bedingungen:', {
+                  isBautraeger: isBautraeger(),
+                  existingQuotes: existingQuotes,
+                  existingQuotesLength: existingQuotes?.length,
+                  existingQuotesType: typeof existingQuotes,
+                  shouldShow: isBautraeger() && existingQuotes && existingQuotes.length > 0
+                });
+                return null;
+              })()}
+              
+              {/* TEMPORÄRE DEBUG-ANZEIGE für Bauträger */}
+              {isBautraeger() && (
+                <div className="mb-6 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-xl p-4">
+                  <h3 className="text-yellow-300 font-bold mb-2">🔍 DEBUG: Angebots-Status</h3>
+                  <div className="text-sm text-gray-300 space-y-1">
+                    <div>existingQuotes: {existingQuotes ? 'vorhanden' : 'null/undefined'}</div>
+                    <div>existingQuotes.length: {existingQuotes?.length || 0}</div>
+                    <div>existingQuotes Typ: {typeof existingQuotes}</div>
+                    <div>isBautraeger(): {isBautraeger() ? 'true' : 'false'}</div>
+                    <div>Bedingung erfüllt: {(isBautraeger() && existingQuotes && existingQuotes.length > 0) ? 'JA' : 'NEIN'}</div>
+                    {existingQuotes && existingQuotes.length > 0 && (
+                      <div>Angebote: {existingQuotes.map(q => `${q.id}:${q.status}`).join(', ')}</div>
+                    )}
+                  </div>
+                </div>
+              )}
 
-          {/* Angebote für Bauträger - TEMPORÄR: Zeige auch wenn keine Angebote vorhanden */}
+              {/* Angebote für Bauträger - TEMPORÄR: Zeige auch wenn keine Angebote vorhanden */}
           {isBautraeger() && (
             <div className="mb-6 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-xl overflow-hidden">
               <div className="p-4 border-b border-blue-500/20">
@@ -4371,49 +4540,24 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               </div>
             </div>
           )}
-
-          <div className="space-y-6">
-            {/* Abnahme-Workflow unten für Dienstleister wenn NICHT completed_with_defects - nur wenn Angebot angenommen */}
-            {!isBautraeger() && acceptedQuote && completionStatus !== 'completed_with_defects' && renderAbnahmeWorkflow && (
-              <div>
-                {renderAbnahmeWorkflow()}
-              </div>
-            )}
-
-            {/* Info-Banner für Dienstleister ohne angenommenes Angebot */}
-            {!isBautraeger() && !acceptedQuote && (
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                <div className="flex items-center gap-3">
-                  <Info size={20} className="text-blue-400" />
-                  <div>
-                    <h4 className="text-blue-300 font-medium">Abnahme-Workflow nicht verfügbar</h4>
-                    <p className="text-blue-200 text-sm">
-                      Der Abnahme-Workflow wird verfügbar, sobald Ihr Angebot vom Bauträger angenommen wurde.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Dokumente - Einklappbar */}
-            <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl border border-gray-600/30 overflow-hidden">
-              <div className="flex items-center justify-between p-6 cursor-pointer hover:bg-[#1a1a2e]/30 transition-all duration-200" onClick={() => setIsExpanded(!isExpanded)}>
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <FileText size={18} className="text-[#ffbd59]" />
-                  Dokumente ({documentsLoading ? '...' : (loadedDocuments && Array.isArray(loadedDocuments) ? loadedDocuments.length : 0)})
-                  {documentsLoading && (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#ffbd59] ml-2"></div>
-                  )}
+            </div>
+          )}
+          
+          {/* Documents Tab */}
+          {activeTab === 'documents' && (
+            <div 
+              role="tabpanel" 
+              id="documents-panel" 
+              aria-labelledby="documents-tab"
+              className="space-y-6"
+            >
+              <div className="bg-gradient-to-br from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-xl border border-gray-600/30 overflow-hidden">
+                <div className="flex items-center justify-between p-6">
+                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <FileText size={18} className="text-[#ffbd59]" />
+                    Alle Dokumente ({documentsLoading ? '...' : (loadedDocuments && Array.isArray(loadedDocuments) ? loadedDocuments.length : 0)})
                   </h3>
-                <div className="flex items-center gap-2">
-                  <ChevronDown 
-                    size={20} 
-                    className={`text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                  />
                 </div>
-              </div>
-              
-              {isExpanded && (
                 <div className="px-6 pb-6">
                   {documentsError ? (
                     <div className="text-center py-8">
@@ -4432,19 +4576,10 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       {(() => {
                         const tradeDocsArray = trade?.documents && Array.isArray(trade.documents) ? trade.documents : [];
                         const loadedDocsArray = loadedDocuments && Array.isArray(loadedDocuments) ? loadedDocuments : [];
-                        
-                        // Kombiniere Dokumente und entferne Duplikate basierend auf ID (String/Number-sicher)
                         const allDocs = [...tradeDocsArray, ...loadedDocsArray];
                         const combinedDocs = allDocs.filter((doc, index, self) => 
                           index === self.findIndex(d => String(d.id) === String(doc.id))
                         );
-                        
-                        console.log(`🔍 DOKUMENT-QUELLEN DEBUG:`);
-                        console.log(`📁 trade.documents (${tradeDocsArray.length}):`, tradeDocsArray.map(d => `${d.id}: "${(d as any).title || d.name}"`));
-                        console.log(`📁 loadedDocuments (${loadedDocsArray.length}):`, loadedDocsArray.map(d => `${d.id}: "${(d as any).title || d.name}"`));
-                        console.log(`📁 allDocs vor Duplikatsentfernung (${allDocs.length}):`, allDocs.map(d => `${d.id}: "${(d as any).title || d.name}"`));
-                        console.log(`📁 combinedDocs nach Duplikatsentfernung (${combinedDocs.length}):`, combinedDocs.map(d => `${d.id}: "${(d as any).title || d.name}"`));
-                        
                         return (
                           <TradeDocumentViewer 
                             documents={combinedDocs} 
@@ -4452,20 +4587,21 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                           />
                         );
                       })()}
-
                     </>
                   )}
                 </div>
-              )}
+              </div>
             </div>
+          )}
 
-            {/* Baufortschritt & Kommunikation */}
-            {(
-              // Für Bauträger: Immer anzeigen (können jederzeit kommentieren)
-              isBautraeger() ||
-              // Für Dienstleister: Immer anzeigen (können kommunizieren und Fortschritt melden)
-              !isBautraeger()
-            ) && (
+          {/* Progress Tab */}
+          {activeTab === 'progress' && (
+            <div 
+              role="tabpanel" 
+              id="progress-panel" 
+              aria-labelledby="progress-tab"
+              className="space-y-6"
+            >
               <TradeProgress
                 milestoneId={trade.id}
                 currentProgress={currentProgress}
@@ -4477,38 +4613,25 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                 onCompletionResponse={handleCompletionResponse}
                 hasAcceptedQuote={existingQuotes && existingQuotes.some(quote => quote.status === 'accepted')}
               />
-            )}
-
-            {/* Abnahme-Workflow für Bauträger - finale Abnahme */}
-            {isBautraeger() && completionStatus === 'completed_with_defects' && (
-              <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-orange-300 mb-3 flex items-center gap-2">
-                  <Settings size={20} />
-                  Abnahme-Workflow
-                </h3>
-                
-                {/* Status-Banner */}
-                <div className="mb-4 p-3 rounded-lg border bg-yellow-500/10 border-yellow-500/30">
-                  <div className="flex items-center gap-3">
-                    <AlertTriangle size={20} className="text-yellow-400" />
-                    <div>
-                      <h4 className="text-yellow-300 font-medium">Abnahme unter Vorbehalt</h4>
-                      <p className="text-yellow-200 text-sm">
-                        Mängel wurden dokumentiert. Finale Abnahme durch Bauträger steht noch aus.
-                      </p>
+              
+              {/* Acceptance Workflow for Bauträger */}
+              {isBautraeger() && completionStatus === 'completed_with_defects' && (
+                <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-orange-300 mb-3 flex items-center gap-2">
+                    <Settings size={20} />
+                    Abnahme-Workflow
+                  </h3>
+                  <div className="mb-4 p-3 rounded-lg border bg-yellow-500/10 border-yellow-500/30">
+                    <div className="flex items-center gap-3">
+                      <AlertTriangle size={20} className="text-yellow-400" />
+                      <div>
+                        <h4 className="text-yellow-300 font-medium">Abnahme unter Vorbehalt</h4>
+                        <p className="text-yellow-200 text-sm">
+                          Mängel wurden dokumentiert. Finale Abnahme durch Bauträger steht noch aus.
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                {/* Mängel-Übersicht */}
-                <div className="space-y-3">
-                  <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-lg p-4 shadow-lg">
-                    <h4 className="text-yellow-300 font-medium mb-2">Dokumentierte Mängel</h4>
-                    <p className="text-gray-400 text-sm">
-                      Der Bauträger hat Mängel dokumentiert. Beheben Sie diese und starten Sie die finale Abnahme.
-                    </p>
-                  </div>
-                  
                   <button
                     onClick={handleStartFinalAcceptance}
                     className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
@@ -4517,10 +4640,16 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                     Finale Abnahme starten
                   </button>
                 </div>
-              </div>
-            )}
-
-          </div>
+              )}
+              
+              {/* Acceptance Workflow for Dienstleister */}
+              {!isBautraeger() && acceptedQuote && completionStatus === 'completed_with_defects' && (
+                <div>
+                  {renderAbnahmeWorkflow()}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
       

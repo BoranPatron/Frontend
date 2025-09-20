@@ -6,6 +6,116 @@ import TradeProgress from './TradeProgress';
 import AcceptanceModal from './AcceptanceModalNew';
 import FinalAcceptanceModal from './FinalAcceptanceModal';
 
+// Tab System Components and Interfaces
+interface TabItem {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  badge?: string | number;
+  disabled?: boolean;
+}
+
+interface TabsProps {
+  tabs: TabItem[];
+  activeTab: string;
+  onTabChange: (tabId: string) => void;
+  className?: string;
+}
+
+interface TabPanelProps {
+  id: string;
+  activeTab: string;
+  children: React.ReactNode;
+  className?: string;
+}
+
+// Custom Tab Components
+function Tabs({ tabs, activeTab, onTabChange, className = '' }: TabsProps) {
+  const handleKeyDown = (e: React.KeyboardEvent, tabId: string) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onTabChange(tabId);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      const currentIndex = tabs.findIndex(tab => tab.id === activeTab);
+      const direction = e.key === 'ArrowLeft' ? -1 : 1;
+      const nextIndex = (currentIndex + direction + tabs.length) % tabs.length;
+      const nextTab = tabs[nextIndex];
+      if (!nextTab.disabled) {
+        onTabChange(nextTab.id);
+      }
+    }
+  };
+
+  return (
+    <div className={`border-b border-gray-600/30 ${className}`} role="tablist">
+      <div className="flex space-x-1 overflow-x-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-600">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          
+          return (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={isActive}
+              aria-controls={`panel-${tab.id}`}
+              tabIndex={isActive ? 0 : -1}
+              disabled={tab.disabled}
+              onClick={() => !tab.disabled && onTabChange(tab.id)}
+              onKeyDown={(e) => handleKeyDown(e, tab.id)}
+              className={`
+                flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap rounded-t-lg
+                transition-all duration-200 border-b-2 min-w-fit
+                ${isActive 
+                  ? 'bg-[#ffbd59]/10 text-[#ffbd59] border-[#ffbd59] shadow-sm' 
+                  : 'text-gray-400 border-transparent hover:text-gray-300 hover:bg-white/5'
+                }
+                ${tab.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                focus:outline-none focus:ring-2 focus:ring-[#ffbd59]/50 focus:ring-offset-2 focus:ring-offset-[#1a1a2e]
+              `}
+            >
+              <Icon size={16} className={isActive ? 'text-[#ffbd59]' : 'text-gray-400'} />
+              <span>{tab.label}</span>
+              {tab.badge && (
+                <span className={`
+                  px-2 py-0.5 text-xs rounded-full font-semibold
+                  ${isActive 
+                    ? 'bg-[#ffbd59] text-[#1a1a2e]' 
+                    : 'bg-gray-600 text-gray-300'
+                  }
+                `}>
+                  {tab.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TabPanel({ id, activeTab, children, className = '' }: TabPanelProps) {
+  const isActive = activeTab === id;
+  
+  if (!isActive) {
+    return null; // Lazy rendering - only render active tab content
+  }
+  
+  return (
+    <div
+      id={`panel-${id}`}
+      role="tabpanel"
+      aria-labelledby={`tab-${id}`}
+      className={`focus:outline-none ${className}`}
+      tabIndex={0}
+    >
+      {children}
+    </div>
+  );
+}
+
 // TradeDocumentViewer Komponente aus TradeDetailsModal
 interface DocumentViewerProps {
   documents: Array<{
@@ -430,6 +540,10 @@ export default function SimpleCostEstimateModal({
   inspectionStatus: propInspectionStatus
 }: SimpleCostEstimateModalProps) {
   const { user, isBautraeger } = useAuth();
+  
+  // Tab Management State
+  const [activeTab, setActiveTab] = useState('details');
+  
   // State für Modal-Funktionen
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedQuoteForAction, setSelectedQuoteForAction] = useState<any>(null);
@@ -485,6 +599,57 @@ export default function SimpleCostEstimateModal({
   
   // Zusätzliche States für erweiterte Funktionen
   const [isExpanded, setIsExpanded] = useState(false);
+  
+  // Tab Configuration
+  const tabItems: TabItem[] = useMemo(() => {
+    const acceptedQuote = quotes.find(q => q.status === 'accepted');
+    const submittedQuotes = quotes.filter(q => q.status === 'submitted');
+    const hasActiveCompletion = ['completion_requested', 'completed_with_defects', 'defects_resolved'].includes(completionStatus);
+    
+    return [
+      {
+        id: 'details',
+        label: 'Übersicht',
+        icon: Info,
+        badge: undefined
+      },
+      {
+        id: 'offers',
+        label: 'Angebote',
+        icon: FileText,
+        badge: quotes.length > 0 ? quotes.length : undefined,
+        disabled: false
+      },
+      {
+        id: 'documents',
+        label: 'Dokumente',
+        icon: Download,
+        badge: loadedDocuments.length > 0 ? loadedDocuments.length : undefined,
+        disabled: false
+      },
+      {
+        id: 'communication',
+        label: 'Kommunikation',
+        icon: MessageCircle,
+        badge: messages.length > 0 ? messages.length : undefined,
+        disabled: !acceptedQuote
+      },
+      {
+        id: 'completion',
+        label: 'Abnahme',
+        icon: CheckCircle,
+        badge: hasActiveCompletion ? '!' : undefined,
+        disabled: !acceptedQuote
+      }
+    ];
+  }, [quotes, loadedDocuments.length, messages.length, completionStatus]);
+  
+  // Auto-switch to completion tab when completion is requested
+  useEffect(() => {
+    if (completionStatus === 'completion_requested' && activeTab !== 'completion') {
+      setActiveTab('completion');
+    }
+  }, [completionStatus, activeTab]);
 
   // Lade Dokumente beim Öffnen des Modals
   useEffect(() => {
@@ -2537,949 +2702,416 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-[0_0_40px_rgba(255,189,89,0.08)] border border-gray-600/30 max-w-4xl w-full max-h-[90vh] overflow-hidden relative">
-        {/* DEBUG HINWEIS */}
-        <div className="absolute top-2 right-2 bg-blue-500/90 text-white px-3 py-1 rounded-lg text-sm font-bold z-50 shadow-lg">
-          🔍 DEBUG: SimpleCostEstimateModal
-        </div>
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-600/30">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
-              <FileText size={24} />
+      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-[0_0_40px_rgba(255,189,89,0.08)] border border-gray-600/30 max-w-6xl w-full max-h-[95vh] overflow-hidden relative flex flex-col">
+        {/* Enhanced Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-600/30 flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+              <Briefcase size={28} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">
-                Ausschreibung Details
+              <h2 className="text-2xl font-bold text-white leading-tight">
+                {trade?.title || 'Gewerk Details'}
               </h2>
-              <p className="text-sm text-gray-400">Umfassende Übersicht und Verwaltung</p>
+              <div className="flex items-center gap-3 mt-1">
+                <p className="text-sm text-gray-400">{project?.name}</p>
+                {completionStatus && completionStatus !== 'in_progress' && (
+                  <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
+                    completionStatus === 'completed' 
+                      ? 'bg-green-500/20 text-green-300'
+                      : completionStatus === 'completed_with_defects'
+                      ? 'bg-yellow-500/20 text-yellow-300'
+                      : completionStatus === 'completion_requested'
+                      ? 'bg-orange-500/20 text-orange-300 animate-pulse'
+                      : 'bg-gray-500/20 text-gray-300'
+                  }`}>
+                    {completionStatus === 'completion_requested' ? (
+                      <><Clock size={12} />Fertigstellung gemeldet</>
+                    ) : completionStatus === 'completed' ? (
+                      <><CheckCircle size={12} />Abgeschlossen</>
+                    ) : completionStatus === 'completed_with_defects' ? (
+                      <><AlertTriangle size={12} />Unter Vorbehalt</>
+                    ) : (
+                      completionStatus
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           
           <div className="flex items-center gap-3">
-            {/* Archiv-Button - prominent im Header platziert */}
-            {existingInvoice?.status === 'paid' && 
-             (completionStatus === 'completed' || trade?.completion_status === 'completed') && (
+            {/* Archive button for completed trades */}
+            {existingInvoice?.status === 'paid' && completionStatus === 'completed' && (
               <button
                 onClick={handleArchiveTrade}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl border border-orange-500/30"
                 title="Gewerk ins Archiv verschieben"
               >
-                <Archive size={18} />
-                <span>Ins Archiv verschieben</span>
+                <Archive size={16} />
+                <span>Archivieren</span>
               </button>
             )}
             
             <button
               onClick={onClose}
               className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              title="Schließen"
             >
               <X size={24} className="text-gray-400" />
             </button>
           </div>
         </div>
+        
+        {/* Tab Navigation */}
+        <div className="flex-shrink-0">
+          <Tabs 
+            tabs={tabItems} 
+            activeTab={activeTab} 
+            onTabChange={setActiveTab}
+            className="px-6 pt-4"
+          />
+        </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-
+        {/* Tab Content */}
+        <div className="flex-1 overflow-y-auto min-h-0">
           
-          {/* Ausschreibungsdetails - Klappbarer Bereich */}
-          <div className="mb-6 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl overflow-hidden">
-            {/* Klappbarer Header */}
-            <button
-              onClick={() => setShowTradeDetails(!showTradeDetails)}
-              className="w-full p-4 flex items-center justify-between hover:bg-blue-500/5 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <Info size={20} className="text-blue-400" />
-                <h3 className="text-lg font-bold text-blue-300">Ausschreibungsdetails</h3>
-              </div>
-              <ChevronDown 
-                size={20} 
-                className={`text-blue-400 transition-transform duration-200 ${showTradeDetails ? 'rotate-180' : ''}`} 
-              />
-            </button>
+          {/* Details Tab Panel */}
+          <TabPanel id="details" activeTab={activeTab} className="p-6 space-y-6">
+            {renderTradeHeader()}
             
-            {/* Klappbarer Inhalt */}
-            {showTradeDetails && (
-              <div className="px-6 pb-6 space-y-4">
-              {/* Beschreibung */}
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <FileText size={16} className="text-blue-400" />
-                  <span className="text-sm font-medium text-blue-300">Beschreibung & Leistungsumfang</span>
-                </div>
-                <div className="bg-black/20 rounded-lg p-4">
-                  <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
-                    {fullTradeData?.description || trade?.description || (trade as any)?.description || 'Keine Beschreibung verfügbar'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Erstellungsdatum und Notizen Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Geplantes Datum */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Calendar size={16} className="text-[#ffbd59]" />
-                    <span className="text-sm font-medium text-[#ffbd59]">Geplantes Datum</span>
-                  </div>
-                  <div className="bg-black/20 rounded-lg p-4">
-                    <div className="text-sm text-gray-300">
-                      {(fullTradeData?.planned_date || trade?.planned_date || (trade as any)?.planned_date) ? (
-                        new Date(fullTradeData?.planned_date || trade?.planned_date || (trade as any)?.planned_date).toLocaleDateString('de-DE')
-                      ) : (
-                        'Nicht festgelegt'
-                      )}
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Erstellungsdatum */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Calendar size={16} className="text-green-400" />
-                    <span className="text-sm font-medium text-green-300">Erstellt am</span>
-                  </div>
-                  <div className="bg-black/20 rounded-lg p-4">
-                    <div className="text-sm text-white font-medium">
-                      {fullTradeData?.created_at || trade?.created_at || (trade as any)?.created_at ? 
-                        new Date(fullTradeData?.created_at || trade?.created_at || (trade as any)?.created_at).toLocaleDateString('de-DE', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        }) : 'Nicht verfügbar'
-                      }
-                    </div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      Debug: {fullTradeData?.created_at || trade?.created_at || (trade as any)?.created_at || 'KEIN DATUM'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Notizen */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <StickyNote size={16} className="text-yellow-400" />
-                    <span className="text-sm font-medium text-yellow-300">Notizen</span>
-                  </div>
-                  <div className="bg-black/20 rounded-lg p-4">
-                    <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
-                      {fullTradeData?.notes || (trade as any)?.notes || 'Keine Notizen vorhanden'}
-                    </div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      Debug: {fullTradeData?.notes || (trade as any)?.notes || 'KEINE NOTIZEN'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Zusätzliche Informationen */}
-              {(trade as any).notify_on_completion && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle size={16} className="text-orange-400" />
-                    <span className="text-sm font-medium text-orange-300">Zusätzliche Informationen</span>
-                  </div>
-                  <div className="bg-black/20 rounded-lg p-4">
-                    <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
-                      {(trade as any).notify_on_completion}
-                    </div>
-                  </div>
-                </div>
-              )}
-              </div>
-            )}
-          </div>
-
-          {/* Abnahme-Workflow oben wenn completion_requested, completed_with_defects oder defects_resolved */}
-          {(completionStatus === 'completion_requested' || completionStatus === 'completed_with_defects' || completionStatus === 'defects_resolved') && (
-            <div className="mb-6">
-              {renderAbnahmeWorkflow()}
-            </div>
-          )}
-
-          {/* Angenommenes Angebot - Dienstleister-Informationen */}
-          {acceptedQuote && (
-            <div className="mb-6 p-6 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 rounded-xl border border-emerald-500/20">
+            {/* Enhanced Trade Description */}
+            <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl overflow-hidden">
               <button
-                onClick={() => setIsContractorExpanded(!isContractorExpanded)}
-                className="w-full flex items-center justify-between mb-4 hover:bg-emerald-500/5 p-2 rounded-lg transition-colors"
+                onClick={() => setShowTradeDetails(!showTradeDetails)}
+                className="w-full p-4 flex items-center justify-between hover:bg-blue-500/5 transition-colors"
               >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-emerald-500/20 rounded-lg">
-                    <CheckCircle size={20} className="text-emerald-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white">Beauftragter Dienstleister</h3>
+                <div className="flex items-center gap-2">
+                  <Info size={20} className="text-blue-400" />
+                  <h3 className="text-lg font-bold text-blue-300">Detaillierte Beschreibung</h3>
                 </div>
-                <div className={`transform transition-transform ${isContractorExpanded ? 'rotate-180' : ''}`}>
-                  <ChevronDown size={20} className="text-gray-400" />
-                </div>
+                <ChevronDown 
+                  size={20} 
+                  className={`text-blue-400 transition-transform duration-200 ${showTradeDetails ? 'rotate-180' : ''}`} 
+                />
               </button>
               
-              {isContractorExpanded && (
-                <div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Firma und Kontaktperson */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <Building size={16} className="text-gray-400" />
-                    <div>
-                      <div className="text-xs text-gray-400">Firma</div>
-                      <div className="text-white font-medium">{acceptedQuote.company_name || 'Nicht angegeben'}</div>
+              {showTradeDetails && (
+                <div className="px-6 pb-6 space-y-4">
+                  <div>
+                    <div className="bg-black/20 rounded-lg p-4">
+                      <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
+                        {fullTradeData?.description || trade?.description || 'Keine Beschreibung verfügbar'}
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-3">
-                    <User size={16} className="text-gray-400" />
-                    <div>
-                      <div className="text-xs text-gray-400">Ansprechpartner</div>
-                      <div className="text-white font-medium">{acceptedQuote.contact_person || 'Nicht angegeben'}</div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Kontaktdaten */}
-                <div className="space-y-3">
-                  {acceptedQuote.email && (
-                    <div className="flex items-center gap-3">
-                      <Mail size={16} className="text-gray-400" />
-                      <div>
-                        <div className="text-xs text-gray-400">E-Mail</div>
-                        <a href={`mailto:${acceptedQuote.email}`} className="text-[#ffbd59] hover:underline">
-                          {acceptedQuote.email}
-                        </a>
+                  {/* Additional trade metadata */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-black/20 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Calendar size={16} className="text-[#ffbd59]" />
+                        <span className="text-sm font-medium text-[#ffbd59]">Termine</span>
+                      </div>
+                      <div className="space-y-1 text-sm text-gray-300">
+                        <div>Geplant: {trade?.planned_date ? new Date(trade.planned_date).toLocaleDateString('de-DE') : 'Nicht festgelegt'}</div>
+                        {trade?.start_date && <div>Start: {new Date(trade.start_date).toLocaleDateString('de-DE')}</div>}
+                        {trade?.end_date && <div>Ende: {new Date(trade.end_date).toLocaleDateString('de-DE')}</div>}
                       </div>
                     </div>
-                  )}
-                  
-                  {acceptedQuote.phone && (
-                    <div className="flex items-center gap-3">
-                      <Phone size={16} className="text-gray-400" />
-                      <div>
-                        <div className="text-xs text-gray-400">Telefon</div>
-                        <a href={`tel:${acceptedQuote.phone}`} className="text-[#ffbd59] hover:underline">
-                          {acceptedQuote.phone}
-                        </a>
+                    
+                    <div className="bg-black/20 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Euro size={16} className="text-green-400" />
+                        <span className="text-sm font-medium text-green-300">Budget</span>
+                      </div>
+                      <div className="space-y-1 text-sm text-gray-300">
+                        <div>Geplant: {trade?.budget ? `CHF ${Number(trade.budget).toLocaleString('de-DE')}` : 'Nicht festgelegt'}</div>
+                        {acceptedQuote && <div className="text-green-300 font-medium">Angebot: CHF {Number(acceptedQuote.total_amount).toLocaleString('de-DE')}</div>}
                       </div>
                     </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Angebotssumme und Zeitraum */}
-              <div className="mt-4 pt-4 border-t border-emerald-500/20 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <div className="text-xs text-gray-400 mb-1">Angebotssumme</div>
-                  <div className="text-xl font-bold text-[#ffbd59]">
-                    {new Intl.NumberFormat('de-DE', { 
-                      style: 'currency', 
-                      currency: acceptedQuote.currency || 'CHF' 
-                    }).format(acceptedQuote.total_amount || 0)}
-                  </div>
-                </div>
-                
-                {acceptedQuote.start_date && (
-                  <div>
-                    <div className="text-xs text-gray-400 mb-1">Startdatum</div>
-                    <div className="text-white font-medium">
-                      {new Date(acceptedQuote.start_date).toLocaleDateString('de-DE')}
-                    </div>
-                  </div>
-                )}
-                
-                {acceptedQuote.completion_date && (
-                  <div>
-                    <div className="text-xs text-gray-400 mb-1">Fertigstellung</div>
-                    <div className="text-white font-medium">
-                      {new Date(acceptedQuote.completion_date).toLocaleDateString('de-DE')}
-                    </div>
-                  </div>
-                )}
-                
-                {acceptedQuote.estimated_duration && (
-                  <div>
-                    <div className="text-xs text-gray-400 mb-1">Geschätzte Dauer</div>
-                    <div className="text-white font-medium">
-                      {acceptedQuote.estimated_duration} Tage
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Beschreibung */}
-              {acceptedQuote.description && (
-                <div className="mt-4 pt-4 border-t border-emerald-500/20">
-                  <div className="text-xs text-gray-400 mb-2">Angebotsbeschreibung</div>
-                  <div className="text-gray-300 text-sm leading-relaxed">
-                    {acceptedQuote.description}
-                  </div>
-                </div>
-              )}
-
-              {/* Angebotsnummer */}
-              {acceptedQuote.quote_number && (
-                <div className="mt-4 pt-4 border-t border-emerald-500/20">
-                  <div className="bg-black/20 rounded-lg p-4 border border-emerald-500/20">
-                    <h5 className="text-white font-semibold mb-2 flex items-center gap-2">
-                      <Receipt size={16} className="text-emerald-400" />
-                      Angebotsnummer
-                    </h5>
-                    <div className="text-emerald-300 font-mono text-lg">
-                      {acceptedQuote.quote_number}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Qualifikationen und Referenzen */}
-              {(acceptedQuote.qualifications || acceptedQuote.references || acceptedQuote.certifications) && (
-                <div className="mt-4 pt-4 border-t border-emerald-500/20">
-                  <div className="bg-black/20 rounded-lg p-4 border border-emerald-500/20">
-                    <h5 className="text-white font-semibold mb-3 flex items-center gap-2">
-                      <Star size={16} className="text-emerald-400" />
-                      Qualifikationen & Referenzen
-                    </h5>
-                    <div className="space-y-4">
-                      {acceptedQuote.qualifications && (
-                        <div>
-                          <div className="text-sm text-emerald-300 mb-2">Qualifikationen</div>
-                          <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
-                            {acceptedQuote.qualifications}
-                          </div>
-                        </div>
-                      )}
-                      {acceptedQuote.references && (
-                        <div>
-                          <div className="text-sm text-emerald-300 mb-2">Referenzen</div>
-                          <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
-                            {acceptedQuote.references}
-                          </div>
-                        </div>
-                      )}
-                      {acceptedQuote.certifications && (
-                        <div>
-                          <div className="text-sm text-emerald-300 mb-2">Zertifizierungen</div>
-                          <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
-                            {acceptedQuote.certifications}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Technische Details */}
-              {(acceptedQuote.technical_approach || acceptedQuote.quality_standards || acceptedQuote.safety_measures || acceptedQuote.environmental_compliance) && (
-                <div className="mt-4 pt-4 border-t border-emerald-500/20">
-                  <div className="bg-black/20 rounded-lg p-4 border border-emerald-500/20">
-                    <h5 className="text-white font-semibold mb-3 flex items-center gap-2">
-                      <Settings size={16} className="text-emerald-400" />
-                      Technische Details
-                    </h5>
-                    <div className="space-y-4">
-                      {acceptedQuote.technical_approach && (
-                        <div>
-                          <div className="text-sm text-emerald-300 mb-2">Technischer Ansatz</div>
-                          <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
-                            {acceptedQuote.technical_approach}
-                          </div>
-                        </div>
-                      )}
-                      {acceptedQuote.quality_standards && (
-                        <div>
-                          <div className="text-sm text-emerald-300 mb-2">Qualitätsstandards</div>
-                          <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
-                            {acceptedQuote.quality_standards}
-                          </div>
-                        </div>
-                      )}
-                      {acceptedQuote.safety_measures && (
-                        <div>
-                          <div className="text-sm text-emerald-300 mb-2">Sicherheitsmaßnahmen</div>
-                          <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
-                            {acceptedQuote.safety_measures}
-                          </div>
-                        </div>
-                      )}
-                      {acceptedQuote.environmental_compliance && (
-                        <div>
-                          <div className="text-sm text-emerald-300 mb-2">Umwelt-Compliance</div>
-                          <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
-                            {acceptedQuote.environmental_compliance}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Risikobewertung und Notfallplan */}
-              {(acceptedQuote.risk_assessment || acceptedQuote.contingency_plan) && (
-                <div className="mt-4 pt-4 border-t border-emerald-500/20">
-                  <div className="bg-black/20 rounded-lg p-4 border border-emerald-500/20">
-                    <h5 className="text-white font-semibold mb-3 flex items-center gap-2">
-                      <AlertTriangle size={16} className="text-emerald-400" />
-                      Risikomanagement
-                    </h5>
-                    <div className="space-y-4">
-                      {acceptedQuote.risk_assessment && (
-                        <div>
-                          <div className="text-sm text-emerald-300 mb-2">Risikobewertung</div>
-                          <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
-                            {acceptedQuote.risk_assessment}
-                          </div>
-                        </div>
-                      )}
-                      {acceptedQuote.contingency_plan && (
-                        <div>
-                          <div className="text-sm text-emerald-300 mb-2">Notfallplan</div>
-                          <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
-                            {acceptedQuote.contingency_plan}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Zusätzliche Notizen */}
-              {acceptedQuote.additional_notes && (
-                <div className="mt-4 pt-4 border-t border-emerald-500/20">
-                  <div className="bg-black/20 rounded-lg p-4 border border-emerald-500/20">
-                    <h5 className="text-white font-semibold mb-3 flex items-center gap-2">
-                      <MessageCircle size={16} className="text-emerald-400" />
-                      Zusätzliche Notizen
-                    </h5>
-                    <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 rounded-lg p-3">
-                      {acceptedQuote.additional_notes}
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {/* Aktionen */}
-              <div className="mt-4 flex flex-wrap gap-2">
-                {acceptedQuote.email && (
-                  <button
-                    onClick={() => window.open(`mailto:${acceptedQuote.email}`, '_blank')}
-                    className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors flex items-center gap-2"
-                  >
-                    <Mail size={16} />
-                    E-Mail senden
-                  </button>
-                )}
-                
-                {acceptedQuote.phone && (
-                  <button
-                    onClick={() => window.open(`tel:${acceptedQuote.phone}`, '_blank')}
-                    className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors flex items-center gap-2"
-                  >
-                    <Phone size={16} />
-                    Anrufen
-                  </button>
-                )}
-                
-                {acceptedQuote.website && (
-                  <button
-                    onClick={() => window.open(acceptedQuote.website, '_blank')}
-                    className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors flex items-center gap-2"
-                  >
-                    <Globe size={16} />
-                    Website
-                  </button>
-                )}
-              </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* HAUPTANSICHT: Unterschiedlich je nach Angebotsstatus */}
-          {acceptedQuote ? (
-            // ANSICHT 1: Nach Annahme eines Angebots
-            <div className="space-y-6">
-
-
-              {/* Project Info */}
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-blue-300 mb-3">Projekt Information</h3>
-                <div className="space-y-2">
-                  <p className="text-gray-300"><span className="text-white font-medium">Projekt:</span> {project?.name}</p>
-                  <p className="text-gray-300"><span className="text-white font-medium">Gewerk:</span> {trade?.title}</p>
-                  <p className="text-gray-300"><span className="text-white font-medium">Status:</span> {trade?.status}</p>
-                  {/* Fertigstellungsstatus */}
-                  {completionStatus && completionStatus !== 'in_progress' && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-white font-medium">Fertigstellung:</span>
-                      <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
-                        completionStatus === 'completed' 
-                          ? 'bg-green-500/20 border border-green-500/30 text-green-300'
-                          : completionStatus === 'completed_with_defects'
-                          ? 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-300'
-                          : completionStatus === 'completion_requested'
-                          ? 'bg-orange-500/20 border border-orange-500/30 text-orange-300'
-                          : 'bg-gray-500/20 border border-gray-500/30 text-gray-300'
-                      }`}>
-                        {completionStatus === 'completion_requested' ? (
-                          <>
-                            <Clock size={14} />
-                            Als fertiggestellt markiert
-                          </>
-                        ) : completionStatus === 'completed' ? (
-                          <>
-                            <CheckCircle size={14} />
-                            Abgeschlossen
-                          </>
-                        ) : completionStatus === 'completed_with_defects' ? (
-                          <>
-                            <AlertTriangle size={14} />
-                            Unter Vorbehalt
-                          </>
-                        ) : (
-                          <span>{completionStatus}</span>
+                    
+                    <div className="bg-black/20 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Settings size={16} className="text-purple-400" />
+                        <span className="text-sm font-medium text-purple-300">Status</span>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <div className="text-gray-300">Allgemein: {trade?.status || 'Unbekannt'}</div>
+                        {completionStatus !== 'in_progress' && (
+                          <div className="text-purple-300">Fertigstellung: {completionStatus}</div>
                         )}
                       </div>
                     </div>
+                  </div>
+                  
+                  {/* Notes section */}
+                  {(fullTradeData?.notes || trade?.notes) && (
+                    <div className="bg-black/20 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <StickyNote size={16} className="text-yellow-400" />
+                        <span className="text-sm font-medium text-yellow-300">Notizen</span>
+                      </div>
+                      <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
+                        {fullTradeData?.notes || trade?.notes}
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
-
-              {/* Submitted Quotes - Aktionen möglich */}
-              {submittedQuotes.length > 0 && (
-                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-blue-300 mb-3">
-                    Eingereichte Angebote ({submittedQuotes.length})
-                  </h3>
-                  <div className="space-y-3">
-                    {submittedQuotes.map((quote) => (
-                      <div key={quote.id} className="bg-gray-700/30 rounded-lg p-3">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <span className="text-white font-medium">{quote.company_name}</span>
-                            <span className="ml-2 text-xs px-2 py-1 rounded bg-blue-600 text-white">
-                              {quote.status}
-                            </span>
-                          </div>
-                          <span className="text-gray-300 font-medium">
-                            {quote.total_amount?.toLocaleString('de-DE')} {quote.currency || 'EUR'}
+              )}
+            </div>
+          </TabPanel>
+          
+          {/* Offers Tab Panel */}
+          <TabPanel id="offers" activeTab={activeTab} className="p-6 space-y-6">
+            {acceptedQuote ? (
+              <div className="space-y-6">
+                {/* Accepted Provider Header */}
+                <div className="bg-gradient-to-r from-emerald-500/10 to-emerald-600/5 rounded-xl border border-emerald-500/20 p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+                        <User size={24} />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-white mb-1">{acceptedQuote.company_name}</h3>
+                        <p className="text-emerald-200 text-sm mb-2">{acceptedQuote.contact_person}</p>
+                        <div className="flex items-center gap-4">
+                          <span className="text-2xl font-bold text-emerald-300">
+                            CHF {acceptedQuote.total_amount?.toLocaleString('de-DE')}
+                          </span>
+                          <span className="px-3 py-1 bg-emerald-600 text-white text-sm rounded-full font-medium">
+                            Angenommen
                           </span>
                         </div>
-                        
-                        {quote.description && (
-                          <p className="text-gray-400 text-sm mb-3">{quote.description}</p>
-                        )}
-                        
-                        <div className="flex gap-2 flex-wrap">
-                          {onAcceptQuote && (
-                            <button
-                              onClick={() => handleAcceptQuote(quote)}
-                              disabled={loading}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
-                            >
-                              <Check size={14} />
-                              Annehmen
-                            </button>
-                          )}
-                          
-                          {onRejectQuote && (
-                            <button
-                              onClick={() => {
-                                setSelectedQuoteForAction(quote);
-                                setShowRejectModal(true);
-                              }}
-                              disabled={loading}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
-                            >
-                              <XCircle size={14} />
-                              Ablehnen
-                            </button>
-                          )}
-                          
-                          {onCreateInspection && (
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => toggleQuoteForInspection(quote.id)}
-                                className={`flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                                  selectedQuotesForInspection.includes(quote.id)
-                                    ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                                    : 'bg-gray-600 hover:bg-gray-700 text-gray-300'
-                                }`}
-                              >
-                                <Eye size={14} />
-                                {selectedQuotesForInspection.includes(quote.id) ? 'Ausgewählt' : 'Besichtigung'}
-                              </button>
-                              
-                              {/* Terminantwort-Status */}
-                              {inspectionStatus.hasActiveInspection && inspectionStatus.appointmentDate && (
-                                <span className={`text-xs px-2 py-1 rounded ${
-                                  formatAppointmentStatus(quote.service_provider_id || quote.user_id, inspectionStatus.appointmentDate).color
-                                } bg-gray-700/50`}>
-                                  {formatAppointmentStatus(quote.service_provider_id || quote.user_id, inspectionStatus.appointmentDate).text}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
                       </div>
-                    ))}
+                    </div>
                   </div>
                   
-                  {/* Besichtigungs-Button */}
-                  {onCreateInspection && selectedQuotesForInspection.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-600/30">
-                      <button
-                        onClick={handleCreateInspection}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors"
+                  {/* Contact Actions */}
+                  <div className="flex gap-3 flex-wrap">
+                    {acceptedQuote.phone && (
+                      <a
+                        href={`tel:${acceptedQuote.phone}`}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                       >
-                        <Eye size={16} />
-                        Besichtigung erstellen ({selectedQuotesForInspection.length} Angebote)
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-
-
-              {/* Dokumente-Bereich mit vollständigem Viewer */}
-              <TradeDocumentViewer 
-                documents={loadedDocuments} 
-                existingQuotes={quotes} 
-              />
-              
-              {/* Kommunikation & Fortschritt */}
-              <div className="bg-gradient-to-br from-[#2c3539]/50 to-[#1a1a2e]/50 rounded-xl border border-gray-600/30 p-6">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <MessageCircle size={20} className="text-[#ffbd59]" />
-                  Kommunikation & Fortschritt
-                </h3>
-                
-                <TradeProgress
-                  milestoneId={trade?.id}
-                  currentProgress={currentProgress}
-                  onProgressChange={handleProgressChange}
-                  isBautraeger={true}
-                  isServiceProvider={false}
-                  completionStatus={completionStatus}
-                  onCompletionRequest={handleCompletionRequest}
-                  onCompletionResponse={handleCompletionResponse}
-                  hideCompletionResponseControls={true}
-                  hasAcceptedQuote={true}
-                />
-              </div>
-              
-              {/* Abnahme-Workflow-Bereich - nur wenn NICHT completion_requested, completed_with_defects oder defects_resolved (dann wird es oben angezeigt) */}
-              {completionStatus !== 'completion_requested' && completionStatus !== 'completed_with_defects' && completionStatus !== 'defects_resolved' && renderAbnahmeWorkflow()}
-
-              {/* Besichtigungs-Management */}
-              {submittedQuotes.length > 0 && (
-                <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-purple-300 mb-3 flex items-center gap-2">
-                    <Eye size={20} />
-                    Besichtigungs-Management
-                  </h3>
+                        <Phone size={16} />
+                        Anrufen
+                      </a>
+                    )}
+                    {acceptedQuote.email && (
+                      <a
+                        href={`mailto:${acceptedQuote.email}`}
+                        className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                      >
+                        <Mail size={16} />
+                        E-Mail
+                      </a>
+                    )}
+                    {acceptedQuote.website && (
+                      <a
+                        href={acceptedQuote.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                      >
+                        <ExternalLink size={16} />
+                        Website
+                      </a>
+                    )}
+                  </div>
                   
-                  {inspectionStatus.hasActiveInspection ? (
-                    <div className="space-y-4">
-                      {/* Aktive Besichtigung */}
-                      <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg p-4">
-                        <div className="flex items-center gap-3 mb-3">
-                          <Calendar size={20} className="text-purple-400" />
-                          <div>
-                            <h4 className="text-purple-300 font-medium">Aktive Besichtigung</h4>
-                            <p className="text-gray-300 text-sm">
-                              {inspectionStatus.appointmentDate 
-                                ? `Termin: ${new Date(inspectionStatus.appointmentDate).toLocaleDateString('de-DE')} um ${new Date(inspectionStatus.appointmentDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
-                                : 'Termin wird koordiniert'
-                              }
-                            </p>
-                          </div>
-                        </div>
-                        
-                        {/* Terminantworten-Übersicht */}
-                        {appointmentResponses.length > 0 && (
-                          <div className="space-y-2">
-                            <h5 className="text-sm font-medium text-purple-300">Terminantworten:</h5>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                              {appointmentResponses.map((response, index) => {
-                                const quote = quotes.find(q => (q.service_provider_id || q.user_id) === response.service_provider_id);
-                                const statusInfo = formatAppointmentStatus(response.service_provider_id, inspectionStatus.appointmentDate);
-                                
-                                return (
-                                  <div key={index} className="flex items-center justify-between bg-gray-700/30 rounded-lg p-2">
-                                    <span className="text-white text-sm">{quote?.company_name || 'Unbekannt'}</span>
-                                    <span className={`text-xs px-2 py-1 rounded ${statusInfo.color} bg-gray-700/50`}>
-                                      {statusInfo.text}
-                                    </span>
-                                  </div>
-                                );
-                              })}
+                  {/* Quote Details Expandable Section */}
+                  <button
+                    onClick={() => setIsContractorExpanded(!isContractorExpanded)}
+                    className="w-full mt-4 p-3 hover:bg-emerald-500/5 rounded-lg transition-colors flex items-center justify-between"
+                  >
+                    <span className="text-emerald-300 font-medium">Angebots-Details anzeigen</span>
+                    <ChevronDown 
+                      size={20} 
+                      className={`text-emerald-400 transition-transform duration-200 ${isContractorExpanded ? 'rotate-180' : ''}`} 
+                    />
+                  </button>
+                  
+                  {isContractorExpanded && (
+                    <div className="mt-4 pt-4 border-t border-emerald-500/20 space-y-4">
+                      {/* Cost Breakdown */}
+                      {(acceptedQuote.labor_cost || acceptedQuote.material_cost) && (
+                        <div className="bg-black/20 rounded-lg p-4">
+                          <h4 className="text-emerald-300 font-medium mb-3">Kostenaufschlüsselung</h4>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="text-center">
+                              <div className="text-emerald-300 font-bold text-lg">
+                                CHF {acceptedQuote.total_amount?.toLocaleString('de-DE')}
+                              </div>
+                              <div className="text-gray-400 text-xs">Gesamt</div>
                             </div>
-                          </div>
-                        )}
-                        
-                        {inspectionStatus.isInspectionDay && (
-                          <div className="mt-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                            <div className="flex items-center gap-2 text-green-300">
-                              <CheckCircle size={16} />
-                              <span className="text-sm font-medium">Heute ist Besichtigungstag!</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <p className="text-gray-300 text-sm">
-                        Wählen Sie Angebote für eine gemeinsame Besichtigung aus und erstellen Sie einen Besichtigungstermin.
-                      </p>
-                      
-                      {selectedQuotesForInspection.length > 0 && (
-                        <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg p-3">
-                          <h4 className="text-purple-300 font-medium mb-2">
-                            Ausgewählte Angebote ({selectedQuotesForInspection.length})
-                          </h4>
-                          <div className="space-y-1">
-                            {selectedQuotesForInspection.map(quoteId => {
-                              const quote = quotes.find(q => q.id === quoteId);
-                              return (
-                                <div key={quoteId} className="flex items-center justify-between text-sm">
-                                  <span className="text-white">{quote?.company_name}</span>
-                                  <span className="text-gray-400">
-                                    {quote?.total_amount?.toLocaleString('de-DE')} {quote?.currency || 'EUR'}
-                                  </span>
+                            {acceptedQuote.labor_cost && (
+                              <div className="text-center">
+                                <div className="text-emerald-300 font-medium">
+                                  CHF {acceptedQuote.labor_cost.toLocaleString('de-DE')}
                                 </div>
-                              );
-                            })}
+                                <div className="text-gray-400 text-xs">Arbeit</div>
+                              </div>
+                            )}
+                            {acceptedQuote.material_cost && (
+                              <div className="text-center">
+                                <div className="text-emerald-300 font-medium">
+                                  CHF {acceptedQuote.material_cost.toLocaleString('de-DE')}
+                                </div>
+                                <div className="text-gray-400 text-xs">Material</div>
+                              </div>
+                            )}
+                            {acceptedQuote.overhead_cost && (
+                              <div className="text-center">
+                                <div className="text-emerald-300 font-medium">
+                                  CHF {acceptedQuote.overhead_cost.toLocaleString('de-DE')}
+                                </div>
+                                <div className="text-gray-400 text-xs">Nebenkosten</div>
+                              </div>
+                            )}
                           </div>
+                        </div>
+                      )}
+                      
+                      {/* Timeline */}
+                      {(acceptedQuote.start_date || acceptedQuote.completion_date) && (
+                        <div className="bg-black/20 rounded-lg p-4">
+                          <h4 className="text-emerald-300 font-medium mb-3">Zeitplan</h4>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            {acceptedQuote.start_date && (
+                              <div>
+                                <span className="text-gray-400">Start:</span>
+                                <div className="text-white font-medium">
+                                  {new Date(acceptedQuote.start_date).toLocaleDateString('de-DE')}
+                                </div>
+                              </div>
+                            )}
+                            {acceptedQuote.completion_date && (
+                              <div>
+                                <span className="text-gray-400">Fertigstellung:</span>
+                                <div className="text-white font-medium">
+                                  {new Date(acceptedQuote.completion_date).toLocaleDateString('de-DE')}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Description */}
+                      {acceptedQuote.description && (
+                        <div className="bg-black/20 rounded-lg p-4">
+                          <h4 className="text-emerald-300 font-medium mb-2">Beschreibung</h4>
+                          <p className="text-gray-300 text-sm leading-relaxed">{acceptedQuote.description}</p>
                         </div>
                       )}
                     </div>
                   )}
                 </div>
-              )}
-
-
-
-              {/* Fortschritts-Tracking */}
-              {acceptedQuote && (
-                <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-cyan-300 mb-3 flex items-center gap-2">
-                    <Settings size={20} />
-                    Projekt-Fortschritt
-                  </h3>
-                  
-                  {/* Fortschritts-Balken */}
-                  <div className="mb-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-cyan-300">Gesamtfortschritt</span>
-                      <span className="text-sm text-gray-400">
-                        {completionStatus === 'completed' ? '100%' : 
-                         completionStatus === 'completed_with_defects' ? '90%' : 
-                         acceptedQuote ? '60%' : '20%'}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-700 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          completionStatus === 'completed' ? 'bg-green-500 w-full' :
-                          completionStatus === 'completed_with_defects' ? 'bg-yellow-500 w-[90%]' :
-                          acceptedQuote ? 'bg-cyan-500 w-[60%]' : 'bg-blue-500 w-[20%]'
-                        }`}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Meilensteine */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                        quotes.length > 0 ? 'bg-green-500' : 'bg-gray-600'
-                      }`}>
-                        {quotes.length > 0 ? <Check size={14} className="text-white" /> : <span className="text-xs text-gray-400">1</span>}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-white font-medium">Angebote erhalten</h4>
-                        <p className="text-gray-400 text-sm">{quotes.length} Angebote eingegangen</p>
-                      </div>
-                      <span className="text-xs text-gray-400">
-                        {quotes.length > 0 ? '✓ Abgeschlossen' : 'Ausstehend'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                        acceptedQuote ? 'bg-green-500' : 'bg-gray-600'
-                      }`}>
-                        {acceptedQuote ? <Check size={14} className="text-white" /> : <span className="text-xs text-gray-400">2</span>}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-white font-medium">Angebot angenommen</h4>
-                        <p className="text-gray-400 text-sm">
-                          {acceptedQuote ? `${acceptedQuote.company_name} beauftragt` : 'Noch kein Angebot angenommen'}
-                        </p>
-                      </div>
-                      <span className="text-xs text-gray-400">
-                        {acceptedQuote ? '✓ Abgeschlossen' : 'Ausstehend'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                        completionStatus === 'in_progress' && acceptedQuote ? 'bg-blue-500' : 
-                        completionStatus === 'completed' || completionStatus === 'completed_with_defects' ? 'bg-green-500' : 
-                        'bg-gray-600'
-                      }`}>
-                        {completionStatus === 'completed' || completionStatus === 'completed_with_defects' ? 
-                          <Check size={14} className="text-white" /> : 
-                          completionStatus === 'in_progress' && acceptedQuote ? 
-                            <Clock size={14} className="text-white" /> : 
-                            <span className="text-xs text-gray-400">3</span>
-                        }
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-white font-medium">Ausführung</h4>
-                        <p className="text-gray-400 text-sm">
-                          {completionStatus === 'completed' ? 'Gewerk abgeschlossen' :
-                           completionStatus === 'completed_with_defects' ? 'Abgeschlossen mit Mängeln' :
-                           completionStatus === 'in_progress' && acceptedQuote ? 'In Bearbeitung' :
-                           'Noch nicht gestartet'}
-                        </p>
-                      </div>
-                      <span className="text-xs text-gray-400">
-                        {completionStatus === 'completed' ? '✓ Abgeschlossen' :
-                         completionStatus === 'completed_with_defects' ? '⚠ Mit Mängeln' :
-                         completionStatus === 'in_progress' && acceptedQuote ? '🔄 Läuft' :
-                         'Ausstehend'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                        completionStatus === 'completed' ? 'bg-green-500' : 'bg-gray-600'
-                      }`}>
-                        {completionStatus === 'completed' ? <Check size={14} className="text-white" /> : <span className="text-xs text-gray-400">4</span>}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-white font-medium">Finale Abnahme</h4>
-                        <p className="text-gray-400 text-sm">
-                          {completionStatus === 'completed' ? 'Erfolgreich abgenommen' : 'Noch ausstehend'}
-                        </p>
-                      </div>
-                      <span className="text-xs text-gray-400">
-                        {completionStatus === 'completed' ? '✓ Abgeschlossen' : 'Ausstehend'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Zeitplan-Info */}
-                  {acceptedQuote && (acceptedQuote.start_date || acceptedQuote.completion_date) && (
-                    <div className="mt-4 p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-lg">
-                      <h4 className="text-cyan-300 font-medium mb-2">Zeitplan</h4>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        {acceptedQuote.start_date && (
-                          <div>
-                            <span className="text-gray-400">Geplanter Start:</span>
-                            <div className="text-white font-medium">
-                              {new Date(acceptedQuote.start_date).toLocaleDateString('de-DE')}
-                            </div>
-                          </div>
-                        )}
-                        {acceptedQuote.completion_date && (
-                          <div>
-                            <span className="text-gray-400">Geplante Fertigstellung:</span>
-                            <div className="text-white font-medium">
-                              {new Date(acceptedQuote.completion_date).toLocaleDateString('de-DE')}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* All Quotes Summary */}
-              <div className="bg-gray-500/10 border border-gray-500/30 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-300 mb-3">Alle Angebote ({quotes.length})</h3>
-                <div className="space-y-2">
-                  {quotes.map((quote, index) => (
-                    <div key={quote.id} className="flex justify-between items-center py-2 border-b border-gray-600/30 last:border-b-0">
-                      <div>
-                        <span className="text-white font-medium">{quote.company_name}</span>
-                        <span className={`ml-2 text-xs px-2 py-1 rounded ${
-                          quote.status === 'accepted' ? 'bg-green-600 text-white' :
-                          quote.status === 'submitted' ? 'bg-blue-600 text-white' :
-                          quote.status === 'rejected' ? 'bg-red-600 text-white' :
-                          'bg-gray-600 text-gray-300'
-                        }`}>
-                          {quote.status}
-                        </span>
-                      </div>
-                      <span className="text-gray-300">
-                        {quote.total_amount?.toLocaleString('de-DE')} {quote.currency || 'EUR'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : quotes.length > 0 ? (
-            // ANSICHT 2: Angebote vorhanden aber noch keins angenommen
-            <div className="space-y-6">
-              {/* Hauptbereich: Angebotsliste mit Mehrfachauswahl */}
-              <div className="bg-gradient-to-br from-[#2c3539]/50 to-[#1a1a2e]/50 rounded-xl border border-gray-600/30 p-6">
-                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                  <FileText size={24} className="text-[#ffbd59]" />
-                  Eingegangene Angebote ({quotes.length})
-                </h3>
                 
-                {/* Besichtigungshinweis wenn erforderlich */}
-                {trade?.requires_inspection === '1' && (
-                  <div className="mb-6 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 text-purple-300 mb-1">
-                          <Eye size={18} />
-                          <span className="font-medium">Besichtigung erforderlich</span>
+                {/* Other Submitted Quotes */}
+                {submittedQuotes.length > 0 && (
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-blue-300 mb-4">
+                      Weitere eingereichte Angebote ({submittedQuotes.length})
+                    </h3>
+                    <div className="space-y-3">
+                      {submittedQuotes.map((quote) => (
+                        <div key={quote.id} className="bg-gray-700/30 rounded-lg p-4">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <span className="text-white font-medium">{quote.company_name}</span>
+                              <span className="ml-2 text-xs px-2 py-1 rounded bg-blue-600 text-white">
+                                Eingereicht
+                              </span>
+                            </div>
+                            <span className="text-gray-300 font-medium">
+                              CHF {quote.total_amount?.toLocaleString('de-DE')}
+                            </span>
+                          </div>
+                          
+                          {quote.description && (
+                            <p className="text-gray-400 text-sm mb-3">{quote.description}</p>
+                          )}
+                          
+                          <div className="flex gap-2 flex-wrap">
+                            {onAcceptQuote && (
+                              <button
+                                onClick={() => handleAcceptQuote(quote)}
+                                disabled={loading}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                              >
+                                <Check size={14} />
+                                Annehmen
+                              </button>
+                            )}
+                            
+                            {onRejectQuote && (
+                              <button
+                                onClick={() => {
+                                  setSelectedQuoteForAction(quote);
+                                  setShowRejectModal(true);
+                                }}
+                                disabled={loading}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                              >
+                                <XCircle size={14} />
+                                Ablehnen
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-gray-400 text-sm">
-                          Wählen Sie die Anbieter aus, die Sie zur Besichtigung einladen möchten.
-                          Sie können auch direkt ein Angebot annehmen.
-                        </p>
-                      </div>
-                      {selectedQuotesForInspection.length > 0 && (
-                        <div className="text-purple-300 font-bold text-lg">
-                          {selectedQuotesForInspection.length} ausgewählt
-                        </div>
-                      )}
+                      ))}
                     </div>
                   </div>
                 )}
-                
-                {/* Angebotsliste */}
-                <div className="space-y-4">
-                  {quotes.map((quote) => (
-                    <div 
-                      key={quote.id} 
-                      className={`bg-[#1a1a2e]/50 rounded-lg border-2 transition-all duration-200 ${
-                        selectedQuotesForInspection.includes(quote.id) 
-                          ? 'border-purple-500 shadow-lg shadow-purple-500/20' 
-                          : 'border-gray-600/50 hover:border-gray-500'
-                      }`}
-                    >
-                      {/* Angebots-Header */}
-                      <div className="p-4">
+              </div>
+            ) : quotes.length > 0 ? (
+              <div className="space-y-6">
+                {/* Quote Selection Interface */}
+                <div className="bg-gradient-to-br from-[#2c3539]/50 to-[#1a1a2e]/50 rounded-xl border border-gray-600/30 p-6">
+                  <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <FileText size={24} className="text-[#ffbd59]" />
+                    Eingegangene Angebote ({quotes.length})
+                  </h3>
+                  
+                  {/* Inspection notice */}
+                  {trade?.requires_inspection === '1' && (
+                    <div className="mb-6 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 text-purple-300 mb-1">
+                            <Eye size={18} />
+                            <span className="font-medium">Besichtigung erforderlich</span>
+                          </div>
+                          <p className="text-gray-400 text-sm">
+                            Wählen Sie Anbieter für eine Besichtigung aus oder nehmen Sie direkt ein Angebot an.
+                          </p>
+                        </div>
+                        {selectedQuotesForInspection.length > 0 && (
+                          <div className="text-purple-300 font-bold text-lg">
+                            {selectedQuotesForInspection.length} ausgewählt
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Quote Cards */}
+                  <div className="space-y-4">
+                    {quotes.map((quote) => (
+                      <div 
+                        key={quote.id} 
+                        className={`bg-[#1a1a2e]/50 rounded-lg border-2 transition-all duration-200 p-4 ${
+                          selectedQuotesForInspection.includes(quote.id) 
+                            ? 'border-purple-500 shadow-lg shadow-purple-500/20' 
+                            : 'border-gray-600/50 hover:border-gray-500'
+                        }`}
+                      >
                         <div className="flex justify-between items-start mb-3">
                           <div className="flex items-center gap-3">
-                            {/* Checkbox für Besichtigung */}
+                            {/* Inspection checkbox */}
                             {trade?.requires_inspection === '1' && (
                               <button
                                 onClick={() => toggleQuoteForInspection(quote.id)}
@@ -3498,14 +3130,9 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                                 <span className="text-white font-bold text-lg">{quote.company_name}</span>
                                 <span className={`text-xs px-2 py-1 rounded font-medium ${
                                   quote.status === 'submitted' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
-                                  quote.status === 'draft' ? 'bg-gray-500/20 text-gray-300 border border-gray-500/30' :
-                                  quote.status === 'rejected' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
                                   'bg-gray-500/20 text-gray-300 border border-gray-500/30'
                                 }`}>
-                                  {quote.status === 'submitted' ? 'Eingereicht' :
-                                   quote.status === 'draft' ? 'Entwurf' :
-                                   quote.status === 'rejected' ? 'Abgelehnt' :
-                                   quote.status}
+                                  {quote.status === 'submitted' ? 'Eingereicht' : quote.status}
                                 </span>
                               </div>
                               {quote.contact_person && (
@@ -3528,14 +3155,14 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                           </div>
                         </div>
                         
-                        {/* Angebots-Details */}
+                        {/* Quote description */}
                         {quote.description && (
                           <div className="mb-3 p-3 bg-gray-700/20 rounded-lg">
                             <p className="text-gray-300 text-sm">{quote.description}</p>
                           </div>
                         )}
                         
-                        {/* Kennzahlen */}
+                        {/* Key metrics */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                           {quote.estimated_duration && (
                             <div className="flex items-center gap-2 p-2 bg-blue-500/10 rounded-lg">
@@ -3551,7 +3178,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                               <CheckCircle size={16} className="text-green-400" />
                               <div>
                                 <div className="text-xs text-gray-400">Garantie</div>
-                                <div className="text-sm text-white font-medium">{quote.warranty_period} Monate</div>
+                                <div className="text-sm text-white font-medium">{quote.warranty_period} Mon.</div>
                               </div>
                             </div>
                           )}
@@ -3579,9 +3206,8 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                           )}
                         </div>
                         
-                        {/* Aktions-Buttons */}
+                        {/* Action buttons */}
                         <div className="flex gap-2 flex-wrap pt-3 border-t border-gray-600/30">
-                          {/* Direkt annehmen - auch bei Besichtigung möglich */}
                           {quote.status === 'submitted' && onAcceptQuote && (
                             <button
                               onClick={() => handleAcceptQuote(quote)}
@@ -3593,7 +3219,6 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                             </button>
                           )}
                           
-                          {/* Ablehnen */}
                           {quote.status === 'submitted' && onRejectQuote && (
                             <button
                               onClick={() => {
@@ -3608,7 +3233,6 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                             </button>
                           )}
                           
-                          {/* Details anzeigen */}
                           <button
                             onClick={() => console.log('Details für Quote:', quote.id)}
                             className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors"
@@ -3618,61 +3242,29 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                           </button>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Besichtigungstermin-Button (fixiert am Ende) */}
-                {trade?.requires_inspection === '1' && onCreateInspection && selectedQuotesForInspection.length > 0 && (
-                  <div className="mt-6 pt-6 border-t border-gray-600/30">
-                    <button
-                      onClick={handleCreateInspection}
-                      className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
-                    >
-                      <Eye size={20} />
-                      <span>
-                        Besichtigungstermin vereinbaren mit {selectedQuotesForInspection.length} {selectedQuotesForInspection.length === 1 ? 'Anbieter' : 'Anbietern'}
-                      </span>
-                    </button>
+                    ))}
                   </div>
-                )}
-              </div>
-
-              {/* Dokumente-Bereich */}
-              <div className="bg-gradient-to-br from-[#2c3539]/50 to-[#1a1a2e]/50 rounded-xl border border-gray-600/30 p-6">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <FileText size={20} className="text-[#ffbd59]" />
-                  Geteilte Dokumente
-                  {documentsLoading && (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#ffbd59]"></div>
+                  
+                  {/* Inspection button */}
+                  {trade?.requires_inspection === '1' && onCreateInspection && selectedQuotesForInspection.length > 0 && (
+                    <div className="mt-6 pt-6 border-t border-gray-600/30">
+                      <button
+                        onClick={handleCreateInspection}
+                        className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                      >
+                        <Eye size={20} />
+                        <span>
+                          Besichtigung vereinbaren mit {selectedQuotesForInspection.length} {selectedQuotesForInspection.length === 1 ? 'Anbieter' : 'Anbietern'}
+                        </span>
+                      </button>
+                    </div>
                   )}
-                </h3>
-                
-                {documentsError ? (
-                  <div className="text-center py-8">
-                    <div className="text-red-400 mb-4">
-                      Fehler beim Laden der Dokumente: {documentsError}
-                    </div>
-                  </div>
-                ) : loadedDocuments.length > 0 ? (
-                  <TradeDocumentViewer 
-                    documents={loadedDocuments} 
-                    existingQuotes={quotes} 
-                  />
-                ) : (
-                  <div className="text-center py-8">
-                    <FileText size={48} className="text-gray-500 mx-auto mb-4" />
-                    <p className="text-gray-400">Keine geteilten Dokumente vorhanden</p>
-                  </div>
-                )}
+                </div>
               </div>
-            </div>
-          ) : (
-            // ANSICHT 3: Noch keine Angebote vorhanden
-            <div className="space-y-6">
-              <div className="text-center py-8 bg-gray-700/20 rounded-lg">
-                <FileText size={48} className="text-gray-500 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-300 mb-2">Noch keine Angebote</h3>
+            ) : (
+              <div className="text-center py-12">
+                <FileText size={64} className="text-gray-500 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-300 mb-2">Noch keine Angebote eingegangen</h3>
                 <p className="text-gray-400 mb-4">Es wurden noch keine Angebote für dieses Gewerk eingereicht.</p>
                 {trade?.requires_inspection === '1' && (
                   <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500/20 border border-purple-500/30 rounded-lg">
@@ -3681,19 +3273,444 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                   </div>
                 )}
               </div>
-
-              {/* Dokumente auch ohne Angebote anzeigen */}
-              <TradeDocumentViewer 
-                documents={loadedDocuments} 
-                existingQuotes={quotes} 
-              />
-            </div>
-          )}
-
-
+            )}
+          </TabPanel>
+          
+          {/* Documents Tab Panel */}
+          <TabPanel id="documents" activeTab={activeTab} className="p-6">
+            <TradeDocumentViewer 
+              documents={loadedDocuments} 
+              existingQuotes={quotes} 
+            />
+          </TabPanel>
+          
+          {/* Communication Tab Panel */}
+          <TabPanel id="communication" activeTab={activeTab} className="p-6 space-y-6">
+            {acceptedQuote ? (
+              <div className="space-y-6">
+                {/* Communication Header */}
+                <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl p-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+                      <MessageCircle size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-white">Kommunikation mit {acceptedQuote.company_name}</h3>
+                      <p className="text-blue-200 text-sm">Direkte Kommunikation mit dem beauftragten Dienstleister</p>
+                    </div>
+                  </div>
+                  
+                  {/* Quick Contact Actions */}
+                  <div className="flex gap-3 flex-wrap">
+                    {acceptedQuote.phone && (
+                      <a
+                        href={`tel:${acceptedQuote.phone}`}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                      >
+                        <Phone size={16} />
+                        {acceptedQuote.phone}
+                      </a>
+                    )}
+                    {acceptedQuote.email && (
+                      <a
+                        href={`mailto:${acceptedQuote.email}`}
+                        className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                      >
+                        <Mail size={16} />
+                        {acceptedQuote.email}
+                      </a>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Progress Communication */}
+                <div className="bg-gradient-to-br from-[#2c3539]/50 to-[#1a1a2e]/50 rounded-xl border border-gray-600/30 p-6">
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <Settings size={20} className="text-[#ffbd59]" />
+                    Fortschritts-Kommunikation
+                  </h3>
+                  
+                  <TradeProgress
+                    milestoneId={trade?.id}
+                    currentProgress={currentProgress}
+                    onProgressChange={handleProgressChange}
+                    isBautraeger={true}
+                    isServiceProvider={false}
+                    completionStatus={completionStatus}
+                    onCompletionRequest={handleCompletionRequest}
+                    onCompletionResponse={handleCompletionResponse}
+                    hideCompletionResponseControls={true}
+                    hasAcceptedQuote={true}
+                  />
+                </div>
+                
+                {/* Message History */}
+                <div className="bg-gradient-to-br from-[#2c3539]/50 to-[#1a1a2e]/50 rounded-xl border border-gray-600/30">
+                  <div className="p-6 border-b border-gray-600/30">
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <MessageCircle size={20} className="text-blue-400" />
+                      Nachrichten-Verlauf
+                      {messages.length > 0 && (
+                        <span className="px-2 py-1 bg-blue-500/20 text-blue-300 text-sm rounded-full font-medium">
+                          {messages.length}
+                        </span>
+                      )}
+                    </h3>
+                  </div>
+                  
+                  {/* Messages Container */}
+                  <div className="h-96 overflow-y-auto p-6">
+                    {communicationLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+                        <span className="ml-3 text-gray-400">Nachrichten werden geladen...</span>
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <div className="text-center py-8">
+                        <MessageCircle size={48} className="text-gray-500 mx-auto mb-4" />
+                        <h4 className="text-lg font-medium text-gray-300 mb-2">Noch keine Nachrichten</h4>
+                        <p className="text-gray-400 text-sm">Starten Sie die Kommunikation mit dem Dienstleister.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {messages.map((message, index) => (
+                          <div
+                            key={message.id || index}
+                            className={`flex ${
+                              message.sender_type === 'bautraeger' ? 'justify-end' : 'justify-start'
+                            }`}
+                          >
+                            <div
+                              className={`max-w-[70%] rounded-lg p-3 ${
+                                message.sender_type === 'bautraeger'
+                                  ? 'bg-[#ffbd59] text-[#1a1a2e]'
+                                  : 'bg-gray-700 text-gray-100'
+                              }`}
+                            >
+                              <p className="text-sm">{message.message}</p>
+                              <div className="flex items-center justify-between mt-2 text-xs opacity-70">
+                                <span>
+                                  {message.sender_type === 'bautraeger' ? 'Sie' : acceptedQuote?.company_name || 'Dienstleister'}
+                                </span>
+                                <span>
+                                  {message.created_at 
+                                    ? new Date(message.created_at).toLocaleString('de-DE', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })
+                                    : 'Jetzt'
+                                  }
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Message Input */}
+                  <div className="p-6 border-t border-gray-600/30">
+                    <div className="flex gap-3">
+                      <textarea
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Nachricht eingeben..."
+                        className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent resize-none"
+                        rows={2}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            sendMessage();
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={sendMessage}
+                        disabled={!newMessage.trim() || communicationLoading}
+                        className="px-4 py-2 bg-[#ffbd59] hover:bg-[#ffa726] text-[#1a1a2e] rounded-lg font-medium transition-colors disabled:opacity-50 self-end"
+                      >
+                        {communicationLoading ? 'Senden...' : 'Senden'}
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Drücken Sie Enter zum Senden, Shift+Enter für neue Zeile
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <MessageCircle size={64} className="text-gray-500 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-300 mb-2">Kommunikation nicht verfügbar</h3>
+                <p className="text-gray-400">Kommunikation ist erst nach Annahme eines Angebots möglich.</p>
+              </div>
+            )}
+          </TabPanel>
+          
+          {/* Completion Tab Panel */}
+          <TabPanel id="completion" activeTab={activeTab} className="p-6 space-y-6">
+            {acceptedQuote ? (
+              <div className="space-y-6">
+                {/* Completion Header */}
+                <div className="bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-xl p-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+                      <CheckCircle size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-white">Abnahme-Workflow</h3>
+                      <p className="text-orange-200 text-sm">
+                        Verwaltung des Fertigstellungs- und Abnahmeprozesses
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Current Status Badge */}
+                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium ${
+                    completionStatus === 'completed' 
+                      ? 'bg-green-500/20 text-green-300 border border-green-500/30'
+                      : completionStatus === 'completed_with_defects'
+                      ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+                      : completionStatus === 'completion_requested'
+                      ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30 animate-pulse'
+                      : completionStatus === 'defects_resolved'
+                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                      : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                  }`}>
+                    {completionStatus === 'completion_requested' ? (
+                      <><AlertTriangle size={16} />Fertigstellung gemeldet - Abnahme erforderlich</>
+                    ) : completionStatus === 'completed' ? (
+                      <><CheckCircle size={16} />Vollständig abgeschlossen</>
+                    ) : completionStatus === 'completed_with_defects' ? (
+                      <><AlertTriangle size={16} />Abgeschlossen mit Mängeln</>
+                    ) : completionStatus === 'defects_resolved' ? (
+                      <><Clock size={16} />Mängelbehebung gemeldet</>
+                    ) : (
+                      <><Clock size={16} />In Bearbeitung</>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Main Completion Workflow */}
+                {renderAbnahmeWorkflow()}
+                
+                {/* Progress Timeline */}
+                <div className="bg-gradient-to-br from-[#2c3539]/50 to-[#1a1a2e]/50 rounded-xl border border-gray-600/30 p-6">
+                  <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+                    <TrendingUp size={20} className="text-[#ffbd59]" />
+                    Projekt-Fortschritt
+                  </h3>
+                  
+                  {/* Progress Bar */}
+                  <div className="mb-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-cyan-300">Gesamtfortschritt</span>
+                      <span className="text-sm text-gray-400">
+                        {completionStatus === 'completed' ? '100%' : 
+                         completionStatus === 'completed_with_defects' ? '95%' : 
+                         completionStatus === 'completion_requested' ? '85%' :
+                         acceptedQuote ? '60%' : '20%'}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-3 shadow-inner">
+                      <div 
+                        className={`h-3 rounded-full transition-all duration-500 ${
+                          completionStatus === 'completed' ? 'bg-gradient-to-r from-green-500 to-green-400 w-full shadow-lg shadow-green-500/30' :
+                          completionStatus === 'completed_with_defects' ? 'bg-gradient-to-r from-yellow-500 to-yellow-400 w-[95%] shadow-lg shadow-yellow-500/30' :
+                          completionStatus === 'completion_requested' ? 'bg-gradient-to-r from-orange-500 to-orange-400 w-[85%] shadow-lg shadow-orange-500/30' :
+                          acceptedQuote ? 'bg-gradient-to-r from-cyan-500 to-blue-500 w-[60%] shadow-lg shadow-cyan-500/30' : 
+                          'bg-gradient-to-r from-blue-500 to-blue-400 w-[20%] shadow-lg shadow-blue-500/30'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Milestone Steps */}
+                  <div className="space-y-4">
+                    {[
+                      {
+                        step: 1,
+                        title: 'Angebot angenommen',
+                        description: `${acceptedQuote.company_name} beauftragt`,
+                        completed: !!acceptedQuote,
+                        current: false
+                      },
+                      {
+                        step: 2,
+                        title: 'Arbeiten in Ausführung',
+                        description: completionStatus === 'completion_requested' ? 'Fertigstellung gemeldet' : 'In Bearbeitung',
+                        completed: completionStatus !== 'in_progress',
+                        current: completionStatus === 'in_progress'
+                      },
+                      {
+                        step: 3,
+                        title: 'Abnahme durchführen',
+                        description: completionStatus === 'completed' ? 'Erfolgreich abgenommen' : 
+                                   completionStatus === 'completed_with_defects' ? 'Unter Vorbehalt abgenommen' :
+                                   completionStatus === 'completion_requested' ? 'Abnahme erforderlich' : 'Ausstehend',
+                        completed: completionStatus === 'completed',
+                        current: completionStatus === 'completion_requested' || completionStatus === 'defects_resolved'
+                      },
+                      {
+                        step: 4,
+                        title: 'Projekt abgeschlossen',
+                        description: completionStatus === 'completed' ? 'Vollständig fertiggestellt' : 'Noch ausstehend',
+                        completed: completionStatus === 'completed',
+                        current: false
+                      }
+                    ].map((milestone) => (
+                      <div key={milestone.step} className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm border-2 ${
+                          milestone.completed 
+                            ? 'bg-green-500 border-green-400 text-white shadow-lg shadow-green-500/30' 
+                            : milestone.current
+                            ? 'bg-orange-500 border-orange-400 text-white shadow-lg shadow-orange-500/30 animate-pulse'
+                            : 'bg-gray-700 border-gray-600 text-gray-400'
+                        }`}>
+                          {milestone.completed ? <Check size={16} /> : milestone.step}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className={`font-medium ${
+                            milestone.completed ? 'text-green-300' :
+                            milestone.current ? 'text-orange-300' : 'text-gray-300'
+                          }`}>
+                            {milestone.title}
+                          </h4>
+                          <p className="text-gray-400 text-sm">{milestone.description}</p>
+                        </div>
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                          milestone.completed ? 'bg-green-500/20 text-green-300' :
+                          milestone.current ? 'bg-orange-500/20 text-orange-300' :
+                          'bg-gray-500/20 text-gray-400'
+                        }`}>
+                          {milestone.completed ? '✓ Erledigt' : milestone.current ? '🔄 Aktuell' : 'Ausstehend'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Schedule Information */}
+                  {(acceptedQuote.start_date || acceptedQuote.completion_date) && (
+                    <div className="mt-6 pt-6 border-t border-gray-600/30">
+                      <h4 className="text-cyan-300 font-medium mb-3 flex items-center gap-2">
+                        <Calendar size={16} />
+                        Geplanter Zeitplan
+                      </h4>
+                      <div className="grid grid-cols-2 gap-6 text-sm">
+                        {acceptedQuote.start_date && (
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                              <PlayCircle size={14} className="text-blue-400" />
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Geplanter Start</span>
+                              <div className="text-white font-medium">
+                                {new Date(acceptedQuote.start_date).toLocaleDateString('de-DE')}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {acceptedQuote.completion_date && (
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
+                              <Flag size={14} className="text-green-400" />
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Geplante Fertigstellung</span>
+                              <div className="text-white font-medium">
+                                {new Date(acceptedQuote.completion_date).toLocaleDateString('de-DE')}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Invoice Section */}
+                {completionStatus === 'completed' && existingInvoice && (
+                  <div className="bg-gradient-to-br from-[#2c3539]/50 to-[#1a1a2e]/50 rounded-xl border border-gray-600/30 p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                      <Receipt size={20} className="text-green-400" />
+                      Rechnung
+                    </h3>
+                    
+                    <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h4 className="text-green-300 font-medium">Rechnung erhalten</h4>
+                          <p className="text-gray-400 text-sm">Der Dienstleister hat eine Rechnung erstellt</p>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          existingInvoice.status === 'paid' 
+                            ? 'bg-green-500/20 text-green-300'
+                            : 'bg-blue-500/20 text-blue-300'
+                        }`}>
+                          {existingInvoice.status === 'paid' ? 'Bezahlt' : 'Erhalten'}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Rechnungsnummer:</span>
+                          <span className="text-white font-medium">{existingInvoice.invoice_number}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Betrag:</span>
+                          <span className="text-white font-medium">
+                            CHF {Number(existingInvoice.total_amount).toLocaleString('de-DE')}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          onClick={handleViewInvoice}
+                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                        >
+                          <Eye size={14} />
+                          Öffnen
+                        </button>
+                        <button
+                          onClick={handleDownloadInvoice}
+                          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                        >
+                          <Download size={14} />
+                          Download
+                        </button>
+                        {existingInvoice.status !== 'paid' && (
+                          <button
+                            onClick={handleMarkAsPaid}
+                            className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-colors"
+                            disabled={isMarkingAsPaid}
+                          >
+                            <CreditCard size={14} />
+                            {isMarkingAsPaid ? 'Wird markiert...' : 'Als bezahlt markieren'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <CheckCircle size={64} className="text-gray-500 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-300 mb-2">Abnahme nicht verfügbar</h3>
+                <p className="text-gray-400">Der Abnahme-Workflow ist erst nach Annahme eines Angebots verfügbar.</p>
+              </div>
+            )}
+          </TabPanel>
+          
         </div>
       </div>
 
+      {/* Modal overlays */}
+      
       {/* Ablehnungs-Modal */}
       {showRejectModal && selectedQuoteForAction && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-60 p-4">
@@ -3751,8 +3768,6 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
         </div>
       )}
 
-
-
       {/* Abnahme-Modal */}
       {showAcceptanceModal && (
         <AcceptanceModal
@@ -3762,11 +3777,6 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
           onComplete={handleCompleteAcceptance}
         />
       )}
-
-      {/* Terminvereinbarungs-Modal */}
-
-
-      {/* Finale Abnahme-Modal - entfernt, da doppelt vorhanden */}
 
       {/* Kommunikations-Modal */}
       {showCommunicationModal && (
@@ -3877,16 +3887,6 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
         </div>
       )}
 
-      {/* AcceptanceModal für Abnahme-Workflow */}
-      {showAcceptanceModal && (
-        <AcceptanceModal
-          isOpen={showAcceptanceModal}
-          onClose={() => setShowAcceptanceModal(false)}
-          trade={trade}
-          onComplete={handleCompleteAcceptance}
-        />
-      )}
-
       {/* FinalAcceptanceModal für finale Abnahme */}
       {showFinalAcceptanceModal && (
         <FinalAcceptanceModal
@@ -3914,4 +3914,4 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
       )}
     </div>
   );
-}
+};
