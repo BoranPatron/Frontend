@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useOnboarding } from '../context/OnboardingContext';
+import EnhancedGuidedTour from '../components/Onboarding/EnhancedGuidedTour';
 import { 
   FileText, 
   User, 
@@ -52,6 +54,7 @@ export default function ServiceProviderDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, userRole, isAuthenticated } = useAuth();
+  const { showTour, setShowTour, shouldDisableUI, userRole: onboardingUserRole, completeTour } = useOnboarding();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
 
@@ -1525,7 +1528,7 @@ export default function ServiceProviderDashboard() {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2">
+            <h1 className="text-3xl font-bold text-white mb-2" data-tour-id="dashboard-title">
               Willkommen zurück, {user?.first_name || user?.name || 'Dienstleister'}! 🔧
             </h1>
             <p className="text-gray-300 text-lg">
@@ -3007,6 +3010,15 @@ export default function ServiceProviderDashboard() {
         ]}
         showTooltips={true}
       />
+
+      {/* Enhanced Guided Tour for Service Providers */}
+      {showTour && (
+        <EnhancedGuidedTour
+          onClose={() => setShowTour(false)}
+          onCompleted={() => completeTour()}
+          userRole="DIENSTLEISTER"
+        />
+      )}
     </div>
   );
 } 

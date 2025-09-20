@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider } from './context/ProjectContext';
+import { OnboardingProvider } from './context/OnboardingContext';
 import CacheDebugPanel from './components/CacheDebugPanel';
 import './utils/serviceWorkerManager'; // Service Worker initialisieren
 import './styles/grid-optimizations.css'; // Grid-Optimierungen für dynamische Kachel-Größen
@@ -445,8 +446,10 @@ export default function App() {
     <ErrorBoundary>
       <AuthProvider>
         <ProjectProvider>
-          <AppContent />
-          <CacheDebugPanel />
+          <OnboardingProvider>
+            <AppContent />
+            <CacheDebugPanel />
+          </OnboardingProvider>
         </ProjectProvider>
       </AuthProvider>
     </ErrorBoundary>

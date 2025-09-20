@@ -50,6 +50,9 @@ import {
   Edit
 } from 'lucide-react';
 import GuidedTourOverlay from '../components/Onboarding/GuidedTourOverlay';
+import EnhancedGuidedTour from '../components/Onboarding/EnhancedGuidedTour';
+import { useOnboarding } from '../context/OnboardingContext';
+import DisableableButton from '../components/Onboarding/DisableableButton';
 import PageHeader from '../components/PageHeader';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 
@@ -193,7 +196,7 @@ export default function Dashboard() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string>('');
   const [error, setError] = useState<string>('');
-  const [showTour, setShowTour] = useState(false);
+  const { showTour, setShowTour, shouldDisableUI, userRole: onboardingUserRole, completeTour } = useOnboarding();
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   
   // State für Projekt-Erstellung
@@ -347,43 +350,7 @@ export default function Dashboard() {
     }
   }, [isInitialized, isAuthenticated, navigate]);
 
-  // Zeige geführte Tour für Erstbenutzer (nach Rollenauswahl und Firmeninformationen) einmalig
-  useEffect(() => {
-    if (isInitialized && user) {
-      // Verwende OnboardingManager um zu prüfen ob Tour gestartet werden kann
-      import('../utils/OnboardingManager').then(({ OnboardingManager }) => {
-        const canStartTour = OnboardingManager.canStartDashboardTour(user as any);
-        if (canStartTour) {
-          setShowTour(true);
-        }
-      }).catch(error => {
-        console.error('❌ Fehler beim Laden des OnboardingManagers für Tour:', error);
-        // Fallback zur alten Logik
-        const cf = (user as any).consent_fields || {};
-        const tourCompleted = cf?.dashboard_tour?.completed === true;
-        if (!tourCompleted && (user as any).role_selected) {
-          setShowTour(true);
-        }
-      });
-    }
-  }, [isInitialized, user]);
-
-  // Event-Listener für manuellen Tour-Start nach CompanyAddressModal
-  useEffect(() => {
-    const handleStartTour = () => {
-      if (user) {
-        import('../utils/OnboardingManager').then(({ OnboardingManager }) => {
-          const canStartTour = OnboardingManager.canStartDashboardTour(user as any);
-          if (canStartTour) {
-            setShowTour(true);
-          }
-        });
-      }
-    };
-
-    window.addEventListener('startDashboardTour', handleStartTour);
-    return () => window.removeEventListener('startDashboardTour', handleStartTour);
-  }, [user]);
+  // Tour logic is now handled by OnboardingContext
 
   // Event-Listener für TradeDetailsModal öffnen (von Benachrichtigungen)
   useEffect(() => {
@@ -3096,11 +3063,12 @@ export default function Dashboard() {
 
       {/* Radial Menu wurde global in App.tsx eingebunden */}
 
-      {/* Geführte Dashboard-Tour */}
+      {/* Enhanced Guided Tour */}
       {showTour && (
-        <GuidedTourOverlay
+        <EnhancedGuidedTour
           onClose={() => setShowTour(false)}
-          onCompleted={() => setShowTour(false)}
+          onCompleted={() => completeTour()}
+          userRole={onboardingUserRole || 'BAUTRAEGER'}
         />
       )}
 

@@ -66,6 +66,65 @@ const InvoiceManagementCard: React.FC<InvoiceManagementCardProps> = ({
   const [showDMSModal, setShowDMSModal] = useState(false);
   const [dmsSuccess, setDmsSuccess] = useState(false);
   const [dmsCategoryData, setDmsCategoryData] = useState<any>(null);
+  const [isBlinking, setIsBlinking] = useState(false);
+
+  // Hilfsfunktionen für Fälligkeitsdatum
+  const isOverdue = (dueDate: string | undefined) => {
+    if (!dueDate) return false;
+    const today = new Date();
+    const due = new Date(dueDate);
+    return due < today && invoice?.status !== 'paid';
+  };
+  
+  const getDaysUntilDue = (dueDate: string | undefined) => {
+    if (!dueDate) return null;
+    const today = new Date();
+    const due = new Date(dueDate);
+    const diffTime = due.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const getDueDateStatus = () => {
+    if (!invoice?.due_date) return null;
+    const daysUntilDue = getDaysUntilDue(invoice.due_date);
+    const overdue = isOverdue(invoice.due_date);
+    
+    if (overdue) {
+      return {
+        message: `${Math.abs(daysUntilDue || 0)} Tage überfällig`,
+        color: 'text-red-400',
+        bgColor: 'bg-red-500/10',
+        borderColor: 'border-red-500/20',
+        shouldBlink: true
+      };
+    } else if (daysUntilDue !== null && daysUntilDue <= 7) {
+      return {
+        message: daysUntilDue === 0 ? 'Heute fällig' : 
+                daysUntilDue === 1 ? 'Morgen fällig' : 
+                `${daysUntilDue} Tage bis zur Fälligkeit`,
+        color: daysUntilDue <= 3 ? 'text-orange-400' : 'text-yellow-400',
+        bgColor: daysUntilDue <= 3 ? 'bg-orange-500/10' : 'bg-yellow-500/10',
+        borderColor: daysUntilDue <= 3 ? 'border-orange-500/20' : 'border-yellow-500/20',
+        shouldBlink: daysUntilDue <= 3
+      };
+    }
+    return null;
+  };
+
+  // Blink-Effekt für überfällige/bald fällige Rechnungen
+  useEffect(() => {
+    const dueDateStatus = getDueDateStatus();
+    if (dueDateStatus?.shouldBlink) {
+      setIsBlinking(true);
+      const interval = setInterval(() => {
+        setIsBlinking(prev => !prev);
+      }, 1000); // Blinkt jede Sekunde
+      return () => clearInterval(interval);
+    } else {
+      setIsBlinking(false);
+    }
+  }, [invoice?.due_date, invoice?.status]);
 
   // Keine Rechnung vorhanden
   if (!invoice) {
@@ -87,6 +146,12 @@ const InvoiceManagementCard: React.FC<InvoiceManagementCardProps> = ({
   // Status-Mapping für bessere UX
   const getStatusInfo = (status: string) => {
     switch (status) {
+      case 'draft':
+        return {
+          label: 'Entwurf',
+          color: 'bg-gray-500/20 text-gray-300',
+          icon: <FileText size={16} />
+        };
       case 'sent':
         return {
           label: 'Versendet',
@@ -121,6 +186,7 @@ const InvoiceManagementCard: React.FC<InvoiceManagementCardProps> = ({
   };
 
   const statusInfo = getStatusInfo(invoice.status);
+  const dueDateStatus = getDueDateStatus();
 
   // DMS-Kategorisierung und Upload
   const handleDMSIntegration = async () => {
@@ -146,12 +212,12 @@ const InvoiceManagementCard: React.FC<InvoiceManagementCardProps> = ({
       // 3. Erweiterte Metadata für die Rechnung
       const categoryData = {
         mainCategory: category?.id || 'finance',
-        subCategory: 'paid_invoices', // Spezifische Unterkategorie für bezahlte Rechnungen
+        subCategory: 'Rechnungen', // Korrekte Unterkategorie für Rechnungen
         confidence: 95, // High confidence for invoices
         detectedPatterns: category?.patterns || [],
         autoTags: [
           'rechnung',
-          'bezahlt',
+          invoice.status === 'paid' ? 'bezahlt' : 'offen',
           tradeTitle.toLowerCase(),
           invoice.service_provider_name || 'dienstleister',
           `projekt-${projectId}`,
@@ -295,19 +361,34 @@ const InvoiceManagementCard: React.FC<InvoiceManagementCardProps> = ({
   return (
     <>
       {/* Haupt-Card */}
-      <div className="bg-gradient-to-r from-[#1a1a2e]/80 to-[#2c3539]/80 backdrop-blur-sm rounded-xl border border-gray-600/30 overflow-hidden">
+      <div className={`bg-gradient-to-r from-[#1a1a2e]/80 to-[#2c3539]/80 backdrop-blur-sm rounded-xl border overflow-hidden transition-all duration-500 ${
+        isBlinking && dueDateStatus?.shouldBlink 
+          ? `border-red-500/50 shadow-lg shadow-red-500/20` 
+          : 'border-gray-600/30'
+      }`}>
         {/* Header */}
         <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 px-6 py-4 border-b border-gray-600/30">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-500/20 rounded-lg">
-                <Receipt size={24} className="text-green-400" />
+              <div className={`p-2 rounded-lg transition-colors duration-500 ${
+                dueDateStatus?.shouldBlink && isBlinking 
+                  ? 'bg-red-500/30' 
+                  : 'bg-green-500/20'
+              }`}>
+                <Receipt size={24} className={dueDateStatus?.shouldBlink && isBlinking ? 'text-red-400' : 'text-green-400'} />
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-white">Rechnung erhalten</h3>
                 <p className="text-sm text-gray-400">
                   Von {invoice.service_provider_name || 'Dienstleister'} • {tradeTitle}
                 </p>
+                {dueDateStatus && (
+                  <p className={`text-xs font-medium mt-1 transition-opacity duration-500 ${
+                    dueDateStatus.shouldBlink && isBlinking ? 'opacity-100' : 'opacity-70'
+                  } ${dueDateStatus.color}`}>
+                    ⚠️ {dueDateStatus.message}
+                  </p>
+                )}
               </div>
             </div>
             
@@ -318,6 +399,27 @@ const InvoiceManagementCard: React.FC<InvoiceManagementCardProps> = ({
               </span>
             </div>
           </div>
+          
+          {/* Fälligkeitswarnung als eigene Zeile */}
+          {dueDateStatus && (
+            <div className={`mt-4 p-3 rounded-lg border transition-all duration-500 ${
+              dueDateStatus.shouldBlink && isBlinking 
+                ? `${dueDateStatus.bgColor} ${dueDateStatus.borderColor} shadow-sm` 
+                : `${dueDateStatus.bgColor} ${dueDateStatus.borderColor}`
+            }`}>
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={16} className={dueDateStatus.color} />
+                <span className={`font-medium ${dueDateStatus.color}`}>
+                  {dueDateStatus.message}
+                </span>
+                {dueDateStatus.shouldBlink && (
+                  <span className="text-xs bg-white/10 px-2 py-1 rounded">
+                    Zahlung fällig!
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Content */}
@@ -404,43 +506,39 @@ const InvoiceManagementCard: React.FC<InvoiceManagementCardProps> = ({
               </button>
             )}
             
-            {/* DMS Integration Button - nur bei bezahlten Rechnungen */}
-            {invoice.status === 'paid' && (
-              <button
-                onClick={handleDMSIntegration}
-                disabled={isProcessingDMS}
-                className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:scale-105 disabled:opacity-50"
-              >
-                {isProcessingDMS ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                    DMS-Integration...
-                  </>
-                ) : (
-                  <>
-                    <Archive size={16} />
-                    Ins DMS archivieren
-                  </>
-                )}
-              </button>
-            )}
+            {/* DMS Integration Button - für alle Rechnungen verfügbar */}
+            <button
+              onClick={handleDMSIntegration}
+              disabled={isProcessingDMS}
+              className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:scale-105 disabled:opacity-50"
+            >
+              {isProcessingDMS ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                  DMS-Integration...
+                </>
+              ) : (
+                <>
+                  <Archive size={16} />
+                  Ins DMS archivieren
+                </>
+              )}
+            </button>
           </div>
 
           {/* Info-Box für DMS-Integration */}
-          {invoice.status === 'paid' && (
-            <div className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 rounded-lg p-4 border border-purple-500/20">
-              <div className="flex items-start gap-3">
-                <FolderOpen size={20} className="text-purple-400 mt-0.5" />
-                <div>
-                  <h4 className="font-medium text-purple-300 mb-1">DMS-Archivierung verfügbar</h4>
-                  <p className="text-sm text-gray-400">
-                    Diese bezahlte Rechnung kann automatisch kategorisiert und im 
-                    Dokumentenmanagementsystem archiviert werden.
-                  </p>
-                </div>
+          <div className="bg-gradient-to-r from-purple-500/10 to-indigo-500/10 rounded-lg p-4 border border-purple-500/20">
+            <div className="flex items-start gap-3">
+              <FolderOpen size={20} className="text-purple-400 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-purple-300 mb-1">DMS-Archivierung verfügbar</h4>
+                <p className="text-sm text-gray-400">
+                  Diese Rechnung kann automatisch kategorisiert und im 
+                  Dokumentenmanagementsystem archiviert werden.
+                </p>
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
 

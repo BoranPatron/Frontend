@@ -14,6 +14,7 @@ interface TabItem {
   icon: React.ComponentType<{ size?: number; className?: string }>;
   badge?: string | number;
   disabled?: boolean;
+  urgent?: boolean;
 }
 
 interface TabsProps {
@@ -32,6 +33,21 @@ interface TabPanelProps {
 
 // Custom Tab Components
 function Tabs({ tabs, activeTab, onTabChange, className = '' }: TabsProps) {
+  const [blinkState, setBlinkState] = useState(false);
+  
+  // Blink-Animation für urgent tabs
+  useEffect(() => {
+    const urgentTabs = tabs.filter(tab => tab.urgent);
+    if (urgentTabs.length > 0) {
+      const interval = setInterval(() => {
+        setBlinkState(prev => !prev);
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setBlinkState(false);
+    }
+  }, [tabs]);
+
   const handleKeyDown = (e: React.KeyboardEvent, tabId: string) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -69,8 +85,12 @@ function Tabs({ tabs, activeTab, onTabChange, className = '' }: TabsProps) {
                 flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap rounded-t-lg
                 transition-all duration-200 border-b-2 min-w-fit
                 ${isActive 
-                  ? 'bg-[#ffbd59]/10 text-[#ffbd59] border-[#ffbd59] shadow-sm' 
-                  : 'text-gray-400 border-transparent hover:text-gray-300 hover:bg-white/5'
+                  ? `bg-[#ffbd59]/10 text-[#ffbd59] border-[#ffbd59] shadow-sm ${
+                      tab.urgent && blinkState ? 'shadow-lg shadow-red-500/30' : ''
+                    }` 
+                  : `text-gray-400 border-transparent hover:text-gray-300 hover:bg-white/5 ${
+                      tab.urgent && blinkState ? 'border-red-500/50 shadow-md shadow-red-500/20' : ''
+                    }`
                 }
                 ${tab.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                 focus:outline-none focus:ring-2 focus:ring-[#ffbd59]/50 focus:ring-offset-2 focus:ring-offset-[#1a1a2e]
@@ -80,10 +100,14 @@ function Tabs({ tabs, activeTab, onTabChange, className = '' }: TabsProps) {
               <span>{tab.label}</span>
               {tab.badge && (
                 <span className={`
-                  px-2 py-0.5 text-xs rounded-full font-semibold
+                  px-2 py-0.5 text-xs rounded-full font-semibold transition-all duration-200
                   ${isActive 
-                    ? 'bg-[#ffbd59] text-[#1a1a2e]' 
-                    : 'bg-gray-600 text-gray-300'
+                    ? `bg-[#ffbd59] text-[#1a1a2e] ${
+                        tab.urgent && blinkState ? 'bg-red-500 animate-pulse' : ''
+                      }` 
+                    : `bg-gray-600 text-gray-300 ${
+                        tab.urgent && blinkState ? 'bg-red-500 text-white animate-pulse' : ''
+                      }`
                   }
                 `}>
                   {tab.badge}
@@ -109,7 +133,7 @@ function TabPanel({ id, activeTab, children, className = '' }: TabPanelProps) {
       id={`panel-${id}`}
       role="tabpanel"
       aria-labelledby={`tab-${id}`}
-      className={`focus:outline-none ${className}`}
+      className={`focus:outline-none h-full overflow-y-auto ${className}`}
       tabIndex={0}
     >
       {children}
@@ -474,7 +498,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                         </button>
                       </div>
                       
-                      <div className="h-96 bg-white/5">
+                      <div className="h-80 bg-white/5">
                         {loadingDocs[String(doc.id)] ? (
                           <div className="flex items-center justify-center h-full">
                             <div className="text-center">
@@ -601,11 +625,45 @@ export default function SimpleCostEstimateModal({
   // Zusätzliche States für erweiterte Funktionen
   const [isExpanded, setIsExpanded] = useState(false);
   
+  // Hilfsfunktion für Fälligkeitsprüfung
+  const isInvoiceOverdue = (invoice: any) => {
+    if (!invoice?.due_date || invoice.status === 'paid') return false;
+    const today = new Date();
+    const dueDate = new Date(invoice.due_date);
+    return dueDate < today;
+  };
+  
+  const getInvoiceDaysUntilDue = (invoice: any) => {
+    if (!invoice?.due_date || invoice.status === 'paid') return null;
+    const today = new Date();
+    const dueDate = new Date(invoice.due_date);
+    const diffTime = dueDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
   // Tab Configuration
   const tabItems: TabItem[] = useMemo(() => {
     const acceptedQuote = quotes.find(q => q.status === 'accepted');
     const submittedQuotes = quotes.filter(q => q.status === 'submitted');
     const hasActiveCompletion = ['completion_requested', 'completed_with_defects', 'defects_resolved'].includes(completionStatus);
+    
+    // Fälligkeits-Status für Rechnung prüfen
+    const invoiceOverdue = isInvoiceOverdue(existingInvoice);
+    const daysUntilDue = getInvoiceDaysUntilDue(existingInvoice);
+    const invoiceUrgent = invoiceOverdue || (daysUntilDue !== null && daysUntilDue <= 3);
+    
+    // Badge für Abnahme-Tab bestimmen
+    let completionBadge = undefined;
+    if (invoiceOverdue) {
+      completionBadge = '!!!';
+    } else if (invoiceUrgent) {
+      completionBadge = '!!';
+    } else if (hasActiveCompletion) {
+      completionBadge = '!';
+    } else if (existingInvoice) {
+      completionBadge = '✓';
+    }
     
     return [
       {
@@ -639,11 +697,12 @@ export default function SimpleCostEstimateModal({
         id: 'completion',
         label: 'Abnahme',
         icon: CheckCircle,
-        badge: hasActiveCompletion ? '!' : undefined,
-        disabled: !acceptedQuote
+        badge: completionBadge,
+        disabled: !acceptedQuote,
+        urgent: invoiceUrgent // Neue Eigenschaft für Blink-Animation
       }
     ];
-  }, [quotes, loadedDocuments.length, messages.length, completionStatus]);
+  }, [quotes, loadedDocuments.length, messages.length, completionStatus, existingInvoice]);
   
   // Auto-switch to completion tab when completion is requested
   useEffect(() => {
@@ -987,33 +1046,32 @@ export default function SimpleCostEstimateModal({
           </div>
         )}
         
+        {/* Completion Status Anzeige */}
         {completionStatus === 'completed' && (
-          <div className="space-y-3">
-            <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
-              <div className="flex items-center gap-2 text-green-300">
-                <CheckCircle size={16} />
-                <span className="text-sm font-medium">
-                  Gewerk vollständig abgeschlossen
-                </span>
-              </div>
+          <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3 mb-3">
+            <div className="flex items-center gap-2 text-green-300">
+              <CheckCircle size={16} />
+              <span className="text-sm font-medium">
+                Gewerk vollständig abgeschlossen
+              </span>
             </div>
-            
-            {/* Rechnungs-Management Integration */}
-            <InvoiceManagementCard
-              invoice={existingInvoice}
-              tradeId={trade?.id || 0}
-              tradeTitle={trade?.title || 'Unbekanntes Gewerk'}
-              projectId={project?.id || 0}
-              onInvoiceUpdated={(updatedInvoice) => {
-                setExistingInvoice(updatedInvoice);
-                console.log('✅ Rechnung im Abnahme-Workflow aktualisiert:', updatedInvoice);
-              }}
-              onViewInvoice={handleViewInvoice}
-              onMarkAsPaid={handleMarkAsPaid}
-              isMarkingAsPaid={isMarkingAsPaid}
-            />
           </div>
         )}
+        
+        {/* Rechnungs-Management Integration - Immer anzeigen wenn Rechnung existiert */}
+        <InvoiceManagementCard
+          invoice={existingInvoice}
+          tradeId={trade?.id || 0}
+          tradeTitle={trade?.title || 'Unbekanntes Gewerk'}
+          projectId={project?.id || 0}
+          onInvoiceUpdated={(updatedInvoice) => {
+            setExistingInvoice(updatedInvoice);
+            console.log('✅ Rechnung im Abnahme-Workflow aktualisiert:', updatedInvoice);
+          }}
+          onViewInvoice={handleViewInvoice}
+          onMarkAsPaid={handleMarkAsPaid}
+          isMarkingAsPaid={isMarkingAsPaid}
+        />
       </div>
     </div>
   );
@@ -1143,10 +1201,10 @@ export default function SimpleCostEstimateModal({
           ? invoiceStatus.toLowerCase() 
           : String(invoiceStatus).toLowerCase();
         
-        // Gültige Status für "echte" Rechnungen (nicht Entwürfe)
+        // Gültige Status für Rechnungen (inklusive Entwürfe)
         const validInvoiceStatuses = [
-          'sent', 'viewed', 'paid', 'overdue',
-          'SENT', 'VIEWED', 'PAID', 'OVERDUE'
+          'draft', 'sent', 'viewed', 'paid', 'overdue',
+          'DRAFT', 'SENT', 'VIEWED', 'PAID', 'OVERDUE'
         ];
         
         const isValidInvoice = validInvoiceStatuses.some(status => 
@@ -2575,7 +2633,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-[0_0_40px_rgba(255,189,89,0.08)] border border-gray-600/30 max-w-6xl w-full max-h-[95vh] overflow-hidden relative flex flex-col">
+      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-[0_0_40px_rgba(255,189,89,0.08)] border border-gray-600/30 max-w-6xl w-full h-[90vh] overflow-hidden relative flex flex-col">
         {/* Enhanced Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-600/30 flex-shrink-0">
           <div className="flex items-center gap-4">
@@ -2647,7 +2705,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
         </div>
 
         {/* Tab Content */}
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="flex-1 overflow-y-auto min-h-0 h-[calc(90vh-200px)]">
           
           {/* Details Tab Panel */}
           <TabPanel id="details" activeTab={activeTab} className="p-6 space-y-6">
@@ -3232,7 +3290,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                   </div>
                   
                   {/* Messages Container */}
-                  <div className="h-96 overflow-y-auto p-6">
+                  <div className="h-80 overflow-y-auto p-6">
                     {communicationLoading ? (
                       <div className="flex items-center justify-center py-8">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
@@ -3504,22 +3562,6 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                   )}
                 </div>
                 
-                {/* Invoice Management Section */}
-                {completionStatus === 'completed' && (
-                  <InvoiceManagementCard
-                    invoice={existingInvoice}
-                    tradeId={trade?.id || 0}
-                    tradeTitle={trade?.title || 'Unbekanntes Gewerk'}
-                    projectId={project?.id || 0}
-                    onInvoiceUpdated={(updatedInvoice) => {
-                      setExistingInvoice(updatedInvoice);
-                      console.log('✅ Rechnung aktualisiert:', updatedInvoice);
-                    }}
-                    onViewInvoice={handleViewInvoice}
-                    onMarkAsPaid={handleMarkAsPaid}
-                    isMarkingAsPaid={isMarkingAsPaid}
-                  />
-                )}
               </div>
             ) : (
               <div className="text-center py-12">
