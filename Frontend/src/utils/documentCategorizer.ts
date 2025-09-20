@@ -154,6 +154,64 @@ export const DOCUMENT_CATEGORIES: DocumentCategory[] = [
     fileExtensions: ['.pdf', '.dwg', '.dxf', '.doc', '.docx'],
     keywords: ['technisch', 'zeichnung', 'spezifikation', 'datenblatt', 'handbuch', 'anleitung'],
     priority: 7
+  },
+  {
+    id: 'project_management',
+    name: 'Projektmanagement',
+    description: 'Projektpläne, Terminplanung, Budgetplanung und Projektsteuerung',
+    patterns: [
+      /projektplan/i,
+      /projektstruktur/i,
+      /terminplan/i,
+      /bauzeit/i,
+      /meilenstein/i,
+      /gantt/i,
+      /projekthandbuch/i,
+      /projektcharter/i,
+      /risikomanagement/i,
+      /qualitätsplan/i,
+      /fortschritt/i,
+      /controlling/i,
+      /budgetplan/i,
+      /kostenrahmen/i,
+      /cashflow/i,
+      /ressourcenplan/i,
+      /personalplan/i,
+      /materialplan/i,
+      /soll.ist/i,
+      /status/i,
+      /reporting/i
+    ],
+    fileExtensions: ['.pdf', '.xlsx', '.xls', '.ppt', '.pptx', '.doc', '.docx'],
+    keywords: ['projektplan', 'terminplan', 'budgetplan', 'controlling', 'meilenstein', 'gantt', 'ressource', 'projekt'],
+    priority: 9
+  },
+  {
+    id: 'procurement',
+    name: 'Ausschreibungen & Angebote',
+    description: 'Ausschreibungsunterlagen, Angebote, Vergabedokumentation',
+    patterns: [
+      /ausschreibung/i,
+      /leistungsverzeichnis/i,
+      /angebot/i,
+      /vergabe/i,
+      /bieter/i,
+      /submission/i,
+      /tender/i,
+      /preisspiegel/i,
+      /angebotsvergleich/i,
+      /bewertung/i,
+      /zuschlag/i,
+      /ablehnung/i,
+      /vergabeprotokoll/i,
+      /technische.spezifikation/i,
+      /lastenheft/i,
+      /pflichtenheft/i,
+      /bewertungsmatrix/i
+    ],
+    fileExtensions: ['.pdf', '.xlsx', '.xls', '.doc', '.docx'],
+    keywords: ['ausschreibung', 'angebot', 'vergabe', 'bieter', 'tender', 'preisspiegel', 'leistungsverzeichnis', 'lv'],
+    priority: 8
   }
 ];
 
@@ -237,6 +295,24 @@ export class DocumentCategorizer {
         'Zahlungsbelege': ['zahlung', 'beleg', 'quittung', 'überweisung'],
         'Änderungsaufträge': ['änderung', 'nachtrag', 'zusatz'],
         'Schlussrechnungen': ['schlussrechnung', 'endabrechnung', 'final']
+      },
+      'project_management': {
+        'Projektpläne': ['projektplan', 'projektstruktur', 'psp', 'wbs'],
+        'Terminplanung': ['terminplan', 'bauzeit', 'meilenstein', 'gantt', 'zeitplan'],
+        'Budgetplanung': ['budgetplan', 'kostenrahmen', 'cashflow', 'kostenschätzung'],
+        'Projektsteuerung': ['controlling', 'fortschritt', 'status', 'soll-ist'],
+        'Risikomanagement': ['risiko', 'risk', 'gefahr', 'bewertung'],
+        'Qualitätsmanagement': ['qualität', 'qm', 'qualitätsplan', 'prüfung'],
+        'Ressourcenplanung': ['ressource', 'personal', 'material', 'gerät'],
+        'Projektdokumentation': ['projekthandbuch', 'charter', 'reporting', 'protokoll']
+      },
+      'procurement': {
+        'Ausschreibungsunterlagen': ['ausschreibung', 'leistungsverzeichnis', 'lv', 'tender'],
+        'Technische Spezifikationen': ['spezifikation', 'lastenheft', 'pflichtenheft', 'anforderung'],
+        'Angebote': ['angebot', 'offerte', 'kostenvoranschlag', 'bieter'],
+        'Angebotsbewertung': ['bewertung', 'preisspiegel', 'vergleich', 'bewertungsmatrix'],
+        'Vergabedokumentation': ['vergabe', 'zuschlag', 'ablehnung', 'vergabeprotokoll'],
+        'Verhandlungen': ['verhandlung', 'nachverhandlung', 'protokoll', 'vereinbarung']
       }
     };
     

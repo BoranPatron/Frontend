@@ -88,6 +88,8 @@ import {
 import { getProjects } from '../api/projectService';
 import DocumentViewer from '../components/DocumentViewer';
 import PageHeader from '../components/PageHeader';
+import { DocumentCategorizer } from '../utils/documentCategorizer';
+import { glass } from '../styles/glass';
 
 // Dokumentenkategorien für die Baubranche
 const DOCUMENT_CATEGORIES = {
@@ -162,6 +164,34 @@ const DOCUMENT_CATEGORIES = {
       'Bestellbestätigungen',
       'Leistungsbestätigungen'
     ]
+  },
+  project_management: {
+    name: 'Projektmanagement',
+    icon: BarChart3,
+    color: 'emerald',
+    subcategories: [
+      'Projektpläne',
+      'Terminplanung',
+      'Budgetplanung',
+      'Projektsteuerung',
+      'Risikomanagement',
+      'Qualitätsmanagement',
+      'Ressourcenplanung',
+      'Projektdokumentation'
+    ]
+  },
+  procurement: {
+    name: 'Ausschreibungen & Angebote',
+    icon: Briefcase,
+    color: 'teal',
+    subcategories: [
+      'Ausschreibungsunterlagen',
+      'Technische Spezifikationen',
+      'Angebote',
+      'Angebotsbewertung',
+      'Vergabedokumentation',
+      'Verhandlungen'
+    ]
   }
 };
 
@@ -174,18 +204,48 @@ const CATEGORY_MAPPING: { [key: string]: string } = {
   'EXECUTION': 'execution',
   'DOCUMENTATION': 'documentation',
   'ORDER_CONFIRMATIONS': 'order_confirmations',
+  'PROJECT_MANAGEMENT': 'project_management',  // Neu: Projektmanagement
+  'PROCUREMENT': 'procurement',                // Neu: Ausschreibungen & Angebote
   // Lowercase (aktuelle Backend-Ausgabe)
   'planning': 'planning',
   'contracts': 'contracts',
   'finance': 'finance',
   'execution': 'execution',
   'documentation': 'documentation',
-  'order_confirmations': 'order_confirmations'
+  'order_confirmations': 'order_confirmations',
+  'project_management': 'project_management',  // Neu: Projektmanagement
+  'procurement': 'procurement'                 // Neu: Ausschreibungen & Angebote
 };
 
 // Hilfsfunktion zur Konvertierung von Backend- zu Frontend-Kategorien
 const convertBackendToFrontendCategory = (backendCategory: string): string => {
   return CATEGORY_MAPPING[backendCategory] || 'documentation'; // Fallback
+};
+
+// Umgekehrtes Mapping von Frontend-Kategorien zu Backend-Kategorien
+const FRONTEND_TO_BACKEND_MAPPING: { [key: string]: string } = {
+  'planning': 'planning',
+  'contracts': 'contracts', 
+  'finance': 'finance',
+  'execution': 'execution',
+  'documentation': 'documentation',
+  'order_confirmations': 'order_confirmations',
+  'project_management': 'project_management',  // Neu: Projektmanagement
+  'procurement': 'procurement'                 // Neu: Ausschreibungen & Angebote
+};
+
+// Hilfsfunktion zur Konvertierung von Frontend- zu Backend-Kategorien
+const convertFrontendToBackendCategory = (frontendCategory: string): string => {
+  // Temporärer Fix: Verwende nur die vom Backend unterstützten Kategorien
+  const supportedCategories = ['planning', 'contracts', 'finance', 'execution', 'documentation', 'order_confirmations'];
+  const backendCategory = FRONTEND_TO_BACKEND_MAPPING[frontendCategory];
+  
+  if (supportedCategories.includes(backendCategory)) {
+    return backendCategory;
+  }
+  
+  console.warn(`🚧 Kategorie '${frontendCategory}' (Backend: '${backendCategory}') wird nicht unterstützt, verwende Fallback 'documentation'`);
+  return 'documentation'; // Fallback für nicht unterstützte Kategorien
 };
 
 // Hilfsfunktion zur Konvertierung der Kategorie-Statistiken
@@ -456,6 +516,15 @@ const Documents: React.FC = () => {
 
   // Dokumente laden
   const loadDocuments = async () => {
+    // Spezielle Behandlung für nicht unterstützte Kategorien
+    const unsupportedCategories = ['project_management', 'procurement'];
+    if (selectedCategory !== 'all' && unsupportedCategories.includes(selectedCategory)) {
+      console.log(`📋 Kategorie '${selectedCategory}' ist noch nicht im Backend verfügbar`);
+      setDocuments([]);
+      setLoading(false);
+      return;
+    }
+    
     // Für Dienstleister: Lade eigene Dokumente (Rechnungen, etc.)
     if (user && (user.user_type === 'service_provider' || user.user_role === 'DIENSTLEISTER') && !selectedProject) {
       try {
@@ -497,8 +566,10 @@ const Documents: React.FC = () => {
     
     try {
       setLoading(true);
+      const backendCategory = selectedCategory !== 'all' ? convertFrontendToBackendCategory(selectedCategory) : undefined;
+      
       const docs = await getDocuments(selectedProject.id, {
-        category: selectedCategory !== 'all' ? selectedCategory : undefined,
+        category: backendCategory,
         subcategory: selectedSubcategory !== 'all' ? selectedSubcategory : undefined,
         status_filter: statusFilter !== 'all' ? statusFilter : undefined,
         is_favorite: favoriteFilter !== null ? favoriteFilter : undefined,
@@ -549,11 +620,20 @@ const Documents: React.FC = () => {
 
   // Datei-Handling
   const handleFilesSelected = (files: File[]) => {
-    const newUploadFiles: UploadFile[] = files.map(file => ({
-      file,
-      status: 'pending',
-      progress: 0
-    }));
+    const newUploadFiles: UploadFile[] = files.map(file => {
+      // Automatische Kategorisierung basierend auf Dateiname
+      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+      const detectedCategory = DocumentCategorizer.categorizeDocument(file.name, fileExtension);
+      const suggestedSubcategory = detectedCategory ? DocumentCategorizer.suggestSubcategory(detectedCategory, file.name) : null;
+      
+      return {
+        file,
+        status: 'pending' as const,
+        progress: 0,
+        category: detectedCategory?.id,
+        subcategory: suggestedSubcategory || undefined
+      };
+    });
     
     setUploadFiles(newUploadFiles);
     setShowUploadModal(true);
@@ -566,11 +646,20 @@ const Documents: React.FC = () => {
 
   const handleAdditionalFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const newUploadFiles: UploadFile[] = files.map(file => ({
-      file,
-      status: 'pending' as const,
-      progress: 0
-    }));
+    const newUploadFiles: UploadFile[] = files.map(file => {
+      // Automatische Kategorisierung basierend auf Dateiname
+      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+      const detectedCategory = DocumentCategorizer.categorizeDocument(file.name, fileExtension);
+      const suggestedSubcategory = detectedCategory ? DocumentCategorizer.suggestSubcategory(detectedCategory, file.name) : null;
+      
+      return {
+        file,
+        status: 'pending' as const,
+        progress: 0,
+        category: detectedCategory?.id,
+        subcategory: suggestedSubcategory || undefined
+      };
+    });
     
     // Füge neue Dateien zur bestehenden Liste hinzu, anstatt sie zu überschreiben
     setUploadFiles(prev => [...prev, ...newUploadFiles]);
@@ -611,7 +700,7 @@ const Documents: React.FC = () => {
          formData.append('description', '');
          
          // Konvertiere Frontend-Kategorie zu Backend-Kategorie
-         const backendCategory = uploadFile.category ? uploadFile.category.toUpperCase() : 'DOCUMENTATION';
+         const backendCategory = uploadFile.category ? convertFrontendToBackendCategory(uploadFile.category) : 'documentation';
          formData.append('category', backendCategory);
          
          if (uploadFile.subcategory) {
@@ -839,9 +928,9 @@ const Documents: React.FC = () => {
 
       <div className="flex h-screen">
         {/* Sidebar */}
-        <div className="w-80 bg-gradient-to-b from-[#2c3539] to-[#1a1a2e] border-r border-gray-700 flex flex-col">
+<div className={`${glass.sidebar} w-80 flex flex-col`}>
           {/* Projekt-Header */}
-          <div className="p-6 border-b border-gray-700">
+          <div className="p-6 border-b border-gray-700/50 bg-black/10">
             <div className="flex items-center gap-3 mb-4">
               <button 
                 onClick={() => navigate('/dashboard')}
@@ -952,7 +1041,9 @@ const Documents: React.FC = () => {
                       >
                         {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                         <Icon className="w-5 h-5" />
-                        <span className="font-medium flex-1">{category.name}</span>
+                        <span className="font-medium flex-1">
+                          {typeof category.name === 'string' ? category.name : 'Unbekannte Kategorie'}
+                        </span>
                         <span className="text-sm bg-slate-600 px-2 py-1 rounded">
                           {catStats?.count || 0}
                         </span>
@@ -989,7 +1080,7 @@ const Documents: React.FC = () => {
           </div>
                 
           {/* Upload Button */}
-          <div className="p-6 border-t border-gray-700">
+          <div className="p-6 border-t border-gray-700/50 bg-black/10 backdrop-blur-sm">
             <input
               type="file"
               ref={fileInputRef}
@@ -1012,10 +1103,10 @@ const Documents: React.FC = () => {
         {/* Hauptbereich */}
         <div className="flex-1 flex flex-col" ref={dropZoneRef}>
           {/* Header mit Suche und Filtern */}
-          <div className="bg-gradient-to-r from-[#3d4952]/80 to-[#51646f]/80 backdrop-blur-sm border-b border-gray-700/50 p-6">
+<div className={`${glass.headerBar} p-6`}>
             <div className="flex items-center justify-between mb-4">
               <PageHeader
-                title={selectedCategory === 'all' ? 'Alle Dokumente' : (DOCUMENT_CATEGORIES[selectedCategory as keyof typeof DOCUMENT_CATEGORIES]?.name || 'Dokumente')}
+                title={selectedCategory === 'all' ? 'Alle Dokumente' : (selectedCategory && DOCUMENT_CATEGORIES[selectedCategory as keyof typeof DOCUMENT_CATEGORIES]?.name) || 'Dokumente'}
                 subtitle={`${filteredDocuments.length} von ${documents.length} Dokumenten`}
               />
 
@@ -1048,7 +1139,7 @@ const Documents: React.FC = () => {
                   placeholder="Dokumente durchsuchen..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-[#2c3539]/50 border border-gray-600 rounded-lg pl-10 pr-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                  className={`${glass.input} w-full pl-10 pr-4 py-2`}
                 />
               </div>
                 
@@ -1056,7 +1147,7 @@ const Documents: React.FC = () => {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-[#2c3539]/50 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+className={glass.select}
               >
                 <option value="all">Alle Status</option>
                 <option value="draft">Entwurf</option>
@@ -1074,7 +1165,7 @@ const Documents: React.FC = () => {
                   setSortBy(field as any);
                   setSortOrder(order as 'asc' | 'desc');
                 }}
-                className="bg-[#2c3539]/50 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                className={glass.select}
               >
                 <option value="created_at-desc">Neueste zuerst</option>
                 <option value="created_at-asc">Älteste zuerst</option>
@@ -1353,8 +1444,8 @@ const Documents: React.FC = () => {
 
       {/* Upload Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden border border-gray-700">
+<div className={glass.modalOverlay}>
+<div className={glass.modal}>
             {/* Header */}
             <div className="p-6 border-b border-gray-700">
               <div className="flex items-center justify-between">
@@ -1375,7 +1466,7 @@ const Documents: React.FC = () => {
             <div className="p-6 overflow-y-auto max-h-[calc(80vh-140px)]">
               <div className="space-y-4">
                 {uploadFiles.map((uploadFile, index) => (
-                  <div key={index} className="bg-[#3d4952]/50 rounded-lg p-4 border border-gray-600">
+<div key={index} className={`${glass.card} p-4`}>
                     <div className="flex items-start gap-4">
                       {/* File Info */}
                       <div className="flex-1">
@@ -1385,6 +1476,11 @@ const Documents: React.FC = () => {
                           <span className="text-sm text-gray-400">
                             ({formatFileSize(uploadFile.file.size)})
                           </span>
+                          {uploadFile.category && (
+                            <span className="text-xs bg-[#ffbd59]/20 text-[#ffbd59] px-2 py-1 rounded-full">
+                              Auto-erkannt
+                            </span>
+                          )}
                         </div>
 
                         {/* Category Selection */}
@@ -1396,7 +1492,7 @@ const Documents: React.FC = () => {
                             <select
                               value={uploadFile.category || ''}
                               onChange={(e) => assignCategoryToFile(index, e.target.value)}
-                              className="w-full bg-[#2c3539] border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+className={glass.select}
                             >
                               <option value="">Kategorie wählen...</option>
                               {Object.entries(DOCUMENT_CATEGORIES).map(([key, category]) => (
@@ -1413,7 +1509,7 @@ const Documents: React.FC = () => {
                               <select
                                 value={uploadFile.subcategory || ''}
                                 onChange={(e) => assignCategoryToFile(index, uploadFile.category!, e.target.value)}
-                                className="w-full bg-[#2c3539] border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+className={glass.select}
                               >
                                 <option value="">Unterkategorie wählen...</option>
                                 {DOCUMENT_CATEGORIES[uploadFile.category as keyof typeof DOCUMENT_CATEGORIES]?.subcategories.map(sub => (
@@ -1468,7 +1564,7 @@ const Documents: React.FC = () => {
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t border-gray-700 flex items-center justify-between">
+<div className={`p-6 ${glass.footerBar} flex items-center justify-between`}>
               <div className="text-sm text-gray-400">
                 {uploadFiles.length} Datei{uploadFiles.length !== 1 ? 'en' : ''} ausgewählt
               </div>
@@ -1553,7 +1649,7 @@ const Documents: React.FC = () => {
                       setEditCategory(e.target.value);
                       setEditSubcategory(''); // Reset subcategory when category changes
                     }}
-                    className="w-full bg-[#2c3539] border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+className={glass.select}
                   >
                     <option value="">Kategorie wählen...</option>
                     {Object.entries(DOCUMENT_CATEGORIES).map(([key, category]) => (
@@ -1571,7 +1667,7 @@ const Documents: React.FC = () => {
                     <select
                       value={editSubcategory}
                       onChange={(e) => setEditSubcategory(e.target.value)}
-                      className="w-full bg-[#2c3539] border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+className={glass.select}
                     >
                       <option value="">Unterkategorie wählen...</option>
                       {DOCUMENT_CATEGORIES[editCategory as keyof typeof DOCUMENT_CATEGORIES]?.subcategories.map(sub => (

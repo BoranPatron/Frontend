@@ -22,9 +22,15 @@ import {
   MessageCircle,
   Link,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Eye,
+  Archive,
+  FolderPlus
 } from 'lucide-react';
 import QuoteDocumentUpload from './QuoteDocumentUpload';
+import { DOCUMENT_CATEGORIES, DocumentCategorizer } from '../utils/documentCategorizer';
+import { uploadDocument } from '../api/documentService';
+import { getAuthenticatedFileUrl } from '../api/api';
 
 interface QuoteDetailsModalProps {
   isOpen: boolean;
@@ -52,6 +58,13 @@ export default function QuoteDetailsModal({
   const [isLoadingFullData, setIsLoadingFullData] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [showCategorizationModal, setShowCategorizationModal] = useState(false);
+  const [currentDMSDocument, setCurrentDMSDocument] = useState<any>(null);
+  const [documentCategory, setDocumentCategory] = useState('');
+  const [documentSubcategory, setDocumentSubcategory] = useState('');
+  const [documentTags, setDocumentTags] = useState('');
+  const [documentDescription, setDocumentDescription] = useState('');
+  const [isDMSProcessing, setIsDMSProcessing] = useState(false);
 
   // Lade vollständige Quote-Details beim Öffnen
   useEffect(() => {
@@ -724,6 +737,298 @@ ${displayQuote.description ? displayQuote.description.substring(0, 200) + '...' 
     }
   };
 
+  // DMS Storage Handler - Verwendet bestehende DMS-Upload-Funktion
+  const handleDMSStorage = async (quote: any, documentType: string, document?: any) => {
+    console.log('🗄️ DMS Storage initiated:', { quote, documentType, document });
+    
+    try {
+      // Ermittle den korrekten Dateipfad
+      let filePath: string | undefined;
+      let fileName: string;
+      
+      if (documentType === 'pdf_main') {
+        filePath = quote.pdf_upload_path || quote.document_path || quote.file_path;
+        fileName = filePath?.split('/').pop() || 'angebot.pdf';
+      } else {
+        filePath = document?.url || document?.path || document?.file_path;
+        fileName = document?.name || document?.title || document?.file_name || 'dokument.pdf';
+      }
+      
+      if (!filePath) {
+        alert('Kein Dokumentenpfad gefunden');
+        return;
+      }
+
+      console.log('📁 Dateipfad:', filePath);
+      
+      // Verwende getAuthenticatedFileUrl für den Download
+      const authenticatedUrl = getAuthenticatedFileUrl(filePath);
+      console.log('🔗 Authentifizierte URL:', authenticatedUrl);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Kein Authentifizierungstoken verfügbar');
+        return;
+      }
+
+      const response = await fetch(authenticatedUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Dokument konnte nicht geladen werden: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const file = new File([blob], fileName, { type: blob.type });
+
+      // Setze aktuelles Dokument für die Kategorisierung
+      setCurrentDMSDocument({
+        quote,
+        documentType,
+        document,
+        file,
+        title: fileName,
+        originalPath: document?.url || document?.path || quote.pdf_upload_path
+      });
+      
+      // Automatische Kategorisierung basierend auf Dateiname
+      const fileExtension = '.' + fileName.split('.').pop()?.toLowerCase();
+      const suggestedCategory = DocumentCategorizer.categorizeDocument(fileName, fileExtension);
+      
+      if (suggestedCategory) {
+        console.log('🤖 Automatische Kategorisierung:', suggestedCategory);
+        setDocumentCategory(suggestedCategory.id);
+        
+        // Versuche Unterkategorie vorzuschlagen
+        const suggestedSubcategory = DocumentCategorizer.suggestSubcategory(suggestedCategory, fileName);
+        if (suggestedSubcategory) {
+          setDocumentSubcategory(suggestedSubcategory);
+        }
+        
+        // Intelligente Tags basierend auf Angebot
+        const smartTags = generateSmartTags(quote, trade, fileName);
+        setDocumentTags(smartTags.join(', '));
+      } else {
+        // Fallback für Angebotsdokumente
+        setDocumentCategory('procurement'); // "Ausschreibungen & Angebote"
+        setDocumentSubcategory('Angebote');
+        setDocumentTags(`Angebot, ${trade?.title || 'Gewerk'}, ${displayQuote.company_name || 'Dienstleister'}`);
+      }
+      
+      // Öffne Kategorisierungsmodal
+      setShowCategorizationModal(true);
+    } catch (error) {
+      console.error('❌ Fehler beim Vorbereiten des DMS-Uploads:', error);
+      alert(`Fehler beim Vorbereiten des DMS-Uploads: ${(error as Error).message}`);
+    }
+  };
+
+  // Dokumentenkategorisierung abschließen und DMS speichern - Verwendet bestehende Upload-API
+  const completeDMSStorage = async () => {
+    if (!currentDMSDocument || !currentDMSDocument.file) {
+      alert('Kein Dokument für DMS-Speicherung ausgewählt');
+      return;
+    }
+
+    if (!project?.id) {
+      alert('Kein Projekt verfügbar für DMS-Upload');
+      return;
+    }
+
+    setIsDMSProcessing(true);
+    
+    try {
+      // Erstelle FormData für bestehende Upload-API
+      const formData = new FormData();
+      formData.append('project_id', project.id.toString());
+      formData.append('file', currentDMSDocument.file);
+      
+      // Titel mit Angebot-Information erweitern
+      const enhancedTitle = `Angebot-${displayQuote.id}: ${currentDMSDocument.title}`;
+      formData.append('title', enhancedTitle);
+      
+      // Beschreibung mit Metadaten
+      const enhancedDescription = [
+        documentDescription || '',
+        `Angebot #${displayQuote.id}`,
+        `Dienstleister: ${displayQuote.company_name || displayQuote.contact_person}`,
+        `Gewerk: ${trade?.title}`,
+        `Betrag: ${displayQuote.total_amount} ${displayQuote.currency || 'EUR'}`,
+        documentTags ? `Tags: ${documentTags}` : ''
+      ].filter(line => line.trim()).join('\n');
+      formData.append('description', enhancedDescription);
+      
+      // Konvertiere Frontend-Kategorie zu Backend-Format (lowercase)
+      const backendCategory = documentCategory.toLowerCase();
+      formData.append('category', backendCategory);
+      
+      if (documentSubcategory) {
+        formData.append('subcategory', documentSubcategory);
+      }
+      
+      if (documentTags) {
+        formData.append('tags', documentTags);
+      }
+      
+      // Dokumenttyp basierend auf Dateierweiterung
+      const fileExtension = currentDMSDocument.file.name.split('.').pop()?.toLowerCase() || 'pdf';
+      formData.append('document_type', getDocumentTypeFromExtension(fileExtension));
+      
+      formData.append('is_public', 'true');
+
+      console.log('📝 DMS Upload FormData:', {
+        project_id: project.id,
+        title: enhancedTitle,
+        category: backendCategory,
+        subcategory: documentSubcategory,
+        tags: documentTags,
+        fileName: currentDMSDocument.file.name,
+        fileSize: currentDMSDocument.file.size
+      });
+
+      // Verwende bestehende Upload-API
+      const result = await uploadDocument(formData);
+      console.log('✅ DMS Upload erfolgreich:', result);
+
+      // Erfolgsmeldung
+      alert(`✅ Dokument erfolgreich im DMS gespeichert!\n\n` +
+            `📁 Kategorie: ${documentCategory}${documentSubcategory ? ' > ' + documentSubcategory : ''}\n` +
+            `🏷️ Tags: ${documentTags || 'Keine'}\n` +
+            `📄 Titel: ${enhancedTitle}\n` +
+            `💾 Dokument-ID: ${result.id}`);
+
+      // Modal schließen und Reset
+      setShowCategorizationModal(false);
+      resetDMSForm();
+      
+    } catch (error) {
+      console.error('❌ DMS Storage Fehler:', error);
+      alert(`❌ Fehler beim Speichern im DMS:\n\n${(error as Error).message}`);
+    } finally {
+      setIsDMSProcessing(false);
+    }
+  };
+
+  // Hilfsfunktion: Dokumenttyp basierend auf Dateierweiterung
+  const getDocumentTypeFromExtension = (extension: string): string => {
+    const typeMap: { [key: string]: string } = {
+      'pdf': 'pdf',
+      'doc': 'document',
+      'docx': 'document',
+      'xls': 'spreadsheet',
+      'xlsx': 'spreadsheet',
+      'ppt': 'presentation',
+      'pptx': 'presentation',
+      'jpg': 'image',
+      'jpeg': 'image',
+      'png': 'image',
+      'gif': 'image',
+      'mp4': 'video',
+      'mov': 'video',
+      'avi': 'video'
+    };
+    return typeMap[extension] || 'document';
+  };
+
+  // Hilfsfunktion: Intelligente Tags basierend auf Kontext generieren
+  const generateSmartTags = (quote: any, trade: any, fileName: string): string[] => {
+    const tags: string[] = [];
+    
+    // Basis-Tags
+    tags.push('Angebot');
+    
+    // Gewerk-basierte Tags
+    if (trade?.title) {
+      tags.push(trade.title);
+      
+      // Gewerk-spezifische Tags
+      const tradeTitle = trade.title.toLowerCase();
+      if (tradeTitle.includes('elektr')) tags.push('Elektrik');
+      if (tradeTitle.includes('sanit')) tags.push('Sanitär');
+      if (tradeTitle.includes('heiz')) tags.push('Heizung');
+      if (tradeTitle.includes('dach')) tags.push('Dacharbeit');
+      if (tradeTitle.includes('fenster')) tags.push('Fenster');
+      if (tradeTitle.includes('maler')) tags.push('Malerarbeit');
+      if (tradeTitle.includes('boden')) tags.push('Bodenbelag');
+      if (tradeTitle.includes('fliesen')) tags.push('Fliesenarbeit');
+    }
+    
+    // Dienstleister-basierte Tags
+    if (quote.company_name) {
+      tags.push(quote.company_name);
+    }
+    
+    // Dateiname-basierte Tags
+    const lowerFileName = fileName.toLowerCase();
+    if (lowerFileName.includes('kostenvoranschlag')) tags.push('Kostenvoranschlag');
+    if (lowerFileName.includes('kalkulation')) tags.push('Kalkulation');
+    if (lowerFileName.includes('material')) tags.push('Materialkosten');
+    if (lowerFileName.includes('arbeitszeit') || lowerFileName.includes('lohn')) tags.push('Arbeitskosten');
+    if (lowerFileName.includes('zeitplan') || lowerFileName.includes('termin')) tags.push('Terminplanung');
+    if (lowerFileName.includes('garantie') || lowerFileName.includes('gewähr')) tags.push('Garantie');
+    
+    // Projekt-basierte Tags
+    if (project?.name) {
+      tags.push(project.name);
+    }
+    
+    // Entferne Duplikate und limitiere auf max. 8 Tags
+    return Array.from(new Set(tags)).slice(0, 8);
+  };
+
+  // Aufbewahrungszeit basierend auf Kategorie bestimmen - verwendet DMS-Standard
+  const getRetentionPeriod = (category: string): number => {
+    const retentionMap: { [key: string]: number } = {
+      'planning': 30, // Planungsunterlagen: 30 Jahre (gesetzlich)
+      'contracts': 30, // Verträge: 30 Jahre (gesetzlich)
+      'finance': 10, // Finanzdokumente: 10 Jahre (HGB)
+      'execution': 5, // Ausführungsunterlagen: 5 Jahre
+      'documentation': 10, // Dokumentation: 10 Jahre
+      'order_confirmations': 6, // Auftragsbestätigungen: 6 Jahre
+      'technical': 10, // Technische Unterlagen: 10 Jahre
+      'project_management': 10, // Projektmanagement: 10 Jahre
+      'procurement': 6 // Beschaffung: 6 Jahre
+    };
+    return retentionMap[category.toLowerCase()] || 10;
+  };
+
+  // DMS Form Reset
+  const resetDMSForm = () => {
+    setCurrentDMSDocument(null);
+    setDocumentCategory('');
+    setDocumentSubcategory('');
+    setDocumentTags('');
+    setDocumentDescription('');
+  };
+
+  // Verwende bestehende DMS-Kategorien
+  const documentCategories = DOCUMENT_CATEGORIES.map(cat => ({
+    value: cat.id,
+    label: cat.name,
+    description: cat.description,
+    subcategories: getSubcategoriesForCategory(cat.id)
+  }));
+
+  // Hilfsfunktion: Unterkategorien für eine Kategorie abrufen
+  function getSubcategoriesForCategory(categoryId: string): string[] {
+    const subcategoryMappings: Record<string, string[]> = {
+      'planning': ['Baupläne & Grundrisse', 'Baugenehmigungen', 'Statische Berechnungen', 'Energieausweise', 'Vermessungsunterlagen'],
+      'contracts': ['Bauverträge', 'Nachträge', 'Versicherungen', 'Gewährleistungen', 'Mängelrügen'],
+      'finance': ['Rechnungen', 'Kostenvoranschläge', 'Leistungsverzeichnisse', 'Zahlungsbelege', 'Änderungsaufträge', 'Schlussrechnungen'],
+      'execution': ['Lieferscheine', 'Materialbelege', 'Abnahmeprotokolle', 'Prüfberichte', 'Zertifikate'],
+      'documentation': ['Fotos', 'Videos', 'Baustellenberichte', 'Bestandsdokumentation', 'Fortschrittsberichte'],
+      'order_confirmations': ['Auftragsbestätigungen', 'Bestellbestätigungen', 'Leistungsbestätigungen'],
+      'technical': ['Technische Zeichnungen', 'Spezifikationen', 'Datenblätter', 'Handbücher', 'Anleitungen'],
+      'project_management': ['Projektpläne', 'Terminplanung', 'Budgetplanung', 'Projektsteuerung', 'Risikomanagement', 'Qualitätsmanagement'],
+      'procurement': ['Ausschreibungsunterlagen', 'Technische Spezifikationen', 'Angebote', 'Angebotsbewertung', 'Vergabedokumentation']
+    };
+    return subcategoryMappings[categoryId] || [];
+  }
+
   const downloadPDF = async () => {
     try {
       await generateQuotePDF(displayQuote);
@@ -1188,20 +1493,114 @@ ${displayQuote.description ? displayQuote.description.substring(0, 200) + '...' 
                             </div>
                           </div>
                         </div>
-                      <button
-                        onClick={() => {
-                          const path = displayQuote.pdf_upload_path || displayQuote.document_path || displayQuote.file_path;
-                          // Extrahiere Dateiname aus dem Pfad
-                          const filename = path?.split('/').pop() || 'document.pdf';
-                          // Verwende den neuen Download-Endpunkt
-                          const downloadUrl = `/api/v1/quotes/${displayQuote.id}/documents/${filename}`;
-                          window.open(downloadUrl, '_blank');
-                        }}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-[#ffbd59] text-[#0f172a] rounded-lg font-medium hover:bg-[#ffa726] transition-colors"
-                      >
-                        <Download size={14} />
-                        Download
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            const path = displayQuote.pdf_upload_path || displayQuote.document_path || displayQuote.file_path;
+                            if (!path) {
+                              alert('Kein Dokument-Pfad gefunden');
+                              return;
+                            }
+                            
+                            try {
+                              // Verwende getAuthenticatedFileUrl für Download
+                              const authenticatedUrl = getAuthenticatedFileUrl(path);
+                              const token = localStorage.getItem('token');
+                              
+                              fetch(authenticatedUrl, {
+                                method: 'GET',
+                                headers: {
+                                  'Authorization': `Bearer ${token}`
+                                }
+                              })
+                              .then(response => {
+                                if (!response.ok) {
+                                  throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                                }
+                                return response.blob();
+                              })
+                              .then(blob => {
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = path.split('/').pop() || 'angebot.pdf';
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                              })
+                              .catch(error => {
+                                console.error('Download failed:', error);
+                                alert(`Download fehlgeschlagen: ${error.message}`);
+                              });
+                            } catch (error) {
+                              console.error('Download error:', error);
+                              alert('Fehler beim Download');
+                            }
+                          }}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-green-600/20 text-green-400 rounded-lg font-medium hover:bg-green-600/30 transition-colors"
+                        >
+                          <Download size={14} />
+                          Download
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            const path = displayQuote.pdf_upload_path || displayQuote.document_path || displayQuote.file_path;
+                            if (!path) {
+                              alert('Kein Dokument-Pfad gefunden');
+                              return;
+                            }
+                            
+                            try {
+                              // Verwende getAuthenticatedFileUrl für Inline Viewer
+                              const authenticatedUrl = getAuthenticatedFileUrl(path);
+                              const token = localStorage.getItem('token');
+                              
+                              fetch(authenticatedUrl, {
+                                method: 'GET',
+                                headers: {
+                                  'Authorization': `Bearer ${token}`
+                                }
+                              })
+                              .then(response => {
+                                if (!response.ok) {
+                                  throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                                }
+                                return response.blob();
+                              })
+                              .then(blob => {
+                                const url = URL.createObjectURL(blob);
+                                window.open(url, '_blank');
+                                // Cleanup nach 5 Sekunden
+                                setTimeout(() => URL.revokeObjectURL(url), 5000);
+                              })
+                              .catch(error => {
+                                console.error('Inline viewer failed:', error);
+                                alert(`Inline Viewer fehlgeschlagen: ${error.message}`);
+                              });
+                            } catch (error) {
+                              console.error('Inline viewer error:', error);
+                              alert('Fehler beim Öffnen des Inline Viewers');
+                            }
+                          }}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 text-blue-400 rounded-lg font-medium hover:bg-blue-600/30 transition-colors"
+                        >
+                          <Eye size={14} />
+                          Ansehen
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            // DMS Ablage mit Dokumentenkategorisierung
+                            handleDMSStorage(displayQuote, 'pdf_main');
+                          }}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-orange-600/20 text-orange-400 rounded-lg font-medium hover:bg-orange-600/30 transition-colors"
+                        >
+                          <FileText size={14} />
+                          DMS
+                        </button>
+                      </div>
                       </div>
                     )}
                     
@@ -1238,20 +1637,114 @@ ${displayQuote.description ? displayQuote.description.substring(0, 200) + '...' 
                                   </div>
                                 </div>
                               </div>
-                              <button
-                                onClick={() => {
-                                  const path = doc.url || doc.path || doc.file_path;
-                                  // Extrahiere Dateiname aus dem Pfad
-                                  const filename = path?.split('/').pop() || doc.name || `document_${index + 1}`;
-                                  // Verwende den neuen Download-Endpunkt
-                                  const downloadUrl = `/api/v1/quotes/${displayQuote.id}/documents/${filename}`;
-                                  window.open(downloadUrl, '_blank');
-                                }}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-[#ffbd59] text-[#0f172a] rounded-lg font-medium hover:bg-[#ffa726] transition-colors"
-                              >
-                                <Download size={14} />
-                                Download
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    const path = doc.url || doc.path || doc.file_path;
+                                    if (!path) {
+                                      alert('Kein Dokument-Pfad gefunden');
+                                      return;
+                                    }
+                                    
+                                    try {
+                                      // Verwende getAuthenticatedFileUrl für Download
+                                      const authenticatedUrl = getAuthenticatedFileUrl(path);
+                                      const token = localStorage.getItem('token');
+                                      
+                                      fetch(authenticatedUrl, {
+                                        method: 'GET',
+                                        headers: {
+                                          'Authorization': `Bearer ${token}`
+                                        }
+                                      })
+                                      .then(response => {
+                                        if (!response.ok) {
+                                          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                                        }
+                                        return response.blob();
+                                      })
+                                      .then(blob => {
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = doc.name || doc.filename || `document_${index + 1}`;
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                        URL.revokeObjectURL(url);
+                                      })
+                                      .catch(error => {
+                                        console.error('Download failed:', error);
+                                        alert(`Download fehlgeschlagen: ${error.message}`);
+                                      });
+                                    } catch (error) {
+                                      console.error('Download error:', error);
+                                      alert('Fehler beim Download');
+                                    }
+                                  }}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-green-600/20 text-green-400 rounded-lg font-medium hover:bg-green-600/30 transition-colors"
+                                >
+                                  <Download size={14} />
+                                  Download
+                                </button>
+                                
+                                <button
+                                  onClick={() => {
+                                    const path = doc.url || doc.path || doc.file_path;
+                                    if (!path) {
+                                      alert('Kein Dokument-Pfad gefunden');
+                                      return;
+                                    }
+                                    
+                                    try {
+                                      // Verwende getAuthenticatedFileUrl für Inline Viewer
+                                      const authenticatedUrl = getAuthenticatedFileUrl(path);
+                                      const token = localStorage.getItem('token');
+                                      
+                                      fetch(authenticatedUrl, {
+                                        method: 'GET',
+                                        headers: {
+                                          'Authorization': `Bearer ${token}`
+                                        }
+                                      })
+                                      .then(response => {
+                                        if (!response.ok) {
+                                          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                                        }
+                                        return response.blob();
+                                      })
+                                      .then(blob => {
+                                        const url = URL.createObjectURL(blob);
+                                        window.open(url, '_blank');
+                                        // Cleanup nach 5 Sekunden
+                                        setTimeout(() => URL.revokeObjectURL(url), 5000);
+                                      })
+                                      .catch(error => {
+                                        console.error('Inline viewer failed:', error);
+                                        alert(`Inline Viewer fehlgeschlagen: ${error.message}`);
+                                      });
+                                    } catch (error) {
+                                      console.error('Inline viewer error:', error);
+                                      alert('Fehler beim Öffnen des Inline Viewers');
+                                    }
+                                  }}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 text-blue-400 rounded-lg font-medium hover:bg-blue-600/30 transition-colors"
+                                >
+                                  <Eye size={14} />
+                                  Ansehen
+                                </button>
+                                
+                                <button
+                                  onClick={() => {
+                                    // DMS Ablage mit Dokumentenkategorisierung
+                                    handleDMSStorage(displayQuote, 'additional_doc', doc);
+                                  }}
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-orange-600/20 text-orange-400 rounded-lg font-medium hover:bg-orange-600/30 transition-colors"
+                                >
+                                  <FileText size={14} />
+                                  DMS
+                                </button>
+                              </div>
                             </div>
                           ))
                         ) : null;
@@ -1529,6 +2022,234 @@ ${displayQuote.description ? displayQuote.description.substring(0, 200) + '...' 
           </div>
         </div>
       )}
+
+      {/* Document Categorization Modal */}
+      {showCategorizationModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-[#0f172a]/95 rounded-2xl shadow-2xl border border-white/10 max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-white/10">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-orange-500/15 rounded-xl">
+                  <FolderPlus size={24} className="text-orange-400 drop-shadow" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Dokumentenkategorisierung</h2>
+                  <p className="text-gray-300">{currentDMSDocument?.title}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowCategorizationModal(false);
+                  resetDMSForm();
+                }}
+                disabled={isDMSProcessing}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <X size={24} className="text-gray-400" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-y-auto max-h-[calc(90vh-180px)] p-6">
+              <div className="space-y-6">
+                
+                {/* Dokumenteninfo */}
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                    <FileText size={18} className="text-[#ffbd59]" />
+                    Dokument-Information
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-400">Typ:</span>
+                      <span className="text-white ml-2">{currentDMSDocument?.documentType === 'pdf_main' ? 'Haupt-PDF' : 'Zusätzliches Dokument'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Angebot:</span>
+                      <span className="text-white ml-2">#{displayQuote?.id}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Projekt:</span>
+                      <span className="text-white ml-2">{project?.name || 'Unbekannt'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Gewerk:</span>
+                      <span className="text-white ml-2">{trade?.title || 'Unbekannt'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Smart Categorization Hint */}
+                {documentCategory && (
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+                    <div className="flex items-start gap-2">
+                      <div className="p-1 bg-green-500/20 rounded">
+                        <Eye size={14} className="text-green-400" />
+                      </div>
+                      <div className="text-sm text-green-300">
+                        <p className="font-medium mb-1">🤖 Intelligente Kategorisierung:</p>
+                        <p>Basierend auf dem Dateinamen wurde automatisch die Kategorie "{documentCategories.find(c => c.value === documentCategory)?.label}" vorgeschlagen. Sie können diese bei Bedarf ändern.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Kategorie auswählen */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <Archive size={18} className="text-[#ffbd59]" />
+                    Kategorisierung
+                    {documentCategory && (
+                      <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">
+                        KI-Vorschlag
+                      </span>
+                    )}
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Hauptkategorie */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Hauptkategorie *
+                      </label>
+                      <select
+                        value={documentCategory}
+                        onChange={(e) => {
+                          setDocumentCategory(e.target.value);
+                          setDocumentSubcategory(''); // Reset subcategory
+                        }}
+                        className="w-full bg-[#1e293b] border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                      >
+                        <option value="">Kategorie wählen...</option>
+                        {documentCategories.map((category) => (
+                          <option key={category.value} value={category.value}>
+                            {category.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Unterkategorie */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Unterkategorie
+                      </label>
+                      <select
+                        value={documentSubcategory}
+                        onChange={(e) => setDocumentSubcategory(e.target.value)}
+                        disabled={!documentCategory}
+                        className="w-full bg-[#1e293b] border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="">Unterkategorie wählen...</option>
+                        {documentCategory && documentCategories
+                          .find(cat => cat.value === documentCategory)
+                          ?.subcategories.map((subcategory) => (
+                            <option key={subcategory} value={subcategory}>
+                              {subcategory}
+                            </option>
+                          ))
+                        }
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Tags */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Tags (kommagetrennt)
+                    </label>
+                    <input
+                      type="text"
+                      value={documentTags}
+                      onChange={(e) => setDocumentTags(e.target.value)}
+                      placeholder="z.B. Elektrik, Installation, Neubau"
+                      className="w-full bg-[#1e293b] border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* Beschreibung */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Beschreibung
+                    </label>
+                    <textarea
+                      value={documentDescription}
+                      onChange={(e) => setDocumentDescription(e.target.value)}
+                      placeholder="Zusätzliche Beschreibung des Dokuments..."
+                      rows={3}
+                      className="w-full bg-[#1e293b] border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* Aufbewahrungszeit Info */}
+                  {documentCategory && (
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                      <div className="flex items-start gap-2">
+                        <div className="p-1 bg-blue-500/20 rounded">
+                          <Clock size={14} className="text-blue-400" />
+                        </div>
+                        <div className="text-sm text-blue-300">
+                          <p className="font-medium mb-1">📅 Aufbewahrungszeit:</p>
+                          <p>{getRetentionPeriod(documentCategory)} Jahre (nach gesetzlichen Bestimmungen)</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-white/10">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => {
+                    setShowCategorizationModal(false);
+                    resetDMSForm();
+                  }}
+                  disabled={isDMSProcessing}
+                  className="px-6 py-2 bg-white/10 text-white rounded-lg hover:bg-white/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Abbrechen
+                </button>
+                
+                <button
+                  onClick={completeDMSStorage}
+                  disabled={isDMSProcessing || !documentCategory}
+                  className="px-6 py-3 bg-[#ffbd59] text-[#0f172a] rounded-lg font-semibold hover:bg-[#ffa726] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isDMSProcessing ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#0f172a]"></div>
+                      Speichere...
+                    </>
+                  ) : (
+                    <>
+                      <Archive size={16} />
+                      Im DMS speichern
+                    </>
+                  )}
+                </button>
+              </div>
+              
+              {/* Hinweis */}
+              <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <div className="p-1 bg-yellow-500/20 rounded">
+                    <AlertTriangle size={14} className="text-yellow-400" />
+                  </div>
+                  <div className="text-sm text-yellow-300">
+                    <p className="font-medium mb-1">💡 Hinweis:</p>
+                    <p>Das Dokument wird mit allen Kategorisierungsdetails im Dokumentenmanagementsystem (DMS) archiviert und kann später über die Suchfunktion gefunden werden.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-} 
+}

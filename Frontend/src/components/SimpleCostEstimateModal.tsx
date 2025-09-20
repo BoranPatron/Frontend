@@ -5,6 +5,7 @@ import { getAuthenticatedFileUrl, getApiBaseUrl, apiCall } from '../api/api';
 import TradeProgress from './TradeProgress';
 import AcceptanceModal from './AcceptanceModalNew';
 import FinalAcceptanceModal from './FinalAcceptanceModal';
+import InvoiceManagementCard from './InvoiceManagementCard';
 
 // Tab System Components and Interfaces
 interface TabItem {
@@ -651,13 +652,18 @@ export default function SimpleCostEstimateModal({
     }
   }, [completionStatus, activeTab]);
 
-  // Lade Dokumente beim Öffnen des Modals
+  // Lade Dokumente und Rechnungen beim Öffnen des Modals
   useEffect(() => {
     if (isOpen && trade?.id) {
       console.log('🔍 SimpleCostEstimateModal geöffnet für Trade:', trade.id);
       console.log('🔍 SimpleCostEstimateModal - User Rolle:', user?.user_role);
       console.log('🔍 SimpleCostEstimateModal - isBautraeger:', isBautraeger());
       loadTradeDocuments(trade.id);
+      
+      // Lade auch Rechnungen für Bauträger
+      if (isBautraeger()) {
+        loadExistingInvoice();
+      }
     }
   }, [isOpen, trade?.id]);
 
@@ -992,153 +998,20 @@ export default function SimpleCostEstimateModal({
               </div>
             </div>
             
-            {/* Rechnungsanzeige */}
-            {(() => {
-              console.log('🔍 SimpleCostEstimateModal - Rechnungsanzeige Check:', {
-                existingInvoice,
-                isBautraeger: isBautraeger(),
-                completionStatus
-              });
-              return null;
-            })()}
-            {(() => {
-              // MEHRFACH-SCHUTZ: Prüfe ob eine ECHTE Rechnung existiert
-              if (!existingInvoice) {
-                console.log('🔍 ANZEIGE-PRÜFUNG: Keine existingInvoice vorhanden');
-                return false;
-              }
-              
-              // Robuste Status-Prüfung mit mehreren Formaten
-              const invoiceStatus = existingInvoice.status;
-              const normalizedStatus = typeof invoiceStatus === 'string' 
-                ? invoiceStatus.toLowerCase() 
-                : String(invoiceStatus).toLowerCase();
-              
-              const validStatuses = ['sent', 'viewed', 'paid', 'overdue'];
-              const isValidStatus = validStatuses.includes(normalizedStatus) || 
-                                   validStatuses.includes(invoiceStatus);
-              
-              // Zusätzliche Prüfungen für echte Rechnungen
-              const hasInvoiceNumber = existingInvoice.invoice_number && 
-                                      existingInvoice.invoice_number.trim() !== '';
-              const hasTotalAmount = existingInvoice.total_amount && 
-                                    existingInvoice.total_amount > 0;
-              
-              const isRealInvoice = isValidStatus && hasInvoiceNumber && hasTotalAmount;
-              
-              console.log('🔍 DETAILLIERTE ANZEIGE-PRÜFUNG:', {
-                existingInvoice: !!existingInvoice,
-                status: invoiceStatus,
-                normalizedStatus: normalizedStatus,
-                isValidStatus: isValidStatus,
-                hasInvoiceNumber: hasInvoiceNumber,
-                hasTotalAmount: hasTotalAmount,
-                isRealInvoice: isRealInvoice,
-                invoiceNumber: existingInvoice.invoice_number,
-                totalAmount: existingInvoice.total_amount
-              });
-              
-              if (!isRealInvoice && existingInvoice) {
-                console.log('⚠️ Rechnung ignoriert - nicht alle Kriterien erfüllt:', {
-                  reason: !isValidStatus ? 'Ungültiger Status' : 
-                         !hasInvoiceNumber ? 'Keine Rechnungsnummer' :
-                         !hasTotalAmount ? 'Kein Betrag' : 'Unbekannt'
-                });
-              }
-              
-              return isRealInvoice;
-            })() ? (
-              <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h4 className="text-blue-300 font-medium">Rechnung erhalten</h4>
-                    <p className="text-gray-400 text-sm">Der Dienstleister hat eine Rechnung erstellt</p>
-                  </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    existingInvoice.status === 'paid' 
-                      ? 'bg-green-500/20 text-green-300'
-                      : existingInvoice.status === 'sent'
-                      ? 'bg-blue-500/20 text-blue-300'
-                      : 'bg-yellow-500/20 text-yellow-300'
-                  }`}>
-                    {existingInvoice.status === 'paid' ? 'Bezahlt' : 
-                     existingInvoice.status === 'sent' ? 'Versendet' : 'Neu'}
-                  </span>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 mb-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Rechnungsnummer:</span>
-                    <span className="text-white font-medium">{existingInvoice.invoice_number}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Betrag:</span>
-                    <span className="text-white font-medium">
-                      {new Intl.NumberFormat('de-DE', {
-                        style: 'currency',
-                        currency: existingInvoice.currency || 'EUR'
-                      }).format(existingInvoice.total_amount || 0)}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex gap-2 flex-wrap">
-                  <button
-                    onClick={handleViewInvoice}
-                    className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-                  >
-                    <Eye size={14} />
-                    Öffnen
-                  </button>
-                  <button
-                    onClick={handleDownloadInvoice}
-                    className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
-                  >
-                    <Download size={14} />
-                    Download
-                  </button>
-                  {existingInvoice.status !== 'paid' && (
-                    <button
-                      onClick={handleMarkAsPaid}
-                      className="flex items-center gap-2 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-colors"
-                      disabled={isMarkingAsPaid}
-                    >
-                      <CreditCard size={16} />
-                      {isMarkingAsPaid ? 'Wird markiert...' : 'Als bezahlt markieren'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              // Zeige nichts an wenn keine gültige Rechnung existiert oder diese noch nicht vom Dienstleister erstellt wurde
-              existingInvoice && !['sent', 'viewed', 'paid', 'overdue'].includes(existingInvoice.status) ? (
-                <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-orange-300 font-medium">Rechnung in Bearbeitung</h4>
-                      <p className="text-gray-400 text-sm">Die Rechnung wird noch vom Dienstleister erstellt</p>
-                      {/* DEBUG-INFO für Entwicklung */}
-                      <p className="text-xs text-gray-500 mt-1">
-                        Debug: Status="{existingInvoice.status}" | ID={existingInvoice.id} | Amount={existingInvoice.total_amount}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                // ZUSÄTZLICHE SICHERHEIT: Zeige Debug-Info wenn existingInvoice existiert aber nicht angezeigt wird
-                existingInvoice ? (
-                  <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-3">
-                    <div className="text-red-300 text-sm">
-                      🔍 DEBUG: Rechnung existiert aber wird nicht angezeigt
-                      <br />Status: "{existingInvoice.status}" (Type: {typeof existingInvoice.status})
-                      <br />ID: {existingInvoice.id} | Nummer: {existingInvoice.invoice_number}
-                      <br />Betrag: {existingInvoice.total_amount}
-                      <br />Service Provider: {existingInvoice.service_provider_id}
-                    </div>
-                  </div>
-                ) : null
-              )
-            )}
+            {/* Rechnungs-Management Integration */}
+            <InvoiceManagementCard
+              invoice={existingInvoice}
+              tradeId={trade?.id || 0}
+              tradeTitle={trade?.title || 'Unbekanntes Gewerk'}
+              projectId={project?.id || 0}
+              onInvoiceUpdated={(updatedInvoice) => {
+                setExistingInvoice(updatedInvoice);
+                console.log('✅ Rechnung im Abnahme-Workflow aktualisiert:', updatedInvoice);
+              }}
+              onViewInvoice={handleViewInvoice}
+              onMarkAsPaid={handleMarkAsPaid}
+              isMarkingAsPaid={isMarkingAsPaid}
+            />
           </div>
         )}
       </div>
@@ -3631,70 +3504,21 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                   )}
                 </div>
                 
-                {/* Invoice Section */}
-                {completionStatus === 'completed' && existingInvoice && (
-                  <div className="bg-gradient-to-br from-[#2c3539]/50 to-[#1a1a2e]/50 rounded-xl border border-gray-600/30 p-6">
-                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                      <Receipt size={20} className="text-green-400" />
-                      Rechnung
-                    </h3>
-                    
-                    <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <h4 className="text-green-300 font-medium">Rechnung erhalten</h4>
-                          <p className="text-gray-400 text-sm">Der Dienstleister hat eine Rechnung erstellt</p>
-                        </div>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          existingInvoice.status === 'paid' 
-                            ? 'bg-green-500/20 text-green-300'
-                            : 'bg-blue-500/20 text-blue-300'
-                        }`}>
-                          {existingInvoice.status === 'paid' ? 'Bezahlt' : 'Erhalten'}
-                        </span>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Rechnungsnummer:</span>
-                          <span className="text-white font-medium">{existingInvoice.invoice_number}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Betrag:</span>
-                          <span className="text-white font-medium">
-                            CHF {Number(existingInvoice.total_amount).toLocaleString('de-DE')}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-2 flex-wrap">
-                        <button
-                          onClick={handleViewInvoice}
-                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-                        >
-                          <Eye size={14} />
-                          Öffnen
-                        </button>
-                        <button
-                          onClick={handleDownloadInvoice}
-                          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
-                        >
-                          <Download size={14} />
-                          Download
-                        </button>
-                        {existingInvoice.status !== 'paid' && (
-                          <button
-                            onClick={handleMarkAsPaid}
-                            className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-colors"
-                            disabled={isMarkingAsPaid}
-                          >
-                            <CreditCard size={14} />
-                            {isMarkingAsPaid ? 'Wird markiert...' : 'Als bezahlt markieren'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                {/* Invoice Management Section */}
+                {completionStatus === 'completed' && (
+                  <InvoiceManagementCard
+                    invoice={existingInvoice}
+                    tradeId={trade?.id || 0}
+                    tradeTitle={trade?.title || 'Unbekanntes Gewerk'}
+                    projectId={project?.id || 0}
+                    onInvoiceUpdated={(updatedInvoice) => {
+                      setExistingInvoice(updatedInvoice);
+                      console.log('✅ Rechnung aktualisiert:', updatedInvoice);
+                    }}
+                    onViewInvoice={handleViewInvoice}
+                    onMarkAsPaid={handleMarkAsPaid}
+                    isMarkingAsPaid={isMarkingAsPaid}
+                  />
                 )}
               </div>
             ) : (

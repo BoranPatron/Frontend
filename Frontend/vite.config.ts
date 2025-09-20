@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [
     react({
       // Fast Refresh für bessere Entwicklererfahrung
-      fastRefresh: true,
+      // fastRefresh: true,  // removed in newer versions
       // Babel-Konfiguration für bessere Hot Reloading
       babel: {
         plugins: [

@@ -32,7 +32,8 @@ import {
   Archive,
   FolderOpen,
   Info,
-  Building
+  Building,
+  CheckCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
@@ -1144,14 +1145,14 @@ export default function Navbar() {
                             if (type.includes('video')) return Video;
                             if (type.includes('pdf') || type.includes('document')) return FileText;
                             if (type.includes('zip') || type.includes('rar')) return Archive;
-                            return File;
+                            return FileText;
                           };
                           
-                          const FileIcon = getFileIcon(uploadFile.file);
+                          const FileIconComponent = getFileIcon(uploadFile.file);
                           return (
                             <div key={uploadFile.id} className="flex items-center justify-between p-4 bg-[#1a1a2e]/50 rounded-lg border border-gray-600/30">
                               <div className="flex items-center space-x-3">
-                                <FileIcon className="w-6 h-6 text-[#ffbd59]" />
+                                <FileIconComponent className="w-6 h-6 text-[#ffbd59]" />
                                 <div>
                                   <p className="text-white font-medium">{uploadFile.file.name}</p>
                                   <p className="text-gray-400 text-sm">

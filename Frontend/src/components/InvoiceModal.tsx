@@ -3,6 +3,7 @@ import { X, FileText, Upload, Calculator, Euro, Calendar, Building } from 'lucid
 import { api } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import { notificationService } from '../api/notificationService';
+import CostPositionManager from './CostPositionManager';
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -37,7 +38,8 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
     invoiceDate: new Date().toISOString().split('T')[0],
     dueDate: '',
     netAmount: 0,
-    vatRate: 19,
+    country: 'CH', // Standard: Schweiz
+    vatRate: 8.1, // Schweizer Standard-MwSt
     vatAmount: 0,
     totalAmount: 0,
     description: `Rechnung für ${milestoneTitle}`,
@@ -46,10 +48,15 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
     notes: ''
   });
 
-  // Flexible Kostenpositionen
-  const [costPositions, setCostPositions] = useState([
-    { id: 1, description: '', amount: 0, category: 'custom', cost_type: 'standard', status: 'active' }
-  ]);
+  // Flexible Kostenpositionen - Start mit leerer Liste
+  const [costPositions, setCostPositions] = useState<Array<{
+    id: number;
+    description: string;
+    amount: number;
+    category: string;
+    cost_type: string;
+    status: string;
+  }>>([]);
 
   // Upload Data
   const [uploadData, setUploadData] = useState({
@@ -59,23 +66,71 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
     notes: ''
   });
 
+  // VAT-Konfiguration für DACH-Region
+  const vatConfig = {
+    CH: {
+      name: 'Schweiz',
+      currency: 'CHF',
+      flag: '🇨🇭',
+      rates: [
+        { value: 0, label: '0% (Steuerbefreit)' },
+        { value: 2.6, label: '2.6% (Reduziert)' },
+        { value: 3.8, label: '3.8% (Sondersatz)' },
+        { value: 8.1, label: '8.1% (Standard)', default: true }
+      ]
+    },
+    DE: {
+      name: 'Deutschland', 
+      currency: 'EUR',
+      flag: '🇩🇪',
+      rates: [
+        { value: 0, label: '0% (Steuerbefreit)' },
+        { value: 7, label: '7% (Ermäßigt)' },
+        { value: 19, label: '19% (Standard)', default: true }
+      ]
+    },
+    AT: {
+      name: 'Österreich',
+      currency: 'EUR', 
+      flag: '🇦🇹',
+      rates: [
+        { value: 0, label: '0% (Steuerbefreit)' },
+        { value: 10, label: '10% (Reduziert)' },
+        { value: 13, label: '13% (Ermäßigt)' },
+        { value: 20, label: '20% (Standard)', default: true }
+      ]
+    }
+  };
+
   const calculateVAT = (netAmount: number, vatRate: number) => {
     const vat = netAmount * (vatRate / 100);
     const total = netAmount + vat;
     return { vat, total };
   };
 
-  const recalculateTotal = () => {
-    const netAmount = costPositions.reduce((sum, pos) => sum + (pos.amount || 0), 0);
-    const { vat, total } = calculateVAT(netAmount, manualInvoice.vatRate);
+  const handleCountryChange = (country: string) => {
+    const countryConfig = vatConfig[country as keyof typeof vatConfig];
+    const defaultRate = countryConfig.rates.find(rate => rate.default)?.value || countryConfig.rates[0].value;
     
-    setManualInvoice(prev => ({
-      ...prev,
-      netAmount,
-      vatAmount: vat,
-      totalAmount: total
-    }));
+    setManualInvoice(prev => {
+      const updated = { 
+        ...prev, 
+        country, 
+        vatRate: defaultRate 
+      };
+      
+      // Neuberechnung mit neuer MwSt
+      const netAmount = costPositions.reduce((sum, pos) => sum + (pos.amount || 0), 0);
+      const { vat, total } = calculateVAT(netAmount, defaultRate);
+      
+      updated.netAmount = netAmount;
+      updated.vatAmount = vat;
+      updated.totalAmount = total;
+      
+      return updated;
+    });
   };
+
 
   const handleManualInputChange = (field: string, value: any) => {
     setManualInvoice(prev => {
@@ -95,60 +150,12 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
     });
   };
 
-  const addCostPosition = () => {
-    const newId = Math.max(...costPositions.map(p => p.id)) + 1;
-    setCostPositions(prev => [...prev, { id: newId, description: '', amount: 0, category: 'custom', cost_type: 'standard', status: 'active' }]);
-  };
-
-  const removeCostPosition = (id: number) => {
-    if (costPositions.length > 1) {
-      setCostPositions(prev => {
-        const updated = prev.filter(p => p.id !== id);
-        
-        // Sofortige Neuberechnung mit den aktualisierten Daten
-        const netAmount = updated.reduce((sum, pos) => sum + (pos.amount || 0), 0);
-        const { vat, total } = calculateVAT(netAmount, manualInvoice.vatRate);
-        
-        setManualInvoice(prevInvoice => ({
-          ...prevInvoice,
-          netAmount,
-          vatAmount: vat,
-          totalAmount: total
-        }));
-        
-        return updated;
-      });
-    }
-  };
-
-  const updateCostPosition = (id: number, field: 'description' | 'amount' | 'category' | 'cost_type' | 'status', value: string | number) => {
-    setCostPositions(prev => {
-      const updated = prev.map(pos => 
-        pos.id === id 
-          ? { ...pos, [field]: value }
-          : pos
-      );
-      
-      // Sofortige Neuberechnung bei Betrag-Änderung direkt mit den aktualisierten Daten
-      if (field === 'amount') {
-        const netAmount = updated.reduce((sum, pos) => sum + (pos.amount || 0), 0);
-        const { vat, total } = calculateVAT(netAmount, manualInvoice.vatRate);
-        
-        setManualInvoice(prevInvoice => ({
-          ...prevInvoice,
-          netAmount,
-          vatAmount: vat,
-          totalAmount: total
-        }));
-      }
-      
-      return updated;
-    });
-  };
-
-  // Automatische Neuberechnung wenn sich die Anzahl der Positionen ändert
-  React.useEffect(() => {
-    const netAmount = costPositions.reduce((sum, pos) => sum + (pos.amount || 0), 0);
+  // Kostenpositionen Handler für neue Komponente
+  const handleCostPositionsChange = (newPositions: typeof costPositions) => {
+    setCostPositions(newPositions);
+    
+    // Automatische Neuberechnung der Gesamtsumme
+    const netAmount = newPositions.reduce((sum, pos) => sum + (pos.amount || 0), 0);
     const { vat, total } = calculateVAT(netAmount, manualInvoice.vatRate);
     
     setManualInvoice(prev => ({
@@ -157,7 +164,19 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
       vatAmount: vat,
       totalAmount: total
     }));
-  }, [costPositions.length, manualInvoice.vatRate]); // Bei Änderung der Anzahl oder MwSt-Satz
+  };
+
+  const handleTotalChange = (total: number) => {
+    const { vat, total: totalWithVat } = calculateVAT(total, manualInvoice.vatRate);
+    
+    setManualInvoice(prev => ({
+      ...prev,
+      netAmount: total,
+      vatAmount: vat,
+      totalAmount: totalWithVat
+    }));
+  };
+
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -392,87 +411,83 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-600/30">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-600/30 backdrop-blur-sm">
         {/* Header */}
-        <div 
-          className="flex items-center justify-between p-6 border-b border-gray-600/30"
-          style={{ backgroundColor: '#51636f0a' }}
-        >
-          <div className="flex items-center space-x-3">
-            <div 
-              className="w-10 h-10 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: '#51636f' }}
-            >
-              <FileText className="w-5 h-5 text-white" />
+        <div className="flex items-center justify-between p-6 border-b border-gray-600/30 bg-gradient-to-r from-[#1a1a2e]/80 to-[#2c3539]/80 backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-gradient-to-br from-[#ffbd59]/20 to-[#ffa726]/20 rounded-xl shadow-lg">
+              <FileText size={24} className="text-[#ffbd59]" />
             </div>
             <div>
-              <h2 className="text-xl font-bold" style={{ color: '#51636f' }}>
+              <h2 className="text-xl font-bold text-white">
                 Rechnung stellen
               </h2>
-              <p className="text-sm text-gray-600">{milestoneTitle}</p>
+              <p className="text-sm text-gray-400">{milestoneTitle}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200"
           >
-            <X className="w-5 h-5" />
+            <X size={20} />
           </button>
         </div>
 
         {/* Content */}
         <div className="p-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-              <p className="text-red-600 text-sm">{error}</p>
+            <div className="bg-gradient-to-r from-red-500/10 to-red-600/10 border border-red-500/30 rounded-xl p-4 mb-6 backdrop-blur-sm">
+              <p className="text-red-300 text-sm">{error}</p>
             </div>
           )}
 
           {/* Typ-Auswahl */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-4" style={{ color: '#51636f' }}>
+            <h3 className="text-lg font-semibold mb-4 text-white">
               Rechnungsart wählen
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={() => setInvoiceType('manual')}
-                className={`p-4 rounded-lg border-2 transition-all ${
+                className={`p-4 rounded-xl border-2 transition-all duration-300 ${
                   invoiceType === 'manual'
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-[#ffbd59] bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 shadow-lg shadow-[#ffbd59]/20'
+                    : 'border-gray-600/30 hover:border-gray-500/50 bg-gradient-to-r from-[#1a1a2e]/50 to-[#2c3539]/50 backdrop-blur-sm'
                 }`}
               >
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center gap-3">
                   <Calculator 
-                    className={`w-6 h-6 ${
-                      invoiceType === 'manual' ? 'text-blue-600' : 'text-gray-400'
+                    size={20}
+                    className={`${
+                      invoiceType === 'manual' ? 'text-[#ffbd59]' : 'text-gray-400'
                     }`} 
                   />
                   <div className="text-left">
-                    <h4 className="font-semibold">Manuelle Eingabe</h4>
-                    <p className="text-sm text-gray-600">Rechnung über Eingabefelder erstellen</p>
+                    <h4 className="font-semibold text-white">Manuelle Eingabe</h4>
+                    <p className="text-sm text-gray-400">Rechnung über Eingabefelder erstellen</p>
                   </div>
                 </div>
               </button>
 
               <button
                 onClick={() => setInvoiceType('upload')}
-                className={`p-4 rounded-lg border-2 transition-all ${
+                className={`p-4 rounded-xl border-2 transition-all duration-300 ${
                   invoiceType === 'upload'
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-[#ffbd59] bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 shadow-lg shadow-[#ffbd59]/20'
+                    : 'border-gray-600/30 hover:border-gray-500/50 bg-gradient-to-r from-[#1a1a2e]/50 to-[#2c3539]/50 backdrop-blur-sm'
                 }`}
               >
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center gap-3">
                   <Upload 
-                    className={`w-6 h-6 ${
-                      invoiceType === 'upload' ? 'text-blue-600' : 'text-gray-400'
+                    size={20}
+                    className={`${
+                      invoiceType === 'upload' ? 'text-[#ffbd59]' : 'text-gray-400'
                     }`} 
                   />
                   <div className="text-left">
-                    <h4 className="font-semibold">PDF hochladen</h4>
-                    <p className="text-sm text-gray-600">Fertige Rechnung als PDF hochladen</p>
+                    <h4 className="font-semibold text-white">PDF hochladen</h4>
+                    <p className="text-sm text-gray-400">Fertige Rechnung als PDF hochladen</p>
                   </div>
                 </div>
               </button>
@@ -482,220 +497,277 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
           {/* Manual Invoice Form */}
           {invoiceType === 'manual' && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold" style={{ color: '#51636f' }}>
-                Rechnungsdetails
-              </h3>
+              {/* Modern Header */}
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-gradient-to-br from-[#ffbd59]/20 to-[#ffa726]/20 rounded-xl">
+                  <FileText size={24} className="text-[#ffbd59]" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-white">
+                    Rechnungsdetails
+                  </h3>
+                  <p className="text-sm text-gray-400">
+                    Grundlegende Informationen zur Rechnung
+                  </p>
+                </div>
+              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Grunddaten */}
-                <div className="space-y-4">
-                  <h4 className="font-medium text-gray-700">Grunddaten</h4>
-                  
+              {/* Grunddaten Card */}
+              <div className="bg-gradient-to-r from-[#1a1a2e]/80 to-[#2c3539]/80 backdrop-blur-sm rounded-xl border border-gray-600/30 overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 px-6 py-4 border-b border-gray-600/30">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/20 rounded-lg">
+                      <Building size={20} className="text-blue-400" />
+                    </div>
+                    <h4 className="font-semibold text-white">Grunddaten</h4>
+                  </div>
+                </div>
+                
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Rechnungsnummer *
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      📊 Rechnungsnummer *
                     </label>
                     <input
                       type="text"
                       value={manualInvoice.invoiceNumber}
                       onChange={(e) => handleManualInputChange('invoiceNumber', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-transparent"
+                      className="w-full px-4 py-3 border border-gray-600/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent bg-[#1a1a2e]/50 text-white placeholder-gray-400 transition-all duration-200"
                       placeholder="z.B. RE-2024-001"
-                      style={{ backgroundColor: '#51636f09' }}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Rechnungsdatum
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      📅 Rechnungsdatum
                     </label>
                     <input
                       type="date"
                       value={manualInvoice.invoiceDate}
                       onChange={(e) => handleManualInputChange('invoiceDate', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-600/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent bg-[#1a1a2e]/50 text-white transition-all duration-200"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Fälligkeitsdatum *
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      ⏰ Fälligkeitsdatum *
                     </label>
                     <input
                       type="date"
                       value={manualInvoice.dueDate}
                       onChange={(e) => handleManualInputChange('dueDate', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-600/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent bg-[#1a1a2e]/50 text-white transition-all duration-200"
                     />
                   </div>
                 </div>
+              </div>
 
-                {/* Leistungszeitraum */}
-                <div className="space-y-4">
-                  <h4 className="font-medium text-gray-700">Leistungszeitraum (optional)</h4>
-                  
+              {/* Leistungszeitraum Card */}
+              <div className="bg-gradient-to-r from-[#1a1a2e]/80 to-[#2c3539]/80 backdrop-blur-sm rounded-xl border border-gray-600/30 overflow-hidden">
+                <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 px-6 py-4 border-b border-gray-600/30">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-500/20 rounded-lg">
+                      <Calendar size={20} className="text-purple-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-white">Leistungszeitraum</h4>
+                      <p className="text-xs text-gray-400">Optional - für zeitraumbezogene Leistungen</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Von
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      📅 Von
                     </label>
                     <input
                       type="date"
                       value={manualInvoice.workPeriodFrom}
                       onChange={(e) => handleManualInputChange('workPeriodFrom', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-600/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent bg-[#1a1a2e]/50 text-white transition-all duration-200"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Bis
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      📅 Bis
                     </label>
                     <input
                       type="date"
                       value={manualInvoice.workPeriodTo}
                       onChange={(e) => handleManualInputChange('workPeriodTo', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-600/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent bg-[#1a1a2e]/50 text-white transition-all duration-200"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Flexible Kostenpositionen */}
-              <div>
-                <div className="flex justify-between items-center mb-4">
-                  <h4 className="font-medium text-gray-700">Kostenpositionen</h4>
-                  <button
-                    type="button"
-                    onClick={addCostPosition}
-                    className="px-3 py-1 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors"
-                  >
-                    + Position hinzufügen
-                  </button>
+              {/* Moderne Kostenpositionen-Komponente */}
+              <CostPositionManager
+                positions={costPositions}
+                onPositionsChange={handleCostPositionsChange}
+                onTotalChange={handleTotalChange}
+              />
+
+              {/* Moderne Steuerberechnung */}
+              <div className="bg-gradient-to-r from-[#1a1a2e]/80 to-[#2c3539]/80 backdrop-blur-sm rounded-xl border border-gray-600/30 overflow-hidden">
+                <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 px-6 py-4 border-b border-gray-600/30">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-500/20 rounded-lg">
+                      <Calculator size={20} className="text-green-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-white">Steuerberechnung</h4>
+                      <p className="text-xs text-gray-400">Automatische MwSt.-Berechnung nach Ländern</p>
+                    </div>
+                  </div>
                 </div>
                 
-                <div className="space-y-3">
-                  {costPositions.map((position, index) => (
-                    <div key={position.id} className="flex gap-3 items-start">
-                      <div className="flex-1">
-                        <input
-                          type="text"
-                          placeholder={`Position ${index + 1} - Beschreibung`}
-                          value={position.description}
-                          onChange={(e) => updateCostPosition(position.id, 'description', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-transparent"
-                          style={{ backgroundColor: '#51636f09' }}
-                        />
-                      </div>
-                      <div className="w-32">
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="Betrag"
-                          value={position.amount || ''}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            // Verwende den String-Wert direkt während der Eingabe, parse erst beim Blur
-                            updateCostPosition(position.id, 'amount', value === '' ? 0 : parseFloat(value) || 0);
-                          }}
-                          onBlur={(e) => {
-                            // Finale Validierung beim Verlassen des Feldes
-                            const finalValue = parseFloat(e.target.value) || 0;
-                            updateCostPosition(position.id, 'amount', finalValue);
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-transparent"
-                          style={{ backgroundColor: '#51636f09' }}
-                        />
-                      </div>
-                      <div className="w-32">
-                        <select
-                          value={position.category}
-                          onChange={(e) => updateCostPosition(position.id, 'category', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-transparent"
-                          style={{ backgroundColor: '#51636f09' }}
-                        >
-                          <option value="material">Material</option>
-                          <option value="labor">Arbeit</option>
-                          <option value="other">Sonstiges</option>
-                          <option value="custom">Individuell</option>
-                        </select>
-                      </div>
-                      {costPositions.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeCostPosition(position.id)}
-                          className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Position entfernen"
-                        >
-                          <X size={16} />
-                        </button>
-                      )}
+                <div className="p-6 space-y-6">
+                  {/* Länder-Auswahl */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        🌍 Land / Steuersystem
+                      </label>
+                      <select
+                        value={manualInvoice.country}
+                        onChange={(e) => handleCountryChange(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-600/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent bg-[#1a1a2e]/50 text-white transition-all duration-200"
+                      >
+                        {Object.entries(vatConfig).map(([code, config]) => (
+                          <option key={code} value={code}>
+                            {config.flag} {config.name} ({config.currency})
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  ))}
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        📊 MwSt.-Satz
+                      </label>
+                      <select
+                        value={manualInvoice.vatRate}
+                        onChange={(e) => handleManualInputChange('vatRate', parseFloat(e.target.value))}
+                        className="w-full px-4 py-3 border border-gray-600/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent bg-[#1a1a2e]/50 text-white transition-all duration-200"
+                      >
+                        {vatConfig[manualInvoice.country as keyof typeof vatConfig].rates.map((rate) => (
+                          <option key={rate.value} value={rate.value}>
+                            {rate.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Betragsaufstellung */}
+                  <div className="bg-gradient-to-r from-[#ffbd59]/5 to-[#ffa726]/5 rounded-xl p-6 border border-[#ffbd59]/20">
+                    <h5 className="font-semibold text-white mb-4 flex items-center gap-2">
+                      📈 Betragsaufstellung
+                    </h5>
+                    
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-300 flex items-center gap-2">
+                          💰 Nettobetrag:
+                        </span>
+                        <span className="font-semibold text-white">
+                          {manualInvoice.netAmount.toFixed(2)} {vatConfig[manualInvoice.country as keyof typeof vatConfig].currency}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-300 flex items-center gap-2">
+                          📈 MwSt. ({manualInvoice.vatRate}%):
+                        </span>
+                        <span className="font-semibold text-green-400">
+                          +{manualInvoice.vatAmount.toFixed(2)} {vatConfig[manualInvoice.country as keyof typeof vatConfig].currency}
+                        </span>
+                      </div>
+                      
+                      <div className="border-t border-[#ffbd59]/20 pt-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-white font-semibold text-lg flex items-center gap-2">
+                            📋 Gesamtbetrag:
+                          </span>
+                          <span className="font-bold text-2xl text-[#ffbd59] bg-gradient-to-r from-[#ffbd59] to-[#ffa726] bg-clip-text text-transparent">
+                            {manualInvoice.totalAmount.toFixed(2)} {vatConfig[manualInvoice.country as keyof typeof vatConfig].currency}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Info-Box für ausgewähltes Land */}
+                  <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-lg p-4 border border-blue-500/20">
+                    <div className="flex items-start gap-3">
+                      <div className="p-1 bg-blue-500/20 rounded">
+                        <span className="text-lg">{vatConfig[manualInvoice.country as keyof typeof vatConfig].flag}</span>
+                      </div>
+                      <div>
+                        <h6 className="font-medium text-blue-300">
+                          {vatConfig[manualInvoice.country as keyof typeof vatConfig].name}
+                        </h6>
+                        <p className="text-xs text-blue-200/80">
+                          Aktueller MwSt.-Satz: {manualInvoice.vatRate}% | Währung: {vatConfig[manualInvoice.country as keyof typeof vatConfig].currency}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Steuerberechnung */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-medium text-gray-700 mb-3">Steuerberechnung</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      MwSt.-Satz (%)
-                    </label>
-                    <select
-                      value={manualInvoice.vatRate}
-                      onChange={(e) => handleManualInputChange('vatRate', parseFloat(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value={0}>0% (Steuerbefreit)</option>
-                      <option value={7}>7% (Ermäßigt)</option>
-                      <option value={19}>19% (Standard)</option>
-                    </select>
+              {/* Leistungsbeschreibung Card */}
+              <div className="bg-gradient-to-r from-[#1a1a2e]/80 to-[#2c3539]/80 backdrop-blur-sm rounded-xl border border-gray-600/30 overflow-hidden">
+                <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 px-6 py-4 border-b border-gray-600/30">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-yellow-500/20 rounded-lg">
+                      <FileText size={20} className="text-yellow-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-white">Leistungsbeschreibung</h4>
+                      <p className="text-xs text-gray-400">Detaillierte Beschreibung der erbrachten Leistungen</p>
+                    </div>
                   </div>
                 </div>
-
-                <div className="mt-4 space-y-2">
-                  <div className="flex justify-between">
-                    <span>Nettobetrag:</span>
-                    <span className="font-medium">{manualInvoice.netAmount.toFixed(2)} €</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>MwSt. ({manualInvoice.vatRate}%):</span>
-                    <span className="font-medium">{manualInvoice.vatAmount.toFixed(2)} €</span>
-                  </div>
-                  <div className="flex justify-between text-lg font-bold border-t pt-2">
-                    <span>Gesamtbetrag:</span>
-                    <span style={{ color: '#ffbd59' }}>{manualInvoice.totalAmount.toFixed(2)} €</span>
-                  </div>
+                
+                <div className="p-6">
+                  <textarea
+                    value={manualInvoice.description}
+                    onChange={(e) => handleManualInputChange('description', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-600/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent bg-[#1a1a2e]/50 text-white placeholder-gray-400 resize-none transition-all duration-200"
+                    rows={4}
+                    placeholder="📝 Beschreibung der erbrachten Leistungen..."
+                  />
                 </div>
               </div>
 
-              {/* Beschreibung */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Leistungsbeschreibung
-                </label>
-                <textarea
-                  value={manualInvoice.description}
-                  onChange={(e) => handleManualInputChange('description', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  rows={3}
-                  placeholder="Beschreibung der erbrachten Leistungen..."
-                />
-              </div>
-
-              {/* Notizen */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Interne Notizen (optional)
-                </label>
-                <textarea
-                  value={manualInvoice.notes}
-                  onChange={(e) => handleManualInputChange('notes', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  rows={2}
-                  placeholder="Interne Notizen zur Rechnung..."
-                />
+              {/* Interne Notizen Card */}
+              <div className="bg-gradient-to-r from-[#1a1a2e]/80 to-[#2c3539]/80 backdrop-blur-sm rounded-xl border border-gray-600/30 overflow-hidden">
+                <div className="bg-gradient-to-r from-gray-500/10 to-slate-500/10 px-6 py-4 border-b border-gray-600/30">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gray-500/20 rounded-lg">
+                      <FileText size={20} className="text-gray-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-white">Interne Notizen</h4>
+                      <p className="text-xs text-gray-400">Optional - nur für interne Verwendung</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-6">
+                  <textarea
+                    value={manualInvoice.notes}
+                    onChange={(e) => handleManualInputChange('notes', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-600/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent bg-[#1a1a2e]/50 text-white placeholder-gray-400 resize-none transition-all duration-200"
+                    rows={3}
+                    placeholder="💭 Interne Notizen zur Rechnung..."
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -709,11 +781,11 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
               {/* File Upload */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Rechnungs-PDF *
                 </label>
                 <div 
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer"
+                  className="border-2 border-dashed border-gray-600/30 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -743,20 +815,20 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
               {/* Rechnungsdetails */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
                     Rechnungsnummer *
                   </label>
                   <input
                     type="text"
                     value={uploadData.invoiceNumber}
                     onChange={(e) => setUploadData(prev => ({ ...prev, invoiceNumber: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-600/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                     placeholder="z.B. RE-2024-001"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
                     Rechnungsbetrag (€) *
                   </label>
                   <input
@@ -764,20 +836,20 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
                     step="0.01"
                     value={uploadData.totalAmount}
                     onChange={(e) => setUploadData(prev => ({ ...prev, totalAmount: parseFloat(e.target.value) || 0 }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-600/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                     placeholder="0.00"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Notizen (optional)
                 </label>
                 <textarea
                   value={uploadData.notes}
                   onChange={(e) => setUploadData(prev => ({ ...prev, notes: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-600/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                   rows={3}
                   placeholder="Zusätzliche Informationen zur Rechnung..."
                 />
@@ -787,34 +859,27 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-600/30 bg-gradient-to-r from-[#1a1a2e]/80 to-[#2c3539]/80 backdrop-blur-sm">
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="px-6 py-2 text-gray-600 hover:text-gray-800 font-medium"
+            className="px-6 py-2 text-gray-400 hover:text-white font-medium transition-colors"
           >
             Abbrechen
           </button>
           <button
             onClick={handleSubmit}
             disabled={isLoading}
-            className="flex items-center px-6 py-2 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50"
-            style={{ backgroundColor: '#ffbd59' }}
-            onMouseEnter={(e) => {
-              if (!isLoading) e.currentTarget.style.backgroundColor = '#ff9500';
-            }}
-            onMouseLeave={(e) => {
-              if (!isLoading) e.currentTarget.style.backgroundColor = '#ffbd59';
-            }}
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] hover:from-[#ffa726] hover:to-[#ff9500] text-white rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-[#ffbd59]/30 hover:scale-105 active:scale-95 disabled:opacity-50"
           >
             {isLoading ? (
               <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 Wird erstellt...
               </>
             ) : (
               <>
-                <FileText className="w-4 h-4 mr-2" />
+                <FileText size={18} />
                 Rechnung {invoiceType === 'manual' ? 'erstellen' : 'hochladen'}
               </>
             )}

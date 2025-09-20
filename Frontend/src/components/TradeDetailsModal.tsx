@@ -11,6 +11,7 @@ import {
   Calendar,
   MapPin,
   CheckCircle,
+  CheckCircle2,
   Clock,
   Star,
   Building,
@@ -31,7 +32,10 @@ import {
   Globe,
   Package,
   Trash2,
-  Save
+  Save,
+  MessageCircle,
+  Camera,
+  Users
 } from 'lucide-react';
 import type { TradeSearchResult } from '../api/geoService';
 import { useAuth } from '../context/AuthContext';
@@ -1015,13 +1019,12 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     
     return isMatch;
   };
-  const [showTradeDetails, setShowTradeDetails] = useState(false);
+  const [showTradeDetails, setShowTradeDetails] = useState(true);
   
   // Smart default tab selection based on user role and context
   const getDefaultTab = () => {
-    // If service provider with accepted quote and completion status indicates action needed
-    if (!isBautraeger() && acceptedQuote && 
-        (completionStatus === 'completed_with_defects' || completionStatus === 'completion_requested')) {
+    // If service provider with accepted quote, always show progress tab
+    if (!isBautraeger() && acceptedQuote) {
       return 'progress';
     }
     // If Bautraeger with new quotes to review
@@ -1040,7 +1043,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   const [activeTab, setActiveTab] = useState(getDefaultTab());
   
   // Keyboard navigation for tabs
-  const tabs = ['overview', 'quotes', 'documents', 'progress'];
+  const tabs = ['overview', 'quotes', 'documents', 'progress', 'abnahme'];
   
   const handleTabKeyDown = (e: React.KeyboardEvent, tabIndex: number) => {
     if (e.key === 'ArrowLeft' && tabIndex > 0) {
@@ -2641,7 +2644,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   return (
     <>
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-2xl border border-gray-600/30 max-w-6xl w-full max-h-[95vh] overflow-visible relative flex flex-col">
+      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-2xl border border-gray-600/30 max-w-6xl w-full h-[90vh] overflow-hidden relative flex flex-col">
         {/* DEBUG HINWEIS */}
         <div className="absolute top-2 right-2 bg-red-500/90 text-white px-3 py-1 rounded-lg text-sm font-bold z-50 shadow-lg">
           🔍 DEBUG: TradeDetailsModal
@@ -3301,17 +3304,44 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             >
               <div className="flex items-center gap-2">
                 <Settings size={16} />
-                <span className="hidden sm:inline">Fortschritt</span>
+                <span className="hidden sm:inline">Fortschritt & Kommunikation</span>
                 <span className="sm:hidden">Status</span>
                 {(completionStatus === 'completed' || completionStatus === 'completion_requested' || completionStatus === 'completed_with_defects') && (
                   <div className="w-2 h-2 bg-[#ffbd59] rounded-full animate-pulse"></div>
                 )}
               </div>
             </button>
+            
+            {/* Abnahme Tab - nur für Dienstleister mit angenommenem Angebot */}
+            {!isBautraeger() && acceptedQuote && (
+              <button
+                onClick={() => setActiveTab('abnahme')}
+                onKeyDown={(e) => handleTabKeyDown(e, 4)}
+                role="tab"
+                aria-selected={activeTab === 'abnahme'}
+                aria-controls="abnahme-panel"
+                id="abnahme-tab"
+                tabIndex={activeTab === 'abnahme' ? 0 : -1}
+                className={`px-4 py-3 font-medium text-sm border-b-2 transition-all duration-200 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:ring-offset-2 focus:ring-offset-[#2c3539] ${
+                  activeTab === 'abnahme'
+                    ? 'border-[#ffbd59] text-[#ffbd59] bg-[#ffbd59]/5'
+                    : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} />
+                  <span className="hidden sm:inline">Abnahme</span>
+                  <span className="sm:hidden">Abnahme</span>
+                  {(completionStatus === 'completed_with_defects' || completionStatus === 'completion_requested') && (
+                    <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+                  )}
+                </div>
+              </button>
+            )}
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 min-h-0">
           {/* Tab Content */}
           {activeTab === 'overview' && (
             <div 
@@ -3695,85 +3725,6 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             )}
           </div>
 
-              {/* Rechnungsstellung für Dienstleister - direkt nach Ausschreibungsdetails wenn abgeschlossen */}
-              {!isBautraeger() && completionStatus === 'completed' && (
-            <div className="mb-6 bg-green-500/10 border border-green-500/30 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-green-300 mb-3 flex items-center gap-2">
-                <Receipt size={20} />
-                Rechnungsstellung
-              </h3>
-              
-              {existingInvoice && ['sent', 'viewed', 'paid', 'overdue'].includes(existingInvoice.status) ? (
-                // Bestehende Rechnung anzeigen
-                <div className="space-y-3">
-                  <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-green-300 font-medium">Rechnung erstellt</h4>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        existingInvoice.status === 'paid' 
-                          ? 'bg-green-500/20 text-green-300'
-                          : existingInvoice.status === 'sent'
-                          ? 'bg-blue-500/20 text-blue-300'
-                          : 'bg-yellow-500/20 text-yellow-300'
-                      }`}>
-                        {existingInvoice.status === 'paid' ? 'Bezahlt' : 
-                         existingInvoice.status === 'sent' ? 'Versendet' : 'Entwurf'}
-                      </span>
-                    </div>
-                    <div className="text-sm text-gray-300 space-y-1">
-                      <div className="flex justify-between">
-                        <span>Rechnungsnummer:</span>
-                        <span className="text-white font-medium">{existingInvoice.invoice_number}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Betrag:</span>
-                        <span className="text-white font-medium">
-                          {new Intl.NumberFormat('de-DE', {
-                            style: 'currency',
-                            currency: existingInvoice.currency || 'EUR'
-                          }).format(existingInvoice.total_amount || 0)}
-                        </span>
-                      </div>
-                      {existingInvoice.created_at && (
-                        <div className="flex justify-between">
-                          <span>Erstellt:</span>
-                          <span className="text-white font-medium">
-                            {new Date(existingInvoice.created_at).toLocaleDateString('de-DE')}
-                          </span>
-                        </div>
-                      )}
-                      {existingInvoice.status === 'paid' && existingInvoice.paid_at && (
-                        <div className="flex justify-between">
-                          <span>Bezahlt am:</span>
-                          <span className="text-green-300 font-medium">
-                            {new Date(existingInvoice.paid_at).toLocaleDateString('de-DE')}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                // Rechnung erstellen - behandle draft und cancelled als "keine Rechnung"
-                <div className="space-y-3">
-                  <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
-                    <h4 className="text-green-300 font-medium mb-2">Ausschreibung erfolgreich abgenommen</h4>
-                    <p className="text-gray-300 text-sm">
-                      Die Ausschreibung wurde vollständig abgenommen. Sie können jetzt Ihre Rechnung erstellen.
-                    </p>
-                  </div>
-                  
-                  <button
-                    onClick={() => setShowInvoiceModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
-                  >
-                    <FileText size={16} />
-                    Rechnung stellen
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
 
               {/* Abnahme-Workflow direkt unterhalb der Ausschreibungsdetails für Dienstleister - nur wenn Angebot angenommen */}
               {!isBautraeger() && acceptedQuote && completionStatus === 'completed_with_defects' && (
@@ -3945,34 +3896,21 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                         </div>
                       )}
 
-                      {/* Zahlungsbedingungen und Garantie */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {userQuote.payment_terms && (
-                          <div className="bg-black/20 rounded-lg p-4 border border-green-500/20">
-                            <h5 className="text-white font-semibold mb-2 flex items-center gap-2">
-                              <CreditCard size={16} className="text-green-400" />
-                              Zahlungsbedingungen
-                            </h5>
-                            <div className="text-gray-300 text-sm">
-                              {userQuote.payment_terms === '30_days' ? '30 Tage' :
-                               userQuote.payment_terms === '14_days' ? '14 Tage' :
-                               userQuote.payment_terms === '7_days' ? '7 Tage' :
-                               userQuote.payment_terms}
-                            </div>
+                      {/* Zahlungsbedingungen */}
+                      {userQuote.payment_terms && (
+                        <div className="bg-black/20 rounded-lg p-4 border border-green-500/20">
+                          <h5 className="text-white font-semibold mb-2 flex items-center gap-2">
+                            <CreditCard size={16} className="text-green-400" />
+                            Zahlungsbedingungen
+                          </h5>
+                          <div className="text-gray-300 text-sm">
+                            {userQuote.payment_terms === '30_days' ? '30 Tage' :
+                             userQuote.payment_terms === '14_days' ? '14 Tage' :
+                             userQuote.payment_terms === '7_days' ? '7 Tage' :
+                             userQuote.payment_terms}
                           </div>
-                        )}
-                        {userQuote.warranty_period && (
-                          <div className="bg-black/20 rounded-lg p-4 border border-green-500/20">
-                            <h5 className="text-white font-semibold mb-2 flex items-center gap-2">
-                              <Shield size={16} className="text-green-400" />
-                              Garantie
-                            </h5>
-                            <div className="text-white">
-                              {userQuote.warranty_period} Monate
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
 
                       {/* Kontaktinformationen */}
                       {(userQuote.company_name || userQuote.contact_person || userQuote.phone || userQuote.email) && (
@@ -4602,6 +4540,38 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               aria-labelledby="progress-tab"
               className="space-y-6"
             >
+              {/* Chat-Dokumentation Banner für Dienstleister mit angenommenem Angebot */}
+              {!isBautraeger() && acceptedQuote && (
+                <div className="mb-6 p-4 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-blue-500/20 rounded-lg flex-shrink-0">
+                      <MessageCircle size={20} className="text-blue-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-blue-300 font-semibold mb-2">Baustand dokumentieren & kommunizieren</h3>
+                      <p className="text-blue-200 text-sm mb-3">
+                        Nutzen Sie den Chat, um den Baustand regelmäßig zu dokumentieren und Fotos hochzuladen. 
+                        So halten Sie alle Beteiligten über den Fortschritt auf dem Laufenden.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <div className="flex items-center gap-2 text-xs text-blue-300">
+                          <Camera size={14} />
+                          <span>Fotos hochladen</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-blue-300">
+                          <FileText size={14} />
+                          <span>Fortschritt dokumentieren</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-blue-300">
+                          <Users size={14} />
+                          <span>Team informieren</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <TradeProgress
                 milestoneId={trade.id}
                 currentProgress={currentProgress}
@@ -4648,6 +4618,261 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   {renderAbnahmeWorkflow()}
                 </div>
               )}
+            </div>
+          )}
+          
+          {/* Abnahme Tab - nur für Dienstleister */}
+          {activeTab === 'abnahme' && !isBautraeger() && acceptedQuote && (
+            <div 
+              role="tabpanel" 
+              id="abnahme-panel" 
+              aria-labelledby="abnahme-tab"
+              className="space-y-6"
+            >
+              <div className="bg-gradient-to-br from-[#1a1a2e]/80 to-[#2c3539]/80 rounded-xl border border-gray-600/30 p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-3 bg-[#ffbd59]/20 rounded-lg">
+                    <CheckCircle2 size={24} className="text-[#ffbd59]" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Abnahme-Workflow</h2>
+                    <p className="text-gray-400 text-sm">Status und Aktionen zur Abnahme Ihres Gewerks</p>
+                  </div>
+                </div>
+
+                {/* Status-Anzeige */}
+                <div className="mb-6 p-4 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 bg-blue-500/20 rounded-lg">
+                      <Info size={20} className="text-blue-400" />
+                    </div>
+                    <h3 className="text-blue-300 font-semibold">Aktueller Status</h3>
+                  </div>
+                  
+                  {completionStatus === 'completed_with_defects' ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                        <span className="text-yellow-300 font-medium">Abnahme unter Vorbehalt</span>
+                      </div>
+                      <p className="text-yellow-200 text-sm">
+                        Der Bauträger hat Mängel dokumentiert. Bitte beheben Sie diese für die finale Abnahme.
+                      </p>
+                      <div className="mt-4">
+                        <button
+                          onClick={() => {
+                            // Verwende bestehende Funktion für Abnahme-Response
+                            handleCompletionResponse(true, 'Mängelbehebung abgeschlossen');
+                          }}
+                          className="px-4 py-2 bg-[#ffbd59] text-[#1a1a2e] rounded-lg hover:bg-[#ffbd59]/90 transition-colors font-medium"
+                        >
+                          Mängelbehebung abgeschlossen melden
+                        </button>
+                      </div>
+                    </div>
+                  ) : completionStatus === 'defects_resolved' ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></div>
+                        <span className="text-blue-300 font-medium">Warten auf finale Abnahme</span>
+                      </div>
+                      <p className="text-blue-200 text-sm">
+                        Sie haben die Mängelbehebung gemeldet. Der Bauträger wird die finale Abnahme durchführen.
+                      </p>
+                    </div>
+                  ) : completionStatus === 'completion_requested' ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                        <span className="text-green-300 font-medium">Abnahme angefordert</span>
+                      </div>
+                      <p className="text-green-200 text-sm">
+                        Sie haben die Fertigstellung gemeldet. Der Bauträger wird die Abnahme durchführen.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+                        <span className="text-gray-300 font-medium">Noch nicht zur Abnahme bereit</span>
+                      </div>
+                      <p className="text-gray-200 text-sm">
+                        Das Gewerk ist noch nicht zur Abnahme bereit. Melden Sie die Fertigstellung über den Fortschritt-Tab.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Mängel-Anzeige (falls vorhanden) */}
+                {acceptanceDefects && acceptanceDefects.length > 0 && (
+                  <div className="mb-6 p-4 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-xl">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-yellow-500/20 rounded-lg">
+                        <AlertTriangle size={20} className="text-yellow-400" />
+                      </div>
+                      <h3 className="text-yellow-300 font-semibold">Dokumentierte Mängel</h3>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {acceptanceDefects.map((defect: any, index: number) => (
+                        <div key={index} className="p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-lg">
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 bg-yellow-400 rounded-full mt-2 flex-shrink-0"></div>
+                            <div className="flex-1">
+                              <p className="text-yellow-200 text-sm font-medium mb-1">
+                                {defect.description || 'Mangel ohne Beschreibung'}
+                              </p>
+                              {defect.location && (
+                                <p className="text-yellow-300/70 text-xs">
+                                  Ort: {defect.location}
+                                </p>
+                              )}
+                              {defect.severity && (
+                                <p className="text-yellow-300/70 text-xs">
+                                  Schweregrad: {defect.severity}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Vollständiger Rechnungsstellungs-Abschnitt */}
+                {completionStatus === 'completed' && (
+                  <div className="p-6 bg-gradient-to-br from-[#1a1a2e]/80 to-[#2c3539]/80 rounded-xl border border-gray-600/30 backdrop-blur-sm shadow-lg">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="p-3 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-lg shadow-lg">
+                        <Receipt size={24} className="text-green-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-green-300 font-semibold text-xl">Rechnungsstellung</h3>
+                        <p className="text-gray-400 text-sm">Verwalten Sie Ihre Rechnungen für dieses Gewerk</p>
+                      </div>
+                    </div>
+                    
+                    {existingInvoice && ['sent', 'viewed', 'paid', 'overdue'].includes(existingInvoice.status) ? (
+                      // Bestehende Rechnung anzeigen
+                      <div className="space-y-4">
+                        <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-xl p-4 backdrop-blur-sm shadow-lg hover:shadow-xl hover:shadow-green-500/20 transition-all duration-300">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-green-300 font-semibold text-lg flex items-center gap-2">
+                              <FileText size={18} />
+                              Rechnung erstellt
+                            </h4>
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium shadow-lg ${
+                              existingInvoice.status === 'paid' 
+                                ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-300 border border-green-500/30'
+                                : existingInvoice.status === 'sent'
+                                ? 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-300 border border-blue-500/30'
+                                : 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20 text-yellow-300 border border-yellow-500/30'
+                            }`}>
+                              {existingInvoice.status === 'paid' ? 'Bezahlt' : 
+                               existingInvoice.status === 'sent' ? 'Versendet' : 'Entwurf'}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-gradient-to-r from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-lg p-3 border border-gray-600/30">
+                              <div className="text-sm text-gray-400 mb-1">Rechnungsnummer</div>
+                              <div className="text-white font-semibold">{existingInvoice.invoice_number}</div>
+                            </div>
+                            <div className="bg-gradient-to-r from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-lg p-3 border border-gray-600/30">
+                              <div className="text-sm text-gray-400 mb-1">Betrag</div>
+                              <div className="text-[#ffbd59] font-bold text-lg">
+                                {new Intl.NumberFormat('de-DE', {
+                                  style: 'currency',
+                                  currency: existingInvoice.currency || 'EUR'
+                                }).format(existingInvoice.total_amount || 0)}
+                              </div>
+                            </div>
+                            {existingInvoice.created_at && (
+                              <div className="bg-gradient-to-r from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-lg p-3 border border-gray-600/30">
+                                <div className="text-sm text-gray-400 mb-1">Erstellt am</div>
+                                <div className="text-white font-medium">
+                                  {new Date(existingInvoice.created_at).toLocaleDateString('de-DE')}
+                                </div>
+                              </div>
+                            )}
+                            {existingInvoice.status === 'paid' && existingInvoice.paid_at && (
+                              <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg p-3 border border-green-500/30">
+                                <div className="text-sm text-green-400 mb-1">Bezahlt am</div>
+                                <div className="text-green-300 font-semibold">
+                                  {new Date(existingInvoice.paid_at).toLocaleDateString('de-DE')}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      // Rechnung erstellen - behandle draft und cancelled als "keine Rechnung"
+                      <div className="space-y-4">
+                        <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-xl p-4 backdrop-blur-sm">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 bg-green-500/20 rounded-lg">
+                              <CheckCircle size={20} className="text-green-400" />
+                            </div>
+                            <h4 className="text-green-300 font-semibold text-lg">Ausschreibung erfolgreich abgenommen</h4>
+                          </div>
+                          <p className="text-gray-300 text-sm leading-relaxed">
+                            Die Ausschreibung wurde vollständig abgenommen. Sie können jetzt Ihre Rechnung erstellen und versenden.
+                          </p>
+                        </div>
+                        
+                        <button
+                          onClick={() => setShowInvoiceModal(true)}
+                          className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-green-500/30 hover:scale-105 active:scale-95"
+                        >
+                          <FileText size={18} />
+                          Rechnung stellen
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Workflow-Aktionen */}
+                <div className="mt-6 p-4 bg-gradient-to-r from-gray-500/10 to-slate-500/10 border border-gray-500/30 rounded-xl">
+                  <h3 className="text-gray-300 font-semibold mb-3">Nächste Schritte</h3>
+                  <div className="space-y-2 text-sm text-gray-400">
+                    {completionStatus === 'completed_with_defects' ? (
+                      <>
+                        <p>• Beheben Sie die dokumentierten Mängel</p>
+                        <p>• Melden Sie die Mängelbehebung über den Button oben</p>
+                        <p>• Warten Sie auf die finale Abnahme durch den Bauträger</p>
+                        <p>• Nach erfolgreicher Abnahme können Sie die Rechnung stellen</p>
+                      </>
+                    ) : completionStatus === 'defects_resolved' ? (
+                      <>
+                        <p>• Der Bauträger wurde über die Mängelbehebung informiert</p>
+                        <p>• Warten Sie auf die finale Abnahme</p>
+                        <p>• Nach erfolgreicher Abnahme können Sie die Rechnung stellen</p>
+                      </>
+                    ) : completionStatus === 'completion_requested' ? (
+                      <>
+                        <p>• Der Bauträger wurde über die Fertigstellung informiert</p>
+                        <p>• Warten Sie auf die Abnahme durch den Bauträger</p>
+                        <p>• Nach erfolgreicher Abnahme können Sie die Rechnung stellen</p>
+                      </>
+                    ) : completionStatus === 'completed' ? (
+                      <>
+                        <p>• Das Gewerk wurde erfolgreich abgenommen</p>
+                        <p>• Sie können nun Ihre Rechnung stellen (siehe Abschnitt oben)</p>
+                        <p>• Verfolgen Sie den Status Ihrer Rechnung</p>
+                      </>
+                    ) : (
+                      <>
+                        <p>• Schließen Sie Ihr Gewerk ab</p>
+                        <p>• Melden Sie die Fertigstellung über den Fortschritt-Tab</p>
+                        <p>• Warten Sie auf die Abnahme durch den Bauträger</p>
+                        <p>• Nach erfolgreicher Abnahme können Sie die Rechnung stellen</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
