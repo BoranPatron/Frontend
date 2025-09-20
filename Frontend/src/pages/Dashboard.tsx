@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSwipeable } from 'react-swipeable';
 import { useAuth } from '../context/AuthContext';
@@ -1146,6 +1146,19 @@ export default function Dashboard() {
   
   // Gewerk-Erstellung
   const [showTradeCreationForm, setShowTradeCreationForm] = useState(false);
+  
+  // Ref für To-Do Aufgaben Abschnitt
+  const todoSectionRef = useRef<HTMLDivElement>(null);
+  
+  // Funktion zum Scrollen zum To-Do Aufgaben Abschnitt
+  const scrollToTodoSection = () => {
+    if (todoSectionRef.current) {
+      todoSectionRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+  };
 
   useEffect(() => {
     const loadProjectTrades = async () => {
@@ -1584,8 +1597,8 @@ export default function Dashboard() {
             
             <div 
               className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200 cursor-pointer group"
-              onClick={() => navigate('/tasks')}
-              title="Zum Aufgaben-Management"
+              onClick={scrollToTodoSection}
+              title="Zu den To-Do Aufgaben scrollen"
             >
               <div className="flex items-center justify-between mb-2">
                 <CheckSquare size={20} className="text-green-400 group-hover:scale-110 transition-transform duration-200" />
@@ -2159,7 +2172,7 @@ export default function Dashboard() {
 
       {/* Kanban-Board für To-Do Aufgaben - analog dem Dienstleister Dashboard */}
       {selectedProject && (
-        <div className="mb-8">
+        <div ref={todoSectionRef} className="mb-8">
           <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
             <div className="flex items-center gap-4 mb-6">
               <div className="p-3 bg-gradient-to-br from-[#10B981] to-[#059669] rounded-xl shadow-lg shadow-[#10B981]/20">
