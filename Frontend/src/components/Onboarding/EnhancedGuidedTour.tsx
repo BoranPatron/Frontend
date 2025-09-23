@@ -107,6 +107,20 @@ const bautraegerSteps: TourStep[] = [
     mockupPosition: 'below',
     scrollToElement: true
   },
+  {
+    id: 'geo-search-section',
+    title: 'Ressourcen in Ihrer Nähe finden 🎯',
+    description: 'Finden Sie qualifizierte Dienstleister in Ihrer Region! Die Geo-Suche zeigt Ihnen alle verfügbaren Ressourcen auf einer interaktiven Karte. Sie können nach Gewerken filtern, Entfernungen einstellen und direkt Kontakt zu Dienstleistern aufnehmen.',
+    pointer: 'auto',
+    scrollToElement: true
+  },
+  {
+    id: 'resource-search-filters',
+    title: 'Intelligente Ressourcenfilter 🔍', 
+    description: 'Nutzen Sie die erweiterten Filter um genau die Ressourcen zu finden, die Sie brauchen: Nach Kategorie, Verfügbarkeit, Entfernung, Preisvorstellungen und spezifischen Qualifikationen. So sparen Sie Zeit und finden die perfekten Partner für Ihr Projekt.',
+    pointer: 'auto',
+    scrollToElement: true
+  },
   { 
     id: 'navbar-profile', 
     title: 'Ihr Profil-Bereich', 
@@ -189,6 +203,27 @@ const dienstleisterSteps: TourStep[] = [
     pointer: 'auto',
     showMockup: 'todo',
     mockupPosition: 'below',
+    scrollToElement: true
+  },
+  {
+    id: 'resource-management-section',
+    title: 'Ihre Ressourcenverwaltung 🛠️',
+    description: 'Verwalten Sie hier Ihre verfügbaren Kapazitäten! Legen Sie Ihre freien Termine, Mitarbeiteranzahl, Stundensätze und Spezialqualifikationen fest. Je detaillierter Ihr Profil, desto häufiger werden Sie für passende Projekte gefunden.',
+    pointer: 'auto',
+    scrollToElement: true
+  },
+  {
+    id: 'resource-create-button',
+    title: 'Ressourcen ausschreiben ➕',
+    description: 'Klicken Sie hier um eine neue Ressource zu erstellen! Geben Sie Ihren Zeitraum, Ihre Kapazitäten und Preise an. Bauträger können dann gezielt nach Ihren Leistungen suchen und Sie für Projekte vorauewählen.',
+    pointer: 'auto',
+    scrollToElement: true
+  },
+  {
+    id: 'resource-stats',
+    title: 'Ihre Leistungskennzahlen 📊',
+    description: 'Behalten Sie den Überblick über Ihre Auslastung! Hier sehen Sie Ihre verfügbaren Personentage, gebuchte Kapazitäten und Ihren Auslastungsgrad. Diese KPIs helfen Ihnen bei der optimalen Ressourcenplanung.',
+    pointer: 'auto',
     scrollToElement: true
   },
   { 

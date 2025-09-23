@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useOnboarding } from '../context/OnboardingContext';
@@ -13,6 +13,7 @@ import {
   CheckCircle,
   CheckSquare,
   AlertTriangle,
+  AlertCircle,
   MapPin,
   Search,
   Map,
@@ -24,7 +25,11 @@ import {
   Building,
   Wrench,
   Archive,
-  ExternalLink
+  ExternalLink,
+  Users,
+  Calendar,
+  BarChart,
+  ChevronDown
 } from 'lucide-react';
 
 import CostEstimateForm from '../components/CostEstimateForm';
@@ -35,6 +40,9 @@ import AddressAutocomplete from '../components/AddressAutocomplete';
 import ServiceProviderQuoteModal from '../components/ServiceProviderQuoteModal';
 import ArchivedTrades from '../components/ArchivedTrades';
 import InvoiceManagementModal from '../components/InvoiceManagementModal';
+import ResourceManagementModal from '../components/ResourceManagementModal';
+import ResourceCalendar from '../components/ResourceCalendar';
+import ResourceKPIDashboard from '../components/ResourceKPIDashboard';
 
 import { RadialMenu } from '../components/RadialMenu';
 import KanbanBoard from '../components/KanbanBoard';
@@ -47,6 +55,7 @@ import {
 import { createQuote, getQuotesForMilestone, acceptQuote, rejectQuote, withdrawQuote, getQuotes } from '../api/quoteService';
 import { getMilestones, getAllMilestones } from '../api/milestoneService';
 import { getProjects } from '../api/projectService';
+import { resourceService } from '../api/resourceService';
 import logo from '../logo_trans_big.png';
 import TradeCreationForm from '../components/TradeCreationForm';
 
@@ -93,6 +102,18 @@ export default function ServiceProviderDashboard() {
   const [showAcceptedTrades, setShowAcceptedTrades] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
   const [showInvoiceManagement, setShowInvoiceManagement] = useState(false);
+  const [showResourceManagement, setShowResourceManagement] = useState(false);
+  const [showResourceCalendar, setShowResourceCalendar] = useState(false);
+  const [showResourceKPIs, setShowResourceKPIs] = useState(false);
+  const [showResourceDetails, setShowResourceDetails] = useState(false);
+  const [showResourceSection, setShowResourceSection] = useState(false);
+  const [userResources, setUserResources] = useState<any[]>([]);
+  const [resourceStats, setResourceStats] = useState({
+    totalEmployees: 0,
+    totalPersonDays: 0,
+    totalHours: 0,
+    utilization: 0
+  });
   
   // State für erweiterte Beschreibungen in Kacheln
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
@@ -193,6 +214,95 @@ export default function ServiceProviderDashboard() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // Lade Ressourcen des Benutzers
+  useEffect(() => {
+    if (user?.id) {
+      loadUserResources();
+    }
+  }, [user?.id]);
+
+  const loadUserResources = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const resources = await resourceService.getMyResources();
+      setUserResources(resources);
+      
+      // Berechne Statistiken
+      calculateResourceStats(resources);
+    } catch (error) {
+      console.error('Fehler beim Laden der Ressourcen:', error);
+      // Setze leere Stats bei Fehler
+      setUserResources([]);
+      setResourceStats({
+        totalEmployees: 0,
+        totalPersonDays: 0,
+        totalHours: 0,
+        utilization: 0
+      });
+    }
+  };
+
+  const calculateResourceStats = (resources: any[]) => {
+    if (!resources || resources.length === 0) {
+      setResourceStats({
+        totalEmployees: 0,
+        totalPersonDays: 0,
+        totalHours: 0,
+        utilization: 0
+      });
+      return;
+    }
+
+    // Berechne Gesamtstatistiken
+    let totalEmployees = 0;
+    let totalPersonDays = 0;
+    let totalHours = 0;
+    let allocatedPersonDays = 0;
+    
+    // Aktueller Monat für Berechnung
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    resources.forEach(resource => {
+      // Zähle nur Ressourcen im aktuellen Monat
+      const resStart = new Date(resource.start_date);
+      const resEnd = new Date(resource.end_date);
+      
+      // Überprüfe ob Ressource im aktuellen Monat aktiv ist
+      if (resEnd >= startOfMonth && resStart <= endOfMonth) {
+        totalEmployees += resource.person_count || 0;
+        
+        // Berechne Überlappung mit aktuellem Monat
+        const effectiveStart = resStart > startOfMonth ? resStart : startOfMonth;
+        const effectiveEnd = resEnd < endOfMonth ? resEnd : endOfMonth;
+        const days = Math.ceil((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
+        const personDays = days * (resource.person_count || 1);
+        totalPersonDays += personDays;
+        totalHours += personDays * (resource.daily_hours || 8);
+        
+        // Zähle allokierte Tage
+        if (resource.status === 'allocated') {
+          allocatedPersonDays += personDays;
+        }
+      }
+    });
+
+    // Berechne Auslastung
+    const utilization = totalPersonDays > 0 
+      ? Math.round((allocatedPersonDays / totalPersonDays) * 100) 
+      : 0;
+
+    setResourceStats({
+      totalEmployees,
+      totalPersonDays: Math.round(totalPersonDays),
+      totalHours: Math.round(totalHours),
+      utilization
+    });
+  };
 
   // URL-Parameter für automatisches Öffnen des Quote-Forms
   useEffect(() => {
@@ -394,7 +504,7 @@ export default function ServiceProviderDashboard() {
   // Periodischer Refresh der Trade-Daten für aktuelle Projekte
   useEffect(() => {
     const refreshInterval = setInterval(() => {
-      const tradesWithQuotes = getAllTradesWithQuotes();
+      const tradesWithQuotes = getAllTradesWithQuotes;
       const activeTradeIds = tradesWithQuotes
         .filter((trade: any) => getServiceProviderQuoteStatus(trade.id) === 'accepted')
         .map((trade: any) => trade.id);
@@ -503,7 +613,7 @@ export default function ServiceProviderDashboard() {
     if (!user) return;
     
     try {
-      const completedTrades = getAllTradesWithQuotes()
+      const completedTrades = getAllTradesWithQuotes
         .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed');
       
       const invoicePromises = completedTrades.map(async (trade) => {
@@ -703,7 +813,7 @@ export default function ServiceProviderDashboard() {
   // Erstelle Benachrichtigungen für abgeschlossene Projekte ohne Rechnung
   useEffect(() => {
     if (activeLeftTab === 'completed' && Object.keys(tradeInvoices).length > 0) {
-      const completedTrades = getAllTradesWithQuotes()
+      const completedTrades = getAllTradesWithQuotes
         .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed');
       
       completedTrades.forEach(trade => {
@@ -720,8 +830,8 @@ export default function ServiceProviderDashboard() {
     }
   }, [activeLeftTab, tradeInvoices]);
 
-  // Hilfsfunktion: Kombiniert alle Trades für die der Service Provider Angebote hat
-  const getAllTradesWithQuotes = () => {
+  // Memoized function: Kombiniert alle Trades für die der Service Provider Angebote hat
+  const getAllTradesWithQuotes = useMemo((): any[] => {
     try {
       console.log('🔍 getAllTradesWithQuotes START');
       
@@ -796,16 +906,16 @@ export default function ServiceProviderDashboard() {
       });
       
       // Dedupliziere basierend auf ID und verwende die neueste Version
-      const tradeMap = new Map<number, any>();
+      const tradeMap: { [key: number]: any } = {};
       combinedTrades.forEach((trade: any) => {
-        const existingTrade = tradeMap.get(trade.id);
+        const existingTrade = tradeMap[trade.id];
         if (!existingTrade || (trade.updated_at && existingTrade.updated_at && new Date(trade.updated_at) > new Date(existingTrade.updated_at))) {
-          tradeMap.set(trade.id, trade);
+          tradeMap[trade.id] = trade;
         }
       });
       
       // Filtere nur Trades mit Service Provider Angeboten
-      const tradesWithQuotes = Array.from(tradeMap.values()).filter(trade => {
+      const tradesWithQuotes = Object.values(tradeMap).filter((trade: any) => {
         try {
           const hasQuote = hasServiceProviderQuote(trade.id);
           console.log('🔍 Trade', trade.id, 'hasQuote:', hasQuote, 'completion_status:', trade.completion_status);
@@ -830,7 +940,7 @@ export default function ServiceProviderDashboard() {
       // NOTFALL-FALLBACK: Erstelle Trades direkt aus serviceProviderQuotes
       if (serviceProviderQuotes.length > 0) {
         console.log('🚨 NOTFALL-FALLBACK: Erstelle Trades aus serviceProviderQuotes');
-        return serviceProviderQuotes.map(quote => ({
+        const fallbackTrades = serviceProviderQuotes.map(quote => ({
           id: quote.milestone_id,
           title: quote.title || `Gewerk ${quote.milestone_id}`,
           project_id: quote.project_id,
@@ -840,11 +950,12 @@ export default function ServiceProviderDashboard() {
           project_name: `Projekt ${quote.project_id}`,
           project_status: 'active'
         }));
+        return fallbackTrades;
       }
       
       return [];
     }
-  };
+  }, [geoTrades, serviceProviderTrades, serviceProviderQuotes, allTradeQuotes, user?.id]);
 
   // Funktion zum Aktualisieren eines einzelnen Trades (z.B. nach Statusänderung)
   const refreshTradeData = async (tradeId: number) => {
@@ -1228,19 +1339,20 @@ export default function ServiceProviderDashboard() {
       switch (cat) {
         case 'electrical':
         case 'elektro':
-          return <Wrench size={20} className="text-white" />;
+          return React.createElement(Wrench, { size: 20, className: "text-white" });
         case 'plumbing':
         case 'sanitaer':
-          return <Wrench size={20} className="text-white" />;
+          return React.createElement(Wrench, { size: 20, className: "text-white" });
         case 'heating':
         case 'heizung':
-          return <Wrench size={20} className="text-white" />;
+          return React.createElement(Wrench, { size: 20, className: "text-white" });
         default:
-          return <Building size={20} className="text-white" />;
+          return React.createElement(Building, { size: 20, className: "text-white" });
       }
     } catch (error) {
-      console.error('❌ Fehler in getCategoryIcon:', error);
-      return <Building size={20} className="text-white" />;
+      console.error('❌ Fehler in getCategoryIcon:', error, error.stack);
+      // Fallback: return null anstelle eines JSX-Elements
+      return React.createElement(Building, { size: 20, className: "text-white" });
     }
   };
 
@@ -1571,7 +1683,223 @@ export default function ServiceProviderDashboard() {
 
       {/* Dashboard-Karten entfernt - Funktionalität jetzt über Radiales Menü */}
 
-              {/* Neue Ausschreibung Modal */}
+      {/* Ressourcenverwaltung Sektion - Einklappbar */}
+      <div className="mb-8 bg-gradient-to-br from-[#ffbd59]/10 to-[#ffa726]/5 backdrop-blur-xl rounded-2xl border border-[#ffbd59]/20 shadow-2xl hover:shadow-[0_0_30px_rgba(255,189,89,0.15)] transition-all duration-300" data-tour-id="resource-management-section">
+        {/* Header mit Icon - Einklappbar */}
+        <div className="p-6">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg shadow-[#ffbd59]/20">
+              <Users size={24} className="text-[#2c3539]" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-xl font-bold text-white">Ressourcenverwaltung</h2>
+              <p className="text-gray-400 text-sm mt-1">Personal- und Kapazitätsplanung für Ihre Projekte</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowResourceManagement(true)}
+                className="px-4 py-2 bg-[#ffbd59]/20 text-[#ffbd59] rounded-lg hover:bg-[#ffbd59]/30 transition-colors text-sm font-medium border border-[#ffbd59]/30"
+                data-tour-id="resource-create-button"
+              >
+                <Plus size={16} className="inline mr-1" />
+                Ressourcen ausschreiben
+              </button>
+              <button
+                onClick={() => setShowResourceSection(!showResourceSection)}
+                className="px-3 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
+                title={showResourceSection ? 'Bereich einklappen' : 'Bereich ausklappen'}
+              >
+                <ChevronDown className={`w-4 h-4 transition-transform ${showResourceSection ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {/* Einklappbarer Inhaltsbereich */}
+        {showResourceSection && (
+          <div className="px-6 pb-6 space-y-6">
+            {/* Info Banner */}
+            <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-blue-400 mb-1">Ressourcen intelligent verwalten</p>
+                  <p className="text-xs text-gray-300">
+                    Teilen Sie Ihre verfügbaren Mitarbeiter und Kapazitäten mit Bauträgern. 
+                    Diese können Ihre Ressourcen für Projekte vormerken und Sie zu Angeboten einladen.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Ressourcen Quick Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-tour-id="resource-stats">
+              <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                <div className="flex items-center gap-3">
+                  <Users size={20} className="text-[#ffbd59]" />
+              <div>
+                <p className="text-gray-400 text-xs">Verfügbare Mitarbeiter</p>
+                <p className="text-2xl font-bold text-white">{resourceStats.totalEmployees || 0}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {userResources.length > 0 ? 'Aktive Ressourcen' : 'Noch keine angelegt'}
+                </p>
+              </div>
+            </div>
+          </div>
+          
+              <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                <div className="flex items-center gap-3">
+                  <Clock size={20} className="text-blue-400" />
+              <div>
+                <p className="text-gray-400 text-xs">Personentage (Monat)</p>
+                <p className="text-2xl font-bold text-white">{resourceStats.totalPersonDays || 0}</p>
+                <p className="text-xs text-blue-400 mt-1">{resourceStats.totalHours || 0} Stunden</p>
+              </div>
+            </div>
+          </div>
+          
+              <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                <div className="flex items-center gap-3">
+                  <TrendingUp size={20} className="text-green-400" />
+              <div>
+                <p className="text-gray-400 text-xs">Auslastung</p>
+                <p className="text-2xl font-bold text-white">
+                  {resourceStats.utilization > 0 ? `${resourceStats.utilization}%` : '-'}
+                </p>
+                <p className="text-xs text-yellow-400 mt-1">
+                  {resourceStats.utilization > 80 ? 'Hoch' : 
+                   resourceStats.utilization > 50 ? 'Optimal' : 
+                   resourceStats.utilization > 0 ? 'Niedrig' : 'Keine Daten'}
+                </p>
+              </div>
+            </div>
+          </div>
+            </div>
+            
+            {/* Aktionsbuttons */}
+            <div className="flex flex-wrap gap-3 mt-6">
+              <button
+                onClick={() => setShowResourceCalendar(true)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white/5 text-white rounded-lg hover:bg-white/10 transition-colors border border-white/10"
+              >
+                <Calendar size={18} />
+                <span className="text-sm font-medium">Kalenderansicht</span>
+              </button>
+              
+              <button
+                onClick={() => setShowResourceKPIs(true)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white/5 text-white rounded-lg hover:bg-white/10 transition-colors border border-white/10"
+              >
+                <BarChart size={18} />
+                <span className="text-sm font-medium">KPI Dashboard</span>
+              </button>
+              
+              <button
+                onClick={() => navigate('/resources')}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] rounded-lg hover:from-[#ffa726] hover:to-[#ff9800] transition-all transform hover:scale-105 shadow-lg font-medium"
+              >
+                <ExternalLink size={18} />
+                <span className="text-sm font-medium">Detailansicht</span>
+              </button>
+            </div>
+        
+            {/* Einklappbarer Bereich für Ressourcendetails */}
+            {showResourceDetails && (
+              <div className="mt-6 space-y-3 animate-fadeIn">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-300">Ihre Ressourcen</h3>
+                  <button
+                    onClick={() => setShowResourceDetails(false)}
+                    className="text-xs text-gray-400 hover:text-white transition-colors"
+                  >
+                    Ausblenden
+                  </button>
+                </div>
+                
+                {userResources.length > 0 ? (
+                  <div className="space-y-2">
+                    {userResources.slice(0, 3).map((resource: any, index: number) => {
+                      const personDays = Math.ceil(
+                        (new Date(resource.end_date).getTime() - new Date(resource.start_date).getTime()) / 
+                        (1000 * 60 * 60 * 24)
+                      ) * (resource.person_count || 1);
+                      
+                      return (
+                        <div key={resource.id || index} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-2 h-2 rounded-full ${
+                              resource.status === 'available' ? 'bg-green-400' : 
+                              resource.status === 'allocated' ? 'bg-blue-400' : 
+                              'bg-yellow-400'
+                            }`}></div>
+                            <div>
+                              <p className="text-sm font-medium text-white">
+                                {resource.person_count} {resource.category || 'Mitarbeiter'}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {resource.address_city || 'Standort'} - ab {new Date(resource.start_date).toLocaleDateString('de-DE')}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-xs text-[#ffbd59] font-medium">{personDays} Personentage</div>
+                        </div>
+                      );
+                    })}
+                    
+                    {userResources.length > 3 && (
+                      <button
+                        onClick={() => navigate('/resources')}
+                        className="w-full p-2 text-center text-xs text-[#ffbd59] hover:text-[#ffa726] transition-colors"
+                      >
+                        +{userResources.length - 3} weitere Ressourcen anzeigen
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 bg-white/5 rounded-lg border border-white/10">
+                    <Users className="w-12 h-12 text-gray-500 mx-auto mb-3" />
+                    <p className="text-sm text-gray-400 mb-3">Noch keine Ressourcen angelegt</p>
+                    <button
+                      onClick={() => setShowResourceManagement(true)}
+                      className="px-4 py-2 bg-[#ffbd59]/20 text-[#ffbd59] rounded-lg hover:bg-[#ffbd59]/30 transition-colors text-xs font-medium border border-[#ffbd59]/30"
+                    >
+                      Erste Ressource anlegen
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Zeige/Verstecke Details Button */}
+            {!showResourceDetails && userResources.length > 0 && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => setShowResourceDetails(true)}
+                  className="text-xs text-[#ffbd59] hover:text-[#ffa726] transition-colors"
+                >
+                  Details anzeigen ({userResources.length} Ressourcen)
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Berechnungshinweis */}
+        <div className="mt-4 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={16} className="text-yellow-400 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-xs text-yellow-400 font-medium">Automatische Berechnung</p>
+              <p className="text-xs text-gray-300 mt-1">
+                Personentage werden automatisch berechnet: Anzahl Personen × Arbeitstage × tägliche Stunden.
+                Ein Personentag entspricht 8 Arbeitsstunden.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Neue Ausschreibung Modal */}
       {showTradeCreationForm && (
         <TradeCreationForm
           isOpen={showTradeCreationForm}
@@ -1635,7 +1963,7 @@ export default function ServiceProviderDashboard() {
                   <div className={`ml-2 px-2 py-1 rounded-full text-xs ${
                     activeLeftTab === 'bidding' ? 'bg-white/20 text-white' : 'bg-blue-500/20 text-blue-400'
                   }`}>
-                    {getAllTradesWithQuotes().filter(trade => getServiceProviderQuoteStatus(trade.id) !== 'accepted').length}
+                    {getAllTradesWithQuotes.filter(trade => getServiceProviderQuoteStatus(trade.id) !== 'accepted').length}
                   </div>
                 </button>
                 <button
@@ -1652,7 +1980,7 @@ export default function ServiceProviderDashboard() {
                   <div className={`ml-2 px-2 py-1 rounded-full text-xs ${
                     activeLeftTab === 'awarded' ? 'bg-white/20 text-white' : 'bg-green-500/20 text-green-400'
                   }`}>
-                    {getAllTradesWithQuotes().filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status !== 'completed').length}
+                    {getAllTradesWithQuotes.filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status !== 'completed').length}
                   </div>
                 </button>
                 <button
@@ -1669,10 +1997,10 @@ export default function ServiceProviderDashboard() {
                   <div className={`ml-2 px-2 py-1 rounded-full text-xs ${
                     activeLeftTab === 'completed' ? 'bg-white/20 text-white' : 'bg-purple-500/20 text-purple-400'
                   }`}>
-                    {getAllTradesWithQuotes().filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed').length}
+                    {getAllTradesWithQuotes.filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed').length}
                   </div>
                   {/* Badge für Projekte ohne Rechnung */}
-                  {getAllTradesWithQuotes().filter(trade => 
+                  {getAllTradesWithQuotes.filter(trade => 
                     getServiceProviderQuoteStatus(trade.id) === 'accepted' && 
                     trade.completion_status === 'completed' && 
                     !hasValidInvoice(trade.id)
@@ -1691,7 +2019,7 @@ export default function ServiceProviderDashboard() {
                 {activeLeftTab === 'bidding' && (
                 <div className="transition-all duration-500 opacity-100">
                   <div className="bidding-cards-container">
-                    {getAllTradesWithQuotes()
+                    {getAllTradesWithQuotes
                       .filter(trade => getServiceProviderQuoteStatus(trade.id) !== 'accepted')
                       .map((trade) => {
                         const quoteStatus = getServiceProviderQuoteStatus(trade.id);
@@ -1785,7 +2113,7 @@ export default function ServiceProviderDashboard() {
                       })}
                   </div>
                   
-                  {getAllTradesWithQuotes().filter(trade => getServiceProviderQuoteStatus(trade.id) !== 'accepted').length === 0 && (
+                  {getAllTradesWithQuotes.filter(trade => getServiceProviderQuoteStatus(trade.id) !== 'accepted').length === 0 && (
                     <div className="text-center py-12">
                       <Gavel size={48} className="mx-auto mb-4 text-gray-500" />
                       <h3 className="text-lg font-semibold text-gray-300 mb-2">Keine laufenden Angebote</h3>
@@ -1801,7 +2129,7 @@ export default function ServiceProviderDashboard() {
                 {activeLeftTab === 'awarded' && (
                 <div className="transition-all duration-500 opacity-100">
                   <div className="bidding-cards-container">
-                    {getAllTradesWithQuotes()
+                    {getAllTradesWithQuotes
                       .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status !== 'completed')
                       .map((trade) => {
                         const quote = getServiceProviderQuote(trade.id);
@@ -1913,7 +2241,7 @@ export default function ServiceProviderDashboard() {
                       })}
                   </div>
                   
-                  {getAllTradesWithQuotes().filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status !== 'completed').length === 0 && (
+                  {getAllTradesWithQuotes.filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status !== 'completed').length === 0 && (
                     <div className="text-center py-12">
                       <Award size={48} className="mx-auto mb-4 text-gray-500" />
                       <h3 className="text-lg font-semibold text-gray-300 mb-2">Noch keine gewonnenen Ausschreibungen</h3>
@@ -1929,7 +2257,7 @@ export default function ServiceProviderDashboard() {
                 {activeLeftTab === 'completed' && (
                 <div className="transition-all duration-500 opacity-100">
                   <div className="bidding-cards-container">
-                    {getAllTradesWithQuotes()
+                    {getAllTradesWithQuotes
                       .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed')
                       .map((trade) => {
                         const quote = getServiceProviderQuote(trade.id);
@@ -2059,7 +2387,7 @@ export default function ServiceProviderDashboard() {
                       })}
                   </div>
                   
-                  {getAllTradesWithQuotes().filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed').length === 0 && (
+                  {getAllTradesWithQuotes.filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed').length === 0 && (
                     <div className="text-center py-12">
                       <CheckCircle size={48} className="mx-auto mb-4 text-gray-500" />
                       <h3 className="text-lg font-semibold text-gray-300 mb-2">Noch keine abgeschlossenen Projekte</h3>
@@ -2972,9 +3300,78 @@ export default function ServiceProviderDashboard() {
         />
       )}
 
+      {/* Ressourcenmanagement Modal */}
+      {showResourceManagement && (
+        <ResourceManagementModal
+          isOpen={showResourceManagement}
+          onClose={() => setShowResourceManagement(false)}
+          onResourceCreated={(resource) => {
+            // Reload resources after creation
+            loadUserResources();
+          }}
+        />
+      )}
+
+      {/* Ressourcenkalender Modal */}
+      {showResourceCalendar && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-7xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-white/10">
+              <h2 className="text-xl font-bold text-white">Ressourcenkalender</h2>
+              <button
+                onClick={() => setShowResourceCalendar(false)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <XCircle size={24} className="text-gray-400" />
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(90vh-120px)] p-6">
+              <ResourceCalendar 
+                serviceProviderId={user?.id || 1}
+                onResourceClick={(resource) => {
+                  console.log('Resource clicked:', resource);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ressourcen KPI Dashboard Modal */}
+      {showResourceKPIs && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-7xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-white/10">
+              <h2 className="text-xl font-bold text-white">Ressourcen KPIs</h2>
+              <button
+                onClick={() => setShowResourceKPIs(false)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <XCircle size={24} className="text-gray-400" />
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(90vh-120px)] p-6">
+              <ResourceKPIDashboard 
+                serviceProviderId={user?.id || 1}
+                periodStart={new Date().toISOString().split('T')[0]}
+                periodEnd={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Radiales Menü für Dienstleister-Navigation */}
       <RadialMenu
         items={[
+          {
+            id: "resources",
+            label: "Ressourcen",
+            icon: <Users size={24} />,
+            onSelect: () => navigate('/resources'),
+            color: "#8B5CF6",
+            description: "Ressourcenplanung & Personal"
+          },
           {
             id: "tasks",
             label: "To Do",

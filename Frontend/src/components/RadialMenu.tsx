@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, useEffect, KeyboardEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useProject } from "../context/ProjectContext";
+import { useAuth } from "../context/AuthContext";
 import { 
   Home, 
   CheckSquare, 
@@ -12,7 +13,9 @@ import {
   X,
   Info,
   Hammer,
-  FileText
+  FileText,
+  Users,
+  Settings
 } from 'lucide-react';
 
 type RadialItem = {
@@ -57,12 +60,14 @@ export function RadialMenu({
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const navigate = useNavigate();
   const { selectedProject } = useProject();
+  const { user } = useAuth();
 
   // Default items wenn keine customItems übergeben werden
   const getDefaultItems = (): RadialItem[] => {
     const projectId = selectedProject?.id;
+    const userRole = user?.role; // Assuming user context has role
     
-    return [
+    const baseItems = [
       {
         id: "manager",
         label: "Manager",
@@ -151,6 +156,30 @@ export function RadialMenu({
         description: "Kollaboration & Zeichnungen"
       }
     ];
+    
+    // Add Resources Management for Service Providers
+    if (userRole === 'service_provider') {
+      baseItems.splice(3, 0, {
+        id: "resources",
+        label: "Ressourcen",
+        icon: <Users size={24} />,
+        onSelect: () => {
+          if (projectId) {
+            navigate(`/resources?project=${projectId}`);
+          } else {
+            navigate('/resources');
+          }
+        },
+        color: "#14B8A6",
+        description: "Ressourcenverwaltung & Planung",
+        badge: {
+          text: "NEU",
+          color: "#ef4444"
+        }
+      });
+    }
+    
+    return baseItems;
   };
 
   const items = customItems || getDefaultItems();

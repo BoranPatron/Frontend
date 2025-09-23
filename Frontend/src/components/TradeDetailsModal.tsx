@@ -48,6 +48,7 @@ import ServiceProviderRating from './ServiceProviderRating';
 import InvoiceModal from './InvoiceModal';
 // import FullDocumentViewer from './DocumentViewer';
 import { updateMilestone, deleteMilestone } from '../api/milestoneService';
+import { resourceService, type ResourceAllocation } from '../api/resourceService';
 
 // PDF Viewer Komponente
 const PDFViewer: React.FC<{ url: string; filename: string; onError: (error: string) => void }> = ({ url, filename, onError }) => {
@@ -893,6 +894,12 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   const [isUpdatingTrade, setIsUpdatingTrade] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingTrade, setIsDeletingTrade] = useState(false);
+  const [bautraegerContact, setBautraegerContact] = useState<any>(null);
+  const [loadingBautraegerContact, setLoadingBautraegerContact] = useState(false);
+  
+  // ResourceAllocations State
+  const [resourceAllocations, setResourceAllocations] = useState<ResourceAllocation[]>([]);
+  const [loadingResourceAllocations, setLoadingResourceAllocations] = useState(false);
 
   // Prüft, ob das Gewerk gelöscht werden kann (keine Angebote vorhanden)
   const canDeleteTrade = () => {
@@ -988,6 +995,22 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       console.log('✅ Angebot abgelehnt:', quoteId, 'Grund:', reason);
     } catch (error) {
       console.error('❌ Fehler beim Ablehnen des Angebots:', error);
+    }
+  };
+
+  // Funktion zum Laden der ResourceAllocations für dieses Trade
+  const loadResourceAllocations = async () => {
+    if (!trade?.id) return;
+    
+    try {
+      setLoadingResourceAllocations(true);
+      const allocations = await resourceService.getAllocationsByTrade(trade.id);
+      setResourceAllocations(allocations);
+      console.log('✅ ResourceAllocations geladen:', allocations);
+    } catch (error) {
+      console.error('❌ Fehler beim Laden der ResourceAllocations:', error);
+    } finally {
+      setLoadingResourceAllocations(false);
     }
   };
 
@@ -1151,6 +1174,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     if (isOpen) {
       loadFullTradeData();
       loadAppointments();
+      loadResourceAllocations();
     }
 
     // Event-Listener für neu erstellte Termine (z.B. Wiedervorlage-Termine)
@@ -1954,12 +1978,209 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       }
     };
 
+    // Lade Bauträger-Kontaktdaten - verschiedene Ansätze
+    const loadBautraegerContact = async () => {
+      console.log('🔍 DEBUG: loadBautraegerContact aufgerufen', {
+        tradeId: trade?.id,
+        tradeCreatedBy: (trade as any)?.created_by,
+        projectId: project?.id,
+        projectObject: project,
+        tradeObject: trade,
+        isBautraeger: isBautraeger()
+      });
+      
+      if (!trade?.id) {
+        console.log('❌ DEBUG: Keine trade.id vorhanden');
+        return;
+      }
+      
+      try {
+        setLoadingBautraegerContact(true);
+        
+        // Ansatz 1: Versuche über Milestone-Details (falls created_by dort verfügbar)
+        console.log('🔄 DEBUG: Versuche Milestone-Details zu laden für ID:', trade.id);
+        
+        const { api } = await import('../api/api');
+        
+        try {
+          // Lade vollständige Milestone-Daten
+          const milestoneResponse = await api.get(`/milestones/${trade.id}`);
+          console.log('📡 DEBUG: Milestone API Response:', milestoneResponse);
+          console.log('📡 DEBUG: Milestone Response Data:', milestoneResponse.data);
+          console.log('📡 DEBUG: Milestone created_by:', milestoneResponse.data?.created_by);
+          
+          if (milestoneResponse.data && milestoneResponse.data.created_by) {
+            console.log('✅ DEBUG: created_by gefunden in Milestone-Daten:', milestoneResponse.data.created_by);
+            
+            try {
+              // Versuche verschiedene User-API-Endpoints
+              const userId = milestoneResponse.data.created_by;
+              console.log('🔄 DEBUG: Versuche User-Daten für ID zu laden:', userId);
+              
+              // Korrekter Endpoint: /users/profile/{id}
+              try {
+                console.log('🔄 DEBUG: Versuche /users/profile/{id}');
+                const userResponse = await api.get(`/users/profile/${userId}`);
+                console.log('📡 DEBUG: User API Response (/users/profile/{id}):', userResponse);
+                
+                if (userResponse.data) {
+                  setBautraegerContact(userResponse.data);
+                  console.log('✅ Bauträger-Kontaktdaten geladen über /users/profile/{id}:', userResponse.data);
+                  return;
+                }
+              } catch (error1) {
+                console.log('❌ DEBUG: /users/profile/{id} fehlgeschlagen:', error1.message);
+                console.log('❌ DEBUG: Error Details:', {
+                  status: error1.response?.status,
+                  statusText: error1.response?.statusText,
+                  data: error1.response?.data
+                });
+              }
+              
+              console.log('❌ DEBUG: User-API-Endpoint fehlgeschlagen');
+              
+            } catch (userError) {
+              console.error('❌ DEBUG: Fehler beim Laden der User-Daten:', userError);
+            }
+          } else {
+            console.log('❌ DEBUG: Kein created_by in Milestone-Daten gefunden');
+            console.log('❌ DEBUG: Milestone-Daten Struktur:', Object.keys(milestoneResponse.data || {}));
+          }
+        } catch (milestoneError) {
+          console.error('❌ DEBUG: Fehler beim Laden der Milestone-Daten:', milestoneError);
+        }
+        
+        // Ansatz 2: Verwende Projekt-Kontaktdaten als Hauptquelle
+        console.log('🔍 DEBUG: Prüfe Projekt-Kontaktdaten:', {
+          projectExists: !!project,
+          projectId: project?.id,
+          projectName: project?.name,
+          contactPerson: project?.contact_person,
+          contactEmail: project?.contact_email,
+          contactPhone: project?.contact_phone,
+          address: project?.address,
+          hasContactData: !!(project?.contact_person || project?.contact_email || project?.contact_phone || project?.name)
+        });
+        
+        if (project && (project.contact_person || project.contact_email || project.contact_phone || project.name)) {
+          console.log('🔄 DEBUG: Verwende Projekt-Kontaktdaten als Hauptquelle');
+          console.log('📊 DEBUG: Projekt-Daten:', {
+            name: project.name,
+            contact_person: project.contact_person,
+            contact_email: project.contact_email,
+            contact_phone: project.contact_phone,
+            address: project.address
+          });
+          
+          setBautraegerContact({
+            first_name: project.contact_person?.split(' ')[0] || '',
+            last_name: project.contact_person?.split(' ').slice(1).join(' ') || '',
+            company_name: project.name || '',
+            email: project.contact_email || '',
+            phone: project.contact_phone || '',
+            company_address: project.address || ''
+          });
+          console.log('✅ Projekt-Kontaktdaten verwendet');
+          return;
+        } else {
+          console.log('❌ DEBUG: Projekt-Kontaktdaten nicht verfügbar oder Bedingung nicht erfüllt');
+        }
+        
+        // Ansatz 3: Versuche über Projekt-Details
+        if (project?.id) {
+          console.log('🔄 DEBUG: Versuche Projekt-Details zu laden für ID:', project.id);
+          
+          try {
+            const projectResponse = await api.get(`/projects/${project.id}`);
+            console.log('📡 DEBUG: Projekt API Response:', projectResponse);
+            
+            if (projectResponse.data && projectResponse.data.owner_id) {
+              console.log('✅ DEBUG: owner_id gefunden in Projekt-Daten:', projectResponse.data.owner_id);
+              
+              // Versuche korrekten User-Endpoint für owner_id
+              const ownerId = projectResponse.data.owner_id;
+              
+              try {
+                const userResponse = await api.get(`/users/profile/${ownerId}`);
+                if (userResponse.data) {
+                  setBautraegerContact(userResponse.data);
+                  console.log('✅ Bauträger-Kontaktdaten über Projekt-Owner geladen:', userResponse.data);
+                  return;
+                }
+              } catch (error) {
+                console.log('❌ DEBUG: /users/profile/{owner_id} fehlgeschlagen:', error.message);
+              }
+            }
+          } catch (projectError) {
+            console.log('❌ DEBUG: Projekt-Details laden fehlgeschlagen:', projectError.message);
+          }
+        }
+        
+        // Fallback: Verwende grundlegende Projekt-Informationen
+        if (project && project.name) {
+          console.log('🔄 DEBUG: Verwende grundlegende Projekt-Informationen als Fallback');
+          setBautraegerContact({
+            first_name: '',
+            last_name: '',
+            company_name: project.name,
+            email: '',
+            phone: '',
+            company_address: project.address || ''
+          });
+          console.log('✅ Grundlegende Projekt-Informationen verwendet');
+          return;
+        }
+        
+        // Letzter Fallback: Zeige generische Bauträger-Informationen
+        console.log('🔄 DEBUG: Verwende generische Bauträger-Informationen als letzten Fallback');
+        setBautraegerContact({
+          first_name: '',
+          last_name: '',
+          company_name: 'Bauträger',
+          email: '',
+          phone: '',
+          company_address: ''
+        });
+        console.log('✅ Generische Bauträger-Informationen verwendet');
+        
+      } catch (error: any) {
+        console.error('❌ Fehler beim Laden der Bauträger-Kontaktdaten:', error);
+        console.log('❌ DEBUG: Error Details:', {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data
+        });
+        setBautraegerContact(null);
+      } finally {
+        setLoadingBautraegerContact(false);
+      }
+    };
+
     // Lade bestehende Rechnung wenn Modal geöffnet wird - nach Abschluss des Gewerks
     useEffect(() => {
       if (isOpen && trade?.id && (completionStatus === 'completed' || completionStatus === 'completed_with_defects')) {
         loadExistingInvoice();
       }
     }, [isOpen, trade?.id, completionStatus]);
+
+    // Lade Bauträger-Kontaktdaten wenn Modal geöffnet wird
+    useEffect(() => {
+      console.log('🔍 DEBUG: useEffect für loadBautraegerContact', {
+        isOpen,
+        tradeId: trade?.id,
+        projectId: project?.id,
+        isBautraeger: isBautraeger(),
+        shouldLoad: isOpen && trade?.id && !isBautraeger()
+      });
+      
+      if (isOpen && trade?.id && !isBautraeger()) {
+        console.log('✅ DEBUG: Bedingungen erfüllt, lade Kontaktdaten');
+        loadBautraegerContact();
+      } else {
+        console.log('❌ DEBUG: Bedingungen nicht erfüllt, lade keine Kontaktdaten');
+      }
+    }, [isOpen, trade?.id, project?.id]);
 
     // Prüfe finale Abnahme-Status wenn Modal geöffnet wird
     useEffect(() => {
@@ -3247,10 +3468,10 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               <div className="flex items-center gap-2">
                 <Package size={16} />
                 <span className="hidden md:inline">
-                  {isBautraeger() ? `Angebote (${existingQuotes?.length || 0})` : 'Mein Angebot'}
+                  {isBautraeger() ? `Angebote (${(existingQuotes?.length || 0) + (resourceAllocations?.length || 0)})` : 'Mein Angebot'}
                 </span>
                 <span className="md:hidden">
-                  {isBautraeger() ? `${existingQuotes?.length || 0}` : 'Angebot'}
+                  {isBautraeger() ? `${(existingQuotes?.length || 0) + (resourceAllocations?.length || 0)}` : 'Angebot'}
                 </span>
                 {isBautraeger() && existingQuotes && existingQuotes.length > 0 && existingQuotes.some(q => q.status === 'submitted') && (
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
@@ -3312,11 +3533,35 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               </div>
             </button>
             
+            {/* Kontakt Tab - nur für Dienstleister */}
+            {!isBautraeger() && (
+              <button
+                onClick={() => setActiveTab('contact')}
+                onKeyDown={(e) => handleTabKeyDown(e, 4)}
+                role="tab"
+                aria-selected={activeTab === 'contact'}
+                aria-controls="contact-panel"
+                id="contact-tab"
+                tabIndex={activeTab === 'contact' ? 0 : -1}
+                className={`px-4 py-3 font-medium text-sm border-b-2 transition-all duration-200 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:ring-offset-2 focus:ring-offset-[#2c3539] ${
+                  activeTab === 'contact'
+                    ? 'border-[#ffbd59] text-[#ffbd59] bg-[#ffbd59]/5'
+                    : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Phone size={16} />
+                  <span className="hidden sm:inline">Kontakt</span>
+                  <span className="sm:hidden">Kontakt</span>
+                </div>
+              </button>
+            )}
+
             {/* Abnahme Tab - nur für Dienstleister mit angenommenem Angebot */}
             {!isBautraeger() && acceptedQuote && (
               <button
                 onClick={() => setActiveTab('abnahme')}
-                onKeyDown={(e) => handleTabKeyDown(e, 4)}
+                onKeyDown={(e) => handleTabKeyDown(e, 5)}
                 role="tab"
                 aria-selected={activeTab === 'abnahme'}
                 aria-controls="abnahme-panel"
@@ -3724,7 +3969,6 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               </div>
             )}
           </div>
-
 
               {/* Abnahme-Workflow direkt unterhalb der Ausschreibungsdetails für Dienstleister - nur wenn Angebot angenommen */}
               {!isBautraeger() && acceptedQuote && completionStatus === 'completed_with_defects' && (
@@ -4221,7 +4465,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       <FileText size={18} className="text-blue-400" />
                     </div>
                     <h3 className="text-lg font-bold text-blue-300">
-                      Eingegangene Angebote ({existingQuotes?.length || 0})
+                      Eingegangene Angebote ({(existingQuotes?.length || 0) + (resourceAllocations?.length || 0)})
                     </h3>
                   </div>
                   {(trade as any).requires_inspection && (
@@ -4253,7 +4497,95 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               </div>
 
               <div className="p-6 space-y-4">
-                {existingQuotes && existingQuotes.length > 0 ? existingQuotes.map((quote) => (
+                {/* ResourceAllocations (zugeordnete Ressourcen) */}
+                {loadingResourceAllocations ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mr-3"></div>
+                    <span className="text-gray-300">Lade zugeordnete Ressourcen...</span>
+                  </div>
+                ) : resourceAllocations && resourceAllocations.length > 0 ? (
+                  <>
+                    <div className="mb-4">
+                      <h4 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                        <Users size={18} className="text-blue-400" />
+                        Zugeordnete Ressourcen ({resourceAllocations.length})
+                      </h4>
+                    </div>
+                    {resourceAllocations.map((allocation) => (
+                      <div 
+                        key={`allocation-${allocation.id}`} 
+                        className="p-4 rounded-xl border bg-blue-500/10 border-blue-500/30"
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 bg-blue-500/20 rounded-lg">
+                              <Users size={16} className="text-blue-400" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <h4 className="text-white font-semibold">
+                                  {allocation.resource?.provider_name || 'Dienstleister'}
+                                </h4>
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  allocation.allocation_status === 'pre_selected' ? 'bg-blue-500/20 text-blue-400' :
+                                  allocation.allocation_status === 'invited' ? 'bg-yellow-500/20 text-yellow-400' :
+                                  allocation.allocation_status === 'accepted' ? 'bg-green-500/20 text-green-400' :
+                                  allocation.allocation_status === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                                  'bg-gray-500/20 text-gray-400'
+                                }`}>
+                                  {allocation.allocation_status === 'pre_selected' ? 'Vorausgewählt' :
+                                   allocation.allocation_status === 'invited' ? 'Eingeladen' :
+                                   allocation.allocation_status === 'accepted' ? 'Angenommen' :
+                                   allocation.allocation_status === 'rejected' ? 'Abgelehnt' :
+                                   allocation.allocation_status}
+                                </span>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                <div>
+                                  <span className="text-gray-400">Personen:</span>
+                                  <div className="text-white font-semibold">{allocation.allocated_person_count}</div>
+                                </div>
+                                <div>
+                                  <span className="text-gray-400">Zeitraum:</span>
+                                  <div className="text-white">
+                                    {new Date(allocation.allocated_start_date).toLocaleDateString('de-DE')} - 
+                                    {new Date(allocation.allocated_end_date).toLocaleDateString('de-DE')}
+                                  </div>
+                                </div>
+                                <div>
+                                  <span className="text-gray-400">Kategorie:</span>
+                                  <div className="text-white">{allocation.resource?.category || 'Nicht angegeben'}</div>
+                                </div>
+                              </div>
+
+                              {allocation.resource?.address_city && (
+                                <div className="mt-3 flex items-center gap-4 text-sm text-gray-300">
+                                  <div className="flex items-center gap-1">
+                                    <MapPin size={14} />
+                                    {allocation.resource.address_city}, {allocation.resource.address_postal_code}
+                                  </div>
+                                  {allocation.resource.hourly_rate && (
+                                    <div className="flex items-center gap-1">
+                                      <Clock size={14} />
+                                      {allocation.resource.hourly_rate}€/h
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="border-t border-gray-600/30 my-6"></div>
+                  </>
+                ) : null}
+
+                {/* Quotes (Angebote) */}
+                {(existingQuotes && existingQuotes.length > 0) || (resourceAllocations && resourceAllocations.length > 0) ? (
+                  <>
+                    {existingQuotes && existingQuotes.length > 0 && existingQuotes.map((quote) => (
                   <div 
                     key={quote.id} 
                     className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer ${
@@ -4433,18 +4765,20 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       </div>
                     </div>
                   </div>
-                )) : (
+                ))}
+                  </>
+                ) : (
                   <div className="text-center py-8">
                     <FileText size={48} className="mx-auto mb-4 text-gray-500" />
                     <h3 className="text-lg font-semibold text-gray-300 mb-2">Keine Angebote vorhanden</h3>
                     <p className="text-gray-400 text-sm">
-                      Für diese Ausschreibung sind noch keine Angebote eingegangen.
+                      Für diese Ausschreibung sind noch keine Angebote eingegangen und keine Ressourcen zugeordnet.
                     </p>
                   </div>
                 )}
                 
                 {/* Workflow-Hinweis für Bauträger */}
-                {existingQuotes && existingQuotes.length > 0 && (
+                {((existingQuotes && existingQuotes.length > 0) || (resourceAllocations && resourceAllocations.length > 0)) && (
                   <div className="mt-4 p-3 bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 border border-[#ffbd59]/20 rounded-lg">
                     {(trade as any).requires_inspection ? (
                       appointmentsForTrade && appointmentsForTrade.length > 0 ? (
@@ -4618,6 +4952,210 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   {renderAbnahmeWorkflow()}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Kontakt Tab - nur für Dienstleister */}
+          {activeTab === 'contact' && !isBautraeger() && (
+            <div 
+              role="tabpanel" 
+              id="contact-panel" 
+              aria-labelledby="contact-tab"
+              className="space-y-6"
+            >
+              <div className="bg-gradient-to-br from-[#1a1a2e]/80 to-[#2c3539]/80 rounded-xl border border-gray-600/30 p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-3 bg-purple-500/20 rounded-lg">
+                    <Phone size={24} className="text-purple-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Bauträger-Kontaktdaten</h2>
+                    <p className="text-gray-400 text-sm">Kontaktinformationen für direkte Kommunikation</p>
+                  </div>
+                </div>
+
+                {/* Projektinformationen */}
+                {project && (
+                  <div className="mb-6 p-4 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/30 rounded-xl">
+                    <h3 className="text-purple-300 font-semibold mb-4 flex items-center gap-2">
+                      <Building size={18} className="text-purple-400" />
+                      Projektinformationen
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-sm text-purple-300 mb-1">Projektname</div>
+                        <div className="text-white font-medium">{project.name || 'Nicht angegeben'}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-purple-300 mb-1">Projekttyp</div>
+                        <div className="text-white font-medium">{getProjectTypeLabel(project.project_type) || 'Nicht angegeben'}</div>
+                      </div>
+                    </div>
+                    {project.address && (
+                      <div className="mt-3">
+                        <div className="text-sm text-purple-300 mb-1">Projektadresse</div>
+                        <div className="text-white font-medium">{project.address}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Kontaktdaten */}
+                <div className="mb-6 p-4 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl">
+                  <h3 className="text-blue-300 font-semibold mb-4 flex items-center gap-2">
+                    <User size={18} className="text-blue-400" />
+                    Kontaktdaten des Bauträgers
+                  </h3>
+                  
+                  {loadingBautraegerContact ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mr-3"></div>
+                      <span className="text-gray-300">Lade Kontaktdaten...</span>
+                    </div>
+                  ) : bautraegerContact ? (
+                    <div className="space-y-4">
+                      {/* Kontaktperson */}
+                      {(bautraegerContact.first_name || bautraegerContact.last_name) && (
+                        <div className="flex items-center gap-3">
+                          <User size={16} className="text-blue-400" />
+                          <div>
+                            <div className="text-sm text-blue-300 mb-1">Ansprechpartner</div>
+                            <div className="text-white font-medium">
+                              {[bautraegerContact.first_name, bautraegerContact.last_name].filter(Boolean).join(' ')}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Firmenname - immer anzeigen */}
+                      <div className="flex items-center gap-3">
+                        <Building size={16} className="text-blue-400" />
+                        <div>
+                          <div className="text-sm text-blue-300 mb-1">Bauträger</div>
+                          <div className="text-white font-medium">{bautraegerContact.company_name || 'Bauträger'}</div>
+                        </div>
+                      </div>
+
+                      {/* Kontaktinformationen Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* E-Mail */}
+                        {bautraegerContact.email && (
+                          <div className="flex items-center gap-3">
+                            <Mail size={16} className="text-blue-400" />
+                            <div>
+                              <div className="text-sm text-blue-300 mb-1">E-Mail</div>
+                              <a 
+                                href={`mailto:${bautraegerContact.email}`} 
+                                className="text-[#ffbd59] hover:underline font-medium"
+                              >
+                                {bautraegerContact.email}
+                              </a>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Telefon */}
+                        {bautraegerContact.phone && (
+                          <div className="flex items-center gap-3">
+                            <Phone size={16} className="text-blue-400" />
+                            <div>
+                              <div className="text-sm text-blue-300 mb-1">Telefon</div>
+                              <a 
+                                href={`tel:${bautraegerContact.phone}`} 
+                                className="text-[#ffbd59] hover:underline font-medium"
+                              >
+                                {bautraegerContact.phone}
+                              </a>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Firmenadresse */}
+                      {bautraegerContact.company_address && (
+                        <div className="flex items-center gap-3">
+                          <MapPin size={16} className="text-blue-400" />
+                          <div>
+                            <div className="text-sm text-blue-300 mb-1">Firmenadresse</div>
+                            <div className="text-white font-medium">{bautraegerContact.company_address}</div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Hinweis wenn keine Kontaktdaten verfügbar */}
+                      {!bautraegerContact.email && !bautraegerContact.phone && (
+                        <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Info size={16} className="text-yellow-400" />
+                            <div className="text-yellow-300 text-sm">
+                              Kontaktdaten des Bauträgers sind nicht verfügbar. 
+                              Für direkte Kommunikation wenden Sie sich bitte über die Plattform an den Bauträger.
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="text-gray-400 mb-4">
+                        <Phone size={48} className="mx-auto mb-4 opacity-50" />
+                        <h4 className="text-lg font-semibold text-gray-300 mb-2">Keine Kontaktdaten verfügbar</h4>
+                        <p className="text-sm">Die Kontaktdaten des Bauträgers konnten nicht geladen werden.</p>
+                        <div className="text-xs text-gray-500 mt-2">
+                          DEBUG: loadingBautraegerContact={loadingBautraegerContact ? 'true' : 'false'}, 
+                          bautraegerContact={bautraegerContact ? 'exists' : 'null'}, 
+                          trade.created_by={(trade as any)?.created_by || 'undefined'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Schnellaktionen */}
+                {bautraegerContact && (bautraegerContact.email || bautraegerContact.phone) && (
+                  <div className="p-4 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-xl">
+                    <h3 className="text-green-300 font-semibold mb-4 flex items-center gap-2">
+                      <MessageCircle size={18} className="text-green-400" />
+                      Schnellaktionen
+                    </h3>
+                    <div className="flex flex-wrap gap-3">
+                      {bautraegerContact.email && (
+                        <button
+                          onClick={() => window.open(`mailto:${bautraegerContact.email}`, '_blank')}
+                          className="px-4 py-2 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition-colors flex items-center gap-2 border border-green-500/30 hover:scale-105 active:scale-95"
+                        >
+                          <Mail size={16} />
+                          E-Mail senden
+                        </button>
+                      )}
+                      
+                      {bautraegerContact.phone && (
+                        <button
+                          onClick={() => window.open(`tel:${bautraegerContact.phone}`, '_blank')}
+                          className="px-4 py-2 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition-colors flex items-center gap-2 border border-green-500/30 hover:scale-105 active:scale-95"
+                        >
+                          <Phone size={16} />
+                          Anrufen
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Hinweise */}
+                <div className="mt-6 p-4 bg-gradient-to-r from-gray-500/10 to-slate-500/10 border border-gray-500/30 rounded-xl">
+                  <h3 className="text-gray-300 font-semibold mb-3 flex items-center gap-2">
+                    <Info size={16} className="text-gray-400" />
+                    Hinweise
+                  </h3>
+                  <div className="space-y-2 text-sm text-gray-400">
+                    <p>• Nutzen Sie die Kontaktdaten für direkte Kommunikation mit dem Bauträger</p>
+                    <p>• E-Mail-Kommunikation wird automatisch in Ihrem E-Mail-Client geöffnet</p>
+                    <p>• Telefonanrufe werden über Ihr Standard-Telefonie-Programm gestartet</p>
+                    <p>• Bei Fragen zur Ausschreibung können Sie direkt Kontakt aufnehmen</p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
           

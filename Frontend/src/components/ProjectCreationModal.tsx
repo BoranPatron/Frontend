@@ -16,8 +16,12 @@ import {
   AlertTriangle,
   Tags,
   Settings,
-  Info
+  Info,
+  Zap,
+  Sparkles,
+  Target
 } from 'lucide-react';
+import { DocumentCategorizer } from '../utils/documentCategorizer';
 
 interface ProjectCreationModalProps {
   isOpen: boolean;
@@ -34,6 +38,10 @@ interface UploadFile {
   progress: number;
   error?: string;
   id: string;
+  autoDetected?: boolean;
+  confidence?: number;
+  suggestedCategory?: string;
+  suggestedSubcategory?: string;
 }
 
 // DMS-Kategorien (synchron mit Backend)
@@ -150,12 +158,23 @@ export default function ProjectCreationModal({ isOpen, onClose, onSubmit }: Proj
   }, []);
 
   const handleFileSelection = (files: File[]) => {
-    const newFiles: UploadFile[] = files.map(file => ({
-      file,
-      status: 'pending',
-      progress: 0,
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    }));
+    const newFiles: UploadFile[] = files.map(file => {
+      // Automatische Kategorisierung basierend auf Dateiname
+      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+      const detectedCategory = DocumentCategorizer.categorizeDocument(file.name, fileExtension);
+      const suggestedSubcategory = detectedCategory ? DocumentCategorizer.suggestSubcategory(detectedCategory, file.name) : null;
+      
+      return {
+        file,
+        status: 'pending',
+        progress: 0,
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        autoDetected: !!detectedCategory,
+        confidence: detectedCategory ? DocumentCategorizer.calculateConfidence(file.name, fileExtension, detectedCategory) : 0,
+        suggestedCategory: detectedCategory?.id,
+        suggestedSubcategory: suggestedSubcategory || undefined
+      };
+    });
 
     setUploadFiles(prev => [...prev, ...newFiles]);
     setCategorizingFiles(newFiles);
@@ -176,6 +195,31 @@ export default function ProjectCreationModal({ isOpen, onClose, onSubmit }: Proj
       document_type,
       status: 'categorizing' as const
     }));
+
+    setUploadFiles(prev => 
+      prev.map(file => {
+        const updated = updatedFiles.find(f => f.id === file.id);
+        return updated || file;
+      })
+    );
+
+    setShowCategoryDialog(false);
+    setCategorizingFiles([]);
+  };
+
+  const handleAutoAcceptSuggestions = () => {
+    const updatedFiles = categorizingFiles.map(file => {
+      if (file.autoDetected && file.suggestedCategory && file.suggestedSubcategory) {
+        return {
+          ...file,
+          category: file.suggestedCategory,
+          subcategory: file.suggestedSubcategory,
+          document_type: 'other',
+          status: 'categorizing' as const
+        };
+      }
+      return file;
+    });
 
     setUploadFiles(prev => 
       prev.map(file => {
@@ -490,9 +534,13 @@ export default function ProjectCreationModal({ isOpen, onClose, onSubmit }: Proj
                     <p className="text-white text-lg font-medium mb-2">
                       Dokumente hier ablegen oder klicken zum Auswählen
                     </p>
-                    <p className="text-gray-400 text-sm mb-4">
+                    <p className="text-gray-400 text-sm mb-2">
                       Unterstützte Formate: PDF, Word, Excel, Bilder, Videos (max. 50MB pro Datei)
                     </p>
+                    <div className="flex items-center justify-center gap-2 text-[#ffbd59] text-sm font-medium">
+                      <Sparkles className="w-4 h-4" />
+                      <span>Automatische Kategorisierung mit KI</span>
+                    </div>
                     
                     <button
                       type="button"
@@ -535,6 +583,12 @@ export default function ProjectCreationModal({ isOpen, onClose, onSubmit }: Proj
                                     <span className="ml-2 text-[#ffbd59]">
                                       • {DOCUMENT_CATEGORIES[uploadFile.category as keyof typeof DOCUMENT_CATEGORIES]?.name}
                                       {uploadFile.subcategory && ` > ${uploadFile.subcategory}`}
+                                    </span>
+                                  )}
+                                  {uploadFile.autoDetected && (
+                                    <span className="ml-2 text-green-400 flex items-center gap-1">
+                                      <Zap className="w-3 h-3" />
+                                      Auto-erkannt ({uploadFile.confidence}%)
                                     </span>
                                   )}
                                 </p>
@@ -618,39 +672,137 @@ export default function ProjectCreationModal({ isOpen, onClose, onSubmit }: Proj
                 </div>
 
                 <div className="mb-6">
-                  <p className="text-gray-300 mb-2">
-                    Bitte wählen Sie eine Kategorie für die {categorizingFiles.length} Datei(en):
+                  <div className="flex items-center gap-2 mb-4">
+                    <Sparkles className="w-5 h-5 text-[#ffbd59]" />
+                    <h4 className="text-lg font-semibold text-white">Intelligente Dokumentenkategorisierung</h4>
+                  </div>
+                  
+                  <p className="text-gray-300 mb-4">
+                    Unsere KI hat Ihre Dokumente analysiert und automatische Kategorisierungsvorschläge erstellt:
                   </p>
-                  <div className="flex flex-wrap gap-2">
+                  
+                  <div className="space-y-3">
                     {categorizingFiles.map((file, index) => (
-                      <span key={index} className="bg-[#ffbd59]/20 text-[#ffbd59] px-3 py-1 rounded-full text-sm">
-                        {file.file.name}
-                      </span>
+                      <div key={index} className="bg-[#1a1a2e]/50 rounded-lg p-4 border border-gray-600/30">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <File className="w-5 h-5 text-blue-400" />
+                            <span className="text-white font-medium">{file.file.name}</span>
+                            <span className="text-gray-400 text-sm">
+                              ({(file.file.size / 1024 / 1024).toFixed(2)} MB)
+                            </span>
+                          </div>
+                          {file.autoDetected && (
+                            <div className="flex items-center gap-2">
+                              <Zap className="w-4 h-4 text-[#ffbd59]" />
+                              <span className="text-[#ffbd59] text-sm font-medium">
+                                {file.confidence}% sicher
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {file.autoDetected && file.suggestedCategory ? (
+                          <div className="flex items-center gap-2">
+                            <Target className="w-4 h-4 text-green-400" />
+                            <span className="text-green-400 text-sm">
+                              Vorschlag: <strong>{DOCUMENT_CATEGORIES[file.suggestedCategory as keyof typeof DOCUMENT_CATEGORIES]?.name}</strong>
+                              {file.suggestedSubcategory && ` > ${file.suggestedSubcategory}`}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                            <span className="text-yellow-400 text-sm">
+                              Keine automatische Erkennung möglich - bitte manuell kategorisieren
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
+                  
+                  {/* Auto-Accept Button */}
+                  {categorizingFiles.some(f => f.autoDetected && f.suggestedCategory && f.suggestedSubcategory) && (
+                    <div className="mt-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-5 h-5 text-green-400" />
+                          <span className="text-green-400 font-medium">
+                            Alle Vorschläge automatisch übernehmen?
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleAutoAcceptSuggestions}
+                          className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          Ja, übernehmen
+                        </button>
+                      </div>
+                      <p className="text-gray-400 text-sm mt-2">
+                        Die KI-Vorschläge werden automatisch angewendet. Sie können diese später noch ändern.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mb-4">
+                  <h5 className="text-white font-medium mb-3">Kategorien auswählen:</h5>
+                  <p className="text-gray-400 text-sm mb-4">
+                    Klicken Sie auf eine Unterkategorie, um alle ausgewählten Dokumente zu kategorisieren. 
+                    Automatisch erkannte Vorschläge sind bereits vorausgewählt.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Object.entries(DOCUMENT_CATEGORIES).map(([key, category]) => {
                     const Icon = category.icon;
+                    const hasAutoDetected = categorizingFiles.some(f => f.suggestedCategory === key);
+                    
                     return (
-                      <div key={key} className="bg-[#1a1a2e]/30 rounded-xl p-4 border border-gray-600/30">
+                      <div key={key} className={`rounded-xl p-4 border transition-all ${
+                        hasAutoDetected 
+                          ? 'bg-[#ffbd59]/10 border-[#ffbd59]/50 shadow-lg shadow-[#ffbd59]/10' 
+                          : 'bg-[#1a1a2e]/30 border-gray-600/30'
+                      }`}>
                         <div className="flex items-center mb-3">
-                          <Icon className="w-6 h-6 mr-3 text-[#ffbd59]" />
-                          <h4 className="text-white font-semibold">{category.name}</h4>
+                          <Icon className={`w-6 h-6 mr-3 ${hasAutoDetected ? 'text-[#ffbd59]' : 'text-gray-400'}`} />
+                          <h4 className={`font-semibold ${hasAutoDetected ? 'text-white' : 'text-gray-300'}`}>
+                            {category.name}
+                          </h4>
+                          {hasAutoDetected && (
+                            <Sparkles className="w-4 h-4 ml-2 text-[#ffbd59]" />
+                          )}
                         </div>
                         
                         <div className="space-y-2">
-                          {category.subcategories.map((subcategory) => (
-                            <button
-                              key={subcategory}
-                              type="button"
-                              onClick={() => handleCategoryAssignment(key, subcategory, 'other')}
-                              className="w-full text-left px-3 py-2 text-gray-300 hover:text-white hover:bg-[#ffbd59]/10 rounded-lg transition-colors text-sm"
-                            >
-                              {subcategory}
-                            </button>
-                          ))}
+                          {category.subcategories.map((subcategory) => {
+                            const isSuggested = categorizingFiles.some(f => 
+                              f.suggestedCategory === key && f.suggestedSubcategory === subcategory
+                            );
+                            
+                            return (
+                              <button
+                                key={subcategory}
+                                type="button"
+                                onClick={() => handleCategoryAssignment(key, subcategory, 'other')}
+                                className={`w-full text-left px-3 py-2 rounded-lg transition-colors text-sm ${
+                                  isSuggested
+                                    ? 'bg-[#ffbd59]/20 text-[#ffbd59] border border-[#ffbd59]/30 font-medium'
+                                    : 'text-gray-300 hover:text-white hover:bg-[#ffbd59]/10'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span>{subcategory}</span>
+                                  {isSuggested && (
+                                    <Target className="w-3 h-3" />
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     );

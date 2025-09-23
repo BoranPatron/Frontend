@@ -14,8 +14,14 @@ import {
   Video,
   Archive,
   FolderOpen,
-  Eye
+  Eye,
+  Users,
+  Map,
+  ChevronRight
 } from 'lucide-react';
+import ResourceSelectionPanel from './ResourceSelectionPanel';
+import ResourceGeoSearch from './ResourceGeoSearch';
+import { Resource, ResourceAllocation } from '../api/resourceService';
 
 interface TradeCreationFormProps {
   isOpen: boolean;
@@ -130,6 +136,12 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projectInfo, setProjectInfo] = useState<any>(null);
+  
+  // Resource Selection States
+  const [showResourcePanel, setShowResourcePanel] = useState(false);
+  const [showResourceMap, setShowResourceMap] = useState(false);
+  const [selectedResources, setSelectedResources] = useState<Resource[]>([]);
+  const [preSelectedAllocations, setPreSelectedAllocations] = useState<ResourceAllocation[]>([]);
 
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -500,7 +512,8 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
         notify_on_completion: false,
         requires_inspection: formData.requires_inspection,
         document_ids: uploadedDocuments.map(doc => doc.id), // Referenzen zu DMS-Dokumenten
-        shared_document_ids: Array.from(selectedDocuments) // Geteilte Projekt-Dokumente
+        shared_document_ids: Array.from(selectedDocuments), // Geteilte Projekt-Dokumente
+        resource_allocations: preSelectedAllocations // Vorausgewählte Ressourcen
       };
       
       const result = await createMilestoneWithDocuments(milestoneData);
@@ -533,6 +546,10 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
     setShowCategoryDialog(false);
     setSelectedDocuments(new Set());
     setErrors({});
+    setSelectedResources([]);
+    setPreSelectedAllocations([]);
+    setShowResourcePanel(false);
+    setShowResourceMap(false);
     onClose();
   };
 
@@ -540,7 +557,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
         {/* Drag & Drop Overlay */}
         {dragOver && (
           <div className="fixed inset-0 bg-[#ffbd59]/20 backdrop-blur-sm z-60 flex items-center justify-center">
@@ -1029,12 +1046,106 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                                 : 'Noch keine Dokumente im Projekt'
                               }
                             </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                  </div>
+                )}
+                
+                {/* Placeholder for resource section that was moved down */}
+                  
+              </div>
+            </div>
                 </div>
               </div>
+            </div>
+            
+            {/* Ressourcen-Vorauswahl Abschnitt - Volle Breite */}
+            <div className="col-span-1 lg:col-span-2 mt-8 border-t border-gray-700 pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-white flex items-center">
+                    <Users className="w-5 h-5 mr-2 text-[#ffbd59]" />
+                    Ressourcen-Vorauswahl
+                  </h3>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Wählen Sie vorab passende Dienstleister für diese Ausschreibung
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowResourcePanel(!showResourcePanel)}
+                    className="px-4 py-2 bg-[#ffbd59] text-black rounded-lg hover:bg-[#f59e0b] transition-colors flex items-center space-x-2 text-sm font-medium"
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>Ressourcen durchsuchen</span>
+                    <ChevronRight className={`w-4 h-4 transition-transform ${showResourcePanel ? 'rotate-90' : ''}`} />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Ausgewählte Ressourcen Anzeige */}
+              {selectedResources.length > 0 ? (
+                <div className="bg-[#2a2a2a]/50 rounded-lg p-4 border border-gray-600">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium text-gray-300">
+                      {selectedResources.length} Ressourcen vorausgewählt
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {selectedResources.reduce((sum, r) => sum + r.person_count, 0)} Personen gesamt
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {selectedResources.map((resource) => (
+                      <div
+                        key={resource.id}
+                        className="flex items-center justify-between bg-[#333] rounded-lg p-3 hover:bg-[#3a3a3a] transition-colors"
+                      >
+                        <div className="flex items-center space-x-3 flex-1">
+                          <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <span className="text-sm text-white font-medium block truncate">
+                              {resource.provider_name || 'Dienstleister'}
+                            </span>
+                            <div className="flex items-center space-x-2 text-xs text-gray-400">
+                              <span>{resource.person_count} Pers.</span>
+                              <span>•</span>
+                              <span className="truncate">{resource.category}</span>
+                              {resource.hourly_rate && (
+                                <>
+                                  <span>•</span>
+                                  <span>{resource.hourly_rate}€/h</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedResources(prev => prev.filter(r => r.id !== resource.id));
+                            setPreSelectedAllocations(prev => prev.filter(a => a.resource_id !== resource.id));
+                          }}
+                          className="ml-2 text-gray-400 hover:text-red-400 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-6">
+                  <div className="flex items-start space-x-3">
+                    <Info className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-blue-300">
+                      <p className="font-medium mb-1">Ressourcen-Vorauswahl (optional)</p>
+                      <p className="text-xs text-gray-400">
+                        Sie können bereits jetzt passende Dienstleister vorauswählen. Diese werden 
+                        automatisch benachrichtigt und können direkt ein Angebot abgeben.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Submit-Bereich */}
@@ -1218,6 +1329,36 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
           </div>
         </div>
       )}
+      
+      {/* Resource Selection Panel - Höherer z-index als das Formular */}
+      <ResourceSelectionPanel
+        isOpen={showResourcePanel}
+        onToggle={() => setShowResourcePanel(!showResourcePanel)}
+        tradeId={0} // Temporäre ID, wird beim Submit generiert
+        category={formData.category}
+        onResourcesSelected={(allocations) => {
+          setPreSelectedAllocations(allocations);
+          // Füge die Ressourcen zur Auswahl hinzu
+          const newResources = allocations.map(a => ({
+            id: a.resource_id,
+            service_provider_id: 0, // Wird vom Server gefüllt
+            person_count: a.allocated_person_count,
+            start_date: a.allocated_start_date,
+            end_date: a.allocated_end_date,
+            category: formData.category,
+            status: 'available' as const,
+            provider_name: 'Dienstleister',
+            hourly_rate: 0,
+            // Andere Felder werden vom Server gefüllt
+          } as Resource));
+          setSelectedResources(prev => {
+            // Verhindere Duplikate
+            const existingIds = prev.map(r => r.id);
+            const filtered = newResources.filter(r => !existingIds.includes(r.id));
+            return [...prev, ...filtered];
+          });
+        }}
+      />
     </>
   );
-} 
+}

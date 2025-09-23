@@ -379,7 +379,7 @@ export class DocumentCategorizer {
   /**
    * Berechnet die Konfidenz der Kategorisierung (0-100)
    */
-  private static calculateConfidence(fileName: string, extension: string, category: DocumentCategory): number {
+  static calculateConfidence(fileName: string, extension: string, category: DocumentCategory): number {
     let confidence = 0;
     const normalizedFileName = fileName.toLowerCase();
     

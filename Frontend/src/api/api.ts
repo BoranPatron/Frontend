@@ -128,6 +128,23 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+// Error Handler für API-Fehler
+export const handleApiError = (error: any): Error => {
+  if (error.response) {
+    // Server hat mit einem Fehlercode geantwortet
+    const message = error.response.data?.detail || 
+                    error.response.data?.message || 
+                    `Fehler ${error.response.status}: ${error.response.statusText}`;
+    return new Error(message);
+  } else if (error.request) {
+    // Anfrage wurde gesendet, aber keine Antwort erhalten
+    return new Error('Keine Antwort vom Server erhalten');
+  } else {
+    // Ein Fehler beim Aufbau der Anfrage
+    return new Error(error.message || 'Ein unbekannter Fehler ist aufgetreten');
+  }
+};
+
 // Request Interceptor für Logging und Token-Handling
 api.interceptors.request.use(
   (config) => {
@@ -273,7 +290,7 @@ api.interceptors.response.use(
 );
 
 // Helper function for API calls with proper typing
-export const apiCall = async (url: string, options?: any) => {
+export const apiCall = async <T = any>(url: string, options?: any): Promise<T> => {
   // Convert body to data for Axios, but not for FormData
   if (options?.body && !(options.body instanceof FormData)) {
     options.data = options.body;

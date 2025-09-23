@@ -42,6 +42,7 @@ export async function createMilestoneWithDocuments(data: MilestoneData & {
   requires_inspection?: boolean;
   document_ids?: number[];
   shared_document_ids?: number[];
+  resource_allocations?: any[];
 }) {
   const formData = new FormData();
   
@@ -63,6 +64,11 @@ export async function createMilestoneWithDocuments(data: MilestoneData & {
   // Füge geteilte Dokument-IDs hinzu
   if (data.shared_document_ids && data.shared_document_ids.length > 0) {
     formData.append('shared_document_ids', JSON.stringify(data.shared_document_ids));
+  }
+  
+  // Füge Ressourcen-Zuordnungen hinzu
+  if (data.resource_allocations && data.resource_allocations.length > 0) {
+    formData.append('resource_allocations', JSON.stringify(data.resource_allocations));
   }
   
   // Füge Dokumente hinzu

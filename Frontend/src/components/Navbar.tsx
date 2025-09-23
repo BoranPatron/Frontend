@@ -33,7 +33,9 @@ import {
   FolderOpen,
   Info,
   Building,
-  CheckCircle
+  CheckCircle,
+  Zap,
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
@@ -41,6 +43,7 @@ import { getProject } from '../api/projectService';
 import { createProject } from '../api/projectService';
 import AddressAutocomplete from './AddressAutocomplete';
 import { uploadDocument } from '../api/documentService';
+import { DocumentCategorizer } from '../utils/documentCategorizer';
 
 import CreditIndicator from './CreditIndicator';
 import CreditDisplay from './CreditDisplay';
@@ -333,15 +336,39 @@ export default function Navbar() {
   };
 
   const handleFileSelection = (files: File[]) => {
-    const newFiles = files.map(file => ({
-      file,
-      status: 'pending' as const,
-      progress: 0,
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    }));
+    const newFiles = files.map(file => {
+      // Automatische Kategorisierung basierend auf Dateiname
+      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+      const detectedCategory = DocumentCategorizer.categorizeDocument(file.name, fileExtension);
+      const suggestedSubcategory = detectedCategory ? DocumentCategorizer.suggestSubcategory(detectedCategory, file.name) : null;
+      
+      return {
+        file,
+        status: 'pending' as const,
+        progress: 0,
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        autoDetected: !!detectedCategory,
+        confidence: detectedCategory ? DocumentCategorizer.calculateConfidence(file.name, fileExtension, detectedCategory) : 0,
+        suggestedCategory: detectedCategory?.id,
+        suggestedSubcategory: suggestedSubcategory || undefined
+      };
+    });
 
     setUploadFiles(prev => [...prev, ...newFiles]);
     setShowUploadModal(true);
+  };
+
+  const handleAutoAcceptSuggestions = () => {
+    setUploadFiles(prev => prev.map(file => {
+      if (file.autoDetected && file.suggestedCategory && file.suggestedSubcategory) {
+        return {
+          ...file,
+          category: file.suggestedCategory,
+          subcategory: file.suggestedSubcategory
+        };
+      }
+      return file;
+    }));
   };
 
   const getDocumentTypeFromFile = (filename: string): string => {
@@ -1107,9 +1134,13 @@ export default function Navbar() {
                     <p className="text-white text-lg font-medium mb-2">
                       Dokumente hier ablegen oder klicken zum Auswählen
                     </p>
-                    <p className="text-gray-400 text-sm mb-4">
+                    <p className="text-gray-400 text-sm mb-2">
                       Unterstützte Formate: PDF, Word, Excel, Bilder, Videos (max. 50MB pro Datei)
                     </p>
+                    <div className="flex items-center justify-center gap-2 text-[#ffbd59] text-sm font-medium mb-4">
+                      <Sparkles className="w-4 h-4" />
+                      <span>Automatische Kategorisierung mit KI</span>
+                    </div>
                     
                     <button
                       type="button"
@@ -1161,6 +1192,12 @@ export default function Navbar() {
                                       <span className="ml-2 text-[#ffbd59]">
                                         • {DOCUMENT_CATEGORIES[uploadFile.category as keyof typeof DOCUMENT_CATEGORIES]?.name}
                                         {uploadFile.subcategory && ` > ${uploadFile.subcategory}`}
+                                      </span>
+                                    )}
+                                    {uploadFile.autoDetected && (
+                                      <span className="ml-2 text-green-400 flex items-center gap-1">
+                                        <Zap className="w-3 h-3" />
+                                        Auto-erkannt ({uploadFile.confidence}%)
                                       </span>
                                     )}
                                   </p>
@@ -1267,6 +1304,28 @@ export default function Navbar() {
                   </div>
                 </div>
               </div>
+
+              {/* Auto-Recognition Banner */}
+              {uploadFiles.some(f => f.autoDetected) && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <Sparkles className="w-5 h-5 text-green-400 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-green-300 font-medium">Intelligente Dokumentenerkennung aktiv</p>
+                      <p className="text-green-200 text-sm mt-1">
+                        Unsere KI hat {uploadFiles.filter(f => f.autoDetected).length} von {uploadFiles.length} Dokumenten automatisch erkannt und Kategorisierungsvorschläge erstellt.
+                      </p>
+                      <button
+                        onClick={handleAutoAcceptSuggestions}
+                        className="mt-3 bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Alle Vorschläge übernehmen
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div className="space-y-4">
                 {uploadFiles.map((uploadFile, index) => (
@@ -1280,7 +1339,28 @@ export default function Navbar() {
                           <span className="text-sm text-gray-400">
                             ({(uploadFile.file.size / 1024 / 1024).toFixed(2)} MB)
                           </span>
+                          {uploadFile.autoDetected && (
+                            <div className="flex items-center gap-1 ml-2">
+                              <Zap className="w-4 h-4 text-[#ffbd59]" />
+                              <span className="text-[#ffbd59] text-sm font-medium">
+                                {uploadFile.confidence}% sicher
+                              </span>
+                            </div>
+                          )}
                         </div>
+
+                        {/* Auto-Detection Suggestion */}
+                        {uploadFile.autoDetected && uploadFile.suggestedCategory && (
+                          <div className="mb-3 p-3 bg-[#ffbd59]/10 border border-[#ffbd59]/30 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <Target className="w-4 h-4 text-[#ffbd59]" />
+                              <span className="text-[#ffbd59] text-sm font-medium">
+                                KI-Vorschlag: <strong>{DOCUMENT_CATEGORIES[uploadFile.suggestedCategory as keyof typeof DOCUMENT_CATEGORIES]?.name}</strong>
+                                {uploadFile.suggestedSubcategory && ` > ${uploadFile.suggestedSubcategory}`}
+                              </span>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Category Selection */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1290,7 +1370,7 @@ export default function Navbar() {
                               Kategorie *
                             </label>
                             <select
-                              value={uploadFile.category || ''}
+                              value={uploadFile.category || uploadFile.suggestedCategory || ''}
                               onChange={(e) => {
                                 const newCategory = e.target.value;
                                 setUploadFiles(prev => prev.map((f, i) => 
@@ -1303,7 +1383,9 @@ export default function Navbar() {
                             >
                               <option value="">Kategorie wählen...</option>
                               {Object.entries(DOCUMENT_CATEGORIES).map(([key, category]) => (
-                                <option key={key} value={key}>{category.name}</option>
+                                <option key={key} value={key}>
+                                  {category.name}
+                                </option>
                               ))}
                             </select>
                           </div>
@@ -1314,7 +1396,7 @@ export default function Navbar() {
                               Unterkategorie *
                             </label>
                             <select
-                              value={uploadFile.subcategory || ''}
+                              value={uploadFile.subcategory || uploadFile.suggestedSubcategory || ''}
                               onChange={(e) => {
                                 setUploadFiles(prev => prev.map((f, i) => 
                                   i === index 
@@ -1322,12 +1404,14 @@ export default function Navbar() {
                                     : f
                                 ));
                               }}
-                              disabled={!uploadFile.category}
+                              disabled={!(uploadFile.category || uploadFile.suggestedCategory)}
                               className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59] text-white disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <option value="">Unterkategorie wählen...</option>
-                              {uploadFile.category && DOCUMENT_CATEGORIES[uploadFile.category as keyof typeof DOCUMENT_CATEGORIES]?.subcategories.map((sub) => (
-                                <option key={sub} value={sub}>{sub}</option>
+                              {(uploadFile.category || uploadFile.suggestedCategory) && DOCUMENT_CATEGORIES[(uploadFile.category || uploadFile.suggestedCategory) as keyof typeof DOCUMENT_CATEGORIES]?.subcategories.map((sub) => (
+                                <option key={sub} value={sub}>
+                                  {sub}
+                                </option>
                               ))}
                             </select>
                           </div>

@@ -2,7 +2,8 @@ import api from './api';
 
 export interface NotificationData {
   id?: number;
-  type: 'completion_request' | 'appointment_invitation' | 'task_assignment' | 'general';
+  type: 'completion_request' | 'appointment_invitation' | 'task_assignment' | 'general' | 
+        'resource_preselection' | 'resource_invitation' | 'resource_offer_requested' | 'resource_allocated';
   title: string;
   message: string;
   description?: string;
@@ -13,6 +14,8 @@ export interface NotificationData {
   milestone_id?: number;
   trade_id?: number;
   user_id?: number;
+  resource_id?: number;
+  allocation_id?: number;
   metadata?: Record<string, any>;
   read_at?: string;
   created_at?: string;
@@ -190,6 +193,84 @@ export const notificationService = {
       console.error('❌ Fehler beim Laden der Benachrichtigungs-Statistiken:', error);
       return { total: 0, unread: 0, high_priority: 0, requires_action: 0 };
     }
+  },
+
+  // Ressourcen-Vorauswahl Benachrichtigung erstellen
+  async createResourcePreselectionNotification(data: {
+    trade_id: number;
+    resource_id: number;
+    allocation_id: number;
+    project_name: string;
+    trade_title: string;
+    bautraeger_name: string;
+    service_provider_id: number;
+  }): Promise<NotificationData> {
+    const notificationData: NotificationData = {
+      type: 'resource_preselection',
+      title: `Ressourcen-Vorauswahl für ${data.trade_title}`,
+      message: `Sie wurden für die Ausschreibung "${data.trade_title}" im Projekt "${data.project_name}" vorausgewählt.`,
+      description: `Bauträger: ${data.bautraeger_name}\nProjekt: ${data.project_name}\nAusschreibung: ${data.trade_title}`,
+      priority: 'high',
+      requires_action: true,
+      action_type: 'create_offer',
+      project_id: data.trade_id,
+      trade_id: data.trade_id,
+      resource_id: data.resource_id,
+      allocation_id: data.allocation_id,
+      user_id: data.service_provider_id,
+      metadata: {
+        trade_title: data.trade_title,
+        project_name: data.project_name,
+        bautraeger_name: data.bautraeger_name,
+        preselection_date: new Date().toISOString(),
+        actions_available: [
+          'view_trade_details',
+          'create_offer', 
+          'decline_invitation'
+        ]
+      }
+    };
+
+    return this.createNotification(notificationData);
+  },
+
+  // Ressourcen-Einladung Benachrichtigung
+  async createResourceInvitationNotification(data: {
+    trade_id: number;
+    resource_id: number;
+    allocation_id: number;
+    project_name: string;
+    trade_title: string;
+    deadline?: string;
+    service_provider_id: number;
+  }): Promise<NotificationData> {
+    const notificationData: NotificationData = {
+      type: 'resource_invitation',
+      title: `Einladung zur Angebotsabgabe: ${data.trade_title}`,
+      message: `Sie wurden eingeladen, ein Angebot für "${data.trade_title}" abzugeben.`,
+      description: `Projekt: ${data.project_name}\nFrist: ${data.deadline || 'Keine Frist angegeben'}`,
+      priority: 'urgent',
+      requires_action: true,
+      action_type: 'submit_offer',
+      trade_id: data.trade_id,
+      resource_id: data.resource_id,
+      allocation_id: data.allocation_id,
+      user_id: data.service_provider_id,
+      metadata: {
+        trade_title: data.trade_title,
+        project_name: data.project_name,
+        deadline: data.deadline,
+        invitation_date: new Date().toISOString(),
+        actions_available: [
+          'view_requirements',
+          'submit_offer',
+          'request_information',
+          'decline'
+        ]
+      }
+    };
+
+    return this.createNotification(notificationData);
   },
 
   // Event-basierte Benachrichtigungen (für Real-time Updates)

@@ -34,6 +34,7 @@ import Credits from './pages/Credits';
 import Archive from './pages/Archive';
 import Profile from './pages/Profile';
 import OAuthCallback from './pages/OAuthCallback';
+import ResourcesPage from './pages/ResourcesPage';
 import RoleSelectionModal from './components/RoleSelectionModal';
 import CompanyAddressModal from './components/CompanyAddressModal';
 import NotificationTab from './components/NotificationTab';
@@ -419,11 +420,16 @@ function AppContent() {
             <Credits />
           </ProtectedRoute>
         } />
-        <Route path="/archive" element={
-          <ProtectedRoute>
-            <Archive />
-          </ProtectedRoute>
-        } />
+          <Route path="/archive" element={
+            <ProtectedRoute>
+              <Archive />
+            </ProtectedRoute>
+          } />
+          <Route path="/resources" element={
+            <ProtectedRoute>
+              <ResourcesPage />
+            </ProtectedRoute>
+          } />
         <Route path="/profile" element={
           <ProtectedRoute>
             <Profile />

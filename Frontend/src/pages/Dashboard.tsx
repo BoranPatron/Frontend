@@ -47,12 +47,16 @@ import {
   Video,
   Archive,
   File,
-  Edit
+  Edit,
+  Zap,
+  Sparkles,
+  Target
 } from 'lucide-react';
 import GuidedTourOverlay from '../components/Onboarding/GuidedTourOverlay';
 import EnhancedGuidedTour from '../components/Onboarding/EnhancedGuidedTour';
 import { useOnboarding } from '../context/OnboardingContext';
 import DisableableButton from '../components/Onboarding/DisableableButton';
+import { DocumentCategorizer } from '../utils/documentCategorizer';
 import PageHeader from '../components/PageHeader';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 
@@ -140,6 +144,10 @@ interface UploadFile {
   progress: number;
   error?: string;
   id?: string;
+  autoDetected?: boolean;
+  confidence?: number;
+  suggestedCategory?: string;
+  suggestedSubcategory?: string;
 }
 
 interface Project {
@@ -768,11 +776,22 @@ export default function Dashboard() {
 
 
   const handleFilesSelected = (files: File[]) => {
-    const newUploadFiles: UploadFile[] = files.map(file => ({
-      file,
-      status: 'pending',
-      progress: 0
-    }));
+    const newUploadFiles: UploadFile[] = files.map(file => {
+      // Automatische Kategorisierung basierend auf Dateiname
+      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+      const detectedCategory = DocumentCategorizer.categorizeDocument(file.name, fileExtension);
+      const suggestedSubcategory = detectedCategory ? DocumentCategorizer.suggestSubcategory(detectedCategory, file.name) : null;
+      
+      return {
+        file,
+        status: 'pending',
+        progress: 0,
+        autoDetected: !!detectedCategory,
+        confidence: detectedCategory ? DocumentCategorizer.calculateConfidence(file.name, fileExtension, detectedCategory) : 0,
+        suggestedCategory: detectedCategory?.id,
+        suggestedSubcategory: suggestedSubcategory || undefined
+      };
+    });
     
     setUploadFiles(newUploadFiles);
     setShowUploadModal(true);
@@ -791,6 +810,19 @@ export default function Dashboard() {
 
   const removeUploadFile = (index: number) => {
     setUploadFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAutoAcceptSuggestions = () => {
+    setUploadFiles(prev => prev.map(file => {
+      if (file.autoDetected && file.suggestedCategory && file.suggestedSubcategory) {
+        return {
+          ...file,
+          category: file.suggestedCategory,
+          subcategory: file.suggestedSubcategory
+        };
+      }
+      return file;
+    }));
   };
 
   const uploadDocument = async (formData: FormData) => {
@@ -2638,9 +2670,13 @@ export default function Dashboard() {
                     <p className="text-white text-lg font-medium mb-2">
                       Dokumente hier ablegen oder klicken zum Auswählen
                     </p>
-                    <p className="text-gray-400 text-sm mb-4">
+                    <p className="text-gray-400 text-sm mb-2">
                       Unterstützte Formate: PDF, Word, Excel, Bilder, Videos (max. 50MB pro Datei)
                     </p>
+                    <div className="flex items-center justify-center gap-2 text-[#ffbd59] text-sm font-medium mb-4">
+                      <Sparkles className="w-4 h-4" />
+                      <span>Automatische Kategorisierung mit KI</span>
+                    </div>
                     
                     <button
                       type="button"
@@ -3106,6 +3142,28 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
+
+              {/* Auto-Recognition Banner */}
+              {uploadFiles.some(f => f.autoDetected) && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <Sparkles className="w-5 h-5 text-green-400 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-green-300 font-medium">Intelligente Dokumentenerkennung aktiv</p>
+                      <p className="text-green-200 text-sm mt-1">
+                        Unsere KI hat {uploadFiles.filter(f => f.autoDetected).length} von {uploadFiles.length} Dokumenten automatisch erkannt und Kategorisierungsvorschläge erstellt.
+                      </p>
+                      <button
+                        onClick={handleAutoAcceptSuggestions}
+                        className="mt-3 bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Alle Vorschläge übernehmen
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div className="space-y-4">
                 {uploadFiles.map((uploadFile, index) => (
@@ -3119,7 +3177,28 @@ export default function Dashboard() {
                           <span className="text-sm text-gray-400">
                             ({formatFileSize(uploadFile.file.size)})
                           </span>
+                          {uploadFile.autoDetected && (
+                            <div className="flex items-center gap-1 ml-2">
+                              <Zap className="w-4 h-4 text-[#ffbd59]" />
+                              <span className="text-[#ffbd59] text-sm font-medium">
+                                {uploadFile.confidence}% sicher
+                              </span>
+                            </div>
+                          )}
                         </div>
+
+                        {/* Auto-Detection Suggestion */}
+                        {uploadFile.autoDetected && uploadFile.suggestedCategory && (
+                          <div className="mb-3 p-3 bg-[#ffbd59]/10 border border-[#ffbd59]/30 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <Target className="w-4 h-4 text-[#ffbd59]" />
+                              <span className="text-[#ffbd59] text-sm font-medium">
+                                KI-Vorschlag: <strong>{DOCUMENT_CATEGORIES[uploadFile.suggestedCategory as keyof typeof DOCUMENT_CATEGORIES]?.name}</strong>
+                                {uploadFile.suggestedSubcategory && ` > ${uploadFile.suggestedSubcategory}`}
+                              </span>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Category Selection */}
                         <div className="grid grid-cols-2 gap-4">
@@ -3128,30 +3207,44 @@ export default function Dashboard() {
                               Kategorie
                             </label>
                             <select
-                              value={uploadFile.category || ''}
+                              value={uploadFile.category || uploadFile.suggestedCategory || ''}
                               onChange={(e) => assignCategoryToFile(index, e.target.value)}
-                              className="w-full bg-[#2c3539] border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                              className={`w-full bg-[#2c3539] border rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] ${
+                                uploadFile.suggestedCategory && !uploadFile.category 
+                                  ? 'border-[#ffbd59]/50 bg-[#ffbd59]/5' 
+                                  : 'border-gray-600'
+                              }`}
                             >
                               <option value="">Kategorie wählen...</option>
                               {Object.entries(DOCUMENT_CATEGORIES).map(([key, category]) => (
-                                <option key={key} value={key}>{category.name}</option>
+                                <option key={key} value={key}>
+                                  {category.name}
+                                  {key === uploadFile.suggestedCategory && ' (KI-Vorschlag)'}
+                                </option>
                               ))}
                             </select>
                           </div>
                 
-                          {uploadFile.category && (
+                          {(uploadFile.category || uploadFile.suggestedCategory) && (
                             <div>
                               <label className="block text-sm font-medium text-gray-300 mb-1">
                                 Unterkategorie
                               </label>
                               <select
-                                value={uploadFile.subcategory || ''}
-                                onChange={(e) => assignCategoryToFile(index, uploadFile.category!, e.target.value)}
-                                className="w-full bg-[#2c3539] border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                                value={uploadFile.subcategory || uploadFile.suggestedSubcategory || ''}
+                                onChange={(e) => assignCategoryToFile(index, uploadFile.category || uploadFile.suggestedCategory!, e.target.value)}
+                                className={`w-full bg-[#2c3539] border rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] ${
+                                  uploadFile.suggestedSubcategory && !uploadFile.subcategory 
+                                    ? 'border-[#ffbd59]/50 bg-[#ffbd59]/5' 
+                                    : 'border-gray-600'
+                                }`}
                               >
                                 <option value="">Unterkategorie wählen...</option>
-                                {DOCUMENT_CATEGORIES[uploadFile.category as keyof typeof DOCUMENT_CATEGORIES]?.subcategories.map(sub => (
-                                  <option key={sub} value={sub}>{sub}</option>
+                                {DOCUMENT_CATEGORIES[(uploadFile.category || uploadFile.suggestedCategory) as keyof typeof DOCUMENT_CATEGORIES]?.subcategories.map(sub => (
+                                  <option key={sub} value={sub}>
+                                    {sub}
+                                    {sub === uploadFile.suggestedSubcategory && ' (KI-Vorschlag)'}
+                                  </option>
                                 ))}
                               </select>
                             </div>

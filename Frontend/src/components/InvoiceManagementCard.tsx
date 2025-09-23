@@ -212,7 +212,7 @@ const InvoiceManagementCard: React.FC<InvoiceManagementCardProps> = ({
       // 3. Erweiterte Metadata für die Rechnung
       const categoryData = {
         mainCategory: category?.id || 'finance',
-        subCategory: 'Rechnungen', // Korrekte Unterkategorie für Rechnungen
+        subCategory: invoice.status === 'paid' ? 'Bezahlte Rechnungen' : 'Rechnungen', // Status-basierte Unterkategorie
         confidence: 95, // High confidence for invoices
         detectedPatterns: category?.patterns || [],
         autoTags: [
