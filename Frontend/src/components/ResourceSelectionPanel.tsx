@@ -44,10 +44,12 @@ import {
   Phone,
   Mail,
   Settings,
-  ChevronDown
+  ChevronDown,
+  HelpCircle
 } from 'lucide-react';
 import { resourceService, type Resource, type ResourceAllocation } from '../api/resourceService';
 import { useAuth } from '../context/AuthContext';
+import { getBrowserLocation } from '../api/geoService';
 import dayjs from 'dayjs';
 
 interface ResourceSelectionPanelProps {
@@ -55,8 +57,16 @@ interface ResourceSelectionPanelProps {
   onToggle: () => void;
   tradeId: number;
   category: string;
-  onResourcesSelected?: (allocations: ResourceAllocation[]) => void;
+  preferredDateRange?: { start: string; end: string };
+  onResourcesSelected?: (allocations: ResourceAllocation[], resources: Resource[]) => void;
   className?: string;
+}
+
+interface ResourceDateRange {
+  resourceId: number;
+  startDate: string;
+  endDate: string;
+  notes?: string;
 }
 
 interface DraggableResourceProps {
@@ -64,7 +74,71 @@ interface DraggableResourceProps {
   isSelected: boolean;
   onToggleSelect: () => void;
   onRemove: () => void;
+  onDateRangeChange?: (resourceId: number, startDate: string, endDate: string, notes?: string) => void;
+  individualDateRange?: ResourceDateRange;
 }
+
+// Tooltip-Komponente mit besserer Positionierung
+const Tooltip: React.FC<{ content: string | React.ReactNode; children: React.ReactNode; position?: 'top' | 'bottom' | 'left' | 'right' }> = ({ 
+  content, 
+  children, 
+  position = 'top' 
+}) => {
+  const [isVisible, setIsVisible] = useState(false);
+
+  const getTooltipClasses = () => {
+    const baseClasses = "absolute z-[99999] px-4 py-3 text-sm text-white bg-gray-900 rounded shadow-lg border border-gray-600 w-96";
+    
+    switch (position) {
+      case 'top':
+        return `${baseClasses} bottom-full left-1/2 transform -translate-x-1/2 mb-1`;
+      case 'bottom':
+        return `${baseClasses} top-full left-1/2 transform -translate-x-1/2 mt-1`;
+      case 'left':
+        return `${baseClasses} right-full top-1/2 transform -translate-y-1/2 mr-1`;
+      case 'right':
+        return `${baseClasses} left-full top-1/2 transform -translate-y-1/2 ml-1`;
+      default:
+        return `${baseClasses} bottom-full left-1/2 transform -translate-x-1/2 mb-1`;
+    }
+  };
+
+  const getArrowClasses = () => {
+    const baseClasses = "absolute w-2 h-2 bg-gray-900 border border-gray-600";
+    
+    switch (position) {
+      case 'top':
+        return `${baseClasses} top-full left-1/2 transform -translate-x-1/2 rotate-45 -mt-1`;
+      case 'bottom':
+        return `${baseClasses} bottom-full left-1/2 transform -translate-x-1/2 rotate-45 -mb-1`;
+      case 'left':
+        return `${baseClasses} left-full top-1/2 transform -translate-y-1/2 rotate-45 -ml-1`;
+      case 'right':
+        return `${baseClasses} right-full top-1/2 transform -translate-y-1/2 rotate-45 -mr-1`;
+      default:
+        return `${baseClasses} top-full left-1/2 transform -translate-x-1/2 rotate-45 -mt-1`;
+    }
+  };
+
+  return (
+    <div className="relative inline-block">
+      <div
+        onMouseEnter={() => setIsVisible(true)}
+        onMouseLeave={() => setIsVisible(false)}
+      >
+        {children}
+      </div>
+      {isVisible && (
+        <div className={getTooltipClasses()}>
+          <div className="whitespace-normal break-words">
+            {content}
+          </div>
+          <div className={getArrowClasses()}></div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Sortable Resource Item
 const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = ({
@@ -72,8 +146,17 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
   resource,
   isSelected,
   onToggleSelect,
-  onRemove
+  onRemove,
+  onDateRangeChange,
+  individualDateRange
 }) => {
+  const [showDateInput, setShowDateInput] = useState(false);
+  const [showContactInfo, setShowContactInfo] = useState(false);
+  const [localDateRange, setLocalDateRange] = useState({
+    start: individualDateRange?.startDate || '',
+    end: individualDateRange?.endDate || '',
+    notes: individualDateRange?.notes || ''
+  });
   const {
     attributes,
     listeners,
@@ -93,7 +176,7 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-[#333] rounded-lg p-3 border transition-all ${
+      className={`bg-[#333] rounded-lg p-4 border transition-all ${
         isSelected ? 'border-[#ffbd59] bg-[#ffbd59]/10' : 'border-gray-700'
       } ${isDragging ? 'shadow-xl z-50' : ''}`}
     >
@@ -125,6 +208,11 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
                 <span className="text-xs text-gray-400">
                   {resource.category}
                 </span>
+                {(!resource.latitude || !resource.longitude) && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-500/20 text-yellow-400">
+                    📍 Kein Standort
+                  </span>
+                )}
               </div>
             </div>
             <button
@@ -137,39 +225,162 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
 
           {/* Details */}
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="flex items-center space-x-1">
-              <Users className="w-3 h-3 text-gray-400" />
-              <span className="text-gray-300">{resource.person_count} Personen</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <Clock className="w-3 h-3 text-gray-400" />
-              <span className="text-gray-300">{resource.total_hours}h</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <Calendar className="w-3 h-3 text-gray-400" />
-              <span className="text-gray-300">
-                {dayjs(resource.start_date).format('DD.MM')} - 
-                {dayjs(resource.end_date).format('DD.MM')}
-              </span>
-            </div>
+            <Tooltip content={`${resource.person_count} Person${resource.person_count !== 1 ? 'en' : ''} verfügbar für diesen Zeitraum`}>
+              <div className="flex items-center space-x-1 cursor-help">
+                <Users className="w-3 h-3 text-gray-400" />
+                <span className="text-gray-300">{resource.person_count} Personen</span>
+                <HelpCircle className="w-3 h-3 text-gray-500" />
+              </div>
+            </Tooltip>
+            
+            <Tooltip content={`Gesamtstunden: ${resource.total_hours}h (${resource.daily_hours || 8}h pro Tag × ${Math.ceil((dayjs(resource.end_date).diff(dayjs(resource.start_date), 'day') + 1))} Tage × ${resource.person_count} Personen)`}>
+              <div className="flex items-center space-x-1 cursor-help">
+                <Clock className="w-3 h-3 text-gray-400" />
+                <span className="text-gray-300">{resource.total_hours}h</span>
+                <HelpCircle className="w-3 h-3 text-gray-500" />
+              </div>
+            </Tooltip>
+            
+            <Tooltip content={`Verfügbar vom ${dayjs(resource.start_date).format('DD.MM.YYYY')} bis ${dayjs(resource.end_date).format('DD.MM.YYYY')} (${Math.ceil((dayjs(resource.end_date).diff(dayjs(resource.start_date), 'day') + 1))} Tage)`}>
+              <div className="flex items-center space-x-1 cursor-help">
+                <Calendar className="w-3 h-3 text-gray-400" />
+                <span className="text-gray-300">
+                  {dayjs(resource.start_date).format('DD.MM')} - 
+                  {dayjs(resource.end_date).format('DD.MM')}
+                </span>
+                <HelpCircle className="w-3 h-3 text-gray-500" />
+              </div>
+            </Tooltip>
+            
             {resource.hourly_rate && (
-              <div className="flex items-center space-x-1">
-                <Euro className="w-3 h-3 text-gray-400" />
-                <span className="text-gray-300">{resource.hourly_rate}€/h</span>
+              <Tooltip content={`Stundensatz: ${resource.hourly_rate}€/h${resource.daily_rate ? ` | Tagessatz: ${resource.daily_rate}€/Tag` : ''}${resource.currency ? ` (${resource.currency})` : ''}`}>
+                <div className="flex items-center space-x-1 cursor-help">
+                  <Euro className="w-3 h-3 text-gray-400" />
+                  <span className="text-gray-300">{resource.hourly_rate}€/h</span>
+                  <HelpCircle className="w-3 h-3 text-gray-500" />
+                </div>
+              </Tooltip>
+            )}
+          </div>
+
+          {/* Einklappbare Kontakt-Info */}
+          <div className="mt-2">
+            <button
+              onClick={() => setShowContactInfo(!showContactInfo)}
+              className="flex items-center space-x-1 text-xs text-gray-400 hover:text-gray-300 transition-colors"
+            >
+              <span>📞 Kontakt & Details</span>
+              <span className="text-[#ffbd59]">
+                {showContactInfo ? '▼' : '▶'}
+              </span>
+            </button>
+            
+            {showContactInfo && (
+              <div className="mt-2 pt-2 border-t border-gray-600">
+                <div className="space-y-1 text-xs">
+                  {resource.provider_company_name && (
+                    <div className="flex items-center space-x-1">
+                      <Building className="w-3 h-3 text-gray-400" />
+                      <span className="text-gray-300">{resource.provider_company_name}</span>
+                    </div>
+                  )}
+                  {resource.provider_email && (
+                    <div className="flex items-center space-x-1">
+                      <Mail className="w-3 h-3 text-gray-400" />
+                      <span className="text-gray-300">{resource.provider_email}</span>
+                    </div>
+                  )}
+                  {resource.provider_phone && (
+                    <div className="flex items-center space-x-1">
+                      <Phone className="w-3 h-3 text-gray-400" />
+                      <span className="text-gray-300">{resource.provider_phone}</span>
+                    </div>
+                  )}
+                  {resource.provider_company_address && (
+                    <div className="flex items-center space-x-1">
+                      <MapPin className="w-3 h-3 text-gray-400" />
+                      <span className="text-gray-300">{resource.provider_company_address}</span>
+                    </div>
+                  )}
+                  {resource.provider_company_website && (
+                    <Tooltip content={`Website des Dienstleisters - klicken zum Öffnen`}>
+                      <div className="flex items-center space-x-1 cursor-help">
+                        <Settings className="w-3 h-3 text-gray-400" />
+                        <span className="text-gray-300">{resource.provider_company_website}</span>
+                        <HelpCircle className="w-3 h-3 text-gray-500" />
+                      </div>
+                    </Tooltip>
+                  )}
+                  {resource.provider_bio && (
+                    <Tooltip content={`Vollständige Beschreibung: ${resource.provider_bio}`}>
+                      <div className="mt-2 cursor-help">
+                        <div className="text-gray-400 text-xs mb-1 flex items-center space-x-1">
+                          <span>Beschreibung:</span>
+                          <HelpCircle className="w-3 h-3 text-gray-500" />
+                        </div>
+                        <div className="text-gray-300 text-xs leading-relaxed">
+                          {resource.provider_bio.length > 100 
+                            ? `${resource.provider_bio.substring(0, 100)}...` 
+                            : resource.provider_bio}
+                        </div>
+                      </div>
+                    </Tooltip>
+                  )}
+                  {resource.provider_languages && (
+                    <Tooltip content={`Gesprochene Sprachen des Dienstleisters: ${resource.provider_languages}`}>
+                      <div className="mt-2 cursor-help">
+                        <div className="text-gray-400 text-xs mb-1 flex items-center space-x-1">
+                          <span>Sprachen:</span>
+                          <HelpCircle className="w-3 h-3 text-gray-500" />
+                        </div>
+                        <div className="text-gray-300 text-xs">
+                          {resource.provider_languages}
+                        </div>
+                      </div>
+                    </Tooltip>
+                  )}
+                </div>
               </div>
             )}
           </div>
 
-          {/* Location */}
-          {resource.address_city && (
-            <div className="mt-2 flex items-center space-x-1">
-              <MapPin className="w-3 h-3 text-gray-400" />
-              <span className="text-xs text-gray-300">
-                {resource.address_city}, {resource.address_postal_code}
-              </span>
-            </div>
-          )}
         </div>
+
+        {/* Kompakter Zeitraum-Button mit Tooltip */}
+        {isSelected && (
+          <div className="mt-1">
+            <Tooltip 
+              position="bottom"
+              content={
+                <div className="w-96">
+                  <div className="font-semibold text-white mb-2 text-sm">Zeitraum-Anpassung</div>
+                  <div className="text-sm space-y-2">
+                    <div className="text-blue-300">
+                      <strong>Verfügbar:</strong><br/>
+                      {dayjs(resource.start_date).format('DD.MM.YYYY')} - {dayjs(resource.end_date).format('DD.MM.YYYY')}
+                    </div>
+                    <div className="text-[#ffbd59]">
+                      <strong>Ihr gewünschter Zeitraum:</strong><br/>
+                      Wählen Sie einen spezifischen Teilzeitraum für Ihr Projekt
+                    </div>
+                    <div className="text-gray-300 text-sm">
+                      💡 <strong>Beispiel:</strong> Dienstleister ist 30 Tage verfügbar, Sie benötigen nur 5 Tage für Ihr Projekt
+                    </div>
+                  </div>
+                </div>
+              }
+            >
+              <button
+                onClick={() => setShowDateInput(!showDateInput)}
+                className="flex items-center space-x-1 text-xs text-[#ffbd59] hover:text-[#ffa726] transition-colors cursor-help"
+              >
+                <Calendar className="w-3 h-3" />
+                <span>{showDateInput ? 'Zeitraum ausblenden' : 'Zeitraum anpassen'}</span>
+                <HelpCircle className="w-3 h-3 text-gray-500" />
+              </button>
+            </Tooltip>
+          </div>
+        )}
 
         {/* Selection Checkbox */}
         <div className="mt-1">
@@ -181,6 +392,135 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
           />
         </div>
       </div>
+
+      {/* Kompakte Zeitraum-Eingabe */}
+      {isSelected && showDateInput && (
+        <div className="mt-1 pt-1 border-t border-gray-600">
+          <div className="space-y-1">
+            <div className="grid grid-cols-2 gap-1">
+              <div>
+                <Tooltip position="top" content="Wählen Sie den gewünschten Starttermin für diese Ressource. Muss innerhalb der Dienstleister-Verfügbarkeit liegen.">
+                  <label className="block text-xs text-gray-400 mb-0.5 cursor-help">
+                    Start
+                    <HelpCircle className="w-3 h-3 text-gray-500 inline ml-1" />
+                  </label>
+                </Tooltip>
+                <input
+                  type="date"
+                  value={localDateRange.start}
+                  onChange={(e) => {
+                    const newRange = { ...localDateRange, start: e.target.value };
+                    setLocalDateRange(newRange);
+                    onDateRangeChange?.(resource.id!, newRange.start, newRange.end, newRange.notes);
+                  }}
+                  className="w-full px-1 py-0.5 bg-[#2a2a2a] text-white rounded text-xs border border-gray-600 focus:border-[#ffbd59]"
+                />
+              </div>
+              <div>
+                <Tooltip position="top" content="Wählen Sie den gewünschten Endtermin für diese Ressource. Muss innerhalb der Dienstleister-Verfügbarkeit liegen.">
+                  <label className="block text-xs text-gray-400 mb-0.5 cursor-help">
+                    Ende
+                    <HelpCircle className="w-3 h-3 text-gray-500 inline ml-1" />
+                  </label>
+                </Tooltip>
+                <input
+                  type="date"
+                  value={localDateRange.end}
+                  onChange={(e) => {
+                    const newRange = { ...localDateRange, end: e.target.value };
+                    setLocalDateRange(newRange);
+                    onDateRangeChange?.(resource.id!, newRange.start, newRange.end, newRange.notes);
+                  }}
+                  className="w-full px-1 py-0.5 bg-[#2a2a2a] text-white rounded text-xs border border-gray-600 focus:border-[#ffbd59]"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <Tooltip position="top" content="Fügen Sie spezielle Anforderungen oder Präferenzen für diesen Zeitraum hinzu (z.B. Arbeitszeiten, besondere Wünsche).">
+                <label className="block text-xs text-gray-400 mb-0.5 cursor-help">
+                  Notizen
+                  <HelpCircle className="w-3 h-3 text-gray-500 inline ml-1" />
+                </label>
+              </Tooltip>
+              <input
+                type="text"
+                value={localDateRange.notes}
+                onChange={(e) => {
+                  const newRange = { ...localDateRange, notes: e.target.value };
+                  setLocalDateRange(newRange);
+                  onDateRangeChange?.(resource.id!, newRange.start, newRange.end, newRange.notes);
+                }}
+                placeholder="z.B. nur morgens..."
+                className="w-full px-1 py-0.5 bg-[#2a2a2a] text-white rounded text-xs border border-gray-600 focus:border-[#ffbd59]"
+              />
+            </div>
+
+            {/* Minimale Verfügbarkeits-Info mit Tooltip */}
+            <Tooltip 
+              position="top"
+              content={
+                <div className="max-w-64">
+                  <div className="font-semibold text-white mb-2 text-sm">Verfügbarkeits-Erklärung</div>
+                  <div className="text-sm space-y-2">
+                    <div className="text-blue-300">
+                      <strong>🔵 Dienstleister-Verfügbarkeit:</strong><br/>
+                      Der gesamte Zeitraum, in dem der Dienstleister grundsätzlich verfügbar ist
+                    </div>
+                    <div className="text-[#ffbd59]">
+                      <strong>🟡 Ihr gewünschter Zeitraum:</strong><br/>
+                      Der spezifische Zeitraum, den Sie für Ihr Projekt benötigen
+                    </div>
+                    <div className="text-gray-300 text-sm">
+                      ✅ <strong>Regel:</strong> Ihr gewünschter Zeitraum muss innerhalb der Dienstleister-Verfügbarkeit liegen
+                    </div>
+                  </div>
+                </div>
+              }
+            >
+              <div className="p-1 bg-blue-500/10 border border-blue-500/30 rounded text-xs cursor-help">
+                <div className="text-blue-400 text-xs">Verfügbar: {dayjs(resource.start_date).format('DD.MM')} - {dayjs(resource.end_date).format('DD.MM.YYYY')}</div>
+                {localDateRange.start && localDateRange.end && (
+                  <div className="mt-0.5">
+                    <div className="text-[#ffbd59] text-xs">
+                      Gewünscht: {dayjs(localDateRange.start).format('DD.MM')} - {dayjs(localDateRange.end).format('DD.MM.YYYY')}
+                    </div>
+                    {/* Minimale Validierung */}
+                    {(() => {
+                      const providerStart = dayjs(resource.start_date);
+                      const providerEnd = dayjs(resource.end_date);
+                      const desiredStart = dayjs(localDateRange.start);
+                      const desiredEnd = dayjs(localDateRange.end);
+                      
+                      const isValid = desiredStart.isAfter(providerStart.subtract(1, 'day')) && 
+                                     desiredEnd.isBefore(providerEnd.add(1, 'day'));
+                      
+                      return (
+                        <div className={`text-xs ${isValid ? 'text-green-400' : 'text-red-400'}`}>
+                          {isValid ? '✅ OK' : '⚠️ Nicht verfügbar'}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            </Tooltip>
+          </div>
+        </div>
+      )}
+
+      {/* Kompakter Zeitraum-Anzeiger */}
+      {isSelected && !showDateInput && (localDateRange.start || localDateRange.end) && (
+        <div className="mt-1 flex items-center space-x-1 text-xs text-[#ffbd59]">
+          <Calendar className="w-3 h-3" />
+          <span>
+            {localDateRange.start && localDateRange.end 
+              ? `${dayjs(localDateRange.start).format('DD.MM')} - ${dayjs(localDateRange.end).format('DD.MM.YYYY')}`
+              : 'Zeitraum teilweise definiert'
+            }
+          </span>
+        </div>
+      )}
     </div>
   );
 };
@@ -190,6 +530,7 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
   onToggle,
   tradeId,
   category,
+  preferredDateRange,
   onResourcesSelected,
   className = ''
 }) => {
@@ -201,12 +542,23 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
   const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   
+  // Individuelle Zeiträume pro Ressource
+  const [individualDateRanges, setIndividualDateRanges] = useState<Map<number, ResourceDateRange>>(new Map());
+  
+  // Location state
+  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(() => {
+    const saved = localStorage.getItem('buildwise_geo_location');
+    return saved ? JSON.parse(saved) : null;
+  });
+  
   // Filter states
   const [minPersons, setMinPersons] = useState<number | undefined>();
   const [maxRate, setMaxRate] = useState<number | undefined>();
+  const [maxDistance, setMaxDistance] = useState<number>(100); // Default 100km
+  const [isHelpExpanded, setIsHelpExpanded] = useState(false);
   const [dateRange, setDateRange] = useState({
-    start: dayjs().format('YYYY-MM-DD'),
-    end: dayjs().add(30, 'days').format('YYYY-MM-DD')
+    start: preferredDateRange?.start || dayjs().format('YYYY-MM-DD'),
+    end: preferredDateRange?.end || dayjs().add(30, 'days').format('YYYY-MM-DD')
   });
 
   const sensors = useSensors(
@@ -216,19 +568,199 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
     })
   );
 
+  // Update dateRange when preferredDateRange changes
+  useEffect(() => {
+    if (preferredDateRange?.start && preferredDateRange?.end) {
+      setDateRange({
+        start: preferredDateRange.start,
+        end: preferredDateRange.end
+      });
+    }
+  }, [preferredDateRange]);
+
+  // Get user location if not available
+  useEffect(() => {
+    if (!currentLocation && isOpen) {
+      getBrowserLocation()
+        .then((location) => {
+          console.log('Browser location obtained:', location);
+          setCurrentLocation(location);
+          localStorage.setItem('buildwise_geo_location', JSON.stringify(location));
+        })
+        .catch((error) => {
+          console.warn('Geolocation nicht verfügbar:', error);
+          // Fallback: Use Uster, Switzerland coordinates for testing
+          const fallbackLocation = { latitude: 47.3467, longitude: 8.7208 }; // Uster, Switzerland
+          console.log('Using fallback location (Uster, CH):', fallbackLocation);
+          setCurrentLocation(fallbackLocation);
+          localStorage.setItem('buildwise_geo_location', JSON.stringify(fallbackLocation));
+        });
+    }
+  }, [isOpen, currentLocation]);
+
+  // Calculate distance between two points using Haversine formula
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  // Geocode address to coordinates
+  const geocodeAddress = async (address: string): Promise<{ latitude: number; longitude: number } | null> => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`);
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        return {
+          latitude: parseFloat(data[0].lat),
+          longitude: parseFloat(data[0].lon)
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      return null;
+    }
+  };
+
   // Load resources
   const loadResources = async () => {
+    if (!currentLocation) {
+      console.warn('Keine Position verfügbar für Geo-Suche');
+      return;
+    }
+    
     setLoading(true);
+    const searchParams = {
+      category,
+      start_date: dateRange.start,
+      end_date: dateRange.end,
+      min_persons: minPersons,
+      max_hourly_rate: maxRate,
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+      radius_km: maxDistance,
+      status: 'available'
+    };
+    
+    console.log('Searching resources with params:', searchParams);
+    
     try {
-      const results = await resourceService.searchResourcesGeo({
+      // TEMPORARY FIX: Always use regular search with client-side filtering
+      // This ensures we can see all resources that match the criteria
+      console.log('Using regular search with client-side filtering (temporary fix)...');
+      const allResults = await resourceService.listResources({
         category,
-        start_date: dateRange.start,
-        end_date: dateRange.end,
+        // TEMPORARY: Remove date filtering to test
+        // start_date: dateRange.start,
+        // end_date: dateRange.end,
         min_persons: minPersons,
         max_hourly_rate: maxRate,
         status: 'available'
       });
-      setResources(results);
+      
+      console.log(`Regular search found ${allResults.length} total resources`);
+      
+      // Filter by distance client-side, geocode addresses if needed
+      const filteredResults = await Promise.all(
+        allResults.map(async (resource) => {
+          let resourceLat = resource.latitude;
+          let resourceLon = resource.longitude;
+          
+          // If no coordinates but has address, try to geocode
+          if ((!resourceLat || !resourceLon) && (resource.address_street || resource.address_city || resource.address_postal_code)) {
+            const address = `${resource.address_street || ''}, ${resource.address_city || ''}, ${resource.address_postal_code || ''}`.trim().replace(/^,\s*|,\s*$/g, '');
+            console.log(`Resource ${resource.id} has no coordinates but has address, attempting geocoding...`);
+            
+            const geocoded = await geocodeAddress(address);
+            if (geocoded) {
+              resourceLat = geocoded.latitude;
+              resourceLon = geocoded.longitude;
+              console.log(`Resource ${resource.id} geocoded successfully: ${resourceLat}, ${resourceLon}`);
+              
+              // Note: Not updating database due to permission restrictions
+              // Coordinates are used temporarily for distance calculation only
+              console.log(`Resource ${resource.id} using temporary coordinates for filtering`);
+            } else {
+              console.log(`Resource ${resource.id} geocoding failed for address: ${address}`);
+              return null;
+            }
+          }
+          
+          // If still no coordinates, exclude the resource
+          if (!resourceLat || !resourceLon) {
+            console.log(`Resource ${resource.id} has no coordinates - excluding`);
+            return null;
+          }
+          
+          // Calculate distance
+          const distance = calculateDistance(
+            currentLocation.latitude, 
+            currentLocation.longitude,
+            resourceLat, 
+            resourceLon
+          );
+          
+          console.log(`Resource ${resource.id} distance: ${distance.toFixed(2)}km (limit: ${maxDistance}km)`);
+          
+          // Check distance filter
+          if (distance > maxDistance) {
+            console.log(`Resource ${resource.id} excluded: distance ${distance.toFixed(2)}km > ${maxDistance}km`);
+            return null;
+          }
+          
+          // Check date overlap (client-side filtering)
+          const resourceStart = dayjs(resource.start_date);
+          const resourceEnd = dayjs(resource.end_date);
+          const searchStart = dayjs(dateRange.start);
+          const searchEnd = dayjs(dateRange.end);
+          
+          // Check if there's any overlap between resource availability and search period
+          const hasOverlap = resourceStart.isBefore(searchEnd) && resourceEnd.isAfter(searchStart);
+          
+          console.log(`Resource ${resource.id} date check:`, {
+            resourcePeriod: `${resourceStart.format('YYYY-MM-DD')} to ${resourceEnd.format('YYYY-MM-DD')}`,
+            searchPeriod: `${searchStart.format('YYYY-MM-DD')} to ${searchEnd.format('YYYY-MM-DD')}`,
+            hasOverlap
+          });
+          
+          if (!hasOverlap) {
+            console.log(`Resource ${resource.id} excluded: no date overlap`);
+            return null;
+          }
+          
+          console.log(`Resource ${resource.id} included: distance ${distance.toFixed(2)}km, date overlap OK`);
+          return resource;
+        })
+      );
+      
+      // Remove null values
+      const validResults = filteredResults.filter(resource => resource !== null);
+      
+      console.log(`Client-side filtering found ${validResults.length} resources within ${maxDistance}km`);
+      console.log('Client-side filtered results:', validResults);
+      setResources(validResults);
+      
+      // Lade bereits gespeicherte individuelle Zeiträume
+      const savedDateRanges = new Map<number, ResourceDateRange>();
+      validResults.forEach(resource => {
+        if (resource.builder_preferred_start_date && resource.builder_preferred_end_date) {
+          savedDateRanges.set(resource.id!, {
+            resourceId: resource.id!,
+            startDate: resource.builder_preferred_start_date,
+            endDate: resource.builder_preferred_end_date,
+            notes: resource.builder_date_range_notes
+          });
+        }
+      });
+      setIndividualDateRanges(savedDateRanges);
+      console.log('Geladene gespeicherte Zeiträume:', savedDateRanges);
     } catch (error) {
       console.error('Fehler beim Laden der Ressourcen:', error);
     } finally {
@@ -237,10 +769,10 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && currentLocation) {
       loadResources();
     }
-  }, [isOpen, category]);
+  }, [isOpen, category, maxDistance, currentLocation]);
 
   // Handle drag events
   const handleDragStart = (event: DragStartEvent) => {
@@ -273,6 +805,49 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
   const removeResource = (resourceId: string) => {
     setResources(prev => prev.filter(r => r.id?.toString() !== resourceId));
     setSelectedResourceIds(prev => prev.filter(id => id !== resourceId));
+    // Entferne auch den individuellen Zeitraum
+    setIndividualDateRanges(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(parseInt(resourceId));
+      return newMap;
+    });
+  };
+
+  // Handle individual date range changes
+  const handleDateRangeChange = async (resourceId: number, startDate: string, endDate: string, notes?: string) => {
+    // Update local state
+    setIndividualDateRanges(prev => {
+      const newMap = new Map(prev);
+      if (startDate && endDate) {
+        newMap.set(resourceId, {
+          resourceId,
+          startDate,
+          endDate,
+          notes
+        });
+      } else {
+        newMap.delete(resourceId);
+      }
+      return newMap;
+    });
+
+    // Update database
+    try {
+      await resourceService.updateBuilderPreferredDates(
+        resourceId,
+        startDate || undefined,
+        endDate || undefined,
+        notes || undefined
+      );
+      console.log(`Zeitraum für Ressource ${resourceId} erfolgreich gespeichert:`, {
+        startDate,
+        endDate,
+        notes
+      });
+    } catch (error) {
+      console.error(`Fehler beim Speichern des Zeitraums für Ressource ${resourceId}:`, error);
+      // Optional: Zeige eine Fehlermeldung an den Benutzer
+    }
   };
 
   // Send invitations
@@ -281,15 +856,25 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
 
     setLoading(true);
     try {
-      const allocations: ResourceAllocation[] = selectedResourceIds.map((resourceId, index) => ({
-        resource_id: parseInt(resourceId),
-        trade_id: tradeId,
-        allocated_person_count: resources.find(r => r.id?.toString() === resourceId)?.person_count || 1,
-        allocated_start_date: dateRange.start,
-        allocated_end_date: dateRange.end,
-        allocation_status: 'pre_selected',
-        priority: index
-      }));
+      const allocations: ResourceAllocation[] = selectedResourceIds.map((resourceId, index) => {
+        const resource = resources.find(r => r.id?.toString() === resourceId);
+        const individualRange = individualDateRanges.get(parseInt(resourceId));
+        
+        // Verwende individuellen Zeitraum falls vorhanden, sonst den globalen
+        const startDate = individualRange?.startDate || dateRange.start;
+        const endDate = individualRange?.endDate || dateRange.end;
+        
+        return {
+          resource_id: parseInt(resourceId),
+          trade_id: tradeId,
+          allocated_person_count: resource?.person_count || 1,
+          allocated_start_date: startDate,
+          allocated_end_date: endDate,
+          allocation_status: 'pre_selected' as const,
+          priority: index,
+          notes: individualRange?.notes || `Gewünschter Zeitraum: ${startDate} - ${endDate}`
+        };
+      });
 
       const createdAllocations = await resourceService.bulkCreateAllocations(allocations);
       
@@ -300,7 +885,12 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
         )
       );
 
-      onResourcesSelected?.(createdAllocations);
+      // Sammle die vollständigen Resource-Daten für die ausgewählten Ressourcen
+      const selectedResourcesData = selectedResourceIds.map(resourceId => 
+        resources.find(r => r.id?.toString() === resourceId)
+      ).filter(Boolean) as Resource[];
+
+      onResourcesSelected?.(createdAllocations, selectedResourcesData);
       
       // Reset
       setSelectedResourceIds([]);
@@ -321,12 +911,21 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
       const query = searchQuery.toLowerCase();
       return (
         resource.provider_name?.toLowerCase().includes(query) ||
+        resource.provider_company_name?.toLowerCase().includes(query) ||
+        resource.provider_email?.toLowerCase().includes(query) ||
+        resource.provider_bio?.toLowerCase().includes(query) ||
+        resource.provider_languages?.toLowerCase().includes(query) ||
         resource.address_city?.toLowerCase().includes(query) ||
         resource.category?.toLowerCase().includes(query)
       );
     }
     return true;
   });
+
+  // Debug: Log resources state
+  console.log('Resources state:', resources);
+  console.log('Filtered resources:', filteredResources);
+  console.log('Search query:', searchQuery);
 
   // Calculate stats
   const totalPersons = selectedResourceIds.reduce((sum, id) => {
@@ -351,9 +950,9 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
       <motion.button
         onClick={onToggle}
         className={`fixed left-0 top-1/2 -translate-y-1/2 z-[60] bg-[#ffbd59] text-black p-3 rounded-r-lg shadow-lg hover:bg-[#f59e0b] transition-all ${
-          isOpen ? 'translate-x-96' : 'translate-x-0'
+          isOpen ? 'translate-x-[28rem]' : 'translate-x-0'
         }`}
-        animate={{ x: isOpen ? 384 : 0 }}
+        animate={{ x: isOpen ? 448 : 0 }}
       >
         {isOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
       </motion.button>
@@ -362,11 +961,11 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ x: -384 }}
+            initial={{ x: -448 }}
             animate={{ x: 0 }}
-            exit={{ x: -384 }}
+            exit={{ x: -448 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className={`fixed left-0 top-0 h-full w-96 bg-[#1a1a1a] border-r border-gray-700 shadow-2xl z-50 flex flex-col ${className}`}
+            className={`fixed left-0 top-0 h-full w-[28rem] bg-[#1a1a1a] border-r border-gray-700 shadow-2xl z-50 flex flex-col ${className}`}
           >
             {/* Header */}
             <div className="bg-gradient-to-r from-[#ffbd59] to-[#f59e0b] p-4">
@@ -385,18 +984,81 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
               
               {/* Stats */}
               <div className="grid grid-cols-3 gap-2">
-                <div className="bg-white/20 rounded p-2 text-center">
-                  <div className="text-xl font-bold text-white">{filteredResources.length}</div>
-                  <div className="text-xs text-white/80">Verfügbar</div>
+                <Tooltip content={`${filteredResources.length} verfügbare Ressourcen nach aktuellen Filtern`}>
+                  <div className="bg-white/20 rounded p-2 text-center cursor-help">
+                    <div className="text-xl font-bold text-white">{filteredResources.length}</div>
+                    <div className="text-xs text-white/80">Verfügbar</div>
+                  </div>
+                </Tooltip>
+                <Tooltip content={`${selectedResourceIds.length} Ressourcen für Einladung ausgewählt`}>
+                  <div className="bg-white/20 rounded p-2 text-center cursor-help">
+                    <div className="text-xl font-bold text-white">{selectedResourceIds.length}</div>
+                    <div className="text-xs text-white/80">Ausgewählt</div>
+                  </div>
+                </Tooltip>
+                <Tooltip content={`Gesamtanzahl Personen in ausgewählten Ressourcen: ${totalPersons}`}>
+                  <div className="bg-white/20 rounded p-2 text-center cursor-help">
+                    <div className="text-xl font-bold text-white">{totalPersons}</div>
+                    <div className="text-xs text-white/80">Personen</div>
+                  </div>
+                </Tooltip>
+              </div>
+              
+              {/* Location Info */}
+              {currentLocation && (
+                <div className="mt-3 text-xs text-white/70 text-center">
+                  <MapPin className="w-3 h-3 inline mr-1" />
+                  Suchzentrum: {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
                 </div>
-                <div className="bg-white/20 rounded p-2 text-center">
-                  <div className="text-xl font-bold text-white">{selectedResourceIds.length}</div>
-                  <div className="text-xs text-white/80">Ausgewählt</div>
+              )}
+              
+              {/* Preferred Date Range Info */}
+              {preferredDateRange?.start && preferredDateRange?.end && (
+                <div className="mt-3 p-2 bg-white/10 rounded-lg text-center">
+                  <div className="flex items-center justify-center space-x-2 text-xs text-white/90">
+                    <Calendar className="w-3 h-3" />
+                    <span>
+                      Gewünschter Zeitraum des Bauträgers:
+                    </span>
+                  </div>
+                  <div className="text-xs text-white/80 mt-1">
+                    {dayjs(preferredDateRange.start).format('DD.MM.YYYY')} - {dayjs(preferredDateRange.end).format('DD.MM.YYYY')}
+                  </div>
+                  <div className="text-xs text-white/70 mt-1">
+                    Nur Ressourcen, die in diesem Zeitraum verfügbar sind, werden angezeigt
+                  </div>
                 </div>
-                <div className="bg-white/20 rounded p-2 text-center">
-                  <div className="text-xl font-bold text-white">{totalPersons}</div>
-                  <div className="text-xs text-white/80">Personen</div>
-                </div>
+              )}
+              
+              {/* Location Controls */}
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => {
+                    const usterLocation = { latitude: 47.3467, longitude: 8.7208 };
+                    console.log('Manuell auf Uster, CH gesetzt:', usterLocation);
+                    setCurrentLocation(usterLocation);
+                    localStorage.setItem('buildwise_geo_location', JSON.stringify(usterLocation));
+                  }}
+                  className="flex-1 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                >
+                  📍 Uster, CH
+                </button>
+                <button
+                  onClick={() => {
+                    getBrowserLocation()
+                      .then((location) => {
+                        setCurrentLocation(location);
+                        localStorage.setItem('buildwise_geo_location', JSON.stringify(location));
+                      })
+                      .catch((error) => {
+                        console.warn('Geolocation error:', error);
+                        alert('Standortfreigabe fehlgeschlagen');
+                      });
+                  }}
+                  className="flex-1 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                >
+                  🎯 Aktueller Ort
+                </button>
               </div>
             </div>
 
@@ -408,9 +1070,37 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Suche nach Name, Ort..."
+                  placeholder="Suche nach Name, Firma, E-Mail, Beschreibung, Sprachen, Ort..."
                   className="w-full pl-10 pr-4 py-2 bg-[#2a2a2a] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
                 />
+              </div>
+
+              {/* Distance Slider */}
+              <div className="mb-3 p-3 bg-[#2a2a2a] rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm text-gray-300 flex items-center space-x-2">
+                    <MapPin className="w-4 h-4" />
+                    <span>Entfernung zum Standort</span>
+                  </label>
+                  <span className="text-sm text-[#ffbd59] font-semibold">{maxDistance} km</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="range"
+                    min="1"
+                    max="100"
+                    value={maxDistance}
+                    onChange={(e) => setMaxDistance(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer distance-slider"
+                    style={{
+                      background: `linear-gradient(to right, #ffbd59 0%, #ffbd59 ${maxDistance}%, #4a5568 ${maxDistance}%, #4a5568 100%)`
+                    }}
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>1 km</span>
+                    <span>100 km</span>
+                  </div>
+                </div>
               </div>
 
               <button
@@ -471,12 +1161,141 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                 <div className="text-center py-8">
                   <Users className="w-12 h-12 text-gray-600 mx-auto mb-3" />
                   <p className="text-gray-400">Keine Ressourcen gefunden</p>
-                  <button
-                    onClick={loadResources}
-                    className="mt-3 px-4 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#333] transition-colors"
-                  >
-                    Neu laden
-                  </button>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Radius: {maxDistance}km um {currentLocation ? `${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}` : 'unbekannten Standort'}
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={loadResources}
+                      className="px-4 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#333] transition-colors"
+                    >
+                      Neu laden
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!currentLocation) return;
+                        setLoading(true);
+                        try {
+                          // Create a test resource near current location
+                          const testResource = {
+                            service_provider_id: user?.id || 1,
+                            start_date: dateRange.start,
+                            end_date: dateRange.end,
+                            person_count: 2,
+                            daily_hours: 8,
+                            total_hours: 80,
+                            category: category || 'Elektroinstallation',
+                            address_street: 'Teststrasse 1',
+                            address_city: 'Uster',
+                            address_postal_code: '8610',
+                            address_country: 'Schweiz',
+                            latitude: currentLocation.latitude + (Math.random() - 0.5) * 0.01, // Small random offset
+                            longitude: currentLocation.longitude + (Math.random() - 0.5) * 0.01,
+                            status: 'available' as const,
+                            hourly_rate: 65,
+                            currency: 'CHF',
+                            description: 'Test-Ressource für Entwicklung'
+                          };
+                          
+                          await resourceService.createResource(testResource);
+                          console.log('Test-Ressource erstellt:', testResource);
+                          loadResources();
+                        } catch (error) {
+                          console.error('Fehler beim Erstellen der Test-Ressource:', error);
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    >
+                      🧪 Test-Ressource erstellen
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setLoading(true);
+                        try {
+                          // Debug: Load all resources to see what's in the database
+                          const allResources = await resourceService.listResources({});
+                          console.log('=== ALL RESOURCES IN DATABASE ===');
+                          allResources.forEach((resource, index) => {
+                            console.log(`Resource ${index + 1}:`, {
+                              id: resource.id,
+                              category: resource.category,
+                              status: resource.status,
+                              latitude: resource.latitude,
+                              longitude: resource.longitude,
+                              address_city: resource.address_city,
+                              address_country: resource.address_country,
+                              person_count: resource.person_count,
+                              start_date: resource.start_date,
+                              end_date: resource.end_date
+                            });
+                            
+                            if (resource.id === 2) {
+                              console.log('*** RESOURCE ID 2 DETAILS ***', resource);
+                              if (resource.latitude && resource.longitude && currentLocation) {
+                                const distance = calculateDistance(
+                                  currentLocation.latitude,
+                                  currentLocation.longitude,
+                                  resource.latitude,
+                                  resource.longitude
+                                );
+                                console.log(`Distance from current location: ${distance.toFixed(2)}km`);
+                              }
+                            }
+                          });
+                          console.log('=== END DEBUG ===');
+                        } catch (error) {
+                          console.error('Debug error:', error);
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+                    >
+                      🔍 Debug: Alle Ressourcen
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setLoading(true);
+                        try {
+                          // Geocode all resources without coordinates
+                          const allResources = await resourceService.listResources({});
+                          const resourcesWithoutCoords = allResources.filter(r => !r.latitude || !r.longitude);
+                          
+                          console.log(`Found ${resourcesWithoutCoords.length} resources without coordinates`);
+                          
+                          for (const resource of resourcesWithoutCoords) {
+                            if (resource.address_street || resource.address_city || resource.address_postal_code) {
+                              const address = `${resource.address_street || ''}, ${resource.address_city || ''}, ${resource.address_postal_code || ''}`.trim().replace(/^,\s*|,\s*$/g, '');
+                              console.log(`Geocoding resource ${resource.id}: ${address}`);
+                              
+                              const geocoded = await geocodeAddress(address);
+                              if (geocoded) {
+                                console.log(`✅ Resource ${resource.id} geocoded: ${geocoded.latitude}, ${geocoded.longitude}`);
+                                console.log(`ℹ️ Note: Coordinates not saved to database due to permission restrictions`);
+                              } else {
+                                console.log(`❌ Failed to geocode resource ${resource.id}`);
+                              }
+                              
+                              // Small delay to avoid rate limiting
+                              await new Promise(resolve => setTimeout(resolve, 1000));
+                            }
+                          }
+                          
+                          console.log('Geocoding completed! Reloading resources...');
+                          loadResources();
+                        } catch (error) {
+                          console.error('Geocoding error:', error);
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                    >
+                      🌍 Test Geocoding (temporär)
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <DndContext
@@ -498,6 +1317,8 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                           isSelected={selectedResourceIds.includes(resource.id?.toString() || '')}
                           onToggleSelect={() => toggleResourceSelection(resource.id?.toString() || '')}
                           onRemove={() => removeResource(resource.id?.toString() || '')}
+                          onDateRangeChange={handleDateRangeChange}
+                          individualDateRange={individualDateRanges.get(resource.id!)}
                         />
                       ))}
                     </div>
@@ -505,13 +1326,18 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
 
                   <DragOverlay>
                     {activeResource && (
-                      <div className="bg-[#333] rounded-lg p-3 border border-[#ffbd59] shadow-xl">
+                      <div className="bg-[#333] rounded-lg p-4 border border-[#ffbd59] shadow-xl">
                         <div className="text-sm font-semibold text-white">
                           {activeResource.provider_name}
                         </div>
                         <div className="text-xs text-gray-400 mt-1">
                           {activeResource.person_count} Personen
                         </div>
+                        {activeResource.provider_company_name && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            {activeResource.provider_company_name}
+                          </div>
+                        )}
                       </div>
                     )}
                   </DragOverlay>
@@ -527,39 +1353,68 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                 className="p-4 border-t border-gray-700 bg-[#2a2a2a]"
               >
                 <div className="mb-3 text-sm">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-gray-400">Ausgewählt:</span>
-                    <span className="text-white font-semibold">
-                      {selectedResourceIds.length} Ressourcen
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-gray-400">Gesamt Personen:</span>
-                    <span className="text-white font-semibold">{totalPersons}</span>
-                  </div>
-                  {avgRate > 0 && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400">Ø Stundensatz:</span>
-                      <span className="text-white font-semibold">{avgRate.toFixed(2)}€</span>
+                  <Tooltip content={`${selectedResourceIds.length} Ressourcen für Einladung ausgewählt`}>
+                    <div className="flex items-center justify-between mb-1 cursor-help">
+                      <span className="text-gray-400">Ausgewählt:</span>
+                      <span className="text-white font-semibold">
+                        {selectedResourceIds.length} Ressourcen
+                      </span>
+                      <HelpCircle className="w-3 h-3 text-gray-500 ml-1" />
                     </div>
+                  </Tooltip>
+                  <Tooltip content={`Gesamtanzahl aller Personen in den ausgewählten Ressourcen`}>
+                    <div className="flex items-center justify-between mb-1 cursor-help">
+                      <span className="text-gray-400">Gesamt Personen:</span>
+                      <span className="text-white font-semibold">{totalPersons}</span>
+                      <HelpCircle className="w-3 h-3 text-gray-500 ml-1" />
+                    </div>
+                  </Tooltip>
+                  {avgRate > 0 && (
+                    <Tooltip content={`Durchschnittlicher Stundensatz aller ausgewählten Ressourcen`}>
+                      <div className="flex items-center justify-between mb-1 cursor-help">
+                        <span className="text-gray-400">Ø Stundensatz:</span>
+                        <span className="text-white font-semibold">{avgRate.toFixed(2)}€</span>
+                        <HelpCircle className="w-3 h-3 text-gray-500 ml-1" />
+                      </div>
+                    </Tooltip>
+                  )}
+                  
+                  {/* Individuelle Zeiträume Zusammenfassung */}
+                  {individualDateRanges.size > 0 && (
+                    <Tooltip content={`${individualDateRanges.size} Ressourcen haben individuelle Zeiträume definiert`}>
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-600 cursor-help">
+                        <span className="text-gray-400 flex items-center space-x-1">
+                          <Calendar className="w-3 h-3" />
+                          <span>Individuelle Zeiträume:</span>
+                        </span>
+                        <span className="text-[#ffbd59] font-semibold">
+                          {individualDateRanges.size} von {selectedResourceIds.length}
+                        </span>
+                        <HelpCircle className="w-3 h-3 text-gray-500 ml-1" />
+                      </div>
+                    </Tooltip>
                   )}
                 </div>
 
                 <div className="flex space-x-2">
-                  <button
-                    onClick={() => setSelectedResourceIds([])}
-                    className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                  >
-                    Auswahl aufheben
-                  </button>
-                  <button
-                    onClick={sendInvitations}
-                    disabled={loading}
-                    className="flex-1 px-4 py-2 bg-[#ffbd59] text-black rounded-lg hover:bg-[#f59e0b] transition-colors flex items-center justify-center space-x-2 disabled:opacity-50"
-                  >
-                    <Send className="w-4 h-4" />
-                    <span>Einladen</span>
-                  </button>
+                  <Tooltip content="Alle ausgewählten Ressourcen abwählen">
+                    <button
+                      onClick={() => setSelectedResourceIds([])}
+                      className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors cursor-help"
+                    >
+                      Auswahl aufheben
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={`Einladungen an ${selectedResourceIds.length} ausgewählte Dienstleister senden`}>
+                    <button
+                      onClick={sendInvitations}
+                      disabled={loading}
+                      className="flex-1 px-4 py-2 bg-[#ffbd59] text-black rounded-lg hover:bg-[#f59e0b] transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 cursor-help"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>Einladen</span>
+                    </button>
+                  </Tooltip>
                 </div>
               </motion.div>
             )}
@@ -567,17 +1422,34 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
             {/* Info Box */}
             <div className="p-4 border-t border-gray-700">
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
-                <div className="flex items-start space-x-2">
-                  <Info className="w-4 h-4 text-blue-400 mt-0.5" />
-                  <div className="text-xs text-blue-300">
-                    <p className="font-semibold mb-1">So funktioniert's:</p>
-                    <ul className="space-y-1">
-                      <li>• Wählen Sie passende Ressourcen aus</li>
-                      <li>• Sortieren Sie per Drag & Drop nach Priorität</li>
-                      <li>• Senden Sie Einladungen an ausgewählte Dienstleister</li>
-                    </ul>
+                <button
+                  onClick={() => setIsHelpExpanded(!isHelpExpanded)}
+                  className="flex items-start space-x-2 w-full text-left hover:bg-blue-500/20 rounded-lg p-2 -m-2 transition-colors"
+                >
+                  <Info className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-xs text-blue-300 flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold">So funktioniert's:</p>
+                      <svg 
+                        className={`w-4 h-4 text-blue-400 transition-transform ${isHelpExpanded ? 'rotate-180' : ''}`}
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                    {isHelpExpanded && (
+                      <ul className="space-y-1 mt-2">
+                        <li>• Wählen Sie passende Ressourcen aus</li>
+                        <li>• Sehen Sie alle Dienstleister-Details (Firma, Kontakt, etc.)</li>
+                        <li>• Hovern Sie über Stunden/Personen für detaillierte Berechnungen</li>
+                        <li>• Sortieren Sie per Drag & Drop nach Priorität</li>
+                        <li>• Senden Sie Einladungen an ausgewählte Dienstleister</li>
+                      </ul>
+                    )}
                   </div>
-                </div>
+                </button>
               </div>
             </div>
           </motion.div>

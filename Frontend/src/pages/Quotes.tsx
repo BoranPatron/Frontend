@@ -11,6 +11,7 @@ import { appointmentService } from '../api/appointmentService';
 import { uploadDocument } from '../api/documentService';
 import { searchProjectsInRadius, searchTradesInRadius, searchServiceProvidersInRadius, getBrowserLocation } from '../api/geoService';
 import api from '../api/api';
+import { TRADE_CATEGORIES } from '../constants/tradeCategories';
 import TradeCreationForm from '../components/TradeCreationForm';
 import CostEstimateForm from '../components/CostEstimateForm';
 import TradeDetailsModal from '../components/TradeDetailsModal';
@@ -2332,15 +2333,11 @@ export default function Trades() {
                   className="px-3 py-1.5 bg-white/10 text-white rounded-lg text-sm border border-white/20 focus:outline-none focus:border-[#ffbd59]"
                 >
                   <option value="">Alle Kategorien</option>
-                  <option value="electrical">Elektro</option>
-                  <option value="plumbing">Sanitär</option>
-                  <option value="heating">Heizung</option>
-                  <option value="roofing">Dach</option>
-                  <option value="windows">Fenster/Türen</option>
-                  <option value="flooring">Boden</option>
-                  <option value="walls">Wände</option>
-                  <option value="foundation">Fundament</option>
-                  <option value="landscaping">Garten</option>
+                  {TRADE_CATEGORIES.map(category => (
+                    <option key={category.value} value={category.value}>
+                      {category.label}
+                    </option>
+                  ))}
                 </select>
                 
                 <select

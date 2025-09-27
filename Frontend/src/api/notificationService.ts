@@ -3,7 +3,8 @@ import api from './api';
 export interface NotificationData {
   id?: number;
   type: 'completion_request' | 'appointment_invitation' | 'task_assignment' | 'general' | 
-        'resource_preselection' | 'resource_invitation' | 'resource_offer_requested' | 'resource_allocated';
+        'resource_preselection' | 'resource_invitation' | 'resource_offer_requested' | 'resource_allocated' |
+        'resource_allocated' | 'tender_invitation';
   title: string;
   message: string;
   description?: string;
@@ -266,6 +267,97 @@ export const notificationService = {
           'submit_offer',
           'request_information',
           'decline'
+        ]
+      }
+    };
+
+    return this.createNotification(notificationData);
+  },
+
+  // Ressourcen-Zuordnung Benachrichtigung erstellen
+  async createResourceAllocatedNotification(data: {
+    allocation_id: number;
+    resource_id: number;
+    trade_id: number;
+    project_name: string;
+    trade_title: string;
+    bautraeger_name: string;
+    service_provider_id: number;
+    allocated_start_date?: string;
+    allocated_end_date?: string;
+    allocated_person_count: number;
+  }): Promise<NotificationData> {
+    const notificationData: NotificationData = {
+      type: 'resource_allocated',
+      title: `Ressource einer Ausschreibung zugeordnet`,
+      message: `Ihre Ressource wurde der Ausschreibung "${data.trade_title}" im Projekt "${data.project_name}" zugeordnet.`,
+      description: `Bauträger: ${data.bautraeger_name}\nProjekt: ${data.project_name}\nAusschreibung: ${data.trade_title}`,
+      priority: 'high',
+      requires_action: true,
+      action_type: 'view_tender_details',
+      trade_id: data.trade_id,
+      resource_id: data.resource_id,
+      allocation_id: data.allocation_id,
+      user_id: data.service_provider_id,
+      metadata: {
+        trade_title: data.trade_title,
+        project_name: data.project_name,
+        bautraeger_name: data.bautraeger_name,
+        allocated_start_date: data.allocated_start_date,
+        allocated_end_date: data.allocated_end_date,
+        allocated_person_count: data.allocated_person_count,
+        allocation_date: new Date().toISOString(),
+        actions_available: [
+          'view_tender_details',
+          'create_offer',
+          'request_information'
+        ]
+      }
+    };
+
+    return this.createNotification(notificationData);
+  },
+
+  // Einladung zur Angebotsabgabe Benachrichtigung erstellen
+  async createTenderInvitationNotification(data: {
+    allocation_id: number;
+    resource_id: number;
+    trade_id: number;
+    project_name: string;
+    trade_title: string;
+    bautraeger_name: string;
+    service_provider_id: number;
+    deadline?: string;
+    allocated_start_date?: string;
+    allocated_end_date?: string;
+    allocated_person_count: number;
+  }): Promise<NotificationData> {
+    const notificationData: NotificationData = {
+      type: 'tender_invitation',
+      title: `Einladung zur Angebotsabgabe`,
+      message: `Sie wurden eingeladen, ein Angebot für "${data.trade_title}" im Projekt "${data.project_name}" abzugeben.`,
+      description: `Bauträger: ${data.bautraeger_name}\nProjekt: ${data.project_name}\nAusschreibung: ${data.trade_title}${data.deadline ? `\nAbgabefrist: ${new Date(data.deadline).toLocaleDateString('de-DE')}` : ''}`,
+      priority: 'urgent',
+      requires_action: true,
+      action_type: 'submit_offer',
+      trade_id: data.trade_id,
+      resource_id: data.resource_id,
+      allocation_id: data.allocation_id,
+      user_id: data.service_provider_id,
+      metadata: {
+        trade_title: data.trade_title,
+        project_name: data.project_name,
+        bautraeger_name: data.bautraeger_name,
+        deadline: data.deadline,
+        allocated_start_date: data.allocated_start_date,
+        allocated_end_date: data.allocated_end_date,
+        allocated_person_count: data.allocated_person_count,
+        invitation_date: new Date().toISOString(),
+        actions_available: [
+          'view_tender_details',
+          'submit_offer',
+          'request_information',
+          'decline_invitation'
         ]
       }
     };

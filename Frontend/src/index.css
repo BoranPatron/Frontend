@@ -271,3 +271,16 @@ input[type="range"]:focus::-webkit-slider-thumb {
 input[type="range"]:focus::-moz-range-thumb {
   box-shadow: 0 0 0 4px rgba(255, 189, 89, 0.2);
 }
+
+/* Distance Slider Specific Styles */
+.distance-slider {
+  height: 8px;
+}
+
+.distance-slider::-webkit-slider-track {
+  background: transparent;
+}
+
+.distance-slider::-moz-range-track {
+  background: transparent;
+}

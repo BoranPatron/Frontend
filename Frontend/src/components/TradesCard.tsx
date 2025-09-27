@@ -3,6 +3,7 @@ import { Wrench, User, Euro, BarChart3, Calendar, Tag, CheckCircle, XCircle, Ale
 import { updateMilestone, deleteMilestone } from '../api/milestoneService';
 import { useNavigate } from 'react-router-dom';
 import { getQuotesForMilestone } from '../api/quoteService';
+import { TRADE_CATEGORIES } from '../constants/tradeCategories';
 
 interface Trade {
   id: number;
@@ -1389,26 +1390,11 @@ export default function TradesCard({
                     className="w-full px-3 py-2 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[#ffbd59]"
                   >
                     <option value="">Kategorie wählen</option>
-                    <option value="electrical">Elektro</option>
-                    <option value="plumbing">Sanitär</option>
-                    <option value="heating">Heizung</option>
-                    <option value="flooring">Bodenbelag</option>
-                    <option value="painting">Malerei</option>
-                    <option value="carpentry">Zimmerei</option>
-                    <option value="roofing">Dachdeckerei</option>
-                    <option value="landscaping">Garten- & Landschaftsbau</option>
-                    <option value="civil_engineering">Tiefbau</option>
-                    <option value="structural">Hochbau</option>
-                    <option value="interior">Innenausbau / Interior</option>
-                    <option value="facade">Fassade</option>
-                    <option value="windows_doors">Fenster & Türen</option>
-                    <option value="drywall">Trockenbau</option>
-                    <option value="tiling">Fliesenarbeiten</option>
-                    <option value="insulation">Dämmung</option>
-                    <option value="hvac">Klima / Lüftung (HVAC)</option>
-                    <option value="smart_home">Smart Home</option>
-                    <option value="site_preparation">Erdarbeiten / Baustellenvorbereitung</option>
-                    <option value="other">Sonstiges</option>
+                    {TRADE_CATEGORIES.map(category => (
+                      <option key={category.value} value={category.value}>
+                        {category.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>

@@ -52,6 +52,22 @@ export interface Resource {
   provider_name?: string;
   provider_email?: string;
   active_allocations?: number;
+  
+  // Bauträger-Zeitraum (gewünschter Zeitraum des Bauträgers)
+  builder_preferred_start_date?: string;
+  builder_preferred_end_date?: string;
+  builder_date_range_notes?: string;
+  
+  // Erweiterte Dienstleister-Details
+  provider_phone?: string;
+  provider_company_name?: string;
+  provider_company_address?: string;
+  provider_company_phone?: string;
+  provider_company_website?: string;
+  provider_business_license?: string;
+  provider_bio?: string;
+  provider_region?: string;
+  provider_languages?: string;
 }
 
 export interface ResourceAllocation {
@@ -234,6 +250,35 @@ class ResourceService {
     }
   }
 
+  async updateBuilderPreferredDates(
+    id: number, 
+    builderPreferredStartDate?: string, 
+    builderPreferredEndDate?: string, 
+    builderDateRangeNotes?: string
+  ): Promise<Resource> {
+    try {
+      const updateData: Partial<Resource> = {};
+      
+      if (builderPreferredStartDate) {
+        updateData.builder_preferred_start_date = builderPreferredStartDate;
+      }
+      if (builderPreferredEndDate) {
+        updateData.builder_preferred_end_date = builderPreferredEndDate;
+      }
+      if (builderDateRangeNotes !== undefined) {
+        updateData.builder_date_range_notes = builderDateRangeNotes;
+      }
+      
+      const response = await apiCall<Resource>(`${this.baseUrl}/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updateData),
+      });
+      return response;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
   async deleteResource(id: number): Promise<void> {
     try {
       await apiCall(`${this.baseUrl}/${id}`, {
@@ -330,6 +375,15 @@ class ResourceService {
   async getAllocationsByTrade(tradeId: number): Promise<ResourceAllocation[]> {
     try {
       const response = await apiCall<ResourceAllocation[]>(`${this.baseUrl}/allocations/trade/${tradeId}`);
+      return response;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  async getMyAllocations(): Promise<ResourceAllocation[]> {
+    try {
+      const response = await apiCall<ResourceAllocation[]>(`${this.baseUrl}/allocations/my`);
       return response;
     } catch (error) {
       throw handleApiError(error);

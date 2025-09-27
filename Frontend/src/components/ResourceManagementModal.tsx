@@ -21,6 +21,7 @@ import {
 import { resourceService, type Resource } from '../api/resourceService';
 import { useAuth } from '../context/AuthContext';
 import AddressAutocomplete from './AddressAutocomplete';
+import { TRADE_CATEGORIES } from '../constants/tradeCategories';
 
 interface ResourceManagementModalProps {
   isOpen: boolean;
@@ -29,20 +30,7 @@ interface ResourceManagementModalProps {
   editResource?: Resource | null;
 }
 
-// Kategorien - sollten mit den Ausschreibungskategorien übereinstimmen
-const RESOURCE_CATEGORIES = [
-  { value: 'rohbau', label: 'Rohbau', icon: '🏗️' },
-  { value: 'elektro', label: 'Elektroinstallation', icon: '⚡' },
-  { value: 'sanitaer', label: 'Sanitär', icon: '🚿' },
-  { value: 'heizung', label: 'Heizung/Klima', icon: '🔥' },
-  { value: 'trockenbau', label: 'Trockenbau', icon: '🧱' },
-  { value: 'maler', label: 'Malerarbeiten', icon: '🎨' },
-  { value: 'fliesen', label: 'Fliesenleger', icon: '◻' },
-  { value: 'dachdecker', label: 'Dachdeckerarbeiten', icon: '🏠' },
-  { value: 'fenster', label: 'Fenster & Türen', icon: '🪟' },
-  { value: 'garten', label: 'Garten- & Landschaftsbau', icon: '🌳' },
-  { value: 'sonstiges', label: 'Sonstige', icon: '📋' }
-];
+// Verwende die gemeinsamen Trade-Kategorien für Konsistenz
 
 const ResourceManagementModal: React.FC<ResourceManagementModalProps> = ({
   isOpen,
@@ -377,7 +365,7 @@ const ResourceManagementModal: React.FC<ResourceManagementModalProps> = ({
                 Kategorie
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {RESOURCE_CATEGORIES.map(category => (
+                {TRADE_CATEGORIES.map(category => (
                   <button
                     key={category.value}
                     type="button"
@@ -388,7 +376,7 @@ const ResourceManagementModal: React.FC<ResourceManagementModalProps> = ({
                         : 'border-gray-600 hover:border-gray-500'
                     }`}
                   >
-                    <div className="text-2xl mb-1">{category.icon}</div>
+                    <div className="text-2xl mb-1">{category.emoji}</div>
                     <div className="text-sm text-white">{category.label}</div>
                   </button>
                 ))}

@@ -28,14 +28,18 @@ import {
   Coins,
   CloudUpload,
   Image,
+  Shield,
+  Eye,
+  EyeOff,
+  FolderOpen,
   Video,
   Archive,
-  FolderOpen,
   Info,
   Building,
   CheckCircle,
   Zap,
-  Sparkles
+  Sparkles,
+  Wrench
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
@@ -112,6 +116,58 @@ const DOCUMENT_CATEGORIES = {
       'Bestandsdokumentation',
       'Videos',
       'Baustellenberichte'
+    ]
+  },
+  procurement: {
+    name: 'Ausschreibungen & Angebote',
+    icon: FileText,
+    color: 'indigo',
+    subcategories: [
+      'Ausschreibungsunterlagen',
+      'Technische Spezifikationen',
+      'Angebote',
+      'Angebotsbewertung',
+      'Vergabedokumentation',
+      'Verhandlungen'
+    ]
+  },
+  project_management: {
+    name: 'Projektmanagement',
+    icon: Calendar,
+    color: 'teal',
+    subcategories: [
+      'Projektpläne',
+      'Terminplanung',
+      'Budgetplanung',
+      'Projektsteuerung',
+      'Risikomanagement',
+      'Qualitätsmanagement',
+      'Ressourcenplanung',
+      'Projektdokumentation'
+    ]
+  },
+  technical: {
+    name: 'Technische Unterlagen',
+    icon: Wrench,
+    color: 'gray',
+    subcategories: [
+      'Technische Zeichnungen',
+      'Spezifikationen',
+      'Datenblätter',
+      'Handbücher',
+      'Anleitungen',
+      'Installationsanweisungen',
+      'Wartungsanleitungen'
+    ]
+  },
+  order_confirmations: {
+    name: 'Auftragsbestätigungen',
+    icon: CheckCircle,
+    color: 'emerald',
+    subcategories: [
+      'Auftragsbestätigungen',
+      'Bestellbestätigungen',
+      'Leistungsbestätigungen'
     ]
   }
 };
@@ -900,6 +956,44 @@ export default function Navbar() {
                 >
                   <X size={24} />
                 </button>
+              </div>
+
+              {/* Datenschutz-Hinweis Banner */}
+              <div className="mb-6 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/30 rounded-xl p-4">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <Shield className="w-6 h-6 text-blue-400 mt-0.5" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-white font-semibold mb-2 flex items-center">
+                      <Eye className="w-4 h-4 mr-2 text-blue-400" />
+                      Datenschutz & Sichtbarkeit
+                    </h4>
+                    <div className="text-gray-300 text-sm space-y-2">
+                      <p>
+                        <strong className="text-white">Alle Projektinformationen</strong> sind nur für Sie als Bauträger sichtbar und werden vertraulich behandelt.
+                      </p>
+                      <div className="flex items-start space-x-2">
+                        <EyeOff className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p><strong className="text-yellow-400">Ausnahme: Projektadresse</strong></p>
+                          <p className="text-gray-400 text-xs">
+                            Die Adresse wird bei der Erstellung von Ausschreibungen automatisch an Dienstleister weitergegeben, damit diese die Anschrift der Baustelle kennen.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <FolderOpen className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p><strong className="text-green-400">Dokumente im DMS</strong></p>
+                          <p className="text-gray-400 text-xs">
+                            Hochgeladene Dokumente werden diesem Projekt im Dokumenten-Management-System (DMS) zugeordnet. Bei späteren Ausschreibungen können Sie gezielt auswählen, welche Dokumente für Dienstleister sichtbar sein sollen.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <form onSubmit={handleCreateProject} className="space-y-6">

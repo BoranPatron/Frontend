@@ -69,7 +69,8 @@ import {
   CheckSquare,
   AlertCircle,
   Info,
-  FileCheck
+  FileCheck,
+  Wrench
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
@@ -192,6 +193,20 @@ const DOCUMENT_CATEGORIES = {
       'Vergabedokumentation',
       'Verhandlungen'
     ]
+  },
+  technical: {
+    name: 'Technische Unterlagen',
+    icon: Wrench,
+    color: 'gray',
+    subcategories: [
+      'Technische Zeichnungen',
+      'Spezifikationen',
+      'Datenblätter',
+      'Handbücher',
+      'Anleitungen',
+      'Installationsanweisungen',
+      'Wartungsanleitungen'
+    ]
   }
 };
 
@@ -206,6 +221,7 @@ const CATEGORY_MAPPING: { [key: string]: string } = {
   'ORDER_CONFIRMATIONS': 'order_confirmations',
   'PROJECT_MANAGEMENT': 'project_management',  // Neu: Projektmanagement
   'PROCUREMENT': 'procurement',                // Neu: Ausschreibungen & Angebote
+  'TECHNICAL': 'technical',                    // Neu: Technische Unterlagen
   // Lowercase (aktuelle Backend-Ausgabe)
   'planning': 'planning',
   'contracts': 'contracts',
@@ -214,7 +230,8 @@ const CATEGORY_MAPPING: { [key: string]: string } = {
   'documentation': 'documentation',
   'order_confirmations': 'order_confirmations',
   'project_management': 'project_management',  // Neu: Projektmanagement
-  'procurement': 'procurement'                 // Neu: Ausschreibungen & Angebote
+  'procurement': 'procurement',                // Neu: Ausschreibungen & Angebote
+  'technical': 'technical'                    // Neu: Technische Unterlagen
 };
 
 // Hilfsfunktion zur Konvertierung von Backend- zu Frontend-Kategorien
@@ -231,13 +248,14 @@ const FRONTEND_TO_BACKEND_MAPPING: { [key: string]: string } = {
   'documentation': 'documentation',
   'order_confirmations': 'order_confirmations',
   'project_management': 'project_management',  // Neu: Projektmanagement
-  'procurement': 'procurement'                 // Neu: Ausschreibungen & Angebote
+  'procurement': 'procurement',                // Neu: Ausschreibungen & Angebote
+  'technical': 'technical'                    // Neu: Technische Unterlagen
 };
 
 // Hilfsfunktion zur Konvertierung von Frontend- zu Backend-Kategorien
 const convertFrontendToBackendCategory = (frontendCategory: string): string => {
   // Temporärer Fix: Verwende nur die vom Backend unterstützten Kategorien
-  const supportedCategories = ['planning', 'contracts', 'finance', 'execution', 'documentation', 'order_confirmations'];
+  const supportedCategories = ['planning', 'contracts', 'finance', 'execution', 'documentation', 'order_confirmations', 'project_management', 'procurement', 'technical'];
   const backendCategory = FRONTEND_TO_BACKEND_MAPPING[frontendCategory];
   
   if (supportedCategories.includes(backendCategory)) {

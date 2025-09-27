@@ -55,7 +55,8 @@ import {
 import { createQuote, getQuotesForMilestone, acceptQuote, rejectQuote, withdrawQuote, getQuotes } from '../api/quoteService';
 import { getMilestones, getAllMilestones } from '../api/milestoneService';
 import { getProjects } from '../api/projectService';
-import { resourceService } from '../api/resourceService';
+import { resourceService, type ResourceAllocation } from '../api/resourceService';
+import { TRADE_CATEGORIES } from '../constants/tradeCategories';
 import logo from '../logo_trans_big.png';
 import TradeCreationForm from '../components/TradeCreationForm';
 
@@ -66,12 +67,31 @@ export default function ServiceProviderDashboard() {
   const { showTour, setShowTour, shouldDisableUI, userRole: onboardingUserRole, completeTour } = useOnboarding();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+  // CSS for blinking glow effect
+  React.useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes glow-blink {
+        0% {
+          box-shadow: 0 0 20px rgba(251, 191, 36, 0.8), 0 0 40px rgba(251, 191, 36, 0.6), 0 0 60px rgba(251, 191, 36, 0.4);
+          border-color: rgba(251, 191, 36, 0.8);
+        }
+        100% {
+          box-shadow: 0 0 30px rgba(251, 191, 36, 1), 0 0 60px rgba(251, 191, 36, 0.8), 0 0 90px rgba(251, 191, 36, 0.6);
+          border-color: rgba(251, 191, 36, 1);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
+
 
 
   // Geo-Search State für Dienstleister
   const [showGeoSearch, setShowGeoSearch] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<'rows' | 'cards' | 'map'>('cards');
+  const [activeTab, setActiveTab] = useState<'rows' | 'cards' | 'map'>('map');
   const [manualAddress, setManualAddress] = useState('');
   const [isGeocoding, setIsGeocoding] = useState(false);
   
@@ -108,6 +128,7 @@ export default function ServiceProviderDashboard() {
   const [showResourceDetails, setShowResourceDetails] = useState(false);
   const [showResourceSection, setShowResourceSection] = useState(false);
   const [userResources, setUserResources] = useState<any[]>([]);
+  const [resourceAllocations, setResourceAllocations] = useState<ResourceAllocation[]>([]);
   const [resourceStats, setResourceStats] = useState({
     totalEmployees: 0,
     totalPersonDays: 0,
@@ -229,12 +250,17 @@ export default function ServiceProviderDashboard() {
       const resources = await resourceService.getMyResources();
       setUserResources(resources);
       
+      // Lade auch die Allokationen für Markierungen
+      const allocations = await resourceService.getMyAllocations();
+      setResourceAllocations(allocations);
+      
       // Berechne Statistiken
       calculateResourceStats(resources);
     } catch (error) {
       console.error('Fehler beim Laden der Ressourcen:', error);
       // Setze leere Stats bei Fehler
       setUserResources([]);
+      setResourceAllocations([]);
       setResourceStats({
         totalEmployees: 0,
         totalPersonDays: 0,
@@ -302,6 +328,22 @@ export default function ServiceProviderDashboard() {
       totalHours: Math.round(totalHours),
       utilization
     });
+  };
+
+  // Hilfsfunktion: Prüft ob eine Ressource angezogen wurde (pre_selected Status)
+  const isResourceAllocated = (resourceId: number): boolean => {
+    return resourceAllocations.some(allocation => 
+      allocation.resource_id === resourceId && 
+      allocation.allocation_status === 'pre_selected'
+    );
+  };
+
+  // Hilfsfunktion: Holt die Allokations-Details für eine Ressource
+  const getResourceAllocationDetails = (resourceId: number): ResourceAllocation | null => {
+    return resourceAllocations.find(allocation => 
+      allocation.resource_id === resourceId && 
+      allocation.allocation_status === 'pre_selected'
+    ) || null;
   };
 
   // URL-Parameter für automatisches Öffnen des Quote-Forms
@@ -830,6 +872,94 @@ export default function ServiceProviderDashboard() {
     }
   }, [activeLeftTab, tradeInvoices]);
 
+  // Prüfe ob der aktuelle Dienstleister bereits ein Angebot für ein Gewerk abgegeben hat
+  const hasServiceProviderQuote = (tradeId: number): boolean => {
+    console.log('🔍 hasServiceProviderQuote START für Trade:', tradeId);
+    
+    if (!user) {
+      console.log('🔍 hasServiceProviderQuote: Kein User vorhanden');
+      return false;
+    }
+    
+    if (user.user_type !== 'service_provider' && user.user_role !== 'DIENSTLEISTER') {
+      console.log('🔍 hasServiceProviderQuote: User ist kein Service Provider', { 
+        user_type: user.user_type, 
+        user_role: user.user_role 
+      });
+      return false;
+    }
+    
+    // Prüfe sowohl allTradeQuotes als auch serviceProviderQuotes
+    const quotes = allTradeQuotes[tradeId] || [];
+    const serviceQuotes = serviceProviderQuotes.filter(q => q.milestone_id === tradeId);
+    const allQuotes = [...quotes, ...serviceQuotes];
+    
+    // DEBUG: Erweiterte Ausgabe für Analyse
+    console.log('🔍 hasServiceProviderQuote DEBUG:', {
+      tradeId,
+      userId: user.id,
+      userIdType: typeof user.id,
+      userEmail: user.email,
+      quotesCount: quotes.length,
+      serviceQuotesCount: serviceQuotes.length,
+      totalQuotesCount: allQuotes.length,
+      allTradeQuotesKeys: Object.keys(allTradeQuotes),
+      serviceProviderQuotesTotal: serviceProviderQuotes.length,
+      quotes: allQuotes.map(q => ({
+        id: q.id,
+        milestone_id: q.milestone_id,
+        service_provider_id: q.service_provider_id,
+        service_provider_id_type: typeof q.service_provider_id,
+        status: q.status,
+        email: q.email,
+        company_name: q.company_name,
+        contact_person: q.contact_person,
+        title: q.title
+      })),
+      userObject: {
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        user_role: user.user_role,
+        user_type: user.user_type,
+        company_name: user.company_name
+      }
+    });
+    
+    // Prüfe jedes Quote einzeln mit detailliertem Logging
+    console.log('🔍 hasServiceProviderQuote: Prüfe jedes Quote einzeln...');
+    const matchingQuotes: any[] = [];
+    
+    allQuotes.forEach((quote, index) => {
+      console.log(`🔍 Prüfe Quote ${index + 1}/${allQuotes.length}:`, {
+        quoteId: quote.id,
+        milestone_id: quote.milestone_id,
+        service_provider_id: quote.service_provider_id,
+        email: quote.email
+      });
+      
+      const isMatch = isUserQuote(quote, user);
+      if (isMatch) {
+        matchingQuotes.push(quote);
+        console.log(`✅ Quote ${quote.id} gehört zum User!`);
+      } else {
+        console.log(`❌ Quote ${quote.id} gehört NICHT zum User`);
+      }
+    });
+    
+    const hasQuote = matchingQuotes.length > 0;
+    
+    console.log('🔍 hasServiceProviderQuote FINAL RESULT:', { 
+      tradeId, 
+      hasQuote,
+      matchingQuotesCount: matchingQuotes.length,
+      matchingQuotes: matchingQuotes.map(q => ({ id: q.id, status: q.status, email: q.email }))
+    });
+    
+    return hasQuote;
+  };
+
   // Memoized function: Kombiniert alle Trades für die der Service Provider Angebote hat
   const getAllTradesWithQuotes = useMemo((): any[] => {
     try {
@@ -1089,94 +1219,6 @@ export default function ServiceProviderDashboard() {
     });
     
     return isMatch;
-  };
-
-  // Prüfe ob der aktuelle Dienstleister bereits ein Angebot für ein Gewerk abgegeben hat
-  const hasServiceProviderQuote = (tradeId: number): boolean => {
-    console.log('🔍 hasServiceProviderQuote START für Trade:', tradeId);
-    
-    if (!user) {
-      console.log('🔍 hasServiceProviderQuote: Kein User vorhanden');
-      return false;
-    }
-    
-    if (user.user_type !== 'service_provider' && user.user_role !== 'DIENSTLEISTER') {
-      console.log('🔍 hasServiceProviderQuote: User ist kein Service Provider', { 
-        user_type: user.user_type, 
-        user_role: user.user_role 
-      });
-      return false;
-    }
-    
-    // Prüfe sowohl allTradeQuotes als auch serviceProviderQuotes
-    const quotes = allTradeQuotes[tradeId] || [];
-    const serviceQuotes = serviceProviderQuotes.filter(q => q.milestone_id === tradeId);
-    const allQuotes = [...quotes, ...serviceQuotes];
-    
-    // DEBUG: Erweiterte Ausgabe für Analyse
-    console.log('🔍 hasServiceProviderQuote DEBUG:', {
-      tradeId,
-      userId: user.id,
-      userIdType: typeof user.id,
-      userEmail: user.email,
-      quotesCount: quotes.length,
-      serviceQuotesCount: serviceQuotes.length,
-      totalQuotesCount: allQuotes.length,
-      allTradeQuotesKeys: Object.keys(allTradeQuotes),
-      serviceProviderQuotesTotal: serviceProviderQuotes.length,
-      quotes: allQuotes.map(q => ({
-        id: q.id,
-        milestone_id: q.milestone_id,
-        service_provider_id: q.service_provider_id,
-        service_provider_id_type: typeof q.service_provider_id,
-        status: q.status,
-        email: q.email,
-        company_name: q.company_name,
-        contact_person: q.contact_person,
-        title: q.title
-      })),
-      userObject: {
-        id: user.id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        user_role: user.user_role,
-        user_type: user.user_type,
-        company_name: user.company_name
-      }
-    });
-    
-    // Prüfe jedes Quote einzeln mit detailliertem Logging
-    console.log('🔍 hasServiceProviderQuote: Prüfe jedes Quote einzeln...');
-    const matchingQuotes: any[] = [];
-    
-    allQuotes.forEach((quote, index) => {
-      console.log(`🔍 Prüfe Quote ${index + 1}/${allQuotes.length}:`, {
-        quoteId: quote.id,
-        milestone_id: quote.milestone_id,
-        service_provider_id: quote.service_provider_id,
-        email: quote.email
-      });
-      
-      const isMatch = isUserQuote(quote, user);
-      if (isMatch) {
-        matchingQuotes.push(quote);
-        console.log(`✅ Quote ${quote.id} gehört zum User!`);
-      } else {
-        console.log(`❌ Quote ${quote.id} gehört NICHT zum User`);
-      }
-    });
-    
-    const hasQuote = matchingQuotes.length > 0;
-    
-    console.log('🔍 hasServiceProviderQuote FINAL RESULT:', { 
-      tradeId, 
-      hasQuote,
-      matchingQuotesCount: matchingQuotes.length,
-      matchingQuotes: matchingQuotes.map(q => ({ id: q.id, status: q.status, email: q.email }))
-    });
-    
-    return hasQuote;
   };
 
   // Prüfe den Status des Angebots des aktuellen Dienstleisters
@@ -1727,13 +1769,15 @@ export default function ServiceProviderDashboard() {
                   <p className="text-xs text-gray-300">
                     Teilen Sie Ihre verfügbaren Mitarbeiter und Kapazitäten mit Bauträgern. 
                     Diese können Ihre Ressourcen für Projekte vormerken und Sie zu Angeboten einladen.
+                    <br />
+                    <span className="text-[#ffbd59] font-medium">🎯 Angezogene Ressourcen</span> werden hier markiert angezeigt.
                   </p>
                 </div>
               </div>
             </div>
 
             {/* Ressourcen Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-tour-id="resource-stats">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4" data-tour-id="resource-stats">
               <div className="bg-white/5 rounded-lg p-4 border border-white/10">
                 <div className="flex items-center gap-3">
                   <Users size={20} className="text-[#ffbd59]" />
@@ -1742,6 +1786,19 @@ export default function ServiceProviderDashboard() {
                 <p className="text-2xl font-bold text-white">{resourceStats.totalEmployees || 0}</p>
                 <p className="text-xs text-gray-500 mt-1">
                   {userResources.length > 0 ? 'Aktive Ressourcen' : 'Noch keine angelegt'}
+                </p>
+              </div>
+            </div>
+          </div>
+          
+              <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                <div className="flex items-center gap-3">
+                  <Users size={20} className="text-[#ffbd59]" />
+              <div>
+                <p className="text-gray-400 text-xs">Angezogene Ressourcen</p>
+                <p className="text-2xl font-bold text-[#ffbd59]">{resourceAllocations.filter(a => a.allocation_status === 'pre_selected').length}</p>
+                <p className="text-xs text-[#ffbd59] mt-1">
+                  {resourceAllocations.filter(a => a.allocation_status === 'pre_selected').length > 0 ? 'Von Bauträgern ausgewählt' : 'Keine Auswahlen'}
                 </p>
               </div>
             </div>
@@ -1824,21 +1881,42 @@ export default function ServiceProviderDashboard() {
                         (1000 * 60 * 60 * 24)
                       ) * (resource.person_count || 1);
                       
+                      // Prüfe ob diese Ressource angezogen wurde
+                      const isAllocated = isResourceAllocated(resource.id);
+                      const allocationDetails = getResourceAllocationDetails(resource.id);
+                      
                       return (
-                        <div key={resource.id || index} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors">
+                        <div key={resource.id || index} className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                          isAllocated 
+                            ? 'bg-[#ffbd59]/10 border-[#ffbd59]/30 hover:bg-[#ffbd59]/20' 
+                            : 'bg-white/5 border-white/10 hover:bg-white/10'
+                        }`}>
                           <div className="flex items-center gap-3">
                             <div className={`w-2 h-2 rounded-full ${
+                              isAllocated ? 'bg-[#ffbd59]' :
                               resource.status === 'available' ? 'bg-green-400' : 
                               resource.status === 'allocated' ? 'bg-blue-400' : 
                               'bg-yellow-400'
                             }`}></div>
                             <div>
-                              <p className="text-sm font-medium text-white">
-                                {resource.person_count} {resource.category || 'Mitarbeiter'}
-                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium text-white">
+                                  {resource.person_count} {resource.category || 'Mitarbeiter'}
+                                </p>
+                                {isAllocated && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#ffbd59]/20 text-[#ffbd59] border border-[#ffbd59]/30">
+                                    🎯 Angezogen
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-xs text-gray-400">
                                 {resource.address_city || 'Standort'} - ab {new Date(resource.start_date).toLocaleDateString('de-DE')}
                               </p>
+                              {isAllocated && allocationDetails && (
+                                <p className="text-xs text-[#ffbd59] mt-1">
+                                  📅 {new Date(allocationDetails.allocated_start_date).toLocaleDateString('de-DE')} - {new Date(allocationDetails.allocated_end_date).toLocaleDateString('de-DE')}
+                                </p>
+                              )}
                             </div>
                           </div>
                           <div className="text-xs text-[#ffbd59] font-medium">{personDays} Personentage</div>
@@ -2569,7 +2647,12 @@ export default function ServiceProviderDashboard() {
               <button
                 onClick={useOwnLocation}
                 disabled={geoLoading}
-                className="group px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl hover:from-emerald-600 hover:to-green-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-emerald-500/30"
+                className={`group px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl hover:from-emerald-600 hover:to-green-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-emerald-500/30 ${!currentLocation ? 'animate-bounce scale-110' : ''}`}
+                style={!currentLocation ? {
+                  animation: 'bounce 1s infinite, glow-blink 0.8s infinite alternate',
+                  boxShadow: '0 0 20px rgba(251, 191, 36, 0.8), 0 0 40px rgba(251, 191, 36, 0.6), 0 0 60px rgba(251, 191, 36, 0.4)',
+                  border: '4px solid rgba(251, 191, 36, 0.8)'
+                } : {}}
                 title="Aktuellen Standort verwenden"
               >
                 <MapPin size={16} className="group-hover:animate-pulse" />
@@ -2658,25 +2741,11 @@ export default function ServiceProviderDashboard() {
                 className="w-full px-4 py-2.5 bg-gray-800 text-white rounded-xl text-sm border border-gray-600 focus:outline-none focus:border-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59] transition-all duration-300 cursor-pointer hover:bg-gray-700"
               >
                 <option value="">Alle Kategorien</option>
-                <option value="electrical">⚡ Elektro</option>
-                <option value="plumbing">🚿 Sanitär</option>
-                <option value="heating">🔥 Heizung</option>
-                <option value="flooring">🏗️ Bodenbelag</option>
-                <option value="painting">🎨 Malerei</option>
-                <option value="carpentry">🪚 Zimmerei</option>
-                <option value="roofing">🏠 Dachdeckerei</option>
-                <option value="landscaping">🌳 Garten- & Landschaftsbau</option>
-                <option value="civil_engineering">🚧 Tiefbau</option>
-                <option value="structural">🏗️ Hochbau</option>
-                <option value="interior">🛋️ Innenausbau / Interior</option>
-                <option value="facade">🏢 Fassade</option>
-                <option value="windows_doors">🪟 Fenster & Türen</option>
-                <option value="drywall">🧱 Trockenbau</option>
-                <option value="tiling">🧩 Fliesenarbeiten</option>
-                <option value="insulation">🧊 Dämmung</option>
-                <option value="hvac">🌬️ Klima / Lüftung (HVAC)</option>
-                <option value="smart_home">📡 Smart Home</option>
-                <option value="site_preparation">🚜 Erdarbeiten / Baustellenvorbereitung</option>
+                {TRADE_CATEGORIES.map(category => (
+                  <option key={category.value} value={category.value}>
+                    {category.emoji} {category.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

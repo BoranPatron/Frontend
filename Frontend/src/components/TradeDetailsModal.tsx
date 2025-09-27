@@ -48,6 +48,7 @@ import ServiceProviderRating from './ServiceProviderRating';
 import InvoiceModal from './InvoiceModal';
 // import FullDocumentViewer from './DocumentViewer';
 import { updateMilestone, deleteMilestone } from '../api/milestoneService';
+import { TRADE_CATEGORIES } from '../constants/tradeCategories';
 import { resourceService, type ResourceAllocation } from '../api/resourceService';
 
 // PDF Viewer Komponente
@@ -1005,8 +1006,28 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     try {
       setLoadingResourceAllocations(true);
       const allocations = await resourceService.getAllocationsByTrade(trade.id);
-      setResourceAllocations(allocations);
-      console.log('✅ ResourceAllocations geladen:', allocations);
+      
+      // Lade vollständige Resource-Details für jede Allocation
+      const allocationsWithFullResources = await Promise.all(
+        allocations.map(async (allocation) => {
+          if (allocation.resource_id) {
+            try {
+              const fullResource = await resourceService.getResource(allocation.resource_id);
+              return {
+                ...allocation,
+                resource: fullResource
+              };
+            } catch (error) {
+              console.error(`❌ Fehler beim Laden der Resource ${allocation.resource_id}:`, error);
+              return allocation; // Fallback auf ursprüngliche Allocation
+            }
+          }
+          return allocation;
+        })
+      );
+      
+      setResourceAllocations(allocationsWithFullResources);
+      console.log('✅ ResourceAllocations mit vollständigen Details geladen:', allocationsWithFullResources);
     } catch (error) {
       console.error('❌ Fehler beim Laden der ResourceAllocations:', error);
     } finally {
@@ -3778,26 +3799,11 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       required
                     >
                       <option value="">Kategorie wählen</option>
-                      <option value="electrical">Elektro</option>
-                      <option value="plumbing">Sanitär</option>
-                      <option value="heating">Heizung</option>
-                      <option value="flooring">Bodenbelag</option>
-                      <option value="painting">Malerei</option>
-                      <option value="carpentry">Zimmerei</option>
-                      <option value="roofing">Dachdeckerei</option>
-                      <option value="landscaping">Garten- & Landschaftsbau</option>
-                      <option value="civil_engineering">Tiefbau</option>
-                      <option value="structural">Hochbau</option>
-                      <option value="interior">Innenausbau / Interior</option>
-                      <option value="facade">Fassade</option>
-                      <option value="windows_doors">Fenster & Türen</option>
-                      <option value="drywall">Trockenbau</option>
-                      <option value="tiling">Fliesenarbeiten</option>
-                      <option value="insulation">Dämmung</option>
-                      <option value="hvac">Klima / Lüftung (HVAC)</option>
-                      <option value="smart_home">Smart Home</option>
-                      <option value="site_preparation">Erdarbeiten / Baustellenvorbereitung</option>
-                      <option value="other">Sonstiges</option>
+                      {TRADE_CATEGORIES.map(category => (
+                        <option key={category.value} value={category.value}>
+                          {category.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -4497,118 +4503,231 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               </div>
 
               <div className="p-6 space-y-4">
-                {/* ResourceAllocations (zugeordnete Ressourcen) */}
+                {/* ResourceAllocations (zugeordnete Ressourcen) - nur anzeigen wenn keine Angebote vorhanden */}
                 {loadingResourceAllocations ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mr-3"></div>
                     <span className="text-gray-300">Lade zugeordnete Ressourcen...</span>
                   </div>
-                ) : resourceAllocations && resourceAllocations.length > 0 ? (
+                ) : resourceAllocations && resourceAllocations.length > 0 && (!existingQuotes || existingQuotes.length === 0) ? (
                   <>
                     <div className="mb-4">
                       <h4 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
                         <Users size={18} className="text-blue-400" />
                         Zugeordnete Ressourcen ({resourceAllocations.length})
                       </h4>
+                      <p className="text-sm text-gray-400 mb-4">
+                        Diese Dienstleister wurden benachrichtigt und können ein Angebot einreichen.
+                      </p>
                     </div>
-                    {resourceAllocations.map((allocation) => (
-                      <div 
-                        key={`allocation-${allocation.id}`} 
-                        className="p-4 rounded-xl border bg-blue-500/10 border-blue-500/30"
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-start gap-3">
-                            <div className="p-2 bg-blue-500/20 rounded-lg">
-                              <Users size={16} className="text-blue-400" />
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h4 className="text-white font-semibold">
-                                  {allocation.resource?.provider_name || 'Dienstleister'}
-                                </h4>
-                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  allocation.allocation_status === 'pre_selected' ? 'bg-blue-500/20 text-blue-400' :
-                                  allocation.allocation_status === 'invited' ? 'bg-yellow-500/20 text-yellow-400' :
-                                  allocation.allocation_status === 'accepted' ? 'bg-green-500/20 text-green-400' :
-                                  allocation.allocation_status === 'rejected' ? 'bg-red-500/20 text-red-400' :
-                                  'bg-gray-500/20 text-gray-400'
-                                }`}>
-                                  {allocation.allocation_status === 'pre_selected' ? 'Vorausgewählt' :
-                                   allocation.allocation_status === 'invited' ? 'Eingeladen' :
-                                   allocation.allocation_status === 'accepted' ? 'Angenommen' :
-                                   allocation.allocation_status === 'rejected' ? 'Abgelehnt' :
-                                   allocation.allocation_status}
-                                </span>
+                    {resourceAllocations.map((allocation) => {
+                      // Prüfe ob für diese Ressource bereits ein Angebot vorhanden ist
+                      const hasQuote = existingQuotes?.some(quote => 
+                        quote.service_provider_id === allocation.resource?.service_provider_id
+                      );
+                      
+                      // Zeige nur Ressourcen ohne Angebot
+                      if (hasQuote) return null;
+                      
+                      return (
+                        <div 
+                          key={`allocation-${allocation.id}`} 
+                          className="p-4 rounded-xl border bg-blue-500/10 border-blue-500/30"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-start gap-3">
+                              <div className="p-2 bg-blue-500/20 rounded-lg">
+                                <Users size={16} className="text-blue-400" />
                               </div>
-                              
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                                <div>
-                                  <span className="text-gray-400">Personen:</span>
-                                  <div className="text-white font-semibold">{allocation.allocated_person_count}</div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <h4 className="text-white font-semibold">
+                                    {allocation.resource?.provider_name || 'Dienstleister'}
+                                  </h4>
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    allocation.allocation_status === 'pre_selected' ? 'bg-blue-500/20 text-blue-400' :
+                                    allocation.allocation_status === 'invited' ? 'bg-yellow-500/20 text-yellow-400' :
+                                    allocation.allocation_status === 'offer_requested' ? 'bg-orange-500/20 text-orange-400' :
+                                    allocation.allocation_status === 'offer_submitted' ? 'bg-green-500/20 text-green-400' :
+                                    allocation.allocation_status === 'accepted' ? 'bg-green-500/20 text-green-400' :
+                                    allocation.allocation_status === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                                    'bg-gray-500/20 text-gray-400'
+                                  }`}>
+                                    {allocation.allocation_status === 'pre_selected' ? 'Vorausgewählt' :
+                                     allocation.allocation_status === 'invited' ? 'Eingeladen' :
+                                     allocation.allocation_status === 'offer_requested' ? 'Angebot angefordert' :
+                                     allocation.allocation_status === 'offer_submitted' ? 'Angebot eingereicht' :
+                                     allocation.allocation_status === 'accepted' ? 'Angenommen' :
+                                     allocation.allocation_status === 'rejected' ? 'Abgelehnt' :
+                                     allocation.allocation_status}
+                                  </span>
                                 </div>
-                                <div>
-                                  <span className="text-gray-400">Zeitraum:</span>
-                                  <div className="text-white">
-                                    {new Date(allocation.allocated_start_date).toLocaleDateString('de-DE')} - 
-                                    {new Date(allocation.allocated_end_date).toLocaleDateString('de-DE')}
-                                  </div>
-                                </div>
-                                <div>
-                                  <span className="text-gray-400">Kategorie:</span>
-                                  <div className="text-white">{allocation.resource?.category || 'Nicht angegeben'}</div>
-                                </div>
-                              </div>
+                                
+                                {/* Dienstleister-Details mit besserer Aufteilung */}
+                                <div className="mt-3 pt-2 border-t border-gray-600">
+                                  <div className="flex justify-between gap-6">
+                                    {/* Linke Spalte: Grundlegende Kontaktdaten */}
+                                    <div className="flex-1 space-y-1 text-xs">
+                                      {allocation.resource?.provider_company_name && (
+                                        <div className="flex items-center space-x-1">
+                                          <Building className="w-3 h-3 text-gray-400" />
+                                          <span className="text-gray-300">{allocation.resource.provider_company_name}</span>
+                                        </div>
+                                      )}
+                                      {allocation.resource?.provider_email && (
+                                        <div className="flex items-center space-x-1">
+                                          <Mail className="w-3 h-3 text-gray-400" />
+                                          <span className="text-gray-300">{allocation.resource.provider_email}</span>
+                                        </div>
+                                      )}
+                                      {allocation.resource?.provider_phone && (
+                                        <div className="flex items-center space-x-1">
+                                          <Phone className="w-3 h-3 text-gray-400" />
+                                          <span className="text-gray-300">{allocation.resource.provider_phone}</span>
+                                        </div>
+                                      )}
+                                      {allocation.resource?.provider_company_address && (
+                                        <div className="flex items-center space-x-1">
+                                          <MapPin className="w-3 h-3 text-gray-400" />
+                                          <span className="text-gray-300">{allocation.resource.provider_company_address}</span>
+                                        </div>
+                                      )}
+                                    </div>
 
-                              {allocation.resource?.address_city && (
-                                <div className="mt-3 flex items-center gap-4 text-sm text-gray-300">
-                                  <div className="flex items-center gap-1">
-                                    <MapPin size={14} />
-                                    {allocation.resource.address_city}, {allocation.resource.address_postal_code}
+                                    {/* Rechte Spalte: Projekt-Details und weitere Informationen */}
+                                    <div className="flex-1 space-y-1 text-xs">
+                                      <div className="flex items-center space-x-1">
+                                        <Users className="w-3 h-3 text-gray-400" />
+                                        <span className="text-gray-300">{allocation.allocated_person_count} Personen</span>
+                                      </div>
+                                      
+                                      <div className="flex items-center space-x-1">
+                                        <Calendar className="w-3 h-3 text-gray-400" />
+                                        <span className="text-gray-300">
+                                          {new Date(allocation.allocated_start_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} - 
+                                          {new Date(allocation.allocated_end_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+                                        </span>
+                                      </div>
+                                      
+                                      {allocation.resource?.hourly_rate && (
+                                        <div className="flex items-center space-x-1">
+                                          <Clock className="w-3 h-3 text-gray-400" />
+                                          <span className="text-gray-300">{allocation.resource.hourly_rate}€/h</span>
+                                        </div>
+                                      )}
+                                      
+                                      <div className="flex items-center space-x-1">
+                                        <span className="text-gray-300">{allocation.resource?.category || 'Nicht angegeben'}</span>
+                                      </div>
+
+                                      {allocation.resource?.provider_company_website && (
+                                        <div className="flex items-center space-x-1">
+                                          <Settings className="w-3 h-3 text-gray-400" />
+                                          <a 
+                                            href={allocation.resource.provider_company_website.startsWith('http') ? allocation.resource.provider_company_website : `https://${allocation.resource.provider_company_website}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-400 hover:text-blue-300 underline"
+                                          >
+                                            {allocation.resource.provider_company_website}
+                                          </a>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                                  {allocation.resource.hourly_rate && (
-                                    <div className="flex items-center gap-1">
-                                      <Clock size={14} />
-                                      {allocation.resource.hourly_rate}€/h
+
+                                  {/* Zusätzliche Informationen (Beschreibung, Sprachen) - volle Breite */}
+                                  {(allocation.resource?.provider_bio || allocation.resource?.provider_languages) && (
+                                    <div className="mt-3 pt-2 border-t border-gray-600">
+                                      {allocation.resource?.provider_bio && (
+                                        <div className="mb-2">
+                                          <div className="text-gray-400 text-xs mb-1">
+                                            Beschreibung:
+                                          </div>
+                                          <div className="text-gray-300 text-xs leading-relaxed">
+                                            {allocation.resource.provider_bio.length > 100 
+                                              ? `${allocation.resource.provider_bio.substring(0, 100)}...` 
+                                              : allocation.resource.provider_bio}
+                                          </div>
+                                        </div>
+                                      )}
+                                      {allocation.resource?.provider_languages && (
+                                        <div>
+                                          <div className="text-gray-400 text-xs mb-1">
+                                            Sprachen:
+                                          </div>
+                                          <div className="text-gray-300 text-xs">
+                                            {allocation.resource.provider_languages}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                 </div>
-                              )}
+                                
+                                {/* Hinweis für wartende Angebote */}
+                                {allocation.allocation_status === 'invited' && (
+                                  <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                                    <div className="flex items-center gap-2">
+                                      <Clock size={14} className="text-yellow-400" />
+                                      <span className="text-yellow-300 text-sm">
+                                        Wartet auf Angebot vom Dienstleister
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     <div className="border-t border-gray-600/30 my-6"></div>
                   </>
                 ) : null}
 
                 {/* Quotes (Angebote) */}
-                {(existingQuotes && existingQuotes.length > 0) || (resourceAllocations && resourceAllocations.length > 0) ? (
+                {existingQuotes && existingQuotes.length > 0 ? (
                   <>
-                    {existingQuotes && existingQuotes.length > 0 && existingQuotes.map((quote) => (
-                  <div 
-                    key={quote.id} 
-                    className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer ${
-                      quote.status === 'accepted' 
-                        ? 'bg-green-500/10 border-green-500/30' 
-                        : selectedQuoteIds.includes(quote.id)
-                        ? 'bg-blue-500/20 border-blue-400/60 shadow-lg shadow-blue-500/20'
-                        : 'bg-white/5 border-white/20 hover:border-blue-400/40 hover:bg-white/10'
-                    }`}
-                    onClick={(e) => {
-                      // Nur bei Besichtigungspflicht und nicht angenommenen Angeboten
-                      if ((trade as any).requires_inspection && quote.status !== 'accepted') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        if (selectedQuoteIds.includes(quote.id)) {
-                          setSelectedQuoteIds(selectedQuoteIds.filter(id => id !== quote.id));
-                        } else {
-                          setSelectedQuoteIds([...selectedQuoteIds, quote.id]);
-                        }
-                      }
-                    }}
-                  >
+                    <div className="mb-4">
+                      <h4 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                        <FileText size={18} className="text-green-400" />
+                        Eingegangene Angebote ({existingQuotes.length})
+                      </h4>
+                      <p className="text-sm text-gray-400 mb-4">
+                        Diese Dienstleister haben Angebote für die Ausschreibung eingereicht.
+                      </p>
+                    </div>
+                    {existingQuotes.map((quote) => {
+                      // Finde die entsprechende ResourceAllocation für dieses Angebot
+                      const correspondingAllocation = resourceAllocations?.find(allocation => 
+                        allocation.resource?.service_provider_id === quote.service_provider_id
+                      );
+                      
+                      return (
+                        <div 
+                          key={quote.id} 
+                          className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer ${
+                            quote.status === 'accepted' 
+                              ? 'bg-green-500/10 border-green-500/30' 
+                              : selectedQuoteIds.includes(quote.id)
+                              ? 'bg-blue-500/20 border-blue-400/60 shadow-lg shadow-blue-500/20'
+                              : 'bg-white/5 border-white/20 hover:border-blue-400/40 hover:bg-white/10'
+                          }`}
+                          onClick={(e) => {
+                            // Nur bei Besichtigungspflicht und nicht angenommenen Angeboten
+                            if ((trade as any).requires_inspection && quote.status !== 'accepted') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              
+                              if (selectedQuoteIds.includes(quote.id)) {
+                                setSelectedQuoteIds(selectedQuoteIds.filter(id => id !== quote.id));
+                              } else {
+                                setSelectedQuoteIds([...selectedQuoteIds, quote.id]);
+                              }
+                            }
+                          }}
+                        >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-start gap-3">
                         {(trade as any).requires_inspection && quote.status !== 'accepted' && (
@@ -4765,7 +4884,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       </div>
                     </div>
                   </div>
-                ))}
+                      );
+                    })}
                   </>
                 ) : (
                   <div className="text-center py-8">

@@ -29,6 +29,7 @@ import {
 import { resourceService, type Resource, type ResourceSearchParams } from '../api/resourceService';
 import { useAuth } from '../context/AuthContext';
 import AddressAutocomplete from './AddressAutocomplete';
+import { TRADE_CATEGORIES } from '../constants/tradeCategories';
 import dayjs from 'dayjs';
 
 // Fix für Leaflet Icons
@@ -324,16 +325,11 @@ const ResourceGeoSearch: React.FC<ResourceGeoSearchProps> = ({
                     className="w-full bg-[#333] text-white rounded-lg px-3 py-2 text-sm"
                   >
                     <option value="">Alle Kategorien</option>
-                    <option value="rohbau">Rohbau</option>
-                    <option value="elektro">Elektroinstallation</option>
-                    <option value="sanitaer">Sanitär</option>
-                    <option value="heizung">Heizung/Klima</option>
-                    <option value="trockenbau">Trockenbau</option>
-                    <option value="maler">Malerarbeiten</option>
-                    <option value="fliesen">Fliesenleger</option>
-                    <option value="dachdecker">Dachdeckerarbeiten</option>
-                    <option value="fenster">Fenster & Türen</option>
-                    <option value="garten">Garten- & Landschaftsbau</option>
+                    {TRADE_CATEGORIES.map(category => (
+                      <option key={category.value} value={category.value}>
+                        {category.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

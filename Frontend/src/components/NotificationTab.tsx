@@ -24,7 +24,7 @@ interface NotificationTabProps {
 
 interface NotificationData {
   id: number;
-  type: 'appointment_invitation' | 'appointment_responses' | 'service_provider_selection_reminder' | 'quote_accepted' | 'quote_submitted';
+  type: 'appointment_invitation' | 'appointment_responses' | 'service_provider_selection_reminder' | 'quote_accepted' | 'quote_submitted' | 'resource_allocated' | 'tender_invitation';
   title: string;
   message: string;
   description?: string;
@@ -55,6 +55,15 @@ interface NotificationData {
   // Für allgemeine Benachrichtigungen
   notification?: any;
   priority?: 'low' | 'normal' | 'high' | 'urgent';
+  // Für Ressourcen-Benachrichtigungen
+  allocationId?: number;
+  resourceId?: number;
+  tradeTitle?: string;
+  bautraegerName?: string;
+  deadline?: string;
+  allocatedStartDate?: string;
+  allocatedEndDate?: string;
+  allocatedPersonCount?: number;
 }
 
 export default function NotificationTab({ userRole, userId, onResponseSent }: NotificationTabProps) {
@@ -197,6 +206,51 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                   isNew: !notification.is_acknowledged,
                   notification: notification,
                   priority: notification.priority
+                });
+              } else if (notification.type === 'resource_allocated') {
+                console.log('🔔 NotificationTab: Adding resource_allocated notification');
+                const data = notification.data ? JSON.parse(notification.data) : {};
+                notifications.push({
+                  id: notification.id,
+                  type: 'resource_allocated',
+                  title: notification.title,
+                  message: notification.message,
+                  timestamp: notification.created_at,
+                  isNew: !notification.is_acknowledged,
+                  notification: notification,
+                  priority: notification.priority,
+                  allocationId: data.allocation_id,
+                  resourceId: data.resource_id,
+                  tradeId: data.trade_id,
+                  tradeTitle: data.trade_title,
+                  projectName: data.project_name,
+                  bautraegerName: data.bautraeger_name,
+                  allocatedStartDate: data.allocated_start_date,
+                  allocatedEndDate: data.allocated_end_date,
+                  allocatedPersonCount: data.allocated_person_count
+                });
+              } else if (notification.type === 'tender_invitation') {
+                console.log('🔔 NotificationTab: Adding tender_invitation notification');
+                const data = notification.data ? JSON.parse(notification.data) : {};
+                notifications.push({
+                  id: notification.id,
+                  type: 'tender_invitation',
+                  title: notification.title,
+                  message: notification.message,
+                  timestamp: notification.created_at,
+                  isNew: !notification.is_acknowledged,
+                  notification: notification,
+                  priority: notification.priority,
+                  allocationId: data.allocation_id,
+                  resourceId: data.resource_id,
+                  tradeId: data.trade_id,
+                  tradeTitle: data.trade_title,
+                  projectName: data.project_name,
+                  bautraegerName: data.bautraeger_name,
+                  deadline: data.deadline,
+                  allocatedStartDate: data.allocated_start_date,
+                  allocatedEndDate: data.allocated_end_date,
+                  allocatedPersonCount: data.allocated_person_count
                 });
               }
             });
@@ -540,6 +594,37 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                         
                         // Schließe Benachrichtigungs-Panel
                         setIsExpanded(false);
+                      } else if (userRole === 'DIENSTLEISTER' && notification.type === 'resource_allocated') {
+                        // Öffne die betroffene Ausschreibung für Ressourcen-Zuordnung
+                        console.log('📋 Öffne Ausschreibung für Ressourcen-Zuordnung:', notification.tradeId);
+                        markAsSeen([notification.id]);
+                        
+                        // Event für ServiceProviderDashboard auslösen, um TradeDetailsModal zu öffnen
+                        window.dispatchEvent(new CustomEvent('openTradeDetails', {
+                          detail: {
+                            tradeId: notification.tradeId,
+                            source: 'resource_allocation_notification'
+                          }
+                        }));
+                        
+                        // Schließe Benachrichtigungs-Panel
+                        setIsExpanded(false);
+                      } else if (userRole === 'DIENSTLEISTER' && notification.type === 'tender_invitation') {
+                        // Öffne die betroffene Ausschreibung für Angebotsabgabe
+                        console.log('📋 Öffne Ausschreibung für Angebotsabgabe:', notification.tradeId);
+                        markAsSeen([notification.id]);
+                        
+                        // Event für ServiceProviderDashboard auslösen, um TradeDetailsModal zu öffnen
+                        window.dispatchEvent(new CustomEvent('openTradeDetails', {
+                          detail: {
+                            tradeId: notification.tradeId,
+                            source: 'tender_invitation_notification',
+                            showQuoteForm: true
+                          }
+                        }));
+                        
+                        // Schließe Benachrichtigungs-Panel
+                        setIsExpanded(false);
                       } else if (userRole === 'BAUTRAEGER' && notification.type === 'appointment_responses') {
                         // Zeige die Antworten der Dienstleister an
                         setSelectedNotification(notification);
@@ -571,6 +656,10 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                               <CheckCircle size={16} className="text-green-500" />
                             ) : notification.type === 'quote_submitted' ? (
                               <FileText size={16} className="text-blue-500" />
+                            ) : notification.type === 'resource_allocated' ? (
+                              <User size={16} className="text-purple-500" />
+                            ) : notification.type === 'tender_invitation' ? (
+                              <AlertCircle size={16} className="text-red-500 animate-pulse" />
                             ) : notification.type === 'service_provider_selection_reminder' ? (
                               <AlertCircle size={16} className="text-orange-400 animate-pulse" />
                             ) : (
@@ -646,6 +735,100 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                                 </div>
                                 <div className="mt-2 text-xs text-blue-600 font-medium">
                                   👆 Klicken Sie hier, um die Ausschreibung zu öffnen
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Zusätzliche Informationen für resource_allocated */}
+                            {notification.type === 'resource_allocated' && (
+                              <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div>
+                                    <span className="text-gray-500">Projekt:</span>
+                                    <div className="font-semibold text-purple-600">
+                                      {notification.projectName || 'Unbekanntes Projekt'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Bauträger:</span>
+                                    <div className="font-semibold text-gray-700">
+                                      {notification.bautraegerName || 'Unbekannter Bauträger'}
+                                    </div>
+                                  </div>
+                                  {notification.allocatedStartDate && (
+                                    <div>
+                                      <span className="text-gray-500">Start:</span>
+                                      <div className="font-semibold text-gray-700">
+                                        {new Date(notification.allocatedStartDate).toLocaleDateString('de-DE')}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {notification.allocatedEndDate && (
+                                    <div>
+                                      <span className="text-gray-500">Ende:</span>
+                                      <div className="font-semibold text-gray-700">
+                                        {new Date(notification.allocatedEndDate).toLocaleDateString('de-DE')}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {notification.allocatedPersonCount && (
+                                    <div>
+                                      <span className="text-gray-500">Personen:</span>
+                                      <div className="font-semibold text-gray-700">
+                                        {notification.allocatedPersonCount}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="mt-2 text-xs text-purple-600 font-medium">
+                                  👆 Klicken Sie hier, um die Ausschreibung zu öffnen
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Zusätzliche Informationen für tender_invitation */}
+                            {notification.type === 'tender_invitation' && (
+                              <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div>
+                                    <span className="text-gray-500">Projekt:</span>
+                                    <div className="font-semibold text-red-600">
+                                      {notification.projectName || 'Unbekanntes Projekt'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Bauträger:</span>
+                                    <div className="font-semibold text-gray-700">
+                                      {notification.bautraegerName || 'Unbekannter Bauträger'}
+                                    </div>
+                                  </div>
+                                  {notification.deadline && (
+                                    <div className="col-span-2">
+                                      <span className="text-gray-500">Abgabefrist:</span>
+                                      <div className="font-semibold text-red-600">
+                                        {new Date(notification.deadline).toLocaleDateString('de-DE')} um {new Date(notification.deadline).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {notification.allocatedStartDate && (
+                                    <div>
+                                      <span className="text-gray-500">Start:</span>
+                                      <div className="font-semibold text-gray-700">
+                                        {new Date(notification.allocatedStartDate).toLocaleDateString('de-DE')}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {notification.allocatedEndDate && (
+                                    <div>
+                                      <span className="text-gray-500">Ende:</span>
+                                      <div className="font-semibold text-gray-700">
+                                        {new Date(notification.allocatedEndDate).toLocaleDateString('de-DE')}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="mt-2 text-xs text-red-600 font-medium">
+                                  🚨 Klicken Sie hier, um ein Angebot abzugeben
                                 </div>
                               </div>
                             )}

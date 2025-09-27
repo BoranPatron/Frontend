@@ -28,6 +28,9 @@ import {
   Eye, 
   X, 
   AlertTriangle,
+  Shield,
+  EyeOff,
+  FolderOpen,
   Star,
   Building,
   FileText,
@@ -50,7 +53,9 @@ import {
   Edit,
   Zap,
   Sparkles,
-  Target
+  Target,
+  Wrench,
+  Calendar
 } from 'lucide-react';
 import GuidedTourOverlay from '../components/Onboarding/GuidedTourOverlay';
 import EnhancedGuidedTour from '../components/Onboarding/EnhancedGuidedTour';
@@ -124,10 +129,52 @@ const DOCUMENT_CATEGORIES = {
       'Baustellenberichte'
     ]
   },
+  procurement: {
+    name: 'Ausschreibungen & Angebote',
+    icon: FileText,
+    color: 'indigo',
+    subcategories: [
+      'Ausschreibungsunterlagen',
+      'Technische Spezifikationen',
+      'Angebote',
+      'Angebotsbewertung',
+      'Vergabedokumentation',
+      'Verhandlungen'
+    ]
+  },
+  project_management: {
+    name: 'Projektmanagement',
+    icon: Calendar,
+    color: 'teal',
+    subcategories: [
+      'Projektpläne',
+      'Terminplanung',
+      'Budgetplanung',
+      'Projektsteuerung',
+      'Risikomanagement',
+      'Qualitätsmanagement',
+      'Ressourcenplanung',
+      'Projektdokumentation'
+    ]
+  },
+  technical: {
+    name: 'Technische Unterlagen',
+    icon: Wrench,
+    color: 'gray',
+    subcategories: [
+      'Technische Zeichnungen',
+      'Spezifikationen',
+      'Datenblätter',
+      'Handbücher',
+      'Anleitungen',
+      'Installationsanweisungen',
+      'Wartungsanleitungen'
+    ]
+  },
   order_confirmations: {
     name: 'Auftragsbestätigungen',
     icon: FileCheck,
-    color: 'indigo',
+    color: 'emerald',
     subcategories: [
       'Auftragsbestätigungen',
       'Bestellbestätigungen',
@@ -1520,37 +1567,6 @@ export default function Dashboard() {
     openExclusiveModal('trade', trade);
   };
 
-  const handleResetRoleForTesting = async () => {
-    try {
-      console.log('🔧 Debug: Setze Rolle zurück...');
-      
-      const response = await fetch('http://localhost:8000/api/v1/auth/debug/reset-role', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Rolle erfolgreich zurückgesetzt:', data);
-        
-        // Zeige Bestätigung
-        alert('✅ Rolle zurückgesetzt! Seite wird neu geladen um das Modal zu testen.');
-        
-        // Seite neu laden um das Modal zu triggern
-        window.location.reload();
-      } else {
-        const error = await response.text();
-        console.error('❌ Fehler beim Zurücksetzen:', error);
-        alert('❌ Fehler beim Zurücksetzen der Rolle. Siehe Konsole für Details.');
-      }
-    } catch (error) {
-      console.error('❌ Netzwerk-Fehler:', error);
-      alert('❌ Netzwerk-Fehler beim Zurücksetzen der Rolle.');
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6">
@@ -2358,6 +2374,43 @@ export default function Dashboard() {
             </div>
             
             <div className="p-6">
+              {/* Datenschutz-Hinweis Banner */}
+              <div className="mb-6 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/30 rounded-xl p-4">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <Shield className="w-6 h-6 text-blue-400 mt-0.5" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-white font-semibold mb-2 flex items-center">
+                      <Eye className="w-4 h-4 mr-2 text-blue-400" />
+                      Datenschutz & Sichtbarkeit
+                    </h4>
+                    <div className="text-gray-300 text-sm space-y-2">
+                      <p>
+                        <strong className="text-white">Alle Projektinformationen</strong> sind nur für Sie als Bauträger sichtbar und werden vertraulich behandelt.
+                      </p>
+                      <div className="flex items-start space-x-2">
+                        <EyeOff className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p><strong className="text-yellow-400">Ausnahme: Projektadresse</strong></p>
+                          <p className="text-gray-400 text-xs">
+                            Die Adresse wird bei der Erstellung von Ausschreibungen automatisch an Dienstleister weitergegeben, damit diese die Anschrift der Baustelle kennen.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <FolderOpen className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p><strong className="text-green-400">Dokumente im DMS</strong></p>
+                          <p className="text-gray-400 text-xs">
+                            Hochgeladene Dokumente werden diesem Projekt im Dokumenten-Management-System (DMS) zugeordnet. Bei späteren Ausschreibungen können Sie gezielt auswählen, welche Dokumente für Dienstleister sichtbar sein sollen.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               <form onSubmit={handleCreateProject} className="space-y-6">
                 {/* Grundinformationen */}
@@ -3067,35 +3120,6 @@ export default function Dashboard() {
         </div>
       )}
       
-      {/* Debug-Button für Rollenauswahl-Tests (nur im Entwicklungsmodus) */}
-      {import.meta.env.DEV && (
-        <div className="fixed bottom-4 left-4 z-50 flex flex-col gap-2">
-          <button
-            onClick={() => {
-              console.log('🔍 Debug User Status:', {
-                user: user,
-                hasRole: !!user?.user_role,
-                roleSelected: user?.role_selected,
-                createdAt: user?.created_at,
-                subscriptionPlan: user?.subscription_plan
-              });
-              alert('User-Status in der Konsole ausgegeben!');
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-medium transition-colors"
-            title="Zeigt aktuellen User-Status in der Konsole"
-          >
-            🔍 User Status (Debug)
-          </button>
-          
-          <button
-            onClick={handleResetRoleForTesting}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-medium transition-colors"
-            title="Setzt Rolle zurück für Modal-Tests"
-          >
-            🔧 Reset Rolle (Debug)
-          </button>
-        </div>
-      )}
 
       {/* Radial Menu wurde global in App.tsx eingebunden */}
 

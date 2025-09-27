@@ -17,11 +17,18 @@ import {
   Eye,
   Users,
   Map,
-  ChevronRight
+  ChevronRight,
+  Calendar,
+  Clock,
+  Euro,
+  Mail,
+  Phone,
+  MapPin
 } from 'lucide-react';
 import ResourceSelectionPanel from './ResourceSelectionPanel';
 import ResourceGeoSearch from './ResourceGeoSearch';
 import { Resource, ResourceAllocation } from '../api/resourceService';
+import { TRADE_CATEGORIES } from '../constants/tradeCategories';
 
 interface TradeCreationFormProps {
   isOpen: boolean;
@@ -106,6 +113,50 @@ const DOCUMENT_CATEGORIES = {
       'Videos',
       'Baustellenberichte'
     ]
+  },
+  procurement: {
+    name: 'Ausschreibungen & Angebote',
+    subcategories: [
+      'Ausschreibungsunterlagen',
+      'Technische Spezifikationen',
+      'Angebote',
+      'Angebotsbewertung',
+      'Vergabedokumentation',
+      'Verhandlungen'
+    ]
+  },
+  project_management: {
+    name: 'Projektmanagement',
+    subcategories: [
+      'Projektpläne',
+      'Terminplanung',
+      'Budgetplanung',
+      'Projektsteuerung',
+      'Risikomanagement',
+      'Qualitätsmanagement',
+      'Ressourcenplanung',
+      'Projektdokumentation'
+    ]
+  },
+  technical: {
+    name: 'Technische Unterlagen',
+    subcategories: [
+      'Technische Zeichnungen',
+      'Spezifikationen',
+      'Datenblätter',
+      'Handbücher',
+      'Anleitungen',
+      'Installationsanweisungen',
+      'Wartungsanleitungen'
+    ]
+  },
+  order_confirmations: {
+    name: 'Auftragsbestätigungen',
+    subcategories: [
+      'Auftragsbestätigungen',
+      'Bestellbestätigungen',
+      'Leistungsbestätigungen'
+    ]
   }
 };
 
@@ -142,6 +193,20 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
   const [showResourceMap, setShowResourceMap] = useState(false);
   const [selectedResources, setSelectedResources] = useState<Resource[]>([]);
   const [preSelectedAllocations, setPreSelectedAllocations] = useState<ResourceAllocation[]>([]);
+  const [expandedResources, setExpandedResources] = useState<Set<number>>(new Set());
+
+  // Toggle resource expansion
+  const toggleResourceExpansion = (resourceId: number) => {
+    setExpandedResources(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(resourceId)) {
+        newSet.delete(resourceId);
+      } else {
+        newSet.add(resourceId);
+      }
+      return newSet;
+    });
+  };
 
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -517,6 +582,44 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
       };
       
       const result = await createMilestoneWithDocuments(milestoneData);
+      
+      // 3. Sende Benachrichtigungen an zugeordnete Dienstleister
+      if (preSelectedAllocations.length > 0) {
+        try {
+          const { sendInvitationNotification } = await import('../api/resourceService');
+          
+          // Sende Benachrichtigungen für alle zugeordneten Ressourcen
+          const notificationPromises = preSelectedAllocations.map(async (allocation) => {
+            try {
+              // Erstelle die ResourceAllocation mit der neuen milestone_id
+              const { createAllocation } = await import('../api/resourceService');
+              const resourceAllocation = await createAllocation({
+                trade_id: result.id,
+                resource_id: allocation.resource_id,
+                allocated_person_count: allocation.allocated_person_count,
+                allocated_start_date: allocation.allocated_start_date,
+                allocated_end_date: allocation.allocated_end_date,
+                allocation_status: 'invited',
+                notes: 'Automatisch zugeordnet bei Ausschreibungserstellung'
+              });
+              
+              // Sende Benachrichtigung an den Dienstleister
+              await sendInvitationNotification(resourceAllocation.id);
+              console.log(`✅ Benachrichtigung gesendet für Ressource ${allocation.resource_id}`);
+            } catch (error) {
+              console.error(`❌ Fehler beim Senden der Benachrichtigung für Ressource ${allocation.resource_id}:`, error);
+            }
+          });
+          
+          // Warte auf alle Benachrichtigungen (parallel)
+          await Promise.allSettled(notificationPromises);
+          console.log(`✅ Alle Benachrichtigungen für ${preSelectedAllocations.length} Ressourcen verarbeitet`);
+        } catch (error) {
+          console.error('❌ Fehler beim Senden der Benachrichtigungen:', error);
+          // Fehler bei Benachrichtigungen soll die Ausschreibungserstellung nicht blockieren
+        }
+      }
+      
       // Schließe das Modal und rufe onSubmit auf
       await onSubmit(result);
       handleClose();
@@ -550,6 +653,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
     setPreSelectedAllocations([]);
     setShowResourcePanel(false);
     setShowResourceMap(false);
+    setResourceDateRange({ start: '', end: '' });
     onClose();
   };
 
@@ -664,26 +768,11 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                       }`}
                     >
                       <option value="">Kategorie wählen</option>
-                      <option value="electrical">Elektro</option>
-                      <option value="plumbing">Sanitär</option>
-                      <option value="heating">Heizung</option>
-                      <option value="flooring">Bodenbelag</option>
-                      <option value="painting">Malerei</option>
-                      <option value="carpentry">Zimmerei</option>
-                      <option value="roofing">Dachdeckerei</option>
-                      <option value="landscaping">Garten- & Landschaftsbau</option>
-                      <option value="civil_engineering">Tiefbau</option>
-                      <option value="structural">Hochbau</option>
-                      <option value="interior">Innenausbau / Interior</option>
-                      <option value="facade">Fassade</option>
-                      <option value="windows_doors">Fenster & Türen</option>
-                      <option value="drywall">Trockenbau</option>
-                      <option value="tiling">Fliesenarbeiten</option>
-                      <option value="insulation">Dämmung</option>
-                      <option value="hvac">Klima / Lüftung (HVAC)</option>
-                      <option value="smart_home">Smart Home</option>
-                      <option value="site_preparation">Erdarbeiten / Baustellenvorbereitung</option>
-                      <option value="other">Sonstiges</option>
+                      {TRADE_CATEGORIES.map(category => (
+                        <option key={category.value} value={category.value}>
+                          {category.label}
+                        </option>
+                      ))}
                     </select>
                     {errors.category && (
                       <p className="text-red-400 text-sm mt-1">{errors.category}</p>
@@ -1082,6 +1171,21 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                 </div>
               </div>
               
+              {/* Informational Banner für Ressourcen-Vorauswahl */}
+              <div className="mb-6 p-4 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-blue-400/30 rounded-lg">
+                <div className="flex items-start space-x-3">
+                  <Info className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-blue-300">
+                    <div className="font-semibold text-blue-200 mb-2">Ressourcen-Vorauswahl</div>
+                    <div className="space-y-1">
+                      <p>• <strong>Funktion:</strong> Wählen Sie passende Dienstleister vor der Ausschreibung aus</p>
+                      <p>• <strong>Zweck:</strong> Zeit sparen und gezielt qualifizierte Anbieter kontaktieren</p>
+                      <p>• <strong>Vorteile:</strong> Schnellere Angebote, bessere Preise, weniger Aufwand</p>
+                  </div>
+                  </div>
+                </div>
+              </div>
+              
               {/* Ausgewählte Ressourcen Anzeige */}
               {selectedResources.length > 0 ? (
                 <div className="bg-[#2a2a2a]/50 rounded-lg p-4 border border-gray-600">
@@ -1093,29 +1197,72 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                       {selectedResources.reduce((sum, r) => sum + r.person_count, 0)} Personen gesamt
                     </span>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {selectedResources.map((resource) => (
+                  <div className="grid grid-cols-1 gap-3">
+                    {selectedResources.map((resource) => {
+                      const isExpanded = expandedResources.has(resource.id!);
+                      return (
                       <div
                         key={resource.id}
-                        className="flex items-center justify-between bg-[#333] rounded-lg p-3 hover:bg-[#3a3a3a] transition-colors"
-                      >
-                        <div className="flex items-center space-x-3 flex-1">
-                          <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
-                          <div className="min-w-0">
-                            <span className="text-sm text-white font-medium block truncate">
+                          className="bg-[#333] rounded-lg border border-gray-600 hover:border-gray-500 transition-colors"
+                        >
+                          {/* Kompakte Ansicht - Header */}
+                          <div className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="text-sm font-semibold text-white">
                               {resource.provider_name || 'Dienstleister'}
+                                  </h4>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleResourceExpansion(resource.id!)}
+                                    className="flex items-center space-x-1 text-xs text-gray-400 hover:text-gray-300 transition-colors"
+                                  >
+                                    <span>{isExpanded ? 'Weniger anzeigen' : 'Mehr anzeigen'}</span>
+                                    <span className="text-[#ffbd59]">
+                                      {isExpanded ? '▲' : '▼'}
                             </span>
-                            <div className="flex items-center space-x-2 text-xs text-gray-400">
-                              <span>{resource.person_count} Pers.</span>
-                              <span>•</span>
-                              <span className="truncate">{resource.category}</span>
+                                  </button>
+                                </div>
+                                <div className="flex items-center space-x-2 mb-2">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                    resource.status === 'available' 
+                                      ? 'bg-green-500/20 text-green-400' 
+                                      : 'bg-gray-500/20 text-gray-400'
+                                  }`}>
+                                    {resource.status === 'available' ? 'Verfügbar' : 'Reserviert'}
+                                  </span>
+                                  <span className="text-xs text-gray-400">
+                                    {resource.category}
+                                  </span>
+                                  {(!resource.latitude || !resource.longitude) && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-500/20 text-yellow-400">
+                                      📍 Kein Standort
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                {/* Kompakte Info-Zeile */}
+                                <div className="flex items-center space-x-4 text-xs text-gray-300">
+                                  <div className="flex items-center space-x-1">
+                                    <Users className="w-3 h-3 text-gray-400" />
+                                    <span>{resource.person_count} Personen</span>
+                                  </div>
                               {resource.hourly_rate && (
-                                <>
-                                  <span>•</span>
+                                    <div className="flex items-center space-x-1">
+                                      <Euro className="w-3 h-3 text-gray-400" />
                                   <span>{resource.hourly_rate}€/h</span>
-                                </>
-                              )}
                             </div>
+                                  )}
+                                  {resource.start_date && resource.end_date && (
+                                    <div className="flex items-center space-x-1">
+                                      <Calendar className="w-3 h-3 text-gray-400" />
+                                <span>
+                                        {new Date(resource.start_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} - 
+                                        {new Date(resource.end_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
                         <button
@@ -1124,12 +1271,255 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                             setSelectedResources(prev => prev.filter(r => r.id !== resource.id));
                             setPreSelectedAllocations(prev => prev.filter(a => a.resource_id !== resource.id));
                           }}
-                          className="ml-2 text-gray-400 hover:text-red-400 transition-colors"
+                                className="p-1 hover:bg-red-500/20 rounded transition-colors ml-2"
                         >
-                          <X className="w-4 h-4" />
+                                <X className="w-4 h-4 text-red-400" />
                         </button>
                       </div>
-                    ))}
+                          </div>
+
+                          {/* Erweiterte Ansicht */}
+                          {isExpanded && (
+                            <div className="px-4 pb-4 border-t border-gray-600">
+                              {/* Detaillierte Informationen */}
+                              <div className="grid grid-cols-2 gap-3 text-xs mt-3">
+                                {resource.total_hours && (
+                                  <div className="flex items-center space-x-2">
+                                    <Clock className="w-3 h-3 text-gray-400" />
+                                    <span className="text-gray-300">{resource.total_hours}h</span>
+                                  </div>
+                                )}
+                                
+                                {resource.start_date && resource.end_date && (
+                                  <div className="flex items-center space-x-2">
+                                    <Calendar className="w-3 h-3 text-gray-400" />
+                                    <span className="text-gray-300">
+                                      {new Date(resource.start_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} - 
+                                      {new Date(resource.end_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                    </span>
+                                  </div>
+                                )}
+                                
+                                {resource.hourly_rate && (
+                                  <div className="flex items-center space-x-2">
+                                    <Euro className="w-3 h-3 text-gray-400" />
+                                    <span className="text-gray-300">{resource.hourly_rate}€/h</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Kontakt-Informationen */}
+                              {(resource.provider_company_name || resource.provider_email || resource.provider_phone || resource.provider_company_address || resource.provider_company_phone || resource.provider_company_website) && (
+                                <div className="mt-3 pt-3 border-t border-gray-600">
+                                  <div className="text-xs font-medium text-gray-400 mb-2">📞 Kontakt & Details</div>
+                                  <div className="space-y-1 text-xs">
+                                    {resource.provider_company_name && (
+                                      <div className="flex items-center space-x-2">
+                                        <Building className="w-3 h-3 text-gray-400" />
+                                        <span className="text-gray-300">{resource.provider_company_name}</span>
+                                      </div>
+                                    )}
+                                    {resource.provider_email && (
+                                      <div className="flex items-center space-x-2">
+                                        <Mail className="w-3 h-3 text-gray-400" />
+                                        <span className="text-gray-300">{resource.provider_email}</span>
+                                      </div>
+                                    )}
+                                    {resource.provider_phone && (
+                                      <div className="flex items-center space-x-2">
+                                        <Phone className="w-3 h-3 text-gray-400" />
+                                        <span className="text-gray-300">{resource.provider_phone}</span>
+                                      </div>
+                                    )}
+                                    {resource.provider_company_phone && resource.provider_company_phone !== resource.provider_phone && (
+                                      <div className="flex items-center space-x-2">
+                                        <Phone className="w-3 h-3 text-gray-400" />
+                                        <span className="text-gray-300">{resource.provider_company_phone} (Firma)</span>
+                                      </div>
+                                    )}
+                                    {resource.provider_company_address && (
+                                      <div className="flex items-center space-x-2">
+                                        <MapPin className="w-3 h-3 text-gray-400" />
+                                        <span className="text-gray-300">{resource.provider_company_address}</span>
+                                      </div>
+                                    )}
+                                    {resource.provider_company_website && (
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-gray-400">🌐</span>
+                                        <span className="text-gray-300">{resource.provider_company_website}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Adresse-Details */}
+                              {(resource.address_street || resource.address_city || resource.address_postal_code || resource.address_country) && (
+                                <div className="mt-3 pt-3 border-t border-gray-600">
+                                  <div className="text-xs font-medium text-gray-400 mb-2">📍 Standort</div>
+                                  <div className="space-y-1 text-xs">
+                                    {resource.address_street && (
+                                      <div className="flex items-center space-x-2">
+                                        <MapPin className="w-3 h-3 text-gray-400" />
+                                        <span className="text-gray-300">{resource.address_street}</span>
+                                      </div>
+                                    )}
+                                    {(resource.address_city || resource.address_postal_code) && (
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-gray-400">🏙️</span>
+                                        <span className="text-gray-300">
+                                          {resource.address_postal_code && resource.address_city 
+                                            ? `${resource.address_postal_code} ${resource.address_city}`
+                                            : resource.address_city || resource.address_postal_code
+                                          }
+                                        </span>
+                                      </div>
+                                    )}
+                                    {resource.address_country && (
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-gray-400">🌍</span>
+                                        <span className="text-gray-300">{resource.address_country}</span>
+                                      </div>
+                                    )}
+                                    {resource.latitude && resource.longitude && (
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-gray-400">📍</span>
+                                        <span className="text-gray-300">
+                                          {resource.latitude.toFixed(4)}, {resource.longitude.toFixed(4)}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Skills & Equipment */}
+                              {(resource.skills && resource.skills.length > 0) || (resource.equipment && resource.equipment.length > 0) ? (
+                                <div className="mt-3 pt-3 border-t border-gray-600">
+                                  <div className="text-xs font-medium text-gray-400 mb-2">🛠️ Fähigkeiten & Ausrüstung</div>
+                                  <div className="space-y-2 text-xs">
+                                    {resource.skills && resource.skills.length > 0 && (
+                                      <div>
+                                        <div className="text-gray-400 mb-1">Fähigkeiten:</div>
+                                        <div className="flex flex-wrap gap-1">
+                                          {resource.skills.map((skill, index) => (
+                                            <span key={index} className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs">
+                                              {skill}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {resource.equipment && resource.equipment.length > 0 && (
+                                      <div>
+                                        <div className="text-gray-400 mb-1">Ausrüstung:</div>
+                                        <div className="flex flex-wrap gap-1">
+                                          {resource.equipment.map((equipment, index) => (
+                                            <span key={index} className="px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs">
+                                              {equipment}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              {/* Bauträger-Zeitraum */}
+                              {(resource.builder_preferred_start_date || resource.builder_preferred_end_date || resource.builder_date_range_notes) && (
+                                <div className="mt-3 pt-3 border-t border-gray-600">
+                                  <div className="text-xs font-medium text-gray-400 mb-2">📅 Gewünschter Zeitraum</div>
+                                  <div className="space-y-1 text-xs">
+                                    {resource.builder_preferred_start_date && resource.builder_preferred_end_date && (
+                                      <div className="flex items-center space-x-2">
+                                        <Calendar className="w-3 h-3 text-[#ffbd59]" />
+                                        <span className="text-[#ffbd59]">
+                                          {new Date(resource.builder_preferred_start_date).toLocaleDateString('de-DE')} - {new Date(resource.builder_preferred_end_date).toLocaleDateString('de-DE')}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {resource.builder_date_range_notes && (
+                                      <div className="mt-2 p-2 bg-[#ffbd59]/10 border border-[#ffbd59]/30 rounded">
+                                        <div className="text-[#ffbd59] text-xs">
+                                          <strong>Notizen:</strong> {resource.builder_date_range_notes}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Zusätzliche Informationen */}
+                              {(resource.description || resource.provider_bio || resource.provider_languages || resource.provider_region || resource.provider_business_license) && (
+                                <div className="mt-3 pt-3 border-t border-gray-600">
+                                  <div className="text-xs font-medium text-gray-400 mb-2">ℹ️ Weitere Informationen</div>
+                                  <div className="space-y-2 text-xs">
+                                    {resource.description && (
+                                      <div>
+                                        <div className="text-gray-400 mb-1">Beschreibung:</div>
+                                        <div className="text-gray-300 leading-relaxed">{resource.description}</div>
+                                      </div>
+                                    )}
+                                    {resource.provider_bio && (
+                                      <div>
+                                        <div className="text-gray-400 mb-1">Über den Dienstleister:</div>
+                                        <div className="text-gray-300 leading-relaxed">{resource.provider_bio}</div>
+                                      </div>
+                                    )}
+                                    {resource.provider_languages && (
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-gray-400">🗣️</span>
+                                        <span className="text-gray-300">Sprachen: {resource.provider_languages}</span>
+                                      </div>
+                                    )}
+                                    {resource.provider_region && (
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-gray-400">🌍</span>
+                                        <span className="text-gray-300">Region: {resource.provider_region}</span>
+                                      </div>
+                                    )}
+                                    {resource.provider_business_license && (
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-gray-400">📋</span>
+                                        <span className="text-gray-300">Gewerbelizenz: {resource.provider_business_license}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Preise & Währung */}
+                              {(resource.hourly_rate || resource.daily_rate || resource.currency) && (
+                                <div className="mt-3 pt-3 border-t border-gray-600">
+                                  <div className="text-xs font-medium text-gray-400 mb-2">💰 Preise</div>
+                                  <div className="space-y-1 text-xs">
+                                    {resource.hourly_rate && (
+                                      <div className="flex items-center space-x-2">
+                                        <Euro className="w-3 h-3 text-gray-400" />
+                                        <span className="text-gray-300">{resource.hourly_rate}€/h</span>
+                                      </div>
+                                    )}
+                                    {resource.daily_rate && (
+                                      <div className="flex items-center space-x-2">
+                                        <Euro className="w-3 h-3 text-gray-400" />
+                                        <span className="text-gray-300">{resource.daily_rate}€/Tag</span>
+                                      </div>
+                                    )}
+                                    {resource.currency && resource.currency !== 'EUR' && (
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-gray-400">💱</span>
+                                        <span className="text-gray-300">Währung: {resource.currency}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ) : (
@@ -1336,25 +1726,13 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
         onToggle={() => setShowResourcePanel(!showResourcePanel)}
         tradeId={0} // Temporäre ID, wird beim Submit generiert
         category={formData.category}
-        onResourcesSelected={(allocations) => {
+        onResourcesSelected={(allocations, resources) => {
           setPreSelectedAllocations(allocations);
-          // Füge die Ressourcen zur Auswahl hinzu
-          const newResources = allocations.map(a => ({
-            id: a.resource_id,
-            service_provider_id: 0, // Wird vom Server gefüllt
-            person_count: a.allocated_person_count,
-            start_date: a.allocated_start_date,
-            end_date: a.allocated_end_date,
-            category: formData.category,
-            status: 'available' as const,
-            provider_name: 'Dienstleister',
-            hourly_rate: 0,
-            // Andere Felder werden vom Server gefüllt
-          } as Resource));
+          // Verwende die vollständigen Resource-Daten direkt
           setSelectedResources(prev => {
             // Verhindere Duplikate
             const existingIds = prev.map(r => r.id);
-            const filtered = newResources.filter(r => !existingIds.includes(r.id));
+            const filtered = resources.filter(r => !existingIds.includes(r.id));
             return [...prev, ...filtered];
           });
         }}
