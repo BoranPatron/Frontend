@@ -169,7 +169,7 @@ export default function CalendarIntegrationPage() {
                           description={project.description || ''}
                           startTime={new Date(project.start_date || Date.now())}
                           endTime={new Date(project.end_date || Date.now() + 90 * 24 * 60 * 60 * 1000)}
-                          location={`${project.address || ''} ${project.city || ''}`.trim()}
+                          location={`${project.address || ''} ${(project as any).city || ''}`.trim()}
                           type="event"
                           projectName={project.name}
                           itemId={project.id}

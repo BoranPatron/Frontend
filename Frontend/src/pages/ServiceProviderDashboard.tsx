@@ -83,7 +83,11 @@ export default function ServiceProviderDashboard() {
       }
     `;
     document.head.appendChild(style);
-    return () => document.head.removeChild(style);
+    return () => {
+      if (document.head.contains(style)) {
+        document.head.removeChild(style);
+      }
+    };
   }, []);
 
 
@@ -983,7 +987,31 @@ export default function ServiceProviderDashboard() {
               category: 'unknown',
               description: quote.description || '',
               project_name: `Projekt ${quote.project_id}`,
-              project_status: 'active'
+              status: 'active',
+              priority: 'medium',
+              planned_date: new Date().toISOString(),
+              progress_percentage: 0,
+              budget: 0,
+              created_at: new Date().toISOString(),
+              project_status: 'active',
+              // Required TradeSearchResult properties
+              project_type: 'residential',
+              project_address: 'Unbekannte Adresse',
+              address_street: '',
+              address_zip: '',
+              address_city: '',
+              address_latitude: 0,
+              address_longitude: 0,
+              distance_km: 0,
+              quote_stats: {
+                total_quotes: 0,
+                accepted_quotes: 0,
+                pending_quotes: 0,
+                rejected_quotes: 0,
+                has_accepted_quote: false,
+                has_pending_quotes: false,
+                has_rejected_quotes: false
+              }
             };
           }
           
@@ -3422,8 +3450,6 @@ export default function ServiceProviderDashboard() {
             <div className="overflow-y-auto max-h-[calc(90vh-120px)] p-6">
               <ResourceKPIDashboard 
                 serviceProviderId={user?.id || 1}
-                periodStart={new Date().toISOString().split('T')[0]}
-                periodEnd={new Date().toISOString().split('T')[0]}
               />
             </div>
           </div>

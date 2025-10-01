@@ -26,6 +26,10 @@ export interface CreditPackage {
   price: number;
   savings?: number;
   popular?: boolean;
+  package_type?: string;
+  best_value?: boolean;
+  price_per_credit?: number;
+  description?: string;
 }
 
 export const getCreditBalance = async (): Promise<CreditBalance> => {

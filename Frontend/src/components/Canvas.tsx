@@ -32,7 +32,7 @@ import {
 // Types und Interfaces
 interface CanvasElement {
   id: string;
-  type: 'sticky' | 'rectangle' | 'circle' | 'line' | 'text' | 'image' | 'frame';
+  type: 'sticky' | 'rectangle' | 'circle' | 'line' | 'text' | 'image' | 'frame' | 'eraser';
   x: number;
   y: number;
   width: number;
@@ -561,7 +561,7 @@ export default function Canvas({ projectId, isOpen, onClose }: CanvasProps) {
     const reader = new FileReader();
     
     reader.onload = (event) => {
-      const img = new Image();
+      const img = new window.Image();
       img.onload = () => {
         const rect = canvasRef.current?.getBoundingClientRect();
         if (!rect) return;
@@ -619,7 +619,7 @@ export default function Canvas({ projectId, isOpen, onClose }: CanvasProps) {
         // Convert SVG to PNG
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        const img = new Image();
+        const img = new window.Image();
         
         img.onload = () => {
           canvas.width = svg.viewBox.baseVal.width;

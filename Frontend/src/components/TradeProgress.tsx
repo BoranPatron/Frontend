@@ -250,7 +250,7 @@ export default function TradeProgress({
                 <span className="font-medium">
                   {update.user.company_name || 
                    update.user.full_name || 
-                   `${update.user.first_name || ''} ${update.user.last_name || ''}`.trim() ||
+                   `${(update.user as any).first_name || ''} ${(update.user as any).last_name || ''}`.trim() ||
                    (isBautraegerUpdate ? 'Bauträger' : 'Dienstleister')}
                 </span>
                 <span>•</span>
@@ -328,7 +328,10 @@ export default function TradeProgress({
                                 console.error('❌ Fehler beim Laden des Bildes:', fullUrl);
                                 // Fallback: Zeige Dateilink
                                 e.currentTarget.style.display = 'none';
-                                e.currentTarget.nextElementSibling.style.display = 'flex';
+                                const nextSibling = e.currentTarget.nextElementSibling as HTMLElement;
+                                if (nextSibling) {
+                                  nextSibling.style.display = 'flex';
+                                }
                               }}
                             />
                             {/* Fallback Link (versteckt, wird bei Fehler angezeigt) */}
@@ -469,74 +472,6 @@ export default function TradeProgress({
             })()}
           </div>
           
-          {/* Progress Slider (nur für Dienstleister) */}
-          {isServiceProvider && completionStatus !== 'completed' && (
-            <div className="p-6 border-b border-gray-600/30">
-              <div className="flex items-center gap-4 mb-3">
-                <span className="text-sm text-gray-400">Fortschritt anpassen:</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={progress}
-                  onChange={(e) => {
-                    const newProgress = parseInt(e.target.value);
-                    setProgress(newProgress);
-                    onProgressChange(newProgress);
-                  }}
-                  className="flex-1 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
-                  style={{
-                    background: `linear-gradient(to right, #ffbd59 0%, #ffa726 ${progress}%, #4a5568 ${progress}%, #4a5568 100%)`
-                  }}
-                />
-                <span className="text-white font-bold w-12 text-right">{progress}%</span>
-              </div>
-              
-              {/* Erklärung für Fortschrittsbalken */}
-              <div className="mb-4 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <p className="text-xs text-blue-300 flex items-center gap-2">
-                  <AlertTriangle size={12} />
-                  <span>Bei 100% Fortschritt wird der Button "Als fertiggestellt markieren" aktiviert.</span>
-                </p>
-              </div>
-              
-              {/* Fertigstellung Button - immer sichtbar aber bedingt aktiviert */}
-              {hasAcceptedQuote && (
-                <div className="relative group">
-                  <button
-                    onClick={progress === 100 ? onCompletionRequest : undefined}
-                    disabled={progress !== 100 || completionStatus !== 'in_progress'}
-                    className={`w-full font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 ${
-                      progress === 100 && completionStatus === 'in_progress'
-                        ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:shadow-lg cursor-pointer'
-                        : 'bg-gray-500/20 text-gray-400 cursor-not-allowed border border-gray-500/30'
-                    }`}
-                  >
-                    <CheckCircle size={20} />
-                    Als fertiggestellt markieren
-                  </button>
-                  
-                  {/* Tooltip für ausgegrauten Button */}
-                  {(progress !== 100 || completionStatus !== 'in_progress') && (
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 bg-[#0f172a] border border-gray-500/30 rounded-xl shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition p-3 z-[100]">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertTriangle size={14} className="text-yellow-400" />
-                        <span className="text-xs font-medium text-yellow-400">Voraussetzungen nicht erfüllt</span>
-                      </div>
-                      <p className="text-xs text-gray-300">
-                        {progress !== 100 
-                          ? `Der Fortschritt muss auf 100% gesetzt werden (aktuell: ${progress}%).`
-                          : completionStatus !== 'in_progress'
-                          ? 'Das Projekt ist bereits als fertiggestellt markiert oder befindet sich in einem anderen Status.'
-                          : 'Unbekannter Grund.'
-                        }
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Messages */}
           <div ref={messagesContainerRef} className="p-6 max-h-96 overflow-y-auto">
@@ -625,6 +560,30 @@ export default function TradeProgress({
                   
                   <div className="flex-1" />
                   
+                  {/* Progress Slider (nur für Dienstleister) - jetzt oberhalb des Senden-Buttons */}
+                  {isServiceProvider && completionStatus !== 'completed' && (
+                    <div className="flex items-center gap-2 sm:gap-3 mr-2 sm:mr-3">
+                      <span className="text-xs sm:text-sm text-gray-400 hidden sm:inline">Fortschritt anpassen:</span>
+                      <span className="text-xs sm:text-sm text-gray-400 sm:hidden">Fortschritt:</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={progress}
+                        onChange={(e) => {
+                          const newProgress = parseInt(e.target.value);
+                          setProgress(newProgress);
+                          onProgressChange(newProgress);
+                        }}
+                        className="w-28 sm:w-32 h-3 bg-gray-600 rounded-lg appearance-none cursor-pointer touch-manipulation"
+                        style={{
+                          background: `linear-gradient(to right, #ffbd59 0%, #ffa726 ${progress}%, #4a5568 ${progress}%, #4a5568 100%)`
+                        }}
+                      />
+                      <span className="text-white font-bold text-sm w-8 text-right">{progress}%</span>
+                    </div>
+                  )}
+                  
                   <button
                     onClick={() => handleSubmit('comment')}
                     disabled={isLoading || (!newMessage.trim() && selectedFiles.length === 0)}
@@ -634,6 +593,52 @@ export default function TradeProgress({
                     Senden
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Fertigstellung Button für Dienstleister */}
+          {isServiceProvider && hasAcceptedQuote && completionStatus !== 'completed' && (
+            <div className="p-6 border-t border-gray-600/30">
+              <div className="relative group">
+                <button
+                  onClick={progress === 100 ? onCompletionRequest : undefined}
+                  disabled={progress !== 100 || completionStatus !== 'in_progress'}
+                  className={`w-full font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 ${
+                    progress === 100 && completionStatus === 'in_progress'
+                      ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:shadow-lg cursor-pointer'
+                      : 'bg-gray-500/20 text-gray-400 cursor-not-allowed border border-gray-500/30'
+                  }`}
+                >
+                  <CheckCircle size={20} />
+                  Als fertiggestellt markieren
+                </button>
+                
+                {/* Tooltip für ausgegrauten Button */}
+                {(progress !== 100 || completionStatus !== 'in_progress') && (
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 bg-[#0f172a] border border-gray-500/30 rounded-xl shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition p-3 z-[100]">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle size={14} className="text-yellow-400" />
+                      <span className="text-xs font-medium text-yellow-400">Voraussetzungen nicht erfüllt</span>
+                    </div>
+                    <p className="text-xs text-gray-300">
+                      {progress !== 100 
+                        ? `Der Fortschritt muss auf 100% gesetzt werden (aktuell: ${progress}%).`
+                        : completionStatus !== 'in_progress'
+                        ? 'Das Projekt ist bereits als fertiggestellt markiert oder befindet sich in einem anderen Status.'
+                        : 'Unbekannter Grund.'
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Erklärung für Fortschrittsbalken */}
+              <div className="mt-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <p className="text-xs text-blue-300 flex items-center gap-2">
+                  <AlertTriangle size={12} />
+                  <span>Bei 100% Fortschritt wird der Button "Als fertiggestellt markieren" aktiviert.</span>
+                </p>
               </div>
             </div>
           )}
@@ -714,9 +719,9 @@ export default function TradeProgress({
                   onChange={(e) => setDefectSeverity(e.target.value)}
                   className="w-full px-4 py-2 bg-[#1a1a2e] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
                 >
-                  <option value="minor">Gering</option>
-                  <option value="major">Mittel</option>
-                  <option value="critical">Kritisch</option>
+                  <option value="minor" className="bg-[#1a1a2e] text-white">Gering</option>
+                  <option value="major" className="bg-[#1a1a2e] text-white">Mittel</option>
+                  <option value="critical" className="bg-[#1a1a2e] text-white">Kritisch</option>
                 </select>
               </div>
               

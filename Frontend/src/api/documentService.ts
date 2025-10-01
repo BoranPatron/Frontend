@@ -14,6 +14,17 @@ export interface DocumentSearchParams {
   limit?: number;
   offset?: number;
   service_provider_documents?: boolean;
+  milestone_id?: number;
+}
+
+export interface Milestone {
+  id: number;
+  title: string;
+  description?: string;
+  status: string;
+  category?: string;
+  planned_date?: string;
+  created_at?: string;
 }
 
 export interface CategoryStats {
@@ -315,4 +326,14 @@ export async function downloadDocument(id: number) {
     console.error('❌ Error downloading document:', error);
     throw new Error(error.response?.data?.detail || error.message || 'Fehler beim Herunterladen des Dokuments');
   }
-} 
+}
+
+export async function getProjectMilestones(project_id: number): Promise<Milestone[]> {
+  try {
+    const res = await api.get(`/documents/project/${project_id}/milestones`);
+    return res.data;
+  } catch (error) {
+    console.error('Error fetching project milestones:', error);
+    throw error;
+  }
+}

@@ -107,7 +107,12 @@ export default function CompanyAddressModal({ onComplete, onSkip, userRole }: Co
             <AddressAutocomplete
               placeholder="Firmenadresse eingeben..."
               value={addressData}
-              onChange={setAddressData}
+              onChange={(next) => setAddressData({
+                address_street: next.address_street,
+                address_zip: next.address_zip,
+                address_city: next.address_city,
+                address_country: next.address_country || 'Schweiz'
+              })}
               className=""
             />
             <p className="text-xs text-gray-400 mt-2">

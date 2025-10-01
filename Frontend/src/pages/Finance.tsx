@@ -83,6 +83,8 @@ interface CostPosition {
   contractor_website?: string;
   progress_percentage: number;
   paid_amount: number;
+  milestone_title?: string;
+  service_provider_name?: string;
   payment_terms?: string;
   warranty_period?: number;
   estimated_duration?: number;

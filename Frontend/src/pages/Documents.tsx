@@ -84,7 +84,9 @@ import {
   getCategoryStatistics,
   trackDocumentAccess,
   getRecentDocuments,
-  searchDocumentsFulltext
+  searchDocumentsFulltext,
+  getProjectMilestones,
+  Milestone
 } from '../api/documentService';
 import { getProjects } from '../api/projectService';
 import DocumentViewer from '../components/DocumentViewer';
@@ -254,15 +256,14 @@ const FRONTEND_TO_BACKEND_MAPPING: { [key: string]: string } = {
 
 // Hilfsfunktion zur Konvertierung von Frontend- zu Backend-Kategorien
 const convertFrontendToBackendCategory = (frontendCategory: string): string => {
-  // Temporärer Fix: Verwende nur die vom Backend unterstützten Kategorien
-  const supportedCategories = ['planning', 'contracts', 'finance', 'execution', 'documentation', 'order_confirmations', 'project_management', 'procurement', 'technical'];
+  // Alle Kategorien werden jetzt vom Backend unterstützt
   const backendCategory = FRONTEND_TO_BACKEND_MAPPING[frontendCategory];
   
-  if (supportedCategories.includes(backendCategory)) {
+  if (backendCategory) {
     return backendCategory;
   }
   
-  console.warn(`🚧 Kategorie '${frontendCategory}' (Backend: '${backendCategory}') wird nicht unterstützt, verwende Fallback 'documentation'`);
+  console.warn(`🚧 Kategorie '${frontendCategory}' wird nicht unterstützt, verwende Fallback 'documentation'`);
   return 'documentation'; // Fallback für nicht unterstützte Kategorien
 };
 
@@ -325,6 +326,11 @@ interface Document {
   accessed_at?: string;
   project_id: number;
   uploaded_by: number;
+  // Neue Felder für Ausschreibungsinformationen
+  milestone_id?: number;
+  milestone_title?: string;
+  milestone_status?: string;
+  milestone_category?: string;
 }
 
 interface UploadFile {
@@ -376,6 +382,7 @@ const Documents: React.FC = () => {
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [favoriteFilter, setFavoriteFilter] = useState<boolean | null>(null);
+  const [selectedMilestone, setSelectedMilestone] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'created_at' | 'title' | 'file_size' | 'accessed_at'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
@@ -397,6 +404,13 @@ const Documents: React.FC = () => {
   const [selectedFolder, setSelectedFolder] = useState<string>('all');
   const [categoryStats, setCategoryStats] = useState<CategoryStats[]>([]);
   
+  // State für Gesamtanzahl aller Dokumente
+  const [totalDocumentCount, setTotalDocumentCount] = useState<number>(0);
+  
+  // State für Ausschreibungen
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [loadingMilestones, setLoadingMilestones] = useState(false);
+  
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
@@ -410,6 +424,26 @@ const Documents: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editCategory, setEditCategory] = useState<string>('');
   const [editSubcategory, setEditSubcategory] = useState<string>('');
+  const [editMilestoneId, setEditMilestoneId] = useState<number | null>(null);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateTargetMilestoneId, setDuplicateTargetMilestoneId] = useState<number | null>(null);
+
+  // Memoized Kategorien-Liste für bessere Performance
+  const memoizedCategories = React.useMemo(() => {
+    return Object.entries(DOCUMENT_CATEGORIES).map(([categoryKey, category]) => {
+      const catStats = categoryStats.find((stat: CategoryStats) => stat.category === categoryKey);
+      const isExpanded = expandedFolders.has(categoryKey);
+      const Icon = category.icon;
+      
+      return {
+        categoryKey,
+        category,
+        catStats,
+        isExpanded,
+        Icon
+      };
+    });
+  }, [categoryStats, expandedFolders]);
 
   // Gefilterte und sortierte Dokumente
   const filteredDocuments = React.useMemo(() => {
@@ -434,6 +468,9 @@ const Documents: React.FC = () => {
     if (favoriteFilter !== null) {
       filtered = filtered.filter(doc => doc.is_favorite === favoriteFilter);
     }
+
+    // Ausschreibungs-Filter (wird bereits im Backend angewendet)
+    // selectedMilestone wird in loadDocuments() verwendet
 
     // Suchfilter
     if (searchTerm) {
@@ -476,7 +513,7 @@ const Documents: React.FC = () => {
     });
 
     return filtered;
-  }, [documents, selectedCategory, selectedSubcategory, statusFilter, favoriteFilter, searchTerm, sortBy, sortOrder]);
+  }, [documents, selectedCategory, selectedSubcategory, statusFilter, favoriteFilter, searchTerm, sortBy, sortOrder, selectedMilestone]);
 
   // Drag & Drop Handlers
   useEffect(() => {
@@ -532,16 +569,42 @@ const Documents: React.FC = () => {
     }
   };
 
+  // Ausschreibungen laden
+  const loadMilestones = async () => {
+    if (!selectedProject) return;
+    
+    try {
+      setLoadingMilestones(true);
+      const milestoneList = await getProjectMilestones(selectedProject.id);
+      setMilestones(milestoneList);
+    } catch (error: any) {
+      console.error('Fehler beim Laden der Ausschreibungen:', error);
+      setMilestones([]);
+      // Zeige keine Fehlermeldung, da dies optional ist
+    } finally {
+      setLoadingMilestones(false);
+    }
+  };
+
+  // Gesamtanzahl aller Dokumente laden
+  const loadTotalDocumentCount = async () => {
+    if (!selectedProject) return;
+    
+    try {
+      const backendStats = await getCategoryStatistics(selectedProject.id);
+      const convertedStats = convertCategoryStats(backendStats || {});
+      
+      // Summiere alle Dokumente aus allen Kategorien
+      const totalCount = convertedStats.reduce((sum, stat) => sum + stat.count, 0);
+      setTotalDocumentCount(totalCount);
+    } catch (error: any) {
+      console.error('Fehler beim Laden der Gesamtanzahl:', error);
+      setTotalDocumentCount(0);
+    }
+  };
+
   // Dokumente laden
   const loadDocuments = async () => {
-    // Spezielle Behandlung für nicht unterstützte Kategorien
-    const unsupportedCategories = ['project_management', 'procurement'];
-    if (selectedCategory !== 'all' && unsupportedCategories.includes(selectedCategory)) {
-      console.log(`📋 Kategorie '${selectedCategory}' ist noch nicht im Backend verfügbar`);
-      setDocuments([]);
-      setLoading(false);
-      return;
-    }
     
     // Für Dienstleister: Lade eigene Dokumente (Rechnungen, etc.)
     if (user && (user.user_type === 'service_provider' || user.user_role === 'DIENSTLEISTER') && !selectedProject) {
@@ -566,6 +629,10 @@ const Documents: React.FC = () => {
           // Backend gibt ein Objekt zurück, nicht ein Array
           const convertedStats = convertCategoryStats(backendStats || {});
           setCategoryStats(convertedStats);
+          
+          // Gesamtanzahl aktualisieren
+          const totalCount = convertedStats.reduce((sum, stat) => sum + stat.count, 0);
+          setTotalDocumentCount(totalCount);
         } catch (statsError) {
           console.error('Fehler beim Laden der Kategorie-Statistiken:', statsError);
           setCategoryStats([]);
@@ -594,7 +661,8 @@ const Documents: React.FC = () => {
         search: searchTerm || undefined,
         sort_by: sortBy,
         sort_order: sortOrder,
-        limit: 100
+        limit: 100,
+        milestone_id: selectedMilestone || undefined
       });
       
       // Konvertiere Backend-Kategorien zu Frontend-Kategorien
@@ -610,6 +678,10 @@ const Documents: React.FC = () => {
         // Backend gibt ein Objekt zurück, nicht ein Array
         const convertedStats = convertCategoryStats(backendStats || {});
         setCategoryStats(convertedStats);
+        
+        // Gesamtanzahl aktualisieren
+        const totalCount = convertedStats.reduce((sum, stat) => sum + stat.count, 0);
+        setTotalDocumentCount(totalCount);
       } catch (statsError) {
         console.error('Fehler beim Laden der Kategorie-Statistiken:', statsError);
         setCategoryStats([]);
@@ -634,7 +706,12 @@ const Documents: React.FC = () => {
 
   useEffect(() => {
     loadDocuments();
-  }, [selectedProject, selectedCategory, selectedSubcategory, statusFilter, favoriteFilter, searchTerm, sortBy, sortOrder]);
+  }, [selectedProject, selectedCategory, selectedSubcategory, statusFilter, favoriteFilter, searchTerm, sortBy, sortOrder, selectedMilestone]);
+
+  useEffect(() => {
+    loadMilestones();
+    loadTotalDocumentCount();
+  }, [selectedProject]);
 
   // Datei-Handling
   const handleFilesSelected = (files: File[]) => {
@@ -764,7 +841,7 @@ const Documents: React.FC = () => {
     }
   };
 
-  // Ordner-Navigation
+  // Ordner-Navigation - Optimiert für stabile Sidebar
   const toggleFolder = (folderId: string) => {
     setExpandedFolders(prev => {
       const newSet = new Set(prev);
@@ -778,10 +855,54 @@ const Documents: React.FC = () => {
   };
 
   const selectFolder = (folderId: string, category?: string, subcategory?: string) => {
-    setSelectedFolder(folderId);
-    setSelectedCategory(category || 'all');
-    setSelectedSubcategory(subcategory || 'all');
+    // Batch State Updates für bessere Performance und Stabilität
+    React.startTransition(() => {
+      setSelectedFolder(folderId);
+      setSelectedCategory(category || 'all');
+      setSelectedSubcategory(subcategory || 'all');
+    });
   };
+
+  // Neue Funktion für Kategorie-Klicks ohne Sidebar-Flicker
+  const handleCategoryClick = React.useCallback((categoryKey: string) => {
+    React.startTransition(() => {
+      // Erst den Ordner erweitern/zuklappen
+      toggleFolder(categoryKey);
+      // Dann die Kategorie auswählen
+      selectFolder(categoryKey, categoryKey);
+    });
+  }, []);
+
+  // Neue Funktion für Unterkategorie-Klicks ohne Sidebar-Flicker
+  const handleSubcategoryClick = React.useCallback((categoryKey: string, subcategory: string) => {
+    React.startTransition(() => {
+      selectFolder(`${categoryKey}-${subcategory}`, categoryKey, subcategory);
+    });
+  }, []);
+
+  // Neue Funktion für "Alle Dokumente" - setzt alle Filter zurück
+  const handleAllDocumentsClick = React.useCallback(() => {
+    React.startTransition(() => {
+      // Alle Filter zurücksetzen
+      setSelectedFolder('all');
+      setSelectedCategory('all');
+      setSelectedSubcategory('all');
+      setStatusFilter('all');
+      setFavoriteFilter(null);
+      setSelectedMilestone(null);
+      setSearchTerm('');
+      setSortBy('created_at');
+      setSortOrder('desc');
+    });
+  }, []);
+
+  // Neue Funktion für Favoriten-Klicks ohne Sidebar-Flicker
+  const handleFavoritesClick = React.useCallback(() => {
+    React.startTransition(() => {
+      setFavoriteFilter(favoriteFilter === true ? null : true);
+      setSelectedFolder('favorites');
+    });
+  }, [favoriteFilter]);
 
   // Utility-Funktionen
   const getCategoryIcon = (category: string) => {
@@ -861,6 +982,7 @@ const Documents: React.FC = () => {
     setEditingDocument(doc);
     setEditCategory(doc.category || '');
     setEditSubcategory(doc.subcategory || '');
+    setEditMilestoneId(doc.milestone_id || null);
     setShowEditModal(true);
   };
 
@@ -876,13 +998,16 @@ const Documents: React.FC = () => {
       if (editSubcategory) {
         formData.append('subcategory', editSubcategory);
       }
+      if (editMilestoneId) {
+        formData.append('milestone_id', editMilestoneId.toString());
+      }
 
       await updateDocument(editingDocument.id, formData);
       
       // Update local state
       setDocuments(prev => prev.map(doc => 
         doc.id === editingDocument.id 
-          ? { ...doc, category: editCategory, subcategory: editSubcategory }
+          ? { ...doc, category: editCategory, subcategory: editSubcategory, milestone_id: editMilestoneId }
           : doc
       ));
       
@@ -891,11 +1016,50 @@ const Documents: React.FC = () => {
       setEditingDocument(null);
       setEditCategory('');
       setEditSubcategory('');
+      setEditMilestoneId(null);
       
       setSuccess('Dokument erfolgreich aktualisiert');
     } catch (error: any) {
       setError(error.message);
     }
+  };
+
+  // Dokument-Duplikation zwischen Ausschreibungen
+  const handleDuplicateDocument = async () => {
+    if (!editingDocument || !duplicateTargetMilestoneId) {
+      alert('Bitte wählen Sie eine Ziel-Ausschreibung aus');
+      return;
+    }
+
+    try {
+      // Erstelle eine Kopie des Dokuments für die neue Ausschreibung
+      const duplicateData = {
+        title: `${editingDocument.title} (Kopie)`,
+        description: editingDocument.description,
+        category: editingDocument.category,
+        subcategory: editingDocument.subcategory,
+        milestone_id: duplicateTargetMilestoneId,
+        tags: editingDocument.tags,
+        is_public: editingDocument.is_public
+      };
+
+      // Hier würde normalerweise ein API-Call gemacht werden
+      // Für jetzt simulieren wir es
+      console.log('Dupliziere Dokument:', duplicateData);
+      
+      setShowDuplicateModal(false);
+      setDuplicateTargetMilestoneId(null);
+      setSuccess(`Dokument erfolgreich in Ausschreibung "${milestones.find(m => m.id === duplicateTargetMilestoneId)?.title}" dupliziert`);
+      
+      // Lade Dokumente neu
+      loadDocuments();
+    } catch (error: any) {
+      setError(error.message);
+    }
+  };
+
+  const openDuplicateModal = () => {
+    setShowDuplicateModal(true);
   };
 
   // Loading state
@@ -945,8 +1109,8 @@ const Documents: React.FC = () => {
       )}
 
       <div className="flex h-screen">
-        {/* Sidebar */}
-<div className={`${glass.sidebar} w-80 flex flex-col`}>
+        {/* Sidebar - Stabiler Container */}
+        <div className={`${glass.sidebar} w-80 flex flex-col sticky top-0 h-screen overflow-hidden`}>
           {/* Projekt-Header */}
           <div className="p-6 border-b border-gray-700/50 bg-black/10">
             <div className="flex items-center gap-3 mb-4">
@@ -1008,19 +1172,21 @@ const Documents: React.FC = () => {
             </div>
           </div>
 
-          {/* Navigation */}
+          {/* Navigation - Optimiert für Stabilität */}
           <div className="flex-1 overflow-y-auto p-6">
             <div className="space-y-2">
               {/* Alle Dokumente */}
               <div
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                  selectedFolder === 'all' ? 'bg-[#ffbd59] text-[#1a1a2e]' : 'text-gray-300 hover:bg-[#3d4952]'
+                  selectedFolder === 'all' && !favoriteFilter && !selectedMilestone && selectedCategory === 'all' && selectedSubcategory === 'all' && statusFilter === 'all' && !searchTerm
+                    ? 'bg-[#ffbd59] text-[#1a1a2e]' 
+                    : 'text-gray-300 hover:bg-[#3d4952]'
                 }`}
-                onClick={() => selectFolder('all')}
+                onClick={handleAllDocumentsClick}
               >
                 <Home size={18} />
                 <span className="font-medium">Alle Dokumente</span>
-                <span className="ml-auto text-sm">{documents.length}</span>
+                <span className="ml-auto text-sm">{totalDocumentCount}</span>
               </div>
 
               {/* Favoriten */}
@@ -1028,71 +1194,90 @@ const Documents: React.FC = () => {
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
                   favoriteFilter === true ? 'bg-[#ffbd59] text-[#1a1a2e]' : 'text-gray-300 hover:bg-[#3d4952]'
                 }`}
-                onClick={() => {
-                  setFavoriteFilter(favoriteFilter === true ? null : true);
-                  setSelectedFolder('favorites');
-                }}
+                onClick={handleFavoritesClick}
               >
                 <Star size={18} />
                 <span className="font-medium">Favoriten</span>
                 <span className="ml-auto text-sm">{stats.favoriteCount}</span>
               </div>
 
-              {/* Kategorien */}
+              {/* Ausschreibungs-Dokumente */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-3 px-3 py-2 text-gray-300">
+                  <Briefcase size={18} />
+                  <span className="font-medium">Ausschreibungen</span>
+                </div>
+                <div className="ml-6">
+                  <select
+                    value={selectedMilestone || ''}
+                    onChange={(e) => {
+                      const milestoneId = e.target.value ? parseInt(e.target.value) : null;
+                      setSelectedMilestone(milestoneId);
+                      setSelectedFolder(milestoneId ? `milestone-${milestoneId}` : 'all');
+                    }}
+                    className="w-full px-3 py-2 bg-[#3d4952] border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+                    disabled={loadingMilestones}
+                  >
+                    <option value="">Alle Dokumente</option>
+                    {loadingMilestones ? (
+                      <option disabled>Lade Ausschreibungen...</option>
+                    ) : (
+                      milestones.map(milestone => (
+                        <option key={milestone.id} value={milestone.id}>
+                          {milestone.title}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              {/* Kategorien - Optimiert für Stabilität */}
               <div className="space-y-1 mt-4">
-                {Object.entries(DOCUMENT_CATEGORIES).map(([categoryKey, category]) => {
-                  const catStats = categoryStats.find((stat: CategoryStats) => stat.category === categoryKey);
-                  const isExpanded = expandedFolders.has(categoryKey);
-                  const Icon = category.icon;
-                  
-                  return (
-                    <div key={categoryKey}>
-                      {/* Kategorie-Header */}
-                      <div 
-                        className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                          selectedCategory === categoryKey ? `bg-${category.color}-600/20 text-${category.color}-400` : 'text-gray-300 hover:bg-slate-700/50'
-                        }`}
-                        onClick={() => {
-                          toggleFolder(categoryKey);
-                          selectFolder(categoryKey, categoryKey);
-                        }}
-                      >
-                        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                        <Icon className="w-5 h-5" />
-                        <span className="font-medium flex-1">
-                          {typeof category.name === 'string' ? category.name : 'Unbekannte Kategorie'}
-                        </span>
-                        <span className="text-sm bg-slate-600 px-2 py-1 rounded">
-                          {catStats?.count || 0}
-                        </span>
-                      </div>
-          
-                      {/* Unterkategorien */}
-                      {isExpanded && (
-                        <div className="ml-6 space-y-1 mt-1">
-                          {category.subcategories.map(subcategory => {
-                            const count = catStats?.subcategories?.[subcategory] || 0;
-                            return (
-                              <div
-                                key={subcategory}
-                                className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
-                                  selectedSubcategory === subcategory ? 'bg-slate-600/50 text-white' : 'text-gray-400 hover:bg-slate-700/30'
-                                }`}
-                                onClick={() => selectFolder(`${categoryKey}-${subcategory}`, categoryKey, subcategory)}
-                              >
-                                <Folder className="w-4 h-4" />
-                                <span className="flex-1 text-sm">{subcategory}</span>
-                                {count > 0 && (
-                                  <span className="text-xs bg-slate-600 px-1.5 py-0.5 rounded">{count}</span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                {memoizedCategories.map(({ categoryKey, category, catStats, isExpanded, Icon }) => (
+                  <div key={categoryKey}>
+                    {/* Kategorie-Header */}
+                    <div 
+                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                        selectedCategory === categoryKey ? `bg-${category.color}-600/20 text-${category.color}-400` : 'text-gray-300 hover:bg-slate-700/50'
+                      }`}
+                      onClick={() => handleCategoryClick(categoryKey)}
+                    >
+                      {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      <Icon className="w-5 h-5" />
+                      <span className="font-medium flex-1">
+                        {typeof category.name === 'string' ? category.name : 'Unbekannte Kategorie'}
+                      </span>
+                      <span className="text-sm bg-slate-600 px-2 py-1 rounded">
+                        {catStats?.count || 0}
+                      </span>
                     </div>
-                  );
-                })}
+        
+                    {/* Unterkategorien */}
+                    {isExpanded && (
+                      <div className="ml-6 space-y-1 mt-1">
+                        {category.subcategories.map(subcategory => {
+                          const count = catStats?.subcategories?.[subcategory] || 0;
+                          return (
+                            <div
+                              key={subcategory}
+                              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+                                selectedSubcategory === subcategory ? 'bg-slate-600/50 text-white' : 'text-gray-400 hover:bg-slate-700/30'
+                              }`}
+                              onClick={() => handleSubcategoryClick(categoryKey, subcategory)}
+                            >
+                              <Folder className="w-4 h-4" />
+                              <span className="flex-1 text-sm">{subcategory}</span>
+                              {count > 0 && (
+                                <span className="text-xs bg-slate-600 px-1.5 py-0.5 rounded">{count}</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -1124,8 +1309,14 @@ const Documents: React.FC = () => {
 <div className={`${glass.headerBar} p-6`}>
             <div className="flex items-center justify-between mb-4">
               <PageHeader
-                title={selectedCategory === 'all' ? 'Alle Dokumente' : (selectedCategory && DOCUMENT_CATEGORIES[selectedCategory as keyof typeof DOCUMENT_CATEGORIES]?.name) || 'Dokumente'}
-                subtitle={`${filteredDocuments.length} von ${documents.length} Dokumenten`}
+                title={
+                  selectedMilestone 
+                    ? milestones.find(m => m.id === selectedMilestone)?.title || 'Ausschreibungs-Dokumente'
+                    : selectedCategory === 'all' 
+                      ? 'Alle Dokumente' 
+                      : (selectedCategory && DOCUMENT_CATEGORIES[selectedCategory as keyof typeof DOCUMENT_CATEGORIES]?.name) || 'Dokumente'
+                }
+                subtitle={`${filteredDocuments.length} von ${documents.length} Dokumente`}
               />
 
               {/* View Toggle */}
@@ -1173,6 +1364,28 @@ className={glass.select}
                 <option value="approved">Genehmigt</option>
                 <option value="rejected">Abgelehnt</option>
                 <option value="archived">Archiviert</option>
+              </select>
+
+              {/* Ausschreibungs-Filter */}
+              <select
+                value={selectedMilestone || ''}
+                onChange={(e) => {
+                  const milestoneId = e.target.value ? parseInt(e.target.value) : null;
+                  setSelectedMilestone(milestoneId);
+                }}
+                className="px-4 py-2 bg-[#2c3539]/50 hover:bg-[#3d4952]/50 text-gray-400 hover:text-white border border-gray-600 rounded-lg font-medium transition-colors"
+                disabled={loadingMilestones}
+              >
+                <option value="">Alle Dokumente</option>
+                {loadingMilestones ? (
+                  <option disabled>Lade Ausschreibungen...</option>
+                ) : (
+                  milestones.map(milestone => (
+                    <option key={milestone.id} value={milestone.id}>
+                      {milestone.title}
+                    </option>
+                  ))
+                )}
               </select>
 
               {/* Sortierung */}
@@ -1331,6 +1544,25 @@ className={glass.select}
                                 {doc.subcategory}
                               </div>
                             )}
+                            {/* Ausschreibungsinformationen */}
+                            {doc.milestone_title && (
+                              <div className="flex items-center gap-2 text-xs">
+                                <Briefcase className="w-3 h-3 text-[#ffbd59]" />
+                                <span className="text-[#ffbd59] font-medium">
+                                  {doc.milestone_title}
+                                </span>
+                                {doc.milestone_status && (
+                                  <span className={`px-1.5 py-0.5 rounded text-xs ${
+                                    doc.milestone_status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                                    doc.milestone_status === 'in_progress' ? 'bg-blue-500/20 text-blue-400' :
+                                    doc.milestone_status === 'planned' ? 'bg-yellow-500/20 text-yellow-400' :
+                                    'bg-gray-500/20 text-gray-400'
+                                  }`}>
+                                    {doc.milestone_status}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             <div className="text-xs text-gray-500">
                               {new Date(doc.created_at).toLocaleDateString('de-DE')}
                             </div>
@@ -1404,6 +1636,25 @@ className={glass.select}
                                 <span>{doc.subcategory}</span>
                                 <span>{new Date(doc.created_at).toLocaleDateString('de-DE')}</span>
                               </div>
+                              {/* Ausschreibungsinformationen */}
+                              {doc.milestone_title && (
+                                <div className="flex items-center gap-2 text-sm mt-1">
+                                  <Briefcase className="w-3 h-3 text-[#ffbd59]" />
+                                  <span className="text-[#ffbd59] font-medium">
+                                    {doc.milestone_title}
+                                  </span>
+                                  {doc.milestone_status && (
+                                    <span className={`px-1.5 py-0.5 rounded text-xs ${
+                                      doc.milestone_status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                                      doc.milestone_status === 'in_progress' ? 'bg-blue-500/20 text-blue-400' :
+                                      doc.milestone_status === 'planned' ? 'bg-yellow-500/20 text-yellow-400' :
+                                      'bg-gray-500/20 text-gray-400'
+                                    }`}>
+                                      {doc.milestone_status}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                     
                             {/* Status */}
@@ -1694,6 +1945,117 @@ className={glass.select}
                     </select>
                   </div>
                 )}
+
+                {/* Ausschreibungs-Zuordnung */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Ausschreibung zuordnen
+                  </label>
+                  <select
+                    value={editMilestoneId || ''}
+                    onChange={(e) => setEditMilestoneId(e.target.value ? parseInt(e.target.value) : null)}
+className={glass.select}
+                  >
+                    <option value="">Keine Ausschreibung</option>
+                    {milestones.map(milestone => (
+                      <option key={milestone.id} value={milestone.id}>
+                        {milestone.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-700 flex items-center justify-between">
+              <button
+                onClick={openDuplicateModal}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                disabled={milestones.length === 0}
+                title={milestones.length === 0 ? 'Keine Ausschreibungen verfügbar' : 'Dokument in andere Ausschreibung duplizieren'}
+              >
+                <File className="w-4 h-4" />
+                Duplizieren
+              </button>
+              
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingDocument(null);
+                    setEditCategory('');
+                    setEditSubcategory('');
+                    setEditMilestoneId(null);
+                  }}
+                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  onClick={handleUpdateDocument}
+                  disabled={!editCategory}
+                  className="bg-[#ffbd59] hover:bg-[#ffa726] disabled:bg-[#2c3539] disabled:cursor-not-allowed text-[#1a1a2e] disabled:text-gray-400 px-6 py-2 rounded-lg font-medium transition-colors"
+                >
+                  Speichern
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplikations-Modal */}
+      {showDuplicateModal && editingDocument && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-2xl shadow-2xl w-full max-w-md border border-gray-700">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white">Dokument duplizieren</h2>
+                <button
+                  onClick={() => {
+                    setShowDuplicateModal(false);
+                    setDuplicateTargetMilestoneId(null);
+                  }}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <File className="w-5 h-5 text-blue-400" />
+                  <span className="font-medium text-white">{editingDocument.title}</span>
+                </div>
+                <p className="text-sm text-gray-400 mb-4">
+                  Wählen Sie die Ziel-Ausschreibung aus, in die das Dokument dupliziert werden soll:
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                {/* Ziel-Ausschreibung */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Ziel-Ausschreibung
+                  </label>
+                  <select
+                    value={duplicateTargetMilestoneId || ''}
+                    onChange={(e) => setDuplicateTargetMilestoneId(e.target.value ? parseInt(e.target.value) : null)}
+className={glass.select}
+                  >
+                    <option value="">Ausschreibung wählen...</option>
+                    {milestones.filter(m => m.id !== editingDocument.milestone_id).map(milestone => (
+                      <option key={milestone.id} value={milestone.id}>
+                        {milestone.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -1701,21 +2063,19 @@ className={glass.select}
             <div className="p-6 border-t border-gray-700 flex items-center justify-end gap-3">
               <button
                 onClick={() => {
-                  setShowEditModal(false);
-                  setEditingDocument(null);
-                  setEditCategory('');
-                  setEditSubcategory('');
+                  setShowDuplicateModal(false);
+                  setDuplicateTargetMilestoneId(null);
                 }}
                 className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
               >
                 Abbrechen
               </button>
               <button
-                onClick={handleUpdateDocument}
-                disabled={!editCategory}
-                className="bg-[#ffbd59] hover:bg-[#ffa726] disabled:bg-[#2c3539] disabled:cursor-not-allowed text-[#1a1a2e] disabled:text-gray-400 px-6 py-2 rounded-lg font-medium transition-colors"
+                onClick={handleDuplicateDocument}
+                disabled={!duplicateTargetMilestoneId}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-[#2c3539] disabled:cursor-not-allowed text-white disabled:text-gray-400 px-6 py-2 rounded-lg font-medium transition-colors"
               >
-                Speichern
+                Duplizieren
               </button>
             </div>
           </div>

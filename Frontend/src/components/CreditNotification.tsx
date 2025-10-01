@@ -28,7 +28,7 @@ export default function CreditNotification({ onClose }: CreditNotificationProps)
       setBalance(balanceData);
       
       // Zeige Benachrichtigung nur bei niedrigen Credits oder abgelaufenem Pro-Status
-      if (balanceData.low_credit_warning || balanceData.plan_status === 'expired') {
+      if (balanceData.low_credit_warning) {
         setShowNotification(true);
       }
     } catch (err) {
@@ -54,7 +54,7 @@ export default function CreditNotification({ onClose }: CreditNotificationProps)
   }
 
   const getNotificationType = () => {
-    if (balance.plan_status === 'expired') {
+    if (!balance.is_pro_active && balance.remaining_pro_days === 0) {
       return {
         type: 'error',
         title: 'Pro-Status abgelaufen',

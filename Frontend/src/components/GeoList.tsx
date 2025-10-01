@@ -1,6 +1,30 @@
 import React, { useState, useMemo } from 'react';
 import type { ProjectSearchResult, ServiceProviderSearchResult } from '../api/geoService';
 import { formatDistance } from '../api/geoService';
+import { MapPin, Phone, Mail, Globe, Star, Clock, ChevronRight } from 'lucide-react';
+
+// Helper functions for project types and statuses
+const getProjectTypeLabel = (type: string): string => {
+  const types: { [key: string]: string } = {
+    'residential': 'Wohnbau',
+    'commercial': 'Gewerbebau',
+    'industrial': 'Industriebau',
+    'renovation': 'Renovation',
+    'new_construction': 'Neubau'
+  };
+  return types[type] || type;
+};
+
+const getProjectStatusLabel = (status: string): string => {
+  const statuses: { [key: string]: string } = {
+    'planning': 'Planung',
+    'in_progress': 'In Bearbeitung',
+    'completed': 'Abgeschlossen',
+    'on_hold': 'Pausiert',
+    'cancelled': 'Abgebrochen'
+  };
+  return statuses[status] || status;
+};
 
 interface GeoListProps {
   projects: ProjectSearchResult[];

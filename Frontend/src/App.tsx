@@ -34,7 +34,6 @@ import Credits from './pages/Credits';
 import Archive from './pages/Archive';
 import Profile from './pages/Profile';
 import OAuthCallback from './pages/OAuthCallback';
-import ResourcesPage from './pages/ResourcesPage';
 import RoleSelectionModal from './components/RoleSelectionModal';
 import CompanyAddressModal from './components/CompanyAddressModal';
 import NotificationTab from './components/NotificationTab';
@@ -168,7 +167,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
               setShowCompanyAddressModal(true);
               
               // Zeige Willkommens-Notification für Bauträger bei Erstanmeldung
-              if (role === 'BAUTRAEGER' && !localStorage.getItem(`welcome_shown_${user?.id}`)) {
+              if (role === 'bautraeger' && !localStorage.getItem(`welcome_shown_${user?.id}`)) {
                 setShowWelcomeNotification(true);
                 localStorage.setItem(`welcome_shown_${user?.id}`, 'true');
               }
@@ -423,11 +422,6 @@ function AppContent() {
           <Route path="/archive" element={
             <ProtectedRoute>
               <Archive />
-            </ProtectedRoute>
-          } />
-          <Route path="/resources" element={
-            <ProtectedRoute>
-              <ResourcesPage />
             </ProtectedRoute>
           } />
         <Route path="/profile" element={

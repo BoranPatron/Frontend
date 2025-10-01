@@ -265,13 +265,13 @@ export default function AppointmentResponseTracker({
             let responses: ServiceProviderResponse[] = [];
             
             if (appointment.responses_array && Array.isArray(appointment.responses_array)) {
-              responses = appointment.responses_array;
+                  responses = appointment.responses_array as ServiceProviderResponse[];
               } else if (appointment.responses) {
               try {
                 if (typeof appointment.responses === 'string') {
                   responses = JSON.parse(appointment.responses);
                 } else if (Array.isArray(appointment.responses)) {
-                  responses = appointment.responses;
+                  responses = appointment.responses as ServiceProviderResponse[];
                 }
                 } catch (e) {
                 console.error(`❌ [BAUTRAEGER-DEBUG] Error parsing responses for appointment ${appointment.id}:`, e);

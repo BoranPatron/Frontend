@@ -175,6 +175,7 @@ interface TradeDetailsModalProps {
   onClose: () => void;
   onCreateQuote: (trade: TradeSearchResult) => void;
   existingQuotes?: Quote[];
+  quotes?: Quote[];
   onCreateInspection?: (tradeId: number, selectedQuoteIds: number[]) => void;
   onAcceptQuote?: (quoteId: number) => void;
   onRejectQuote?: (quoteId: number, reason: string) => void;
@@ -252,6 +253,94 @@ interface DocumentViewerProps {
     file_size?: number;
   }>;
   existingQuotes: Quote[];
+}
+
+// Komponente für den aufklappbaren Terminzusage-Banner
+function AppointmentBanner({ appointment, response }: { appointment: any; response: any }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  return (
+    <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/40 rounded-lg mb-3 shadow-lg">
+      {/* Kompakte Zeile - immer sichtbar */}
+      <div 
+        className="flex items-center gap-3 p-3 cursor-pointer hover:bg-green-500/10 transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex-shrink-0">
+          <div className="w-8 h-8 bg-green-500/30 rounded-full flex items-center justify-center">
+            <CheckCircle size={16} className="text-green-400" />
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h4 className="text-green-300 font-medium text-sm">Terminzusage bestätigt</h4>
+            <span className="px-2 py-1 bg-green-500/20 text-green-300 text-xs rounded-full font-medium">
+              Zugesagt
+            </span>
+            <span className="text-gray-300 text-xs">
+              {appointment.title} • {new Date(appointment.scheduled_date).toLocaleDateString('de-DE', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </span>
+          </div>
+          <ChevronDown 
+            size={16} 
+            className={`text-green-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} 
+          />
+        </div>
+      </div>
+      
+      {/* Erweiterte Details - nur sichtbar wenn ausgeklappt */}
+      {isExpanded && (
+        <div className="px-3 pb-3 border-t border-green-500/20">
+          <div className="space-y-2 text-sm pt-3">
+            <div className="flex items-center gap-2 text-gray-300">
+              <Calendar size={14} className="text-green-400" />
+              <span className="font-medium">{appointment.title}</span>
+            </div>
+            <div className="flex items-center gap-2 text-gray-300">
+              <Clock size={14} className="text-green-400" />
+              <span>
+                {new Date(appointment.scheduled_date).toLocaleDateString('de-DE', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </span>
+            </div>
+            {appointment.location && (
+              <div className="flex items-center gap-2 text-gray-300">
+                <MapPin size={14} className="text-green-400" />
+                <span>{appointment.location}</span>
+              </div>
+            )}
+            {response.message && (
+              <div className="mt-2 p-2 bg-green-500/10 rounded border-l-2 border-green-500/50">
+                <p className="text-gray-300 text-xs italic">"{response.message}"</p>
+              </div>
+            )}
+            {response.responded_at && (
+              <div className="text-xs text-gray-400 mt-1">
+                Zugesagt am: {new Date(response.responded_at).toLocaleDateString('de-DE', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps) {
@@ -950,7 +1039,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       const [acceptedQuote, setAcceptedQuote] = useState<Quote | null>(null);
     // Temporäre Lösung: Simuliere completion_status für Demo-Zwecke
     const simulatedCompletionStatus = trade?.id === 1 ? 'completion_requested' : (trade?.completion_status || 'in_progress');
-    const [completionStatus, setCompletionStatus] = useState(simulatedCompletionStatus);
+    const [completionStatus, setCompletionStatus] = useState(trade?.completion_status || 'in_progress');
       const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [existingInvoice, setExistingInvoice] = useState<any>(null);
   
@@ -1877,6 +1966,14 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     }
   }, [trade?.documents]);
 
+  // Aktualisiere completionStatus wenn sich das trade Objekt ändert
+  useEffect(() => {
+    if (trade?.completion_status) {
+      console.log('🔄 TradeDetailsModal - Aktualisiere completionStatus vom trade Objekt:', trade.completion_status);
+      setCompletionStatus(trade.completion_status);
+    }
+  }, [trade?.completion_status]);
+
   // Lade Dokumente und completion_status wenn Modal geÃ¶ffnet wird
   useEffect(() => {
     if (isOpen && trade?.id) {
@@ -2611,6 +2708,68 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     }
   };
 
+  const handleDefectResolution = async (message?: string) => {
+    try {
+      console.log('🔍 TradeDetailsModal - Melde Mängelbehebung für Trade:', trade?.id, {
+        message
+      });
+      
+      // SCHRITT 1: Lade alle Mängel für dieses Milestone
+      console.log('🔍 TradeDetailsModal - Lade Mängel für Milestone:', trade?.id);
+      const defectsResponse = await apiCall(`/acceptance/milestone/${trade?.id}/defects`, {
+        method: 'GET'
+      });
+      
+      const defects = defectsResponse || [];
+      console.log(`🔍 TradeDetailsModal - Gefundene Mängel: ${defects.length}`, defects);
+      
+      // SCHRITT 2: Markiere alle Mängel als behoben
+      if (defects.length > 0) {
+        console.log('🔄 TradeDetailsModal - Markiere alle Mängel als behoben...');
+        
+        for (const defect of defects) {
+          if (!defect.resolved) {
+            console.log(`🔄 Markiere Mangel ${defect.id} als behoben`);
+            await apiCall(`/acceptance/defects/${defect.id}`, {
+              method: 'PUT',
+              body: JSON.stringify({
+                resolved: true,
+                resolution_notes: message || 'Mangel wurde behoben'
+              })
+            });
+          }
+        }
+        
+        console.log('✅ Alle Mängel als behoben markiert');
+      }
+      
+      // SCHRITT 3: Melde die Mängelbehebung
+      const response = await apiCall(`/acceptance/${trade?.id}/defects/submit-resolution`, {
+        method: 'POST',
+        body: JSON.stringify({
+          message: message || 'Mängelbehebung abgeschlossen',
+          resolution_notes: message || 'Alle dokumentierten Mängel wurden behoben.'
+        })
+      });
+      
+      console.log('✅ TradeDetailsModal - Mängelbehebung erfolgreich gemeldet:', response);
+      setCompletionStatus('defects_resolved');
+      
+      // Benachrichtige Parent-Komponente über Status-Änderung
+      if (onTradeUpdate && trade) {
+        onTradeUpdate({ ...trade, completion_status: 'defects_resolved' });
+      }
+      
+      // Zeige Erfolgsmeldung
+      alert('Mängelbehebung erfolgreich gemeldet! Der Bauträger wurde benachrichtigt.');
+      
+    } catch (error: any) {
+      console.error('❌ TradeDetailsModal - Fehler bei Mängelbehebung:', error);
+      const errorMessage = error?.response?.data?.detail || error?.message || 'Unbekannter Fehler';
+      alert(`Fehler beim Melden der Mängelbehebung: ${errorMessage}\n\nBitte versuchen Sie es erneut.`);
+    }
+  };
+
   const handleCompletionResponse = async (accepted: boolean, message?: string, deadline?: string) => {
     try {
       console.log('ðŸ” TradeDetailsModal - Sende Abnahme-Antwort fÃ¼r Trade:', trade?.id, {
@@ -3136,64 +3295,11 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         {userAcceptedAppointments.length > 0 && (
           <div className="mx-6 mt-4 mb-2">
             {userAcceptedAppointments.map(({appointment, response}, index) => (
-              <div key={`${appointment.id}-${index}`} className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/40 rounded-lg p-4 mb-3 shadow-lg">
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-green-500/30 rounded-full flex items-center justify-center">
-                      <CheckCircle size={20} className="text-green-400" />
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h4 className="text-green-300 font-semibold text-sm">Terminzusage bestätigt</h4>
-                      <span className="px-2 py-1 bg-green-500/20 text-green-300 text-xs rounded-full font-medium">
-                        Zugesagt
-                      </span>
-                    </div>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex items-center gap-2 text-gray-300">
-                        <Calendar size={14} className="text-green-400" />
-                        <span className="font-medium">{appointment.title}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-300">
-                        <Clock size={14} className="text-green-400" />
-                        <span>
-                          {new Date(appointment.scheduled_date).toLocaleDateString('de-DE', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
-                      </div>
-                      {appointment.location && (
-                        <div className="flex items-center gap-2 text-gray-300">
-                          <MapPin size={14} className="text-green-400" />
-                          <span>{appointment.location}</span>
-                        </div>
-                      )}
-                      {response.message && (
-                        <div className="mt-2 p-2 bg-green-500/10 rounded border-l-2 border-green-500/50">
-                          <p className="text-gray-300 text-xs italic">"{response.message}"</p>
-                        </div>
-                      )}
-                      {response.responded_at && (
-                        <div className="text-xs text-gray-400 mt-1">
-                          Zugesagt am: {new Date(response.responded_at).toLocaleDateString('de-DE', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <AppointmentBanner 
+                key={`${appointment.id}-${index}`}
+                appointment={appointment}
+                response={response}
+              />
             ))}
           </div>
         )}
@@ -5319,8 +5425,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       <div className="mt-4">
                         <button
                           onClick={() => {
-                            // Verwende bestehende Funktion für Abnahme-Response
-                            handleCompletionResponse(true, 'Mängelbehebung abgeschlossen');
+                            // Verwende neue Funktion für Mängelbehebung
+                            handleDefectResolution('Mängelbehebung abgeschlossen');
                           }}
                           className="px-4 py-2 bg-[#ffbd59] text-[#1a1a2e] rounded-lg hover:bg-[#ffbd59]/90 transition-colors font-medium"
                         >
@@ -5336,6 +5442,16 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       </div>
                       <p className="text-blue-200 text-sm">
                         Sie haben die Mängelbehebung gemeldet. Der Bauträger wird die finale Abnahme durchführen.
+                      </p>
+                    </div>
+                  ) : completionStatus === 'completed' ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span className="text-green-300 font-medium">Abnahme abgeschlossen</span>
+                      </div>
+                      <p className="text-green-200 text-sm">
+                        Das Gewerk wurde erfolgreich abgenommen. Alle Arbeiten sind abgeschlossen.
                       </p>
                     </div>
                   ) : completionStatus === 'completion_requested' ? (
@@ -5361,8 +5477,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   )}
                 </div>
 
-                {/* Mängel-Anzeige (falls vorhanden) */}
-                {acceptanceDefects && acceptanceDefects.length > 0 && (
+                {/* Mängel-Anzeige (falls vorhanden und nicht completed) */}
+                {acceptanceDefects && acceptanceDefects.length > 0 && completionStatus !== 'completed' && (
                   <div className="mb-6 p-4 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-xl">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="p-2 bg-yellow-500/20 rounded-lg">

@@ -156,7 +156,7 @@ const ResourceCalendar: React.FC<ResourceCalendarProps> = ({
         break;
     }
 
-    while (current.isSameOrBefore(endDate)) {
+    while (current.isBefore(endDate) || current.isSame(endDate)) {
       const dayEntries = entries.filter(entry => 
         dayjs(entry.entry_date).isSame(current, 'day')
       );

@@ -313,6 +313,35 @@ export class DocumentCategorizer {
         'Angebotsbewertung': ['bewertung', 'preisspiegel', 'vergleich', 'bewertungsmatrix'],
         'Vergabedokumentation': ['vergabe', 'zuschlag', 'ablehnung', 'vergabeprotokoll'],
         'Verhandlungen': ['verhandlung', 'nachverhandlung', 'protokoll', 'vereinbarung']
+      },
+      'technical': {
+        'Technische Zeichnungen': ['zeichnung', 'drawing', 'plan', 'detail', 'schnitt'],
+        'Spezifikationen': ['spezifikation', 'specification', 'anforderung', 'requirement'],
+        'Datenblätter': ['datenblatt', 'datasheet', 'technische.daten', 'spec'],
+        'Handbücher': ['handbuch', 'manual', 'bedienungsanleitung', 'anleitung'],
+        'Anleitungen': ['anleitung', 'instruction', 'guide', 'how.to'],
+        'Installationsanweisungen': ['installation', 'montage', 'einbau', 'aufbau'],
+        'Wartungsanleitungen': ['wartung', 'maintenance', 'service', 'instandhaltung']
+      },
+      'execution': {
+        'Lieferscheine': ['lieferschein', 'delivery', 'lieferung', 'wareneingang'],
+        'Materialbelege': ['material', 'beleg', 'eingang', 'warenempfang'],
+        'Abnahmeprotokolle': ['abnahme', 'protokoll', 'acceptance', 'prüfung'],
+        'Prüfberichte': ['prüfung', 'test', 'bericht', 'kontrolle'],
+        'Zertifikate': ['zertifikat', 'certificate', 'bescheinigung', 'nachweis'],
+        'Arbeitsanweisungen': ['arbeitsanweisung', 'instruction', 'anleitung', 'verfahren']
+      },
+      'documentation': {
+        'Baufortschrittsfotos': ['fortschritt', 'foto', 'bild', 'baustelle', 'progress'],
+        'Mängeldokumentation': ['mängel', 'defekt', 'fehler', 'beanstandung'],
+        'Bestandsdokumentation': ['bestand', 'aufmaß', 'inventar', 'erfassung'],
+        'Videos': ['video', 'film', 'aufnahme', 'recording'],
+        'Baustellenberichte': ['bericht', 'report', 'tagesbericht', 'wochenbericht']
+      },
+      'order_confirmations': {
+        'Auftragsbestätigungen': ['auftrag', 'bestätigung', 'confirmation', 'order'],
+        'Bestellbestätigungen': ['bestellung', 'order', 'purchase', 'einkauf'],
+        'Leistungsbestätigungen': ['leistung', 'service', 'erbringung', 'durchführung']
       }
     };
     

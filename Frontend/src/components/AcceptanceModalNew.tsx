@@ -623,12 +623,12 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                       <select
                         value={currentDefect.severity}
                         onChange={(e) => setCurrentDefect(prev => ({ ...prev, severity: e.target.value as 'MINOR' | 'MAJOR' | 'CRITICAL' }))}
-                        className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        className="w-full p-3 bg-[#1a1a2e] border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
                         required
                       >
-                        <option value="MINOR">Geringfügig</option>
-                        <option value="MAJOR">Erheblich</option>
-                        <option value="CRITICAL">Kritisch</option>
+                        <option value="MINOR" className="bg-[#1a1a2e] text-white">Geringfügig</option>
+                        <option value="MAJOR" className="bg-[#1a1a2e] text-white">Erheblich</option>
+                        <option value="CRITICAL" className="bg-[#1a1a2e] text-white">Kritisch</option>
                       </select>
                     </div>
                     <div>

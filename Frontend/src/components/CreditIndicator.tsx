@@ -42,13 +42,13 @@ const CreditIndicator: React.FC<CreditIndicatorProps> = ({ className = '' }) => 
 
   const getStatusColor = () => {
     if (balance.low_credit_warning) return 'text-red-400';
-    if (balance.plan_status === 'pro') return 'text-[#ffbd59]';
+    if (balance.plan_status === 'PRO') return 'text-[#ffbd59]';
     return 'text-yellow-400';
   };
 
   const getStatusIcon = () => {
     if (balance.low_credit_warning) return '⚠️';
-    if (balance.plan_status === 'pro') return '💎';
+    if (balance.plan_status === 'PRO') return '💎';
     return '🔒';
   };
 

@@ -644,7 +644,7 @@ export function RadialMenuAdvanced({
                   data-radial-item={item.id}
                   data-tour-id={item.tourId}
                   draggable={isEditMode && !item.disabled}
-                  onDragStart={(e) => handleDragStart(e, i)}
+                  onDragStart={(e) => handleDragStart(e as unknown as React.DragEvent<Element>, i)}
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, i)}
                   onDragEnd={handleDragEnd}
@@ -942,7 +942,7 @@ export function RadialMenuAdvanced({
         )}
       </div>
 
-      <style jsx>{`
+      <style>{`
         .radial-menu-container {
           -webkit-tap-highlight-color: transparent;
           user-select: none;

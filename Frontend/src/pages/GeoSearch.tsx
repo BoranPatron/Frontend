@@ -34,6 +34,7 @@ export default function GeoSearch() {
   const [selectedMapTrade, setSelectedMapTrade] = useState<TradeSearchResult | null>(null);
   const [filters, setFilters] = useState({
     categories: [] as string[], // Mehrfachauswahl für Kategorien
+    category: '', // Einzelkategorie für Kompatibilität
     status: '',
     priority: '',
     minBudget: '',
@@ -912,6 +913,7 @@ export default function GeoSearch() {
           onClose={closeTradeDetails}
           trade={selectedTrade}
           quotes={[]}
+          onCreateQuote={() => {}}
           project={{
             id: selectedTrade.project_id,
             name: selectedTrade.project_name || 'Unbekanntes Projekt',

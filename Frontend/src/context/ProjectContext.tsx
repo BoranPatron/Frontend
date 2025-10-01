@@ -31,6 +31,7 @@ interface Project {
 interface ProjectContextType {
   projects: Project[];
   selectedProject: Project | null;
+  currentProject?: Project | null;
   selectedProjectIndex: number;
   isLoading: boolean;
   error: string;
@@ -182,6 +183,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     <ProjectContext.Provider value={{
       projects,
       selectedProject,
+      currentProject: selectedProject,
       selectedProjectIndex,
       isLoading,
       error,

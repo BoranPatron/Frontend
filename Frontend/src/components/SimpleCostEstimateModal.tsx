@@ -1201,11 +1201,15 @@ export default function SimpleCostEstimateModal({
           ? invoiceStatus.toLowerCase() 
           : String(invoiceStatus).toLowerCase();
         
-        // Gültige Status für Rechnungen (inklusive Entwürfe)
+        // ✅ KRITISCH: Nur ECHTE Rechnungen anzeigen, KEINE DRAFT-Status!
+        // DRAFT-Rechnungen wurden automatisch beim Annehmen von Angeboten erstellt
+        // und sollen NICHT angezeigt werden, bis der Dienstleister sie finalisiert hat.
         const validInvoiceStatuses = [
-          'draft', 'sent', 'viewed', 'paid', 'overdue',
-          'DRAFT', 'SENT', 'VIEWED', 'PAID', 'OVERDUE'
+          'sent', 'viewed', 'paid', 'overdue',
+          'SENT', 'VIEWED', 'PAID', 'OVERDUE'
         ];
+        
+        // ❌ DRAFT wurde bewusst ENTFERNT aus der Liste!
         
         const isValidInvoice = validInvoiceStatuses.some(status => 
           status.toLowerCase() === normalizedStatus ||
@@ -1216,11 +1220,12 @@ export default function SimpleCostEstimateModal({
           originalStatus: invoiceStatus,
           normalizedStatus: normalizedStatus,
           isValidInvoice: isValidInvoice,
-          validStatuses: validInvoiceStatuses
+          validStatuses: validInvoiceStatuses,
+          isDraft: normalizedStatus === 'draft'
         });
         
         // Nur echte Rechnungen setzen, keine Entwürfe oder ungültige Status
-        if (isValidInvoice) {
+        if (isValidInvoice && normalizedStatus !== 'draft') {
           // Prüfe ob es eine neue Rechnung ist (nicht bereits angezeigt)
           const isNewInvoice = !existingInvoice || existingInvoice.id !== response.data.id;
           
@@ -2213,32 +2218,6 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
   // Render Accepted Provider Header
   const renderAcceptedProviderHeader = () => {
     if (!acceptedQuote) return null;
-    
-    // Debug: Zeige alle Quote-Daten
-    console.log('🔍 SimpleCostEstimateModal - Vollständige acceptedQuote Daten:', acceptedQuote);
-    console.log('🔍 SimpleCostEstimateModal - Fehlende Felder Check:', {
-      labor_cost: acceptedQuote.labor_cost,
-      material_cost: acceptedQuote.material_cost,
-      overhead_cost: acceptedQuote.overhead_cost,
-      estimated_duration: acceptedQuote.estimated_duration,
-      payment_terms: acceptedQuote.payment_terms,
-      website: acceptedQuote.website,
-      accepted_at: acceptedQuote.accepted_at,
-      quote_number: acceptedQuote.quote_number,
-      qualifications: acceptedQuote.qualifications,
-      certifications: acceptedQuote.certifications,
-      technical_approach: acceptedQuote.technical_approach,
-      quality_standards: acceptedQuote.quality_standards,
-      safety_measures: acceptedQuote.safety_measures,
-      environmental_compliance: acceptedQuote.environmental_compliance,
-      risk_assessment: acceptedQuote.risk_assessment,
-      contingency_plan: acceptedQuote.contingency_plan,
-      additional_notes: acceptedQuote.additional_notes,
-      references: acceptedQuote.references
-    });
-    
-    // CRITICAL DEBUG: Alert um sicherzustellen dass Code ausgeführt wird
-    alert('SimpleCostEstimateModal - renderAcceptedProviderHeader wird ausgeführt!');
 
     return (
       <div className="mb-6 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-lg p-6">
@@ -2324,12 +2303,6 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
 
         {/* Vollständige Angebots-Details */}
         <div className="mt-6 space-y-6">
-          
-          {/* DEBUG: Immer sichtbarer Test-Bereich */}
-          <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4">
-            <h4 className="text-red-300 font-bold">🚨 DEBUG: Dieser Bereich sollte IMMER sichtbar sein!</h4>
-            <p className="text-white">Wenn du das siehst, wird der Code ausgeführt.</p>
-          </div>
           
           {/* Kostenaufschlüsselung */}
           <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-4">

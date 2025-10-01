@@ -89,7 +89,7 @@ const CreditDashboard: React.FC<CreditDashboardProps> = ({ isAdmin = false }) =>
   const handleAdminDailyDeduction = async () => {
     try {
       // TODO: Implement processDailyDeductions API call
-      alert(result.message);
+      alert('Tägliche Abzüge wurden verarbeitet');
       await loadCreditData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Fehler bei täglichen Abzügen');

@@ -37,6 +37,7 @@ export interface AppointmentResponse {
   preparation_notes?: string;
   invited_service_providers?: ServiceProviderInvite[];
   responses?: ServiceProviderResponse[];
+  responses_array?: ServiceProviderResponse[];
   inspection_completed: boolean;
   selected_service_provider_id?: number;
   inspection_notes?: string;

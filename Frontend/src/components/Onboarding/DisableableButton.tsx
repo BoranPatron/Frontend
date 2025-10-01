@@ -27,16 +27,16 @@ export function DisableableButton({
     : '';
   
   // Clone the child element and add our properties
-  return cloneElement(children, {
+  return cloneElement(children as React.ReactElement<any>, {
     disabled: isDisabled,
-    className: `${children.props.className || ''} ${disabledClasses} ${className}`.trim(),
-    onClick: isDisabled ? undefined : children.props.onClick,
-    onPointerDown: isDisabled ? undefined : children.props.onPointerDown,
-    onMouseDown: isDisabled ? undefined : children.props.onMouseDown,
+    className: `${(children as any).props.className || ''} ${disabledClasses} ${className}`.trim(),
+    onClick: isDisabled ? undefined : (children as any).props.onClick,
+    onPointerDown: isDisabled ? undefined : (children as any).props.onPointerDown,
+    onMouseDown: isDisabled ? undefined : (children as any).props.onMouseDown,
     'aria-disabled': isDisabled,
     title: isDisabled && shouldDisableUI 
       ? 'Funktion während der geführten Tour nicht verfügbar' 
-      : children.props.title
+      : (children as any).props.title
   });
 }
 

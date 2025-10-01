@@ -3,13 +3,14 @@ import { X, Star } from 'lucide-react';
 import { apiCall } from '../api/api';
 
 interface ServiceProviderRatingProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
   serviceProviderId: number;
-  projectId: number;
-  milestoneId: number;
+  projectId?: number;
+  milestoneId?: number;
   quoteId?: number;
-  onRatingComplete: () => void;
+  onRatingComplete?: () => void;
+  className?: string;
 }
 
 interface RatingCategory {
@@ -20,13 +21,14 @@ interface RatingCategory {
 }
 
 export default function ServiceProviderRating({
-  isOpen,
-  onClose,
+  isOpen = true,
+  onClose = () => {},
   serviceProviderId,
   projectId,
   milestoneId,
   quoteId,
-  onRatingComplete
+  onRatingComplete = () => {},
+  className = ''
 }: ServiceProviderRatingProps) {
   const [categories, setCategories] = useState<RatingCategory[]>([
     {

@@ -635,8 +635,8 @@ export default function QuoteDetailsModal({
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Generiere PDF mit jsPDF (falls verfügbar) oder verwende Print
-      if (window.jsPDF) {
-        const pdf = new window.jsPDF('p', 'mm', 'a4');
+      if ((window as any).jsPDF) {
+        const pdf = new (window as any).jsPDF('p', 'mm', 'a4');
         pdf.html(iframeDoc.body, {
           callback: function (doc) {
             const pdfBlob = doc.output('blob');

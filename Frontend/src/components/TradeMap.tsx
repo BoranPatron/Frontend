@@ -9,6 +9,7 @@ interface TradeMapProps {
   isExpanded?: boolean;
   hasQuoteForTrade?: (tradeId: number) => boolean;
   getQuoteStatusForTrade?: (tradeId: number) => string | null;
+  showAcceptedTrades?: boolean;
 }
 
 export default function TradeMap({ 

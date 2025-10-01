@@ -157,27 +157,6 @@ export function RadialMenu({
       }
     ];
     
-    // Add Resources Management for Service Providers
-    if (userRole === 'service_provider') {
-      baseItems.splice(3, 0, {
-        id: "resources",
-        label: "Ressourcen",
-        icon: <Users size={24} />,
-        onSelect: () => {
-          if (projectId) {
-            navigate(`/resources?project=${projectId}`);
-          } else {
-            navigate('/resources');
-          }
-        },
-        color: "#14B8A6",
-        description: "Ressourcenverwaltung & Planung",
-        badge: {
-          text: "NEU",
-          color: "#ef4444"
-        }
-      });
-    }
     
     return baseItems;
   };

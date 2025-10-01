@@ -329,6 +329,12 @@ class ResourceDatabaseService:
             ResourceAllocation.trade_id == trade_id
         ).options(joinedload(ResourceAllocation.resource)).all()
     
+    def get_allocations_by_provider(self, session: Session, provider_id: int) -> List[ResourceAllocation]:
+        """Get all allocations for a service provider"""
+        return session.query(ResourceAllocation).join(Resource).filter(
+            Resource.service_provider_id == provider_id
+        ).options(joinedload(ResourceAllocation.resource)).all()
+    
     def bulk_create_allocations(
         self,
         session: Session,

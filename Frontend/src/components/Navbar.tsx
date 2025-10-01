@@ -6,6 +6,8 @@ import {
   Star, 
   Settings, 
   ChevronDown, 
+  ChevronLeft,
+  ChevronRight,
   Moon, 
   Sun, 
   LogOut, 
@@ -237,6 +239,8 @@ export default function Navbar() {
   const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [createProjectError, setCreateProjectError] = useState<string | null>(null);
+  const [isPrivacyBannerCollapsed, setIsPrivacyBannerCollapsed] = useState(true);
+  const [showDocumentInheritanceTooltip, setShowDocumentInheritanceTooltip] = useState(false);
   
   // Dokument-Upload State
   const [uploadFiles, setUploadFiles] = useState<any[]>([]);
@@ -946,8 +950,104 @@ export default function Navbar() {
       {/* Projekt-Erstellungs-Modal */}
       {showCreateProjectModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-[#2c3539] to-[#3d4952] rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-[#ffbd59]/20">
-            <div className="p-6">
+          <div className="bg-gradient-to-br from-[#2c3539] to-[#3d4952] rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-[#ffbd59]/20 relative">
+            
+            {/* Seitlicher Datenschutz-Banner */}
+            <div className={`absolute top-0 right-0 h-full transition-all duration-300 ease-in-out z-10 ${
+              isPrivacyBannerCollapsed ? 'w-16' : 'w-80 lg:w-80 md:w-64 sm:w-48'
+            }`}>
+              <div className="h-full bg-gradient-to-b from-blue-500/15 to-indigo-500/15 border-l border-blue-500/30 backdrop-blur-sm">
+                {/* Toggle Button */}
+                <button
+                  onClick={() => setIsPrivacyBannerCollapsed(!isPrivacyBannerCollapsed)}
+                  className="absolute top-4 left-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 rounded-lg p-2 transition-all duration-200 border border-blue-500/30 shadow-lg"
+                  title={isPrivacyBannerCollapsed ? "Datenschutz-Info anzeigen" : "Datenschutz-Info ausblenden"}
+                >
+                  {isPrivacyBannerCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+                </button>
+
+                {/* Collapsed State Indicator */}
+                {isPrivacyBannerCollapsed && (
+                  <div className="space-y-2">
+                    <div className="absolute top-36 left-1/2 transform -translate-x-1/2 -rotate-90 origin-center">
+                      <div className="flex items-center space-x-1 text-blue-300 text-xs font-medium whitespace-nowrap bg-blue-500/20 px-3 py-1 rounded border border-blue-500/30">
+                        <Shield size={12} />
+                        <span>Datenschutz & Sichtbarkeit</span>
+                      </div>
+                    </div>
+                    
+                    {/* Dokumenten-Vererbung Button - DEAKTIVIERT */}
+                    {/* <div className="absolute top-48 left-1/2 transform -translate-x-1/2 -rotate-90 origin-center">
+                      <button
+                        onClick={() => setShowDocumentInheritanceTooltip(!showDocumentInheritanceTooltip)}
+                        className="flex items-center space-x-1 text-green-300 text-xs font-medium whitespace-nowrap bg-green-500/20 px-3 py-1 rounded border border-green-500/30 hover:bg-green-500/30 transition-colors"
+                        title={showDocumentInheritanceTooltip ? "Dokumenten-Vererbung ausblenden" : "Dokumenten-Vererbung anzeigen"}
+                      >
+                        <FolderOpen size={12} />
+                        <span>Dokumenten-Vererbung</span>
+                        {showDocumentInheritanceTooltip ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+                      </button>
+                    </div> */}
+                  </div>
+                )}
+
+                {/* Banner Content */}
+                <div className={`h-full pt-16 px-4 transition-all duration-300 ${
+                  isPrivacyBannerCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'
+                }`}>
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Shield className="w-5 h-5 text-blue-400" />
+                      <h4 className="text-white font-semibold text-sm">
+                        Datenschutz & Sichtbarkeit
+                      </h4>
+                    </div>
+                    
+                    <div className="text-gray-300 text-xs space-y-3">
+                      <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                        <div className="flex items-start space-x-2">
+                          <Eye className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-white font-medium text-xs mb-1">Alle Projektinformationen</p>
+                            <p className="text-gray-400 text-xs leading-relaxed">
+                              sind nur für Sie als Bauträger sichtbar und werden vertraulich behandelt.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-yellow-500/10 rounded-lg p-3 border border-yellow-500/20">
+                        <div className="flex items-start space-x-2">
+                          <EyeOff className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-yellow-400 font-medium text-xs mb-1">Ausnahme: Projektadresse</p>
+                            <p className="text-gray-400 text-xs leading-relaxed">
+                              Die Adresse wird bei der Erstellung von Ausschreibungen automatisch an Dienstleister weitergegeben, damit diese die Anschrift der Baustelle kennen.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-green-500/10 rounded-lg p-3 border border-green-500/20">
+                        <div className="flex items-start space-x-2">
+                          <FolderOpen className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-green-400 font-medium text-xs mb-1">Dokumente im DMS</p>
+                            <p className="text-gray-400 text-xs leading-relaxed">
+                              Hochgeladene Dokumente werden diesem Projekt im Dokumenten-Management-System (DMS) zugeordnet. Bei späteren Ausschreibungen können Sie gezielt auswählen, welche Dokumente für Dienstleister sichtbar sein sollen.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={`p-6 transition-all duration-300 ${
+              isPrivacyBannerCollapsed ? 'mr-16' : 'mr-80 lg:mr-80 md:mr-64 sm:mr-48'
+            }`}>
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-white">Neues Projekt erstellen</h2>
                 <button
@@ -956,44 +1056,6 @@ export default function Navbar() {
                 >
                   <X size={24} />
                 </button>
-              </div>
-
-              {/* Datenschutz-Hinweis Banner */}
-              <div className="mb-6 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/30 rounded-xl p-4">
-                <div className="flex items-start space-x-3">
-                  <div className="flex-shrink-0">
-                    <Shield className="w-6 h-6 text-blue-400 mt-0.5" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-white font-semibold mb-2 flex items-center">
-                      <Eye className="w-4 h-4 mr-2 text-blue-400" />
-                      Datenschutz & Sichtbarkeit
-                    </h4>
-                    <div className="text-gray-300 text-sm space-y-2">
-                      <p>
-                        <strong className="text-white">Alle Projektinformationen</strong> sind nur für Sie als Bauträger sichtbar und werden vertraulich behandelt.
-                      </p>
-                      <div className="flex items-start space-x-2">
-                        <EyeOff className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p><strong className="text-yellow-400">Ausnahme: Projektadresse</strong></p>
-                          <p className="text-gray-400 text-xs">
-                            Die Adresse wird bei der Erstellung von Ausschreibungen automatisch an Dienstleister weitergegeben, damit diese die Anschrift der Baustelle kennen.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-start space-x-2">
-                        <FolderOpen className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p><strong className="text-green-400">Dokumente im DMS</strong></p>
-                          <p className="text-gray-400 text-xs">
-                            Hochgeladene Dokumente werden diesem Projekt im Dokumenten-Management-System (DMS) zugeordnet. Bei späteren Ausschreibungen können Sie gezielt auswählen, welche Dokumente für Dienstleister sichtbar sein sollen.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               <form onSubmit={handleCreateProject} className="space-y-6">
@@ -1233,7 +1295,7 @@ export default function Navbar() {
                     </p>
                     <div className="flex items-center justify-center gap-2 text-[#ffbd59] text-sm font-medium mb-4">
                       <Sparkles className="w-4 h-4" />
-                      <span>Automatische Kategorisierung mit KI</span>
+                      <span>Automatische Kategorisierung</span>
                     </div>
                     
                     <button
@@ -1549,6 +1611,69 @@ export default function Navbar() {
                     Kategorisierung bestätigen
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dokumenten-Vererbung Tooltip */}
+      {showDocumentInheritanceTooltip && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] text-white rounded-2xl shadow-2xl max-w-md w-full border border-green-500/20">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-white flex items-center">
+                  <FolderOpen className="w-6 h-6 mr-2 text-green-400" />
+                  Dokumenten-Vererbung
+                </h3>
+                <button
+                  onClick={() => setShowDocumentInheritanceTooltip(false)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <div className="space-y-4 text-gray-300">
+                <div className="bg-green-500/10 rounded-lg p-4 border border-green-500/20">
+                  <h4 className="text-green-400 font-semibold mb-2 flex items-center">
+                    <Eye className="w-4 h-4 mr-2" />
+                    Wie funktioniert die Dokumenten-Vererbung?
+                  </h4>
+                  <p className="text-sm leading-relaxed">
+                    Beim Erstellen von Ausschreibungen können Sie gezielt auswählen, welche Projekt-Dokumente für Dienstleister sichtbar sein sollen.
+                  </p>
+                </div>
+                
+                <div className="bg-blue-500/10 rounded-lg p-4 border border-blue-500/20">
+                  <h4 className="text-blue-400 font-semibold mb-2 flex items-center">
+                    <Shield className="w-4 h-4 mr-2" />
+                    Datenschutz & Kontrolle
+                  </h4>
+                  <p className="text-sm leading-relaxed">
+                    <strong>Nur die von Ihnen ausgewählten Dokumente</strong> werden an Dienstleister weitergegeben. Alle anderen Projekt-Dokumente bleiben privat und sind nur für Sie sichtbar.
+                  </p>
+                </div>
+                
+                <div className="bg-yellow-500/10 rounded-lg p-4 border border-yellow-500/20">
+                  <h4 className="text-yellow-400 font-semibold mb-2 flex items-center">
+                    <Info className="w-4 h-4 mr-2" />
+                    Praktisches Beispiel
+                  </h4>
+                  <p className="text-sm leading-relaxed">
+                    Sie können z.B. nur die Baupläne und technischen Spezifikationen freigeben, während interne Kostenaufstellungen und Verträge privat bleiben.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setShowDocumentInheritanceTooltip(false)}
+                  className="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                >
+                  Verstanden
+                </button>
               </div>
             </div>
           </div>

@@ -11,7 +11,7 @@ import {
   X,
   Send
 } from 'lucide-react';
-import { EmailNotificationButton } from './EmailNotificationButton';
+import EmailNotificationButton from './EmailNotificationButton';
 
 interface CompletionNotificationProps {
   notification: {

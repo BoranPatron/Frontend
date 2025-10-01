@@ -191,7 +191,7 @@ const Archive: React.FC = () => {
           {selectedProject && (
             <div className="text-right">
               <p className="text-gray-400 text-sm">Projekt</p>
-              <p className="text-white font-medium">{selectedProject.title}</p>
+              <p className="text-white font-medium">{selectedProject.name || (selectedProject as any).title}</p>
             </div>
           )}
         </div>

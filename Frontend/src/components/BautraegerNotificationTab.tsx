@@ -33,6 +33,20 @@ interface Notification {
   acknowledged_at?: string;
   related_quote_id?: number;
   related_project_id?: number;
+  metadata?: {
+    invoice_id?: number;
+    invoice_number?: string;
+    total_amount?: number;
+    milestone_title?: string;
+    quote_title?: string;
+    project_name?: string;
+    quote_currency?: string;
+    quote_amount?: number;
+    service_provider_name?: string;
+    estimated_duration?: string;
+    warranty_period?: string;
+    [key: string]: any;
+  };
   related_milestone_id?: number;
   related_appointment_id?: number;
 }
@@ -329,7 +343,7 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
                 title: `Terminantwort: ${appointment.title}`,
                 message: `${response.service_provider_name} hat ${appointmentType === 'confirmation' ? 'zugesagt' : appointmentType === 'reschedule' ? 'einen anderen Termin vorgeschlagen' : 'abgesagt'}`,
                 timestamp: response.created_at || appointment.created_at,
-                isHandled: isPermanentlyHandled, // Prüfe permanente Marker
+                isHandled: Boolean(isPermanentlyHandled), // Prüfe permanente Marker
                 isRead: false,
                 appointment,
                 response,
@@ -380,7 +394,8 @@ Ihr BuildWise Team
     `);
 
     // Öffne E-Mail-Client mit vorgefertigter E-Mail
-    const mailtoLink = `mailto:service-provider-${response.service_provider_id}@demo.com?subject=${subject}&body=${body}`;
+    const serviceProviderEmail = response.service_provider?.email || `service-provider-${response.service_provider_id}@demo.com`;
+    const mailtoLink = `mailto:${serviceProviderEmail}?subject=${subject}&body=${body}`;
     window.open(mailtoLink, '_blank');
     
     // Setze permanenten Marker für behandelte Benachrichtigung
@@ -1066,7 +1081,7 @@ Ihr BuildWise Team
                   
                   <div className="flex items-center gap-2 mb-2">
                     <User size={16} className="text-blue-600" />
-                    <span className="text-sm text-gray-700">Dienstleister #{selectedNotification.response.service_provider_id}</span>
+                    <span className="text-sm text-gray-700">{selectedNotification.response.service_provider_name || `Dienstleister #${selectedNotification.response.service_provider_id}`}</span>
                   </div>
                   
                   <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium mb-3 ${

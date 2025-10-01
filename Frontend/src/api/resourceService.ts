@@ -329,7 +329,15 @@ class ResourceService {
 
   async getMyResources(): Promise<Resource[]> {
     try {
-      const response = await apiCall<Resource[]>(`${this.baseUrl}/my`);
+      // Get user ID from localStorage
+      const userStr = localStorage.getItem('user');
+      const user = userStr ? JSON.parse(userStr) : null;
+      const userId = user?.id;
+      
+      // Add user_id as query parameter if available
+      const url = userId ? `${this.baseUrl}/my?user_id=${userId}` : `${this.baseUrl}/my`;
+      
+      const response = await apiCall<Resource[]>(url);
       return response;
     } catch (error) {
       throw handleApiError(error);
@@ -383,7 +391,15 @@ class ResourceService {
 
   async getMyAllocations(): Promise<ResourceAllocation[]> {
     try {
-      const response = await apiCall<ResourceAllocation[]>(`${this.baseUrl}/allocations/my`);
+      // Get user ID from localStorage
+      const userStr = localStorage.getItem('user');
+      const user = userStr ? JSON.parse(userStr) : null;
+      const userId = user?.id;
+      
+      // Add user_id as query parameter if available
+      const url = userId ? `${this.baseUrl}/allocations/my?user_id=${userId}` : `${this.baseUrl}/allocations/my`;
+      
+      const response = await apiCall<ResourceAllocation[]>(url);
       return response;
     } catch (error) {
       throw handleApiError(error);

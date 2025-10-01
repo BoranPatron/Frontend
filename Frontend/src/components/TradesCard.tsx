@@ -631,10 +631,7 @@ export default function TradesCard({
     try {
       await deleteMilestone(tradeId);
       
-      // Entferne das Gewerk aus der lokalen Liste
-      setTrades(prev => prev.filter(trade => trade.id !== tradeId));
-      
-      // Rufe den onDeleteTrade Callback auf, falls vorhanden
+      // Entferne das Gewerk aus der lokalen Liste über den Parent-Callback
       if (onDeleteTrade) {
         onDeleteTrade(tradeId);
       }
@@ -1091,7 +1088,7 @@ export default function TradesCard({
                         </span>
                       )}
                       
-                      {(trade.requires_inspection || trade.inspection_required) && (
+                      {(trade.requires_inspection || (trade as any).inspection_required) && (
                         <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
                           <Eye size={10} />
                           Besichtigung erforderlich

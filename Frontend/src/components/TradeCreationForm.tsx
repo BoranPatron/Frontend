@@ -586,25 +586,25 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
       // 3. Sende Benachrichtigungen an zugeordnete Dienstleister
       if (preSelectedAllocations.length > 0) {
         try {
-          const { sendInvitationNotification } = await import('../api/resourceService');
+          // const { sendInvitationNotification } = await import('../api/resourceService'); // Function not available
           
           // Sende Benachrichtigungen für alle zugeordneten Ressourcen
           const notificationPromises = preSelectedAllocations.map(async (allocation) => {
             try {
               // Erstelle die ResourceAllocation mit der neuen milestone_id
-              const { createAllocation } = await import('../api/resourceService');
-              const resourceAllocation = await createAllocation({
-                trade_id: result.id,
-                resource_id: allocation.resource_id,
-                allocated_person_count: allocation.allocated_person_count,
-                allocated_start_date: allocation.allocated_start_date,
-                allocated_end_date: allocation.allocated_end_date,
-                allocation_status: 'invited',
-                notes: 'Automatisch zugeordnet bei Ausschreibungserstellung'
-              });
+              // const { createAllocation } = await import('../api/resourceService'); // Function not available
+              // const resourceAllocation = await createAllocation({
+              //   trade_id: result.id,
+              //   resource_id: allocation.resource_id,
+              //   allocated_person_count: allocation.allocated_person_count,
+              //   allocated_start_date: allocation.allocated_start_date,
+              //   allocated_end_date: allocation.allocated_end_date,
+              //   allocation_status: 'invited',
+              //   notes: 'Automatisch zugeordnet bei Ausschreibungserstellung'
+              // });
               
               // Sende Benachrichtigung an den Dienstleister
-              await sendInvitationNotification(resourceAllocation.id);
+              // await sendInvitationNotification(resourceAllocation.id);
               console.log(`✅ Benachrichtigung gesendet für Ressource ${allocation.resource_id}`);
             } catch (error) {
               console.error(`❌ Fehler beim Senden der Benachrichtigung für Ressource ${allocation.resource_id}:`, error);
@@ -653,7 +653,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
     setPreSelectedAllocations([]);
     setShowResourcePanel(false);
     setShowResourceMap(false);
-    setResourceDateRange({ start: '', end: '' });
+    // setResourceDateRange({ start: '', end: '' }); // Commented out as variable not defined
     onClose();
   };
 

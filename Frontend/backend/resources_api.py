@@ -211,8 +211,8 @@ def get_current_user():
 # Dependency to get current service provider ID
 def get_current_provider_id(current_user = Depends(get_current_user)):
     """Get current service provider ID"""
-    # TODO: Map user to service provider
-    return 1
+    # Use the actual user ID from the current user
+    return current_user.get("id", 1)
 
 # ==================== Resources CRUD ====================
 
@@ -327,10 +327,13 @@ async def search_resources_geo(
 @router.get("/my", response_model=List[Resource])
 async def get_my_resources(
     db: Session = Depends(get_db),
-    provider_id: int = Depends(get_current_provider_id)
+    provider_id: int = Depends(get_current_provider_id),
+    user_id: Optional[int] = Query(None)
 ):
     """Get resources for current user"""
-    filters = {'service_provider_id': provider_id}
+    # Use user_id from query parameter if provided, otherwise use provider_id
+    actual_provider_id = user_id if user_id is not None else provider_id
+    filters = {'service_provider_id': actual_provider_id}
     return db_service.list_resources(db, filters)
 
 # ==================== Allocations ====================
@@ -352,6 +355,17 @@ async def create_allocation(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.get("/allocations/my", response_model=List[ResourceAllocation])
+async def get_my_allocations(
+    db: Session = Depends(get_db),
+    provider_id: int = Depends(get_current_provider_id),
+    user_id: Optional[int] = Query(None)
+):
+    """Get allocations for current user"""
+    # Use user_id from query parameter if provided, otherwise use provider_id
+    actual_provider_id = user_id if user_id is not None else provider_id
+    return db_service.get_allocations_by_provider(db, actual_provider_id)
 
 @router.put("/allocations/{allocation_id}", response_model=ResourceAllocation)
 async def update_allocation(

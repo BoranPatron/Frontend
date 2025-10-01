@@ -187,10 +187,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               onClick={() => setIsEditing(!isEditing)}
               className="p-2 text-gray-500 rounded-lg transition-colors"
               style={{ 
-                '&:hover': { 
-                  color: '#ffbd59', 
-                  backgroundColor: '#ffbd590a' 
-                } 
+                color: '#6b7280'
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.color = '#ffbd59';
@@ -286,7 +283,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               {isEditing ? (
                 <select
                   value={editedTask.priority || ''}
-                  onChange={(e) => setEditedTask({ ...editedTask, priority: e.target.value })}
+                  onChange={(e) => setEditedTask({ ...editedTask, priority: e.target.value as 'low' | 'medium' | 'high' | 'urgent' })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="low">Niedrig</option>
@@ -424,8 +421,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               disabled={isLoading}
               className="flex items-center px-6 py-2 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50"
               style={{ 
-                backgroundColor: '#ffbd59',
-                '&:hover': { backgroundColor: '#ff9500' }
+                backgroundColor: '#ffbd59'
               }}
               onMouseEnter={(e) => {
                 if (!isLoading) e.currentTarget.style.backgroundColor = '#ff9500';

@@ -10,8 +10,9 @@ interface InvoiceModalProps {
   onClose: () => void;
   milestoneId: number;
   milestoneTitle: string;
-  contractValue: number;
-  onInvoiceSubmitted: () => void;
+  contractValue?: number;
+  onInvoiceSubmitted?: () => void;
+  onInvoiceCreated?: () => void;
   projectId?: number;
   serviceProviderId?: number;
 }
@@ -23,6 +24,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
   milestoneTitle,
   contractValue,
   onInvoiceSubmitted,
+  onInvoiceCreated,
   projectId,
   serviceProviderId
 }) => {
@@ -277,7 +279,8 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
         }
       }
       
-      onInvoiceSubmitted();
+      onInvoiceSubmitted?.();
+      onInvoiceCreated?.();
       onClose();
       
     } catch (error: any) {
@@ -379,7 +382,8 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
         }
       }
 
-      onInvoiceSubmitted();
+      onInvoiceSubmitted?.();
+      onInvoiceCreated?.();
       onClose();
       
     } catch (error: any) {

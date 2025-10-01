@@ -368,156 +368,157 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
             </div>
           </div>
             
-          {/* Erweiterte Details */}
-          {showContactInfo && (
-            <div className="mt-2 pt-2 border-t border-gray-600">
-              <div className="space-y-3">
-                {/* Kontaktinformationen */}
-                <div>
-                  <div className="text-xs text-[#ffbd59] font-medium mb-1">📞 Kontakt</div>
-                  <div className="space-y-1 text-xs">
-                    {resource.provider_company_name && (
-                      <div className="flex items-center space-x-1">
-                        <Building className="w-3 h-3 text-gray-400" />
-                        <span className="text-gray-300">{resource.provider_company_name}</span>
+            {showContactInfo && (
+              <div className="mt-2 pt-2 border-t border-gray-600">
+                <div className="space-y-3">
+                  {/* Kontaktinformationen */}
+                  <div>
+                    <div className="text-xs text-[#ffbd59] font-medium mb-1">📞 Kontakt</div>
+                    <div className="space-y-1 text-xs">
+                      {resource.provider_company_name && (
+                        <div className="flex items-center space-x-1">
+                          <Building className="w-3 h-3 text-gray-400" />
+                          <span className="text-gray-300">{resource.provider_company_name}</span>
+                        </div>
+                      )}
+                      {resource.provider_email && (
+                        <div className="flex items-center space-x-1">
+                          <Mail className="w-3 h-3 text-gray-400" />
+                          <span className="text-gray-300">{resource.provider_email}</span>
+                        </div>
+                      )}
+                      {resource.provider_phone && (
+                        <div className="flex items-center space-x-1">
+                          <Phone className="w-3 h-3 text-gray-400" />
+                          <span className="text-gray-300">{resource.provider_phone}</span>
+                        </div>
+                      )}
+                      {resource.provider_company_address && (
+                        <div className="flex items-center space-x-1">
+                          <MapPin className="w-3 h-3 text-gray-400" />
+                          <span className="text-gray-300">{resource.provider_company_address}</span>
+                        </div>
+                      )}
+                      {resource.provider_company_website && (
+                        <Tooltip content={`Website des Dienstleisters - klicken zum Öffnen`}>
+                          <div className="flex items-center space-x-1 cursor-help">
+                            <Settings className="w-3 h-3 text-gray-400" />
+                            <span className="text-gray-300">{resource.provider_company_website}</span>
+                            <HelpCircle className="w-3 h-3 text-gray-500" />
+                          </div>
+                        </Tooltip>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bauträger-Notizen */}
+                  {resource.builder_date_range_notes && (
+                    <div>
+                      <div className="text-xs text-[#ffbd59] font-medium mb-1 flex items-center space-x-1">
+                        <span>💬 Bauträger-Notizen</span>
                       </div>
-                    )}
-                    {resource.provider_email && (
-                      <div className="flex items-center space-x-1">
-                        <Mail className="w-3 h-3 text-gray-400" />
-                        <span className="text-gray-300">{resource.provider_email}</span>
+                      <div className="p-2 bg-blue-500/10 border border-blue-500/30 rounded text-xs text-gray-300">
+                        {resource.builder_date_range_notes}
                       </div>
-                    )}
-                    {resource.provider_phone && (
-                      <div className="flex items-center space-x-1">
-                        <Phone className="w-3 h-3 text-gray-400" />
-                        <span className="text-gray-300">{resource.provider_phone}</span>
+                    </div>
+                  )}
+
+                  {/* Zeitraum-Details */}
+                  {resource.builder_preferred_start_date && resource.builder_preferred_end_date && (
+                    <div>
+                      <div className="text-xs text-[#ffbd59] font-medium mb-1">📅 Zeitraum-Details</div>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Dienstleister verfügbar:</span>
+                          <span className="text-blue-300">
+                            {dayjs(resource.start_date).format('DD.MM.YY')} - {dayjs(resource.end_date).format('DD.MM.YY')}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Bauträger wünscht:</span>
+                          <span className="text-[#ffbd59]">
+                            {dayjs(resource.builder_preferred_start_date).format('DD.MM.YY')} - {dayjs(resource.builder_preferred_end_date).format('DD.MM.YY')}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Nutzungsgrad:</span>
+                          <span className="text-green-400 font-medium">
+                            {(() => {
+                              const totalDays = Math.ceil(dayjs(resource.end_date).diff(dayjs(resource.start_date), 'day') + 1);
+                              const usedDays = Math.ceil(dayjs(resource.builder_preferred_end_date).diff(dayjs(resource.builder_preferred_start_date), 'day') + 1);
+                              return Math.round((usedDays / totalDays) * 100);
+                            })()}%
+                          </span>
+                        </div>
                       </div>
-                    )}
-                    {resource.provider_company_address && (
-                      <div className="flex items-center space-x-1">
-                        <MapPin className="w-3 h-3 text-gray-400" />
-                        <span className="text-gray-300">{resource.provider_company_address}</span>
-                      </div>
-                    )}
-                    {resource.provider_company_website && (
-                      <Tooltip content={`Website des Dienstleisters - klicken zum Öffnen`}>
-                        <div className="flex items-center space-x-1 cursor-help">
-                          <Settings className="w-3 h-3 text-gray-400" />
-                          <span className="text-gray-300">{resource.provider_company_website}</span>
-                          <HelpCircle className="w-3 h-3 text-gray-500" />
+                    </div>
+                  )}
+
+                  {/* Beschreibung */}
+                  {resource.provider_bio && (
+                    <div>
+                      <div className="text-xs text-[#ffbd59] font-medium mb-1">📋 Beschreibung</div>
+                      <Tooltip content={`Vollständige Beschreibung: ${resource.provider_bio}`}>
+                        <div className="text-gray-300 text-xs leading-relaxed cursor-help">
+                          {resource.provider_bio.length > 100 
+                            ? `${resource.provider_bio.substring(0, 100)}...` 
+                            : resource.provider_bio}
                         </div>
                       </Tooltip>
-                    )}
+                    </div>
+                  )}
+
+                  {/* Sprachen */}
+                  {resource.provider_languages && (
+                    <div>
+                      <div className="text-xs text-[#ffbd59] font-medium mb-1">🌐 Sprachen</div>
+                      <div className="text-gray-300 text-xs">
+                        {resource.provider_languages}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+        </div>
+
+        {/* Kompakter Zeitraum-Button mit Tooltip */}
+        {isSelected && (
+          <div className="mt-1">
+            <Tooltip 
+              position="bottom"
+              content={
+                <div className="w-96">
+                  <div className="font-semibold text-white mb-2 text-sm">Zeitraum-Anpassung</div>
+                  <div className="text-sm space-y-2">
+                    <div className="text-blue-300">
+                      <strong>Verfügbar:</strong><br/>
+                      {dayjs(resource.start_date).format('DD.MM.YYYY')} - {dayjs(resource.end_date).format('DD.MM.YYYY')}
+                    </div>
+                    <div className="text-[#ffbd59]">
+                      <strong>Ihr gewünschter Zeitraum:</strong><br/>
+                      Wählen Sie einen spezifischen Teilzeitraum für Ihr Projekt
+                    </div>
+                    <div className="text-gray-300 text-sm">
+                      💡 <strong>Beispiel:</strong> Dienstleister ist 30 Tage verfügbar, Sie benötigen nur 5 Tage für Ihr Projekt
+                    </div>
                   </div>
                 </div>
-
-                {/* Bauträger-Notizen */}
-                {resource.builder_date_range_notes && (
-                  <div>
-                    <div className="text-xs text-[#ffbd59] font-medium mb-1 flex items-center space-x-1">
-                      <span>💬 Bauträger-Notizen</span>
-                    </div>
-                    <div className="p-2 bg-blue-500/10 border border-blue-500/30 rounded text-xs text-gray-300">
-                      {resource.builder_date_range_notes}
-                    </div>
-                  </div>
-                )}
-
-                {/* Zeitraum-Details */}
-                {resource.builder_preferred_start_date && resource.builder_preferred_end_date && (
-                  <div>
-                    <div className="text-xs text-[#ffbd59] font-medium mb-1">📅 Zeitraum-Details</div>
-                    <div className="space-y-1 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Dienstleister verfügbar:</span>
-                        <span className="text-blue-300">
-                          {dayjs(resource.start_date).format('DD.MM.YY')} - {dayjs(resource.end_date).format('DD.MM.YY')}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Bauträger wünscht:</span>
-                        <span className="text-[#ffbd59]">
-                          {dayjs(resource.builder_preferred_start_date).format('DD.MM.YY')} - {dayjs(resource.builder_preferred_end_date).format('DD.MM.YY')}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Nutzungsgrad:</span>
-                        <span className="text-green-400 font-medium">
-                          {(() => {
-                            const totalDays = Math.ceil(dayjs(resource.end_date).diff(dayjs(resource.start_date), 'day') + 1);
-                            const usedDays = Math.ceil(dayjs(resource.builder_preferred_end_date).diff(dayjs(resource.builder_preferred_start_date), 'day') + 1);
-                            return Math.round((usedDays / totalDays) * 100);
-                          })()}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Beschreibung */}
-                {resource.provider_bio && (
-                  <div>
-                    <div className="text-xs text-[#ffbd59] font-medium mb-1">📋 Beschreibung</div>
-                    <Tooltip content={`Vollständige Beschreibung: ${resource.provider_bio}`}>
-                      <div className="text-gray-300 text-xs leading-relaxed cursor-help">
-                        {resource.provider_bio.length > 100 
-                          ? `${resource.provider_bio.substring(0, 100)}...` 
-                          : resource.provider_bio}
-                      </div>
-                    </Tooltip>
-                  </div>
-                )}
-
-                {/* Sprachen */}
-                {resource.provider_languages && (
-                  <div>
-                    <div className="text-xs text-[#ffbd59] font-medium mb-1">🌐 Sprachen</div>
-                    <div className="text-gray-300 text-xs">
-                      {resource.provider_languages}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Kompakter Zeitraum-Button mit Tooltip */}
-          {isSelected && (
-            <div className="mt-1">
-              <Tooltip 
-                position="bottom"
-                content={
-                  <div className="w-96">
-                    <div className="font-semibold text-white mb-2 text-sm">Zeitraum-Anpassung</div>
-                    <div className="text-sm space-y-2">
-                      <div className="text-blue-300">
-                        <strong>Verfügbar:</strong><br/>
-                        {dayjs(resource.start_date).format('DD.MM.YYYY')} - {dayjs(resource.end_date).format('DD.MM.YYYY')}
-                      </div>
-                      <div className="text-[#ffbd59]">
-                        <strong>Ihr gewünschter Zeitraum:</strong><br/>
-                        Wählen Sie einen spezifischen Teilzeitraum für Ihr Projekt
-                      </div>
-                      <div className="text-gray-300 text-sm">
-                        💡 <strong>Beispiel:</strong> Dienstleister ist 30 Tage verfügbar, Sie benötigen nur 5 Tage für Ihr Projekt
-                      </div>
-                    </div>
-                  </div>
-                }
+              }
+            >
+              <button
+                onClick={() => setShowDateInput(!showDateInput)}
+                className="flex items-center space-x-1 text-xs text-[#ffbd59] hover:text-[#ffa726] transition-colors cursor-help"
               >
-                <button
-                  onClick={() => setShowDateInput(!showDateInput)}
-                  className="flex items-center space-x-1 text-xs text-[#ffbd59] hover:text-[#ffa726] transition-colors cursor-help"
-                >
-                  <Calendar className="w-3 h-3" />
-                  <span>{showDateInput ? 'Zeitraum ausblenden' : 'Zeitraum anpassen'}</span>
-                  <HelpCircle className="w-3 h-3 text-gray-500" />
-                </button>
-              </Tooltip>
-            </div>
-          )}
-        </div>
+                <Calendar className="w-3 h-3" />
+                <span>{showDateInput ? 'Zeitraum ausblenden' : 'Zeitraum anpassen'}</span>
+                <HelpCircle className="w-3 h-3 text-gray-500" />
+              </button>
+            </Tooltip>
+          </div>
+        )}
 
         {/* Selection Checkbox */}
         <div className="mt-1">
@@ -662,7 +663,6 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
   );
 };
 
-// Rest of the component remains the same as the original...
 const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
   isOpen,
   onToggle,
@@ -1302,6 +1302,138 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                   <p className="text-xs text-gray-500 mb-4">
                     Radius: {maxDistance}km um {currentLocation ? `${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}` : 'unbekannten Standort'}
                   </p>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={loadResources}
+                      className="px-4 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#333] transition-colors"
+                    >
+                      Neu laden
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!currentLocation) return;
+                        setLoading(true);
+                        try {
+                          // Create a test resource near current location
+                          const testResource = {
+                            service_provider_id: user?.id || 1,
+                            start_date: dateRange.start,
+                            end_date: dateRange.end,
+                            person_count: 2,
+                            daily_hours: 8,
+                            total_hours: 80,
+                            category: category || 'Elektroinstallation',
+                            address_street: 'Teststrasse 1',
+                            address_city: 'Uster',
+                            address_postal_code: '8610',
+                            address_country: 'Schweiz',
+                            latitude: currentLocation.latitude + (Math.random() - 0.5) * 0.01, // Small random offset
+                            longitude: currentLocation.longitude + (Math.random() - 0.5) * 0.01,
+                            status: 'available' as const,
+                            hourly_rate: 65,
+                            currency: 'CHF',
+                            description: 'Test-Ressource für Entwicklung'
+                          };
+                          
+                          await resourceService.createResource(testResource);
+                          console.log('Test-Ressource erstellt:', testResource);
+                          loadResources();
+                        } catch (error) {
+                          console.error('Fehler beim Erstellen der Test-Ressource:', error);
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    >
+                      🧪 Test-Ressource erstellen
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setLoading(true);
+                        try {
+                          // Debug: Load all resources to see what's in the database
+                          const allResources = await resourceService.listResources({});
+                          console.log('=== ALL RESOURCES IN DATABASE ===');
+                          allResources.forEach((resource, index) => {
+                            console.log(`Resource ${index + 1}:`, {
+                              id: resource.id,
+                              category: resource.category,
+                              status: resource.status,
+                              latitude: resource.latitude,
+                              longitude: resource.longitude,
+                              address_city: resource.address_city,
+                              address_country: resource.address_country,
+                              person_count: resource.person_count,
+                              start_date: resource.start_date,
+                              end_date: resource.end_date
+                            });
+                            
+                            if (resource.id === 2) {
+                              console.log('*** RESOURCE ID 2 DETAILS ***', resource);
+                              if (resource.latitude && resource.longitude && currentLocation) {
+                                const distance = calculateDistance(
+                                  currentLocation.latitude,
+                                  currentLocation.longitude,
+                                  resource.latitude,
+                                  resource.longitude
+                                );
+                                console.log(`Distance from current location: ${distance.toFixed(2)}km`);
+                              }
+                            }
+                          });
+                          console.log('=== END DEBUG ===');
+                        } catch (error) {
+                          console.error('Debug error:', error);
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+                    >
+                      🔍 Debug: Alle Ressourcen
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setLoading(true);
+                        try {
+                          // Geocode all resources without coordinates
+                          const allResources = await resourceService.listResources({});
+                          const resourcesWithoutCoords = allResources.filter(r => !r.latitude || !r.longitude);
+                          
+                          console.log(`Found ${resourcesWithoutCoords.length} resources without coordinates`);
+                          
+                          for (const resource of resourcesWithoutCoords) {
+                            if (resource.address_street || resource.address_city || resource.address_postal_code) {
+                              const address = `${resource.address_street || ''}, ${resource.address_city || ''}, ${resource.address_postal_code || ''}`.trim().replace(/^,\s*|,\s*$/g, '');
+                              console.log(`Geocoding resource ${resource.id}: ${address}`);
+                              
+                              const geocoded = await geocodeAddress(address);
+                              if (geocoded) {
+                                console.log(`✅ Resource ${resource.id} geocoded: ${geocoded.latitude}, ${geocoded.longitude}`);
+                                console.log(`ℹ️ Note: Coordinates not saved to database due to permission restrictions`);
+                              } else {
+                                console.log(`❌ Failed to geocode resource ${resource.id}`);
+                              }
+                              
+                              // Small delay to avoid rate limiting
+                              await new Promise(resolve => setTimeout(resolve, 1000));
+                            }
+                          }
+                          
+                          console.log('Geocoding completed! Reloading resources...');
+                          loadResources();
+                        } catch (error) {
+                          console.error('Geocoding error:', error);
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                    >
+                      🌍 Test Geocoding (temporär)
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <DndContext
@@ -1452,8 +1584,6 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                         <li>• Hovern Sie über Stunden/Personen für detaillierte Berechnungen</li>
                         <li>• Sortieren Sie per Drag & Drop nach Priorität</li>
                         <li>• Senden Sie Einladungen an ausgewählte Dienstleister</li>
-                        <li>• Nutzen Sie den Details-Button für erweiterte Informationen</li>
-                        <li>• Sehen Sie Ressourcennutzung und Bauträger-Notizen</li>
                       </ul>
                     )}
                   </div>
