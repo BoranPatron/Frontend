@@ -12,12 +12,15 @@ import {
   RefreshCw,
   AlertCircle,
   Info,
-  BarChart3
+  BarChart3,
+  X
 } from 'lucide-react';
 import { resourceService, type Resource } from '../api/resourceService';
 import { useAuth } from '../context/AuthContext';
 import EnhancedResourceCard from './EnhancedResourceCard';
 import ResourceManagementModal from './ResourceManagementModal';
+import ResourceCalendar from './ResourceCalendar';
+import ResourceKPIDashboard from './ResourceKPIDashboard';
 import dayjs from 'dayjs';
 
 interface EnhancedResourceListProps {
@@ -43,6 +46,8 @@ const EnhancedResourceList: React.FC<EnhancedResourceListProps> = ({
   const [editResource, setEditResource] = useState<Resource | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [showCalendarView, setShowCalendarView] = useState(false);
+  const [showKPIDashboard, setShowKPIDashboard] = useState(false);
   const [stats, setStats] = useState<ResourceStats>({
     totalResources: 0,
     availableResources: 0,
@@ -330,12 +335,21 @@ const EnhancedResourceList: React.FC<EnhancedResourceListProps> = ({
 
       {/* Bottom Actions */}
       <div className="flex justify-between items-center pt-6">
-        <button className="px-6 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#333] transition-colors border border-gray-700 flex items-center gap-2">
+        <button 
+          onClick={() => setShowCalendarView(true)}
+          className="px-6 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#333] transition-colors border border-gray-700 flex items-center gap-2"
+        >
           <Calendar className="w-4 h-4" />
           Kalenderansicht
         </button>
         
-        <button className="px-6 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#333] transition-colors border border-gray-700 flex items-center gap-2">
+        <button 
+          onClick={() => {
+            console.log('🔄 KPI Dashboard button clicked (EnhancedResourceList)');
+            setShowKPIDashboard(true);
+          }}
+          className="px-6 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#333] transition-colors border border-gray-700 flex items-center gap-2"
+        >
           <BarChart3 className="w-4 h-4" />
           KPI Dashboard
         </button>
@@ -369,6 +383,40 @@ const EnhancedResourceList: React.FC<EnhancedResourceListProps> = ({
           }}
         />
       )}
+
+      {/* Calendar View Modal */}
+      {showCalendarView && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1a1a1a] rounded-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-700">
+              <h2 className="text-2xl font-bold text-white">Ressourcen-Kalenderansicht</h2>
+              <button
+                onClick={() => setShowCalendarView(false)}
+                className="p-2 text-gray-400 hover:text-white hover:bg-[#333] rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <ResourceCalendar
+                serviceProviderId={user?.id}
+                initialResources={resources}
+                onAddResource={() => setShowCreateModal(true)}
+                showFilters={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KPI Dashboard Modal */}
+      <ResourceKPIDashboard
+        isOpen={showKPIDashboard}
+        onClose={() => {
+          console.log('🔄 KPI Dashboard closing (EnhancedResourceList)');
+          setShowKPIDashboard(false);
+        }}
+      />
     </div>
   );
 };

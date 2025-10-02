@@ -387,10 +387,6 @@ export default function Login() {
           </button>
         </div>
 
-        {/* Debug-Info */}
-        <div className="mt-4 text-xs text-gray-400 text-center">
-          <p>Debug: AuthContext initialisiert: {isInitialized ? 'Ja' : 'Nein'}</p>
-        </div>
       </div>
     </div>
   );

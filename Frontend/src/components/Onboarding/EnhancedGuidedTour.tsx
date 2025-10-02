@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, ArrowRight, ArrowLeft, CheckCircle, ChevronDown } from 'lucide-react';
-import { updateMe } from '../../api/userService';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { ProjectMockup, TenderMockup, CostPositionMockup, TodoMockup, GeoMapMockup, KanbanMockup } from './TourMockups';
 
@@ -460,21 +459,8 @@ export default function EnhancedGuidedTour({
       fabButton?.click();
     }
     
-    try {
-      await updateMe({
-        consent_fields: {
-          dashboard_tour: {
-            completed: true,
-            version: '2.0',
-            completed_at: new Date().toISOString(),
-          }
-        }
-      });
-    } catch (e) {
-      console.warn('Tour completion could not be saved', e);
-    }
-
-    completeTour();
+    // completeTour() aus dem OnboardingContext kümmert sich um die Datenbank-Aktualisierung
+    await completeTour();
     onCompleted?.();
     onClose?.();
   };

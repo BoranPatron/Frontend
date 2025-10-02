@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useOnboarding } from '../context/OnboardingContext';
 import EnhancedGuidedTour from '../components/Onboarding/EnhancedGuidedTour';
+import ResourceDetailsModal from '../components/ResourceDetailsModal';
 import { 
   FileText, 
   User, 
@@ -127,9 +128,12 @@ export default function ServiceProviderDashboard() {
   const [showArchive, setShowArchive] = useState(false);
   const [showInvoiceManagement, setShowInvoiceManagement] = useState(false);
   const [showResourceManagement, setShowResourceManagement] = useState(false);
+  const [selectedResourceForDetails, setSelectedResourceForDetails] = useState<any>(null);
+  const [showResourceDetailsModal, setShowResourceDetailsModal] = useState(false);
+  const [resourceToDelete, setResourceToDelete] = useState<any>(null);
   const [showResourceCalendar, setShowResourceCalendar] = useState(false);
   const [showResourceKPIs, setShowResourceKPIs] = useState(false);
-  const [showResourceDetails, setShowResourceDetails] = useState(false);
+  const [showResourceDetails, setShowResourceDetails] = useState(true);
   const [showResourceSection, setShowResourceSection] = useState(false);
   const [userResources, setUserResources] = useState<any[]>([]);
   const [resourceAllocations, setResourceAllocations] = useState<ResourceAllocation[]>([]);
@@ -247,6 +251,215 @@ export default function ServiceProviderDashboard() {
     }
   }, [user?.id]);
 
+  // Hilfsfunktion: Übersetzt englische Kategorien ins Deutsche
+  const translateCategory = (category: string) => {
+    const translations: { [key: string]: string } = {
+      'drywall': 'Trockenbau',
+      'plumbing': 'Sanitär',
+      'electrical': 'Elektro',
+      'carpentry': 'Zimmerei',
+      'painting': 'Malerarbeiten',
+      'flooring': 'Bodenbeläge',
+      'roofing': 'Dacharbeiten',
+      'concrete': 'Betonarbeiten',
+      'masonry': 'Mauerarbeiten',
+      'insulation': 'Dämmung',
+      'hvac': 'Heizung/Lüftung',
+      'landscaping': 'Gartenbau',
+      'excavation': 'Erdarbeiten',
+      'steel': 'Stahlbau',
+      'glass': 'Glasarbeiten',
+      'tiles': 'Fliesenarbeiten',
+      'plastering': 'Putzarbeiten',
+      'scaffolding': 'Gerüstbau',
+      'cleaning': 'Reinigung',
+      'security': 'Sicherheit',
+      'catering': 'Catering',
+      'transport': 'Transport',
+      'equipment': 'Geräte',
+      'materials': 'Materialien',
+      'consulting': 'Beratung',
+      'planning': 'Planung',
+      'supervision': 'Bauleitung',
+      'inspection': 'Abnahme',
+      'maintenance': 'Wartung',
+      'renovation': 'Renovierung',
+      'demolition': 'Abbruch',
+      'other': 'Sonstiges'
+    };
+    
+    return translations[category.toLowerCase()] || category;
+  };
+
+  // Hilfsfunktion: Übersetzt auch Subkategorien
+  const translateSubcategory = (subcategory: string) => {
+    const translations: { [key: string]: string } = {
+      'framing': 'Rahmenbau',
+      'drywall_installation': 'Trockenbau-Installation',
+      'taping': 'Spachteln',
+      'sanding': 'Schleifen',
+      'pipes': 'Rohrleitungen',
+      'fixtures': 'Armaturen',
+      'water_heater': 'Warmwasserbereiter',
+      'drainage': 'Entwässerung',
+      'wiring': 'Verkabelung',
+      'outlets': 'Steckdosen',
+      'lighting': 'Beleuchtung',
+      'panels': 'Schalttafeln',
+      'framing_carpentry': 'Rahmenbau-Zimmerei',
+      'finish_carpentry': 'Ausbau-Zimmerei',
+      'cabinets': 'Schränke',
+      'trim': 'Leisten',
+      'interior_painting': 'Innenanstrich',
+      'exterior_painting': 'Außenanstrich',
+      'primer': 'Grundierung',
+      'hardwood': 'Parkett',
+      'laminate': 'Laminat',
+      'tile': 'Fliesen',
+      'carpet': 'Teppich',
+      'shingles': 'Schindeln',
+      'metal_roofing': 'Metalldach',
+      'flat_roofing': 'Flachdach',
+      'foundation': 'Fundament',
+      'slab': 'Platte',
+      'reinforcement': 'Bewehrung',
+      'brick': 'Ziegel',
+      'stone': 'Stein',
+      'block': 'Block',
+      'fiberglass': 'Glasfaser',
+      'foam': 'Schaum',
+      'cellulose': 'Zellulose',
+      'furnace': 'Heizung',
+      'air_conditioning': 'Klimaanlage',
+      'ventilation': 'Belüftung',
+      'ductwork': 'Kanäle',
+      'plants': 'Pflanzen',
+      'irrigation': 'Bewässerung',
+      'hardscaping': 'Hartgestaltung',
+      'excavation': 'Aushub',
+      'backfill': 'Verfüllung',
+      'grading': 'Planierung',
+      'structural': 'Tragwerk',
+      'welding': 'Schweißen',
+      'windows': 'Fenster',
+      'doors': 'Türen',
+      'mirrors': 'Spiegel',
+      'ceramic': 'Keramik',
+      'porcelain': 'Porzellan',
+      'natural_stone': 'Naturstein',
+      'grout': 'Fugenmörtel',
+      'interior': 'Innenputz',
+      'exterior': 'Außenputz',
+      'textured': 'Strukturputz',
+      'tube': 'Rohrgerüst',
+      'frame': 'Rahmengerüst',
+      'system': 'Systemgerüst',
+      'commercial': 'Gewerblich',
+      'residential': 'Wohngebäude',
+      'deep_cleaning': 'Grundreinigung',
+      'maintenance': 'Unterhalt',
+      'access_control': 'Zugangskontrolle',
+      'surveillance': 'Überwachung',
+      'alarm_systems': 'Alarmanlagen',
+      'food_service': 'Gastronomie',
+      'event_catering': 'Event-Catering',
+      'delivery': 'Lieferung',
+      'pickup': 'Abholung',
+      'heavy_machinery': 'Baumaschinen',
+      'tools': 'Werkzeuge',
+      'supplies': 'Materialien',
+      'raw_materials': 'Rohmaterialien',
+      'finished_goods': 'Fertigerzeugnisse',
+      'technical': 'Technisch',
+      'business': 'Geschäftlich',
+      'legal': 'Rechtlich',
+      'architectural': 'Architektonisch',
+      'engineering': 'Ingenieurwesen',
+      'construction': 'Bauleitung',
+      'project_management': 'Projektmanagement',
+      'quality_control': 'Qualitätskontrolle',
+      'final_inspection': 'Endabnahme',
+      'preventive': 'Vorbeugend',
+      'corrective': 'Korrektiv',
+      'emergency': 'Notfall',
+      'kitchen': 'Küche',
+      'bathroom': 'Badezimmer',
+      'living_room': 'Wohnzimmer',
+      'bedroom': 'Schlafzimmer',
+      'partial': 'Teilweise',
+      'complete': 'Vollständig',
+      'selective': 'Selektiv'
+    };
+    
+    return translations[subcategory.toLowerCase()] || subcategory;
+  };
+
+  // Hilfsfunktion: Lädt Trade- und Projekt-Informationen für eine ResourceAllocation
+  const loadAllocationDetails = async (allocation: any) => {
+    try {
+      // Lade Trade-Informationen
+      const tradeResponse = await fetch(`http://localhost:8000/api/v1/milestones/${allocation.trade_id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (tradeResponse.ok) {
+        const trade = await tradeResponse.json();
+        
+        // Lade Projekt-Informationen
+        if (trade.project_id) {
+          const projectResponse = await fetch(`http://localhost:8000/api/v1/projects/${trade.project_id}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (projectResponse.ok) {
+            const project = await projectResponse.json();
+            
+            // Lade Bauträger-Informationen
+            if (project.owner_id) {
+              const userResponse = await fetch(`http://localhost:8000/api/v1/users/${project.owner_id}`, {
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              
+              if (userResponse.ok) {
+                const bautraeger = await userResponse.json();
+                return {
+                  ...allocation,
+                  trade,
+                  project,
+                  bautraeger
+                };
+              }
+            }
+            
+            return {
+              ...allocation,
+              trade,
+              project
+            };
+          }
+        }
+        
+        return {
+          ...allocation,
+          trade
+        };
+      }
+    } catch (error) {
+      console.error('Fehler beim Laden der Allocation-Details:', error);
+    }
+    
+    return allocation;
+  };
+
   const loadUserResources = async () => {
     if (!user?.id) return;
     
@@ -256,7 +469,13 @@ export default function ServiceProviderDashboard() {
       
       // Lade auch die Allokationen für Markierungen
       const allocations = await resourceService.getMyAllocations();
-      setResourceAllocations(allocations);
+      
+      // Erweitere Allokationen mit Trade- und Projekt-Informationen
+      const extendedAllocations = await Promise.all(
+        allocations.map(allocation => loadAllocationDetails(allocation))
+      );
+      
+      setResourceAllocations(extendedAllocations);
       
       // Berechne Statistiken
       calculateResourceStats(resources);
@@ -271,6 +490,38 @@ export default function ServiceProviderDashboard() {
         totalHours: 0,
         utilization: 0
       });
+    }
+  };
+
+  // Handler: Ressource Details anzeigen
+  const handleShowResourceDetails = (resource: any) => {
+    setSelectedResourceForDetails(resource);
+    setShowResourceDetailsModal(true);
+  };
+
+  // Handler: Ressource bearbeiten
+  const handleEditResource = (resource: any) => {
+    setShowResourceDetailsModal(false);
+    // TODO: Implementiere Bearbeitungsfunktion
+    console.log('Bearbeite Ressource:', resource);
+  };
+
+  // Handler: Ressource löschen
+  const handleDeleteResource = async (resource: any) => {
+    if (!confirm(`Möchten Sie die Ressource "${resource.title || resource.category}" wirklich löschen?`)) {
+      return;
+    }
+
+    try {
+      await resourceService.deleteResource(resource.id);
+      setShowResourceDetailsModal(false);
+      setSelectedResourceForDetails(null);
+      // Lade Ressourcen neu
+      await loadUserResources();
+      alert('Ressource erfolgreich gelöscht.');
+    } catch (error) {
+      console.error('Fehler beim Löschen der Ressource:', error);
+      alert('Fehler beim Löschen der Ressource. Bitte versuchen Sie es erneut.');
     }
   };
 
@@ -378,22 +629,50 @@ export default function ServiceProviderDashboard() {
     const handleOpenTradeDetails = (event: CustomEvent) => {
       console.log('📋 Event empfangen: TradeDetails öffnen für Trade:', event.detail.tradeId);
       const tradeId = event.detail.tradeId;
+      const showQuoteForm = event.detail.showQuoteForm;
+      const source = event.detail.source;
+      
+      // Prüfe ob tradeId gültig ist (nicht 0 oder undefined)
+      if (!tradeId || tradeId === 0) {
+        console.error('❌ Ungültige tradeId:', tradeId);
+        alert('Die Ausschreibung konnte nicht gefunden werden. Die Benachrichtigung enthält ungültige Daten.');
+        return;
+      }
       
       // Finde das Trade in den lokalen Daten
       const trade = trades.find(t => t.id === tradeId) || geoTrades.find(t => t.id === tradeId);
       
       if (trade) {
-        console.log('✅ Trade gefunden, öffne TradeDetailsModal:', trade);
-        setSelectedTrade(trade);
-                      // setShowDetailsModal(true); // TODO: Implement details modal
+        console.log('✅ Trade gefunden:', trade);
+        
+        // Wenn showQuoteForm=true, öffne direkt das CostEstimateForm
+        if (showQuoteForm) {
+          console.log('🎯 Öffne CostEstimateForm für Trade:', trade.id, trade.title);
+          setSelectedTradeForQuote(trade);
+          setShowCostEstimateForm(true);
+        } else {
+          // Ansonsten Trade auswählen und Modal öffnen
+          console.log('🎯 Öffne TradeDetailsModal für Trade:', trade.id, trade.title);
+          setSelectedTrade(trade);
+          setDetailTrade(trade);
+          setShowTradeDetails(true);
+        }
       } else {
         console.warn('⚠️ Trade nicht gefunden in lokalen Daten, lade neu...');
         // Fallback: Lade Trades neu und versuche erneut
         loadTrades().then(() => {
           const refreshedTrade = trades.find(t => t.id === tradeId) || geoTrades.find(t => t.id === tradeId);
           if (refreshedTrade) {
-            setSelectedTrade(refreshedTrade);
-                      // setShowDetailsModal(true); // TODO: Implement details modal
+            if (showQuoteForm) {
+              console.log('🎯 Öffne CostEstimateForm für Trade (nach Reload):', refreshedTrade.id, refreshedTrade.title);
+              setSelectedTradeForQuote(refreshedTrade);
+              setShowCostEstimateForm(true);
+            } else {
+              console.log('🎯 Öffne TradeDetailsModal für Trade (nach Reload):', refreshedTrade.id, refreshedTrade.title);
+              setSelectedTrade(refreshedTrade);
+              setDetailTrade(refreshedTrade);
+              setShowTradeDetails(true);
+            }
           } else {
             console.error('❌ Trade auch nach Neuladen nicht gefunden:', tradeId);
             alert('Die Ausschreibung konnte nicht gefunden werden. Bitte versuchen Sie es erneut.');
@@ -1927,9 +2206,20 @@ export default function ServiceProviderDashboard() {
                               'bg-yellow-400'
                             }`}></div>
                             <div>
+                              {/* Ressourcen-Titel */}
+                              {resource.title && (
+                                <h4 className="text-sm font-semibold text-white mb-1">
+                                  {resource.title}
+                                </h4>
+                              )}
                               <div className="flex items-center gap-2">
                                 <p className="text-sm font-medium text-white">
-                                  {resource.person_count} {resource.category || 'Mitarbeiter'}
+                                  {resource.person_count} {translateCategory(resource.category) || 'Mitarbeiter'}
+                                  {resource.subcategory && (
+                                    <span className="text-gray-400 ml-1">
+                                      ({translateSubcategory(resource.subcategory)})
+                                    </span>
+                                  )}
                                 </p>
                                 {isAllocated && (
                                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#ffbd59]/20 text-[#ffbd59] border border-[#ffbd59]/30">
@@ -1941,13 +2231,50 @@ export default function ServiceProviderDashboard() {
                                 {resource.address_city || 'Standort'} - ab {new Date(resource.start_date).toLocaleDateString('de-DE')}
                               </p>
                               {isAllocated && allocationDetails && (
-                                <p className="text-xs text-[#ffbd59] mt-1">
-                                  📅 {new Date(allocationDetails.allocated_start_date).toLocaleDateString('de-DE')} - {new Date(allocationDetails.allocated_end_date).toLocaleDateString('de-DE')}
-                                </p>
+                                <div className="mt-2 space-y-1">
+                                  <p className="text-xs text-[#ffbd59]">
+                                    📅 {new Date(allocationDetails.allocated_start_date).toLocaleDateString('de-DE')} - {new Date(allocationDetails.allocated_end_date).toLocaleDateString('de-DE')}
+                                  </p>
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-purple-300">
+                                        🔗 {allocationDetails.trade?.title || `Ausschreibung #${allocationDetails.trade_id}`}
+                                      </span>
+                                      <button
+                                        onClick={() => {
+                                          // Event für TradeDetailsModal auslösen
+                                          window.dispatchEvent(new CustomEvent('openTradeDetails', {
+                                            detail: {
+                                              tradeId: allocationDetails.trade_id,
+                                              source: 'resource_management'
+                                            }
+                                          }));
+                                        }}
+                                        className="text-xs text-purple-300 hover:text-purple-200 underline"
+                                      >
+                                        Anzeigen
+                                      </button>
+                                    </div>
+                                    {allocationDetails.bautraeger && (
+                                      <div className="text-xs text-gray-400">
+                                        👤 {allocationDetails.bautraeger.first_name} {allocationDetails.bautraeger.last_name}
+                                        {allocationDetails.bautraeger.company_name && ` (${allocationDetails.bautraeger.company_name})`}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
                               )}
                             </div>
                           </div>
-                          <div className="text-xs text-[#ffbd59] font-medium">{personDays} Personentage</div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-xs text-[#ffbd59] font-medium">{personDays} Personentage</div>
+                            <button
+                              onClick={() => handleShowResourceDetails(resource)}
+                              className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-lg hover:bg-purple-500/30 transition-colors text-xs font-medium border border-purple-500/30"
+                            >
+                              Details
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -3270,16 +3597,6 @@ export default function ServiceProviderDashboard() {
         </div>
       </div>
 
-      {/* Debug-Info für Dienstleister */}
-      <div className="mt-8 text-xs text-gray-400 text-center">
-        <p>Debug: User Role: {userRole || user?.user_role}</p>
-        <p>Debug: User Type: {user?.user_type}</p>
-        <p>Debug: Company: {user?.company_name || 'Nicht gesetzt'}</p>
-        <p>Debug: Is Authenticated: {isAuthenticated() ? 'Ja' : 'Nein'}</p>
-        <p>Debug: Geo-Search aktiv: {showGeoSearch ? 'Ja' : 'Nein'}</p>
-        <p>Debug: Gefundene Gewerke: {geoTrades.length}</p>
-        <p>Debug: Last Activity: {stats.lastActivity}</p>
-      </div>
 
       {/* Angebot-Erstellungsformular */}
       {showCostEstimateForm && selectedTradeForQuote && (
@@ -3509,6 +3826,24 @@ export default function ServiceProviderDashboard() {
           onClose={() => setShowTour(false)}
           onCompleted={() => completeTour()}
           userRole="DIENSTLEISTER"
+        />
+      )}
+
+      {/* Resource Details Modal */}
+      {showResourceDetailsModal && selectedResourceForDetails && (
+        <ResourceDetailsModal
+          resource={selectedResourceForDetails}
+          isOpen={showResourceDetailsModal}
+          onClose={() => {
+            setShowResourceDetailsModal(false);
+            setSelectedResourceForDetails(null);
+          }}
+          onEdit={() => handleEditResource(selectedResourceForDetails)}
+          onDelete={() => handleDeleteResource(selectedResourceForDetails)}
+          isAllocated={isResourceAllocated(selectedResourceForDetails.id)}
+          allocationDetails={getResourceAllocationDetails(selectedResourceForDetails.id)}
+          translateCategory={translateCategory}
+          translateSubcategory={translateSubcategory}
         />
       )}
     </div>

@@ -15,6 +15,7 @@ import {
   Edit,
   Eye,
   Receipt,
+  Info,
   TrendingUp,
   ArrowLeft,
   Sparkles,
@@ -31,7 +32,9 @@ import {
   Coins,
   Banknote,
   Building,
-  Shield
+  Shield,
+  X,
+  ExternalLink
 } from 'lucide-react';
 import { 
   getBuildWiseFees, 
@@ -47,6 +50,11 @@ import {
 import type { BuildWiseFee, BuildWiseFeeStatistics } from '../api/buildwiseFeeService';
 import { getApiBaseUrl } from '../api/api';
 import { useNavigate } from 'react-router-dom';
+import { 
+  startPaymentProcess, 
+  checkPaymentSuccess, 
+  clearPaymentParams 
+} from '../services/stripePaymentService';
 
 export default function ServiceProviderBuildWiseFees() {
   const navigate = useNavigate();
@@ -60,10 +68,52 @@ export default function ServiceProviderBuildWiseFees() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedFeeDetails, setSelectedFeeDetails] = useState<BuildWiseFee | null>(null);
+  const [processingPayment, setProcessingPayment] = useState<number | null>(null);
 
+  // Prüfe URL-Parameter beim ersten Laden
   useEffect(() => {
+    // Prüfe URL direkt (nicht über Service-Funktion)
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+    const feeIdParam = urlParams.get('fee_id');
+    
+    console.log('🔍 URL Parameter:', { paymentStatus, feeIdParam });
+    
+    if (paymentStatus === 'success' && feeIdParam) {
+      console.log('✅ Zahlung erfolgreich erkannt!');
+      setSuccess(`🎉 Zahlung erfolgreich! Gebühr #${feeIdParam} wurde bezahlt.`);
+      
+      // Entferne Parameter aus URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete('payment');
+      url.searchParams.delete('fee_id');
+      window.history.replaceState({}, '', url.toString());
+      
+      // Auto-dismiss nach 8 Sekunden
+      setTimeout(() => {
+        setSuccess('');
+      }, 8000);
+    } else if (paymentStatus === 'cancelled' && feeIdParam) {
+      console.log('❌ Zahlung abgebrochen erkannt!');
+      setError('❌ Zahlung wurde abgebrochen.');
+      
+      // Entferne Parameter aus URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete('payment');
+      url.searchParams.delete('fee_id');
+      window.history.replaceState({}, '', url.toString());
+      
+      // Auto-dismiss nach 5 Sekunden
+      setTimeout(() => {
+        setError('');
+      }, 5000);
+    }
+    
+    // Lade Daten
     loadData();
-  }, [selectedMonth, selectedYear]);
+  }, []);
 
   const loadData = async () => {
     try {
@@ -87,52 +137,71 @@ export default function ServiceProviderBuildWiseFees() {
   const handleMarkAsPaid = async (feeId: number) => {
     try {
       await markFeeAsPaid(feeId);
+      setSuccess('Gebühr wurde als bezahlt markiert.');
       await loadData(); // Daten neu laden
     } catch (error) {
       console.error('Fehler beim Markieren als bezahlt:', error);
+      setError('Fehler beim Markieren als bezahlt.');
+    }
+  };
+
+  const handlePayWithStripe = async (fee: BuildWiseFee) => {
+    try {
+      setProcessingPayment(fee.id);
+      setError('');
+      
+      console.log('🔷 Starte Stripe-Zahlung für Gebühr:', fee.id);
+      
+      // Starte Zahlungsprozess - leitet automatisch zu Stripe weiter
+      await startPaymentProcess(fee.id);
+      
+      // Falls die Weiterleitung nicht automatisch erfolgt
+      // (wird normalerweise nicht erreicht, da startPaymentProcess zu Stripe weiterleitet)
+      setProcessingPayment(null);
+      
+    } catch (error: any) {
+      console.error('❌ Fehler beim Starten der Zahlung:', error);
+      setError(error.message || 'Fehler beim Starten der Zahlung. Bitte versuchen Sie es erneut.');
+      setProcessingPayment(null);
+      setTimeout(() => setError(''), 5000);
     }
   };
 
   const handleGenerateInvoice = async (feeId: number) => {
     try {
-      // Generiere PDF
-      await generateInvoice(feeId);
-      
-      // Warte kurz und lade dann Daten neu
-      setTimeout(async () => {
-        await loadData();
-        
-        // Versuche automatisch den Download zu starten
-        try {
-          await handleDownloadInvoice(feeId);
-        } catch (downloadError) {
-          setSuccess('PDF-Rechnung wurde generiert. Sie können sie jetzt herunterladen.');
-          setTimeout(() => setSuccess(''), 5000);
-        }
-      }, 2000); // Erhöhe Wartezeit auf 2 Sekunden
-      
-    } catch (error) {
-      console.error('Fehler beim Generieren der Rechnung:', error);
-      setError('Fehler beim Generieren der Rechnung');
-    }
-  };
-
-  const handleGenerateGewerkInvoice = async (feeId: number) => {
-    try {
-      // Generiere PDF mit Gewerk-Daten und speichere als Dokument
+      // Generiere PDF mit nur Gewerk-Daten (ohne Projekt-Informationen)
       const result = await generateGewerkInvoice(feeId);
       
       if (result.success) {
-        setSuccess(`✅ ${result.message}`);
-        // Lade Daten neu
-        await loadData();
+        console.log('✅ PDF-Rechnung erfolgreich generiert:', result.message);
+        
+        // Warte kurz und lade dann Daten neu
+        setTimeout(async () => {
+          await loadData();
+          
+          // Versuche automatisch den Download zu starten
+          try {
+            await handleDownloadInvoice(feeId);
+          } catch (downloadError) {
+            setSuccess('PDF-Rechnung wurde generiert. Sie können sie jetzt herunterladen.');
+            setTimeout(() => setSuccess(''), 5000);
+          }
+        }, 1000);
       } else {
-        setError('Fehler beim Generieren der Gewerk-Rechnung');
+        throw new Error(result.message || 'PDF-Generierung fehlgeschlagen');
       }
-    } catch (error) {
-      console.error('Fehler beim Generieren der Gewerk-PDF-Rechnung:', error);
-      setError('Fehler beim Generieren der Gewerk-PDF-Rechnung');
+      
+    } catch (error: any) {
+      console.error('Fehler beim Generieren der Rechnung:', error);
+      setError(`Fehler beim Generieren der Rechnung: ${error.message || 'Unbekannter Fehler'}`);
+      setTimeout(() => setError(''), 5000);
     }
+  };
+
+
+  const handleShowDetails = (fee: BuildWiseFee) => {
+    setSelectedFeeDetails(fee);
+    setShowDetailsModal(true);
   };
 
   const handleDownloadInvoice = async (feeId: number) => {
@@ -236,14 +305,33 @@ export default function ServiceProviderBuildWiseFees() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('de-DE', {
+    return new Intl.NumberFormat('de-CH', {
       style: 'currency',
-      currency: 'EUR'
+      currency: 'CHF'
     }).format(amount);
   };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('de-DE');
+  };
+
+  const getDueDateStyle = (dueDateString: string | null, status: string) => {
+    if (!dueDateString || status === 'paid') {
+      return 'text-gray-300';
+    }
+    
+    const dueDate = new Date(dueDateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    dueDate.setHours(0, 0, 0, 0);
+    
+    if (dueDate < today) {
+      return 'text-red-400 font-semibold'; // Überfällig
+    } else if (dueDate <= new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)) {
+      return 'text-yellow-400 font-medium'; // Fällig in den nächsten 7 Tagen
+    }
+    
+    return 'text-gray-300';
   };
 
   const getMonthName = (month: number) => {
@@ -274,19 +362,8 @@ export default function ServiceProviderBuildWiseFees() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539] flex items-center justify-center">
         <div className="text-center text-white">
-          <div className="relative mb-8">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-[#ffbd59]/30 border-t-[#ffbd59] mx-auto"></div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Coins className="w-8 h-8 text-[#ffbd59] animate-pulse" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-xl font-bold text-white">Lade BuildWise-Gebühren</h3>
-            <p className="text-gray-300 flex items-center justify-center space-x-2">
-              <Activity className="w-4 h-4 animate-pulse" />
-              <span>Daten werden abgerufen...</span>
-            </p>
-          </div>
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#ffbd59]/30 border-t-[#ffbd59] mx-auto mb-4"></div>
+          <p className="text-gray-300">Lade Gebühren...</p>
         </div>
       </div>
     );
@@ -294,167 +371,106 @@ export default function ServiceProviderBuildWiseFees() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539]">
-      {/* Enhanced Header */}
-      <div className="relative bg-gradient-to-r from-[#1a1a2e]/90 via-[#2c3539]/90 to-[#1a1a2e]/90 backdrop-blur-xl border-b border-white/20 shadow-2xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/5 via-transparent to-[#ffbd59]/5"></div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            <div className="flex items-center space-x-6">
+      {/* Simplified Header */}
+      <div className="bg-white/10 backdrop-blur border-b border-white/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-4">
               <button
                 onClick={() => navigate('/service-provider-dashboard')}
-                className="group flex items-center space-x-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all duration-300 border border-white/20 hover:border-[#ffbd59]/50"
+                className="flex items-center space-x-2 px-3 py-2 text-white hover:text-[#ffbd59] transition-colors"
               >
-                <ArrowLeft className="w-5 h-5 text-white group-hover:text-[#ffbd59] transition-colors" />
-                <span className="text-white group-hover:text-[#ffbd59] transition-colors font-medium">Zurück</span>
+                <ArrowLeft className="w-5 h-5" />
+                <span>Zurück</span>
               </button>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg">
-                    <Coins className="w-8 h-8 text-[#2c3539]" />
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-bold text-white flex items-center space-x-2">
-                      <span>BuildWise-Gebühren</span>
-                      <Sparkles className="w-6 h-6 text-[#ffbd59] animate-pulse" />
-                    </h1>
-                    <p className="text-sm text-gray-300 flex items-center space-x-1">
-                      <Target className="w-4 h-4" />
-                      <span>Vermittlungskosten & Rechnungsmanagement</span>
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <h1 className="text-2xl font-bold text-white">Gebühren-Übersicht</h1>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 px-4 py-2 bg-white/10 rounded-xl border border-white/20">
-                <Activity className="w-5 h-5 text-[#ffbd59]" />
-                <span className="text-white font-medium">Live Dashboard</span>
-              </div>
-              <button
-                onClick={loadData}
-                className="group flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
-              >
-                <RefreshCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
-                <span className="font-semibold">Aktualisieren</span>
-              </button>
-            </div>
+            <button
+              onClick={loadData}
+              className="flex items-center space-x-2 px-4 py-2 bg-[#ffbd59] text-[#2c3539] rounded-lg hover:bg-[#ffa726] transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Aktualisieren</span>
+            </button>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Enhanced Error/Success Messages */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Messages */}
         {error && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-red-500/20 to-red-600/20 border border-red-500/30 rounded-xl backdrop-blur-sm shadow-lg">
-            <div className="flex items-center space-x-3">
-              <AlertTriangle className="w-6 h-6 text-red-400 flex-shrink-0" />
-              <p className="text-red-200 font-medium">{error}</p>
+          <div className="mb-6 p-4 bg-white/95 backdrop-blur-sm border border-red-200 rounded-lg shadow-lg">
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0 w-6 h-6 bg-red-100 rounded-full flex items-center justify-center mt-0.5">
+                <XCircle className="w-4 h-4 text-red-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900">{error}</p>
+                <p className="text-xs text-gray-500 mt-1">Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.</p>
+              </div>
+              <button
+                onClick={() => setError('')}
+                className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Schließen"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}
         {success && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-green-500/20 to-green-600/20 border border-green-500/30 rounded-xl backdrop-blur-sm shadow-lg">
-            <div className="flex items-center space-x-3">
-              <CheckCircle className="w-6 h-6 text-green-400 flex-shrink-0" />
-              <p className="text-green-200 font-medium">{success}</p>
+          <div className="mb-6 p-4 bg-white/95 backdrop-blur-sm border border-green-200 rounded-lg shadow-lg">
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mt-0.5">
+                <CheckCircle className="w-4 h-4 text-green-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900">{success}</p>
+                <p className="text-xs text-gray-500 mt-1">Die Gebührenübersicht wird automatisch aktualisiert.</p>
+              </div>
+              <button
+                onClick={() => setSuccess('')}
+                className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Schließen"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}
 
-        {/* Enhanced Statistics Cards */}
+        {/* Simplified Statistics */}
         {statistics && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="group bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-[#ffbd59]/50 transition-all duration-300 shadow-lg hover:shadow-2xl hover:scale-105">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg">
-                  <DollarSign className="w-8 h-8 text-[#2c3539]" />
-                </div>
-                <TrendingUp className="w-6 h-6 text-[#ffbd59] opacity-60" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-300 mb-1">Gesamtgebühren</p>
-                <p className="text-3xl font-bold text-white mb-2">{formatCurrency(statistics.total_fees)}</p>
-                <div className="flex items-center space-x-1 text-xs text-gray-400">
-                  <BarChart3 className="w-4 h-4" />
-                  <span>Alle Zeiträume</span>
-                </div>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white/10 rounded-lg p-4 border border-white/20">
+              <p className="text-sm text-gray-300 mb-1">Gesamt</p>
+              <p className="text-2xl font-bold text-white">{formatCurrency(statistics.total_amount)}</p>
             </div>
-            
-            <div className="group bg-gradient-to-br from-green-500/20 to-green-600/20 backdrop-blur-xl rounded-2xl p-6 border border-green-500/30 hover:border-green-400/50 transition-all duration-300 shadow-lg hover:shadow-2xl hover:scale-105">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg">
-                  <CheckCircle className="w-8 h-8 text-white" />
-                </div>
-                <Award className="w-6 h-6 text-green-400 opacity-60" />
-              </div>
-              <div>
-                <p className="text-sm text-green-200 mb-1">Bezahlt</p>
-                <p className="text-3xl font-bold text-green-100 mb-2">{formatCurrency(statistics.total_paid)}</p>
-                <div className="flex items-center space-x-1 text-xs text-green-300">
-                  <Star className="w-4 h-4" />
-                  <span>Erfolgreich abgerechnet</span>
-                </div>
-              </div>
+            <div className="bg-green-500/20 rounded-lg p-4 border border-green-500/30">
+              <p className="text-sm text-green-200 mb-1">Bezahlt</p>
+              <p className="text-2xl font-bold text-green-100">{formatCurrency(statistics.total_paid)}</p>
             </div>
-            
-            <div className="group bg-gradient-to-br from-yellow-500/20 to-yellow-600/20 backdrop-blur-xl rounded-2xl p-6 border border-yellow-500/30 hover:border-yellow-400/50 transition-all duration-300 shadow-lg hover:shadow-2xl hover:scale-105">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg">
-                  <Clock className="w-8 h-8 text-white" />
-                </div>
-                <Activity className="w-6 h-6 text-yellow-400 opacity-60" />
-              </div>
-              <div>
-                <p className="text-sm text-yellow-200 mb-1">Offen</p>
-                <p className="text-3xl font-bold text-yellow-100 mb-2">{formatCurrency(statistics.total_open)}</p>
-                <div className="flex items-center space-x-1 text-xs text-yellow-300">
-                  <Clock className="w-4 h-4" />
-                  <span>Ausstehende Zahlungen</span>
-                </div>
-              </div>
+            <div className="bg-yellow-500/20 rounded-lg p-4 border border-yellow-500/30">
+              <p className="text-sm text-yellow-200 mb-1">Offen</p>
+              <p className="text-2xl font-bold text-yellow-100">{formatCurrency(statistics.total_open)}</p>
             </div>
-            
-            <div className="group bg-gradient-to-br from-red-500/20 to-red-600/20 backdrop-blur-xl rounded-2xl p-6 border border-red-500/30 hover:border-red-400/50 transition-all duration-300 shadow-lg hover:shadow-2xl hover:scale-105">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg">
-                  <AlertTriangle className="w-8 h-8 text-white" />
-                </div>
-                <TrendingDown className="w-6 h-6 text-red-400 opacity-60" />
-              </div>
-              <div>
-                <p className="text-sm text-red-200 mb-1">Überfällig</p>
-                <p className="text-3xl font-bold text-red-100 mb-2">{formatCurrency(statistics.total_overdue)}</p>
-                <div className="flex items-center space-x-1 text-xs text-red-300">
-                  <AlertTriangle className="w-4 h-4" />
-                  <span>Sofortige Aufmerksamkeit</span>
-                </div>
-              </div>
+            <div className="bg-red-500/20 rounded-lg p-4 border border-red-500/30">
+              <p className="text-sm text-red-200 mb-1">Überfällig</p>
+              <p className="text-2xl font-bold text-red-100">{formatCurrency(statistics.total_overdue)}</p>
             </div>
           </div>
         )}
 
-        {/* Enhanced Filters */}
-        <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-8 border border-white/20 shadow-lg mb-8">
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg">
-              <Filter className="w-6 h-6 text-[#2c3539]" />
-            </div>
-            <h3 className="text-xl font-bold text-white">Filter & Suche</h3>
-            <div className="flex-1 h-px bg-gradient-to-r from-white/20 to-transparent"></div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-300 flex items-center space-x-2">
-                <Calendar className="w-4 h-4" />
-                <span>Monat</span>
-              </label>
+        {/* Simplified Filters */}
+        <div className="bg-white/10 rounded-lg p-4 border border-white/20 mb-6">
+          <div className="flex items-center space-x-4">
+            <div className="space-y-1">
+              <label className="block text-sm text-gray-300">Monat</label>
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-300 hover:bg-white/15"
+                className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
               >
                 {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
                   <option key={month} value={month} className="bg-[#2c3539]">{getMonthName(month)}</option>
@@ -462,15 +478,12 @@ export default function ServiceProviderBuildWiseFees() {
               </select>
             </div>
             
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-300 flex items-center space-x-2">
-                <Calendar className="w-4 h-4" />
-                <span>Jahr</span>
-              </label>
+            <div className="space-y-1">
+              <label className="block text-sm text-gray-300">Jahr</label>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-300 hover:bg-white/15"
+                className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
               >
                 {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
                   <option key={year} value={year} className="bg-[#2c3539]">{year}</option>
@@ -478,186 +491,157 @@ export default function ServiceProviderBuildWiseFees() {
               </select>
             </div>
             
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-300 flex items-center space-x-2">
-                <Target className="w-4 h-4" />
-                <span>Status</span>
-              </label>
+            <div className="space-y-1">
+              <label className="block text-sm text-gray-300">Status</label>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-300 hover:bg-white/15"
+                className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
               >
-                <option value="all" className="bg-[#2c3539]">Alle Status</option>
+                <option value="all" className="bg-[#2c3539]">Alle</option>
                 <option value="open" className="bg-[#2c3539]">Offen</option>
                 <option value="pending" className="bg-[#2c3539]">Ausstehend</option>
                 <option value="paid" className="bg-[#2c3539]">Bezahlt</option>
                 <option value="overdue" className="bg-[#2c3539]">Überfällig</option>
               </select>
             </div>
-            
-            <div className="flex items-end">
-              <button
-                onClick={loadData}
-                className="w-full px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105 font-semibold"
-              >
-                <Filter className="w-5 h-5" />
-                <span>Filtern</span>
-              </button>
-            </div>
           </div>
         </div>
 
-        {/* Enhanced Fees Table */}
-        <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl border border-white/20 shadow-lg overflow-hidden">
-          <div className="px-8 py-6 border-b border-white/20 bg-gradient-to-r from-white/5 to-transparent">
+        {/* Simplified Table */}
+        <div className="bg-white/10 rounded-lg border border-white/20 overflow-hidden">
+          <div className="px-6 py-4 border-b border-white/20">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg">
-                  <Receipt className="w-6 h-6 text-[#2c3539]" />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-white">Gebühren-Übersicht</h3>
-                  <p className="text-sm text-gray-300 flex items-center space-x-1">
-                    <PieChart className="w-4 h-4" />
-                    <span>Ihre BuildWise-Vermittlungskosten im Detail</span>
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2 px-4 py-2 bg-white/10 rounded-xl border border-white/20">
-                <BarChart3 className="w-5 h-5 text-[#ffbd59]" />
-                <span className="text-white font-medium">{filteredFees.length} Einträge</span>
-              </div>
+              <h3 className="text-lg font-semibold text-white">Gebühren ({filteredFees.length})</h3>
             </div>
           </div>
           
           {filteredFees.length === 0 ? (
-            <div className="p-12 text-center">
-              <div className="flex flex-col items-center space-y-6">
-                <div className="p-6 bg-gradient-to-br from-gray-500/20 to-gray-600/20 rounded-2xl border border-gray-500/30">
-                  <Receipt className="w-16 h-16 text-gray-400" />
-                </div>
-                <div className="space-y-2">
-                  <h4 className="text-xl font-semibold text-gray-300">Keine Gebühren gefunden</h4>
-                  <p className="text-gray-400 max-w-md">
-                    Für den ausgewählten Zeitraum wurden keine BuildWise-Gebühren gefunden. 
-                    Versuchen Sie einen anderen Monat oder Jahr.
-                  </p>
-                </div>
-                <button
-                  onClick={loadData}
-                  className="px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
-                >
-                  <RefreshCw className="w-5 h-5 inline mr-2" />
-                  Erneut laden
-                </button>
-              </div>
+            <div className="p-8 text-center">
+              <p className="text-gray-300 mb-4">Keine Gebühren für den ausgewählten Zeitraum gefunden.</p>
+              <button
+                onClick={loadData}
+                className="px-4 py-2 bg-[#ffbd59] text-[#2c3539] rounded-lg hover:bg-[#ffa726] transition-colors"
+              >
+                Erneut laden
+              </button>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-white/10">
-                <thead className="bg-gradient-to-r from-white/10 to-white/5">
+                <thead className="bg-white/5">
                   <tr>
-                    <th className="px-8 py-4 text-left text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center space-x-2">
-                      <Receipt className="w-4 h-4" />
-                      <span>Gebühr</span>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Gebühr
                     </th>
-                    <th className="px-8 py-4 text-left text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center space-x-2">
-                      <Building className="w-4 h-4" />
-                      <span>Projekt</span>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Projekt
                     </th>
-                    <th className="px-8 py-4 text-left text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center space-x-2">
-                      <DollarSign className="w-4 h-4" />
-                      <span>Betrag</span>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Betrag
                     </th>
-                    <th className="px-8 py-4 text-left text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center space-x-2">
-                      <Target className="w-4 h-4" />
-                      <span>Status</span>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Status
                     </th>
-                    <th className="px-8 py-4 text-left text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center space-x-2">
-                      <Calendar className="w-4 h-4" />
-                      <span>Datum</span>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Erstellt
                     </th>
-                    <th className="px-8 py-4 text-left text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center space-x-2">
-                      <Zap className="w-4 h-4" />
-                      <span>Aktionen</span>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Fälligkeitsdatum
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Aktionen
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white/5 divide-y divide-white/10">
                   {filteredFees.map((fee) => (
-                    <tr key={fee.id} className="group hover:bg-white/10 transition-all duration-300 border-b border-white/5">
-                      <td className="px-8 py-6 whitespace-nowrap">
-                        <div className="flex items-center space-x-4">
-                          <div className="flex-shrink-0">
-                            <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                              <Receipt className="w-6 h-6 text-[#2c3539]" />
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-lg font-bold text-white group-hover:text-[#ffbd59] transition-colors">
-                              BW-{fee.id.toString().padStart(6, '0')}
-                            </div>
-                            <div className="text-sm text-gray-300 flex items-center space-x-1">
-                              <Coins className="w-4 h-4" />
-                              <span>Vermittlungskosten</span>
-                            </div>
-                          </div>
+                    <tr key={fee.id} className="hover:bg-white/10 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-white">
+                          BW-{fee.id.toString().padStart(6, '0')}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          Vermittlungskosten
                         </div>
                       </td>
-                      <td className="px-8 py-6 whitespace-nowrap">
-                        <div className="flex items-center space-x-2">
-                          <Building className="w-5 h-5 text-[#ffbd59]" />
-                          <span className="text-sm font-medium text-gray-300">Projekt {fee.project_id}</span>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-300">{fee.quote_title || `Quote ${fee.quote_id}`}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-semibold text-white">
+                          Brutto: {formatCurrency(fee.gross_amount || fee.fee_amount)}
+                        </div>
+                        <div className="text-sm text-gray-300">
+                          Netto: {formatCurrency(fee.net_amount || (fee.fee_amount / (1 + (fee.tax_rate || 8.1) / 100)))}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {fee.fee_percentage}% vom Angebot
                         </div>
                       </td>
-                      <td className="px-8 py-6 whitespace-nowrap">
-                        <div className="space-y-1">
-                          <div className="text-xl font-bold text-white group-hover:text-[#ffbd59] transition-colors">
-                            {formatCurrency(fee.fee_amount)}
-                          </div>
-                          <div className="text-xs text-gray-400 flex items-center space-x-1">
-                            <PieChart className="w-3 h-3" />
-                            <span>{fee.fee_percentage}% vom Angebot</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-3 py-2 rounded-xl text-sm font-semibold ${getStatusColor(fee.status)} shadow-lg`}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${getStatusColor(fee.status)}`}>
                           {getStatusIcon(fee.status)}
-                          <span className="ml-2">{getStatusLabel(fee.status)}</span>
+                          <span className="ml-1">{getStatusLabel(fee.status)}</span>
                         </span>
                       </td>
-                      <td className="px-8 py-6 whitespace-nowrap text-sm text-gray-300">
-                        <div className="flex items-center space-x-2">
-                          <Calendar className="w-4 h-4" />
-                          <span>{fee.created_at ? formatDate(fee.created_at) : 'N/A'}</span>
-                        </div>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        {fee.created_at ? formatDate(fee.created_at) : 'N/A'}
                       </td>
-                      <td className="px-8 py-6 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-3">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={getDueDateStyle(fee.due_date, fee.status)}>
+                          {fee.due_date ? formatDate(fee.due_date) : 'N/A'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex space-x-2">
+                          <button 
+                            onClick={() => handleShowDetails(fee)} 
+                            className="p-1 text-blue-400 hover:text-blue-300 transition-colors" 
+                            title="Details anzeigen"
+                          >
+                            <Info className="w-4 h-4" />
+                          </button>
+                          
+                          {/* Stripe Zahlungs-Button - nur für offene oder überfällige Gebühren */}
+                          {(fee.status === 'open' || fee.status === 'overdue') && (
+                            <button 
+                              onClick={() => handlePayWithStripe(fee)}
+                              disabled={processingPayment === fee.id}
+                              className="flex items-center space-x-1 px-3 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                              title="Jetzt mit Stripe bezahlen"
+                            >
+                              {processingPayment === fee.id ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                  <span className="text-xs font-medium">Lädt...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <CreditCard className="w-4 h-4" />
+                                  <span className="text-xs font-medium">Bezahlen</span>
+                                  <ExternalLink className="w-3 h-3" />
+                                </>
+                              )}
+                            </button>
+                          )}
+                          
                           {fee.status === 'open' && (
                             <button 
                               onClick={() => handleMarkAsPaid(fee.id)} 
-                              className="group/btn p-2 bg-green-500/20 hover:bg-green-500/30 text-green-400 hover:text-green-300 rounded-xl transition-all duration-300 border border-green-500/30 hover:border-green-400/50 hover:scale-110" 
-                              title="Als bezahlt markieren"
+                              className="p-1 text-green-400 hover:text-green-300 transition-colors" 
+                              title="Manuell als bezahlt markieren"
                             >
-                              <CheckCircle className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />
+                              <CheckCircle className="w-4 h-4" />
                             </button>
                           )}
-                          <button 
-                            onClick={() => handleGenerateGewerkInvoice(fee.id)} 
-                            className="group/btn p-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 rounded-xl transition-all duration-300 border border-blue-500/30 hover:border-blue-400/50 hover:scale-110" 
-                            title="Gewerk-Rechnung erstellen und als Dokument speichern"
-                          >
-                            <Receipt className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />
-                          </button>
+                          
                           <button 
                             onClick={() => fee.invoice_pdf_generated ? handleDownloadInvoice(fee.id) : handleGenerateInvoice(fee.id)} 
-                            className="group/btn p-2 bg-gradient-to-r from-[#ffbd59]/20 to-[#ffa726]/20 hover:from-[#ffbd59]/30 hover:to-[#ffa726]/30 text-[#ffbd59] hover:text-[#ffa726] rounded-xl transition-all duration-300 border border-[#ffbd59]/30 hover:border-[#ffbd59]/50 hover:scale-110" 
-                            title={fee.invoice_pdf_generated ? "PDF-Rechnung herunterladen" : "PDF-Rechnung generieren"}
+                            className="p-1 text-[#ffbd59] hover:text-[#ffa726] transition-colors" 
+                            title={fee.invoice_pdf_generated ? "PDF herunterladen" : "PDF generieren"}
                           >
-                            {fee.invoice_pdf_generated ? <Download className="w-5 h-5 group-hover/btn:scale-110 transition-transform" /> : <FileText className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />}
+                            {fee.invoice_pdf_generated ? <Download className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
                           </button>
                         </div>
                       </td>
@@ -670,36 +654,114 @@ export default function ServiceProviderBuildWiseFees() {
         </div>
       </div>
 
-      {/* Enhanced Footer */}
-      <div className="mt-12 bg-gradient-to-r from-white/5 to-white/10 backdrop-blur-xl border-t border-white/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg">
-                <Coins className="w-6 h-6 text-[#2c3539]" />
+      {/* Details Modal */}
+      {showDetailsModal && selectedFeeDetails && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-xl border border-white/20 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-white flex items-center space-x-2">
+                  <Info className="w-6 h-6 text-[#ffbd59]" />
+                  <span>Gebühren-Details</span>
+                </h3>
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="p-2 text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <div>
-                <h4 className="text-lg font-bold text-white">BuildWise-Gebühren</h4>
-                <p className="text-sm text-gray-300">Transparente Vermittlungskosten</p>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-gray-300 mb-2">Gebühren-ID</h4>
+                    <p className="text-white font-semibold">BW-{selectedFeeDetails.id.toString().padStart(6, '0')}</p>
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-gray-300 mb-2">Ausschreibung</h4>
+                    <p className="text-white font-semibold">{selectedFeeDetails.quote_title || `Quote ${selectedFeeDetails.quote_id}`}</p>
+                  </div>
+                </div>
+                
+                <div className="bg-white/10 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-gray-300 mb-2">Finanzielle Details</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-400">Angebotsbetrag:</span>
+                      <span className="text-white ml-2 font-semibold">{formatCurrency(selectedFeeDetails.quote_amount)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Gebührensatz:</span>
+                      <span className="text-white ml-2 font-semibold">{selectedFeeDetails.fee_percentage}%</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Nettobetrag:</span>
+                      <span className="text-white ml-2 font-semibold">{formatCurrency(selectedFeeDetails.net_amount || (selectedFeeDetails.fee_amount / (1 + (selectedFeeDetails.tax_rate || 8.1) / 100)))}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Steuersatz:</span>
+                      <span className="text-white ml-2 font-semibold">{selectedFeeDetails.tax_rate || 8.1}%</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Steuerbetrag:</span>
+                      <span className="text-white ml-2 font-semibold">{formatCurrency(selectedFeeDetails.tax_amount || ((selectedFeeDetails.fee_amount / (1 + (selectedFeeDetails.tax_rate || 8.1) / 100)) * (selectedFeeDetails.tax_rate || 8.1) / 100))}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Bruttobetrag:</span>
+                      <span className="text-white ml-2 font-semibold">{formatCurrency(selectedFeeDetails.gross_amount || selectedFeeDetails.fee_amount)}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white/10 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-gray-300 mb-2">Status & Termine</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-400">Status:</span>
+                      <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${getStatusColor(selectedFeeDetails.status)}`}>
+                        {getStatusLabel(selectedFeeDetails.status)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Erstellt am:</span>
+                      <span className="text-white ml-2">{formatDate(selectedFeeDetails.created_at)}</span>
+                    </div>
+                    {selectedFeeDetails.invoice_date && (
+                      <div>
+                        <span className="text-gray-400">Rechnungsdatum:</span>
+                        <span className="text-white ml-2">{formatDate(selectedFeeDetails.invoice_date)}</span>
+                      </div>
+                    )}
+                    {selectedFeeDetails.due_date && (
+                      <div>
+                        <span className="text-gray-400">Fälligkeitsdatum:</span>
+                        <span className="text-white ml-2">{formatDate(selectedFeeDetails.due_date)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {selectedFeeDetails.notes && (
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-gray-300 mb-2">Notizen</h4>
+                    <p className="text-white text-sm">{selectedFeeDetails.notes}</p>
+                  </div>
+                )}
               </div>
-            </div>
-            <div className="flex items-center space-x-6 text-sm text-gray-300">
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="w-4 h-4 text-green-400" />
-                <span>Sichere Abrechnung</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Shield className="w-4 h-4 text-blue-400" />
-                <span>DSGVO-konform</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Zap className="w-4 h-4 text-[#ffbd59]" />
-                <span>Echtzeit-Updates</span>
+              
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="px-4 py-2 bg-[#ffbd59] text-[#2c3539] rounded-lg hover:bg-[#ffa726] transition-colors font-medium"
+                >
+                  Schließen
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

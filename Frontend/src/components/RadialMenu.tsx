@@ -62,12 +62,41 @@ export function RadialMenu({
   const { selectedProject } = useProject();
   const { user } = useAuth();
 
-  // Default items wenn keine customItems übergeben werden
-  const getDefaultItems = (): RadialItem[] => {
+  // Primary actions (most important - positioned prominently)
+  const getPrimaryItems = (): RadialItem[] => {
     const projectId = selectedProject?.id;
-    const userRole = user?.role; // Assuming user context has role
-    
-    const baseItems = [
+    return [
+      {
+        id: "create-project",
+        label: "Neues Projekt",
+        icon: <Home size={28} />,
+        onSelect: () => {
+          navigate(`${window.location.pathname}?create=project`);
+        },
+        color: "#ffbd59",
+        description: "Projekt erstellen"
+      },
+      {
+        id: "create-trade",
+        label: "Neue Ausschreibung",
+        icon: <Hammer size={28} />,
+        onSelect: () => {
+          if (projectId) {
+            navigate(`${window.location.pathname}?create=trade&project=${projectId}`);
+          } else {
+            navigate(`${window.location.pathname}?create=trade`);
+          }
+        },
+        color: "#8B5CF6",
+        description: "Ausschreibung erstellen"
+      }
+    ];
+  };
+
+  // Secondary navigation items
+  const getSecondaryItems = (): RadialItem[] => {
+    const projectId = selectedProject?.id;
+    return [
       {
         id: "manager",
         label: "Manager",
@@ -96,7 +125,6 @@ export function RadialMenu({
         color: "#10B981",
         description: "Aufgabenmanagement"
       },
-
       {
         id: "documents",
         label: "Dokumente",
@@ -110,22 +138,6 @@ export function RadialMenu({
         },
         color: "#3B82F6",
         description: "Dokumentenmanagement"
-      },
-      // Entfernt: Gewerke-Hauptpunkt (Seite /quotes ist deaktiviert)
-      {
-        id: "create-trade",
-        label: "Neue Ausschreibung",
-        icon: <Hammer size={24} />,
-        onSelect: () => {
-          const projectId = selectedProject?.id;
-          if (projectId) {
-            navigate(`${window.location.pathname}?create=trade&project=${projectId}`);
-          } else {
-            navigate(`${window.location.pathname}?create=trade`);
-          }
-        },
-        color: "#8B5CF6",
-        description: "Ausschreibung erstellen"
       },
       {
         id: "visualize",
@@ -156,9 +168,15 @@ export function RadialMenu({
         description: "Kollaboration & Zeichnungen"
       }
     ];
+  };
+
+  // Default items wenn keine customItems übergeben werden
+  const getDefaultItems = (): RadialItem[] => {
+    const primaryItems = getPrimaryItems();
+    const secondaryItems = getSecondaryItems();
     
-    
-    return baseItems;
+    // Combine with primary items first for better positioning
+    return [...primaryItems, ...secondaryItems];
   };
 
   const items = customItems || getDefaultItems();
@@ -175,19 +193,52 @@ export function RadialMenu({
 
   const currentRadius = isMobile ? mobileRadius : radius;
 
-  // Calculate layout with polar coordinates
+  // Calculate layout with polar coordinates - screen-safe positioning
   const layout = useMemo(() => {
     const count = items.length;
-    const span = endAngleDeg - startAngleDeg;
     
-    return items.map((_, i) => {
-      const t = count === 1 ? 0.5 : i / (count - 1);
-      const angle = (startAngleDeg + t * span) * (Math.PI / 180);
-      const x = Math.cos(angle) * currentRadius;
-      const y = Math.sin(angle) * currentRadius;
-      return { x, y, angleDeg: startAngleDeg + t * span };
+    return items.map((item, i) => {
+      const isPrimary = i < 2; // First 2 items are primary
+      
+      if (isPrimary) {
+        // Primary buttons positioned horizontally to the left of FAB to avoid overlap
+        const fabSize = isMobile ? 56 : 72;
+        const buttonSize = isMobile ? 52 : 64;
+        const spacing = isMobile ? 70 : 80;
+        const baseOffset = -(fabSize/2 + buttonSize/2 + spacing); // Start to the left of FAB
+        
+        // Stack vertically but offset to the left
+        const verticalSpacing = isMobile ? 60 : 70;
+        const verticalOffset = -(verticalSpacing * (2 - 1)) / 2;
+        
+        return {
+          x: baseOffset, // Positioned to the left of FAB
+          y: verticalOffset + (i * verticalSpacing),
+          angleDeg: -90, // Always pointing up
+          isPrimary: true,
+          isVertical: true,
+          isHorizontal: true
+        };
+      } else {
+        // Secondary buttons in a compact arc
+        const adjustedRadius = isMobile ? 140 : 180;
+        const secondaryCount = count - 2;
+        const secondaryIndex = i - 2;
+        
+        // Compact arc from -135 to -45 degrees (safe area)
+        const startAngle = -135;
+        const endAngle = -45;
+        const span = endAngle - startAngle;
+        
+        const t = secondaryCount === 1 ? 0.5 : secondaryIndex / (secondaryCount - 1);
+        const angle = (startAngle + t * span) * (Math.PI / 180);
+        const x = Math.cos(angle) * adjustedRadius;
+        const y = Math.sin(angle) * adjustedRadius;
+        
+        return { x, y, angleDeg: startAngle + t * span, isPrimary: false, isVertical: false };
+      }
     });
-  }, [items, currentRadius, startAngleDeg, endAngleDeg]);
+  }, [items, isMobile]);
 
   // Click outside to close
   useEffect(() => {
@@ -352,9 +403,9 @@ export function RadialMenu({
                   }}
                   transition={{
                     type: "spring",
-                    stiffness: 350,
+                    stiffness: layout[i].isPrimary ? 400 : 350, // Primary buttons animate faster
                     damping: 25,
-                    delay: 0.04 * i,
+                    delay: layout[i].isPrimary ? 0.02 * i : 0.04 * i, // Primary buttons appear first
                   }}
                   onClick={() => {
                     item.onSelect();
@@ -371,22 +422,47 @@ export function RadialMenu({
                   onFocus={() => setActiveIndex(i)}
                   className="absolute group"
                   style={{
-                    width: isMobile ? 52 : 64,
-                    height: isMobile ? 52 : 64,
+                    // Primary items are larger and more prominent
+                    width: layout[i].isPrimary 
+                      ? (hoveredIndex === i ? (isMobile ? 60 : 72) : (isMobile ? 52 : 64))
+                      : (hoveredIndex === i ? (isMobile ? 56 : 68) : (isMobile ? 48 : 60)),
+                    height: layout[i].isPrimary 
+                      ? (hoveredIndex === i ? (isMobile ? 60 : 72) : (isMobile ? 52 : 64))
+                      : (hoveredIndex === i ? (isMobile ? 56 : 68) : (isMobile ? 48 : 60)),
                     borderRadius: "50%",
-                    border: "none",
-                    background: hoveredIndex === i || activeIndex === i 
-                      ? `linear-gradient(135deg, ${item.color}, ${item.color}dd)`
-                      : `linear-gradient(135deg, #2a2f3a, #1f2937)`,
+                    border: layout[i].isPrimary ? "2px solid rgba(255,255,255,0.3)" : "none",
+                    background: layout[i].isPrimary
+                      ? hoveredIndex === i || activeIndex === i 
+                        ? `linear-gradient(135deg, ${item.color}, ${item.color}dd)`
+                        : `linear-gradient(135deg, ${item.color}ee, ${item.color}cc)`
+                      : hoveredIndex === i || activeIndex === i 
+                        ? `linear-gradient(135deg, ${item.color}, ${item.color}dd)`
+                        : `linear-gradient(135deg, #2a2f3a, #1f2937)`,
                     color: "white",
-                    boxShadow: hoveredIndex === i || activeIndex === i
-                      ? `0 0 40px ${item.color}88,
-                         0 0 25px ${item.color}66,
-                         0 12px 32px ${item.color}60,
-                         0 8px 20px rgba(0,0,0,0.4),
-                         0 4px 12px rgba(0,0,0,0.3),
-                         inset 0 1px 0 rgba(255,255,255,0.2)`
-                      : "0 6px 16px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.2)",
+                    boxShadow: layout[i].isPrimary
+                      ? hoveredIndex === i || activeIndex === i
+                        ? `0 0 40px ${item.color}aa,
+                           0 0 25px ${item.color}88,
+                           0 0 15px ${item.color}66,
+                           0 8px 24px ${item.color}60,
+                           0 4px 12px rgba(0,0,0,0.4),
+                           0 2px 6px rgba(0,0,0,0.3),
+                           inset 0 2px 2px rgba(255,255,255,0.3),
+                           inset 0 -2px 2px rgba(0,0,0,0.2)`
+                        : `0 0 20px ${item.color}88,
+                           0 0 12px ${item.color}66,
+                           0 4px 16px ${item.color}50,
+                           0 2px 8px rgba(0,0,0,0.3),
+                           inset 0 1px 1px rgba(255,255,255,0.3),
+                           inset 0 -1px 1px rgba(0,0,0,0.2)`
+                      : hoveredIndex === i || activeIndex === i
+                        ? `0 0 30px ${item.color}88,
+                           0 0 18px ${item.color}66,
+                           0 6px 20px ${item.color}50,
+                           0 3px 10px rgba(0,0,0,0.3),
+                           inset 0 1px 1px rgba(255,255,255,0.2),
+                           inset 0 -1px 1px rgba(0,0,0,0.1)`
+                        : "0 4px 12px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.2)",
                     cursor: "pointer",
                     willChange: "transform",
                     display: 'flex',
@@ -394,13 +470,21 @@ export function RadialMenu({
                     justifyContent: 'center',
                     outline: 'none',
                     transition: 'background 0.3s ease',
-                    zIndex: 50,
+                    zIndex: layout[i].isPrimary ? (hoveredIndex === i ? 100 : 75) : 50,
                   }}
-                  whileHover={{ scale: 1.15 }}
+                  whileHover={{ 
+                    scale: layout[i].isPrimary ? 1.2 : 1.15,
+                    rotate: layout[i].isPrimary ? 5 : 0
+                  }}
                   whileTap={{ scale: 0.95 }}
                 >
                   {/* Icon */}
-                  <div className="relative">
+                  <div className="relative" style={{
+                    transform: layout[i].isPrimary 
+                      ? (hoveredIndex === i ? 'scale(1.2)' : 'scale(1.1)')
+                      : (hoveredIndex === i ? 'scale(1.15)' : 'scale(1)'),
+                    transition: 'transform 0.2s ease'
+                  }}>
                     {item.icon}
                     
                     {/* Badge */}
@@ -418,16 +502,32 @@ export function RadialMenu({
                     )}
                   </div>
 
-                  {/* Tooltip */}
+                  {/* Enhanced Tooltip */}
                   {showTooltips && (hoveredIndex === i || activeIndex === i) && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 10 }}
-                      className="absolute bottom-full mb-3 px-3 py-2 bg-gray-900/95 backdrop-blur-md rounded-lg shadow-xl border border-gray-700 whitespace-nowrap pointer-events-none"
-                      style={{ zIndex: 10000 }}
+                      className={`absolute bottom-full mb-3 px-3 py-2 backdrop-blur-md rounded-lg shadow-xl whitespace-nowrap pointer-events-none ${
+                        layout[i].isPrimary 
+                          ? 'bg-gradient-to-r from-gray-900 to-gray-800 border border-[#ffbd59]/60' 
+                          : 'bg-gray-900/95 border border-gray-700'
+                      }`}
+                      style={{ 
+                        zIndex: 10000,
+                        filter: layout[i].isPrimary 
+                          ? `drop-shadow(0 0 20px ${item.color}40)`
+                          : 'none'
+                      }}
                     >
-                      <div className="text-sm font-semibold text-white">{item.label}</div>
+                      <div className={`text-sm font-semibold text-white ${layout[i].isPrimary ? 'text-base' : ''}`}>
+                        {item.label}
+                        {layout[i].isPrimary && (
+                          <span className="ml-2 text-xs bg-yellow-500/20 px-2 py-0.5 rounded-full">
+                            WICHTIG
+                          </span>
+                        )}
+                      </div>
                       {item.description && (
                         <div className="text-xs text-gray-300 mt-0.5">{item.description}</div>
                       )}
@@ -438,7 +538,7 @@ export function RadialMenu({
                           height: 0,
                           borderLeft: '6px solid transparent',
                           borderRight: '6px solid transparent',
-                          borderTop: '6px solid rgb(17 24 39 / 0.95)',
+                          borderTop: layout[i].isPrimary ? '6px solid rgb(31 41 55)' : '6px solid rgb(17 24 39 / 0.95)',
                         }}
                       />
                     </motion.div>

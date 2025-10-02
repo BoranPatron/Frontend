@@ -1033,11 +1033,10 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
       // Reset
       setSelectedResourceIds([]);
       
-      // Success feedback
-      alert('Einladungen wurden erfolgreich versendet!');
+      // Success feedback - removed alert popup
     } catch (error) {
-      console.error('Fehler beim Senden der Einladungen:', error);
-      alert('Fehler beim Senden der Einladungen');
+      console.error('Fehler beim Zuweisen der Ressourcen:', error);
+      alert('Fehler beim Zuweisen der Ressourcen');
     } finally {
       setLoading(false);
     }
@@ -1128,7 +1127,7 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                     <div className="text-xs text-white/80">Verfügbar</div>
                   </div>
                 </Tooltip>
-                <Tooltip content={`${selectedResourceIds.length} Ressourcen für Einladung ausgewählt`}>
+                <Tooltip content={`${selectedResourceIds.length} Ressourcen für Zuweisung ausgewählt`}>
                   <div className="bg-white/20 rounded p-2 text-center cursor-help">
                     <div className="text-xl font-bold text-white">{selectedResourceIds.length}</div>
                     <div className="text-xs text-white/80">Ausgewählt</div>
@@ -1359,7 +1358,7 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                 className="p-4 border-t border-gray-700 bg-[#2a2a2a]"
               >
                 <div className="mb-3 text-sm">
-                  <Tooltip content={`${selectedResourceIds.length} Ressourcen für Einladung ausgewählt`}>
+                  <Tooltip content={`${selectedResourceIds.length} Ressourcen für Zuweisung ausgewählt`}>
                     <div className="flex items-center justify-between mb-1 cursor-help">
                       <span className="text-gray-400">Ausgewählt:</span>
                       <span className="text-white font-semibold">
@@ -1411,14 +1410,14 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                       Auswahl aufheben
                     </button>
                   </Tooltip>
-                  <Tooltip content={`Einladungen an ${selectedResourceIds.length} ausgewählte Dienstleister senden`}>
+                  <Tooltip content={`Ressourcen an ${selectedResourceIds.length} ausgewählte Dienstleister zuweisen`}>
                     <button
                       onClick={sendInvitations}
                       disabled={loading}
                       className="flex-1 px-4 py-2 bg-[#ffbd59] text-black rounded-lg hover:bg-[#f59e0b] transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 cursor-help"
                     >
                       <Send className="w-4 h-4" />
-                      <span>Einladen</span>
+                      <span>Zuweisen</span>
                     </button>
                   </Tooltip>
                 </div>
@@ -1451,7 +1450,7 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                         <li>• Sehen Sie alle Dienstleister-Details (Firma, Kontakt, etc.)</li>
                         <li>• Hovern Sie über Stunden/Personen für detaillierte Berechnungen</li>
                         <li>• Sortieren Sie per Drag & Drop nach Priorität</li>
-                        <li>• Senden Sie Einladungen an ausgewählte Dienstleister</li>
+                        <li>• Weisen Sie Ressourcen an ausgewählte Dienstleister zu</li>
                         <li>• Nutzen Sie den Details-Button für erweiterte Informationen</li>
                         <li>• Sehen Sie Ressourcennutzung und Bauträger-Notizen</li>
                       </ul>

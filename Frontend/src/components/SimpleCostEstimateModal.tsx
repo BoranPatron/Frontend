@@ -2304,6 +2304,52 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
         {/* Vollständige Angebots-Details */}
         <div className="mt-6 space-y-6">
           
+          {/* Dienstleister-Informationen */}
+          <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-4">
+            <h4 className="text-sm font-medium text-green-300 mb-3 flex items-center gap-2">
+              <User size={16} />
+              Dienstleister-Informationen
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <div className="text-gray-400 text-xs">Firma:</div>
+                <div className="text-white font-semibold">
+                  {acceptedQuote.company_name || acceptedQuote.service_provider_name || `Angebot #${acceptedQuote.id}`}
+                </div>
+              </div>
+              {acceptedQuote.contact_person && (
+                <div>
+                  <div className="text-gray-400 text-xs">Ansprechpartner:</div>
+                  <div className="text-white">{acceptedQuote.contact_person}</div>
+                </div>
+              )}
+              {acceptedQuote.phone && (
+                <div>
+                  <div className="text-gray-400 text-xs">Telefon:</div>
+                  <div className="text-white">{acceptedQuote.phone}</div>
+                </div>
+              )}
+              {acceptedQuote.email && (
+                <div>
+                  <div className="text-gray-400 text-xs">E-Mail:</div>
+                  <div className="text-white">{acceptedQuote.email}</div>
+                </div>
+              )}
+              {acceptedQuote.website && (
+                <div>
+                  <div className="text-gray-400 text-xs">Website:</div>
+                  <div className="text-white">{acceptedQuote.website}</div>
+                </div>
+              )}
+              <div>
+                <div className="text-gray-400 text-xs">Status:</div>
+                <div className="px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs font-medium inline-block">
+                  Angenommen
+                </div>
+              </div>
+            </div>
+          </div>
+          
           {/* Kostenaufschlüsselung */}
           <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-4">
             <h4 className="text-sm font-medium text-green-300 mb-3 flex items-center gap-2">
@@ -2313,7 +2359,11 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
                 <div className="text-green-300 font-bold text-lg">
-                  {acceptedQuote.total_amount?.toLocaleString('de-DE')} {acceptedQuote.currency || 'EUR'}
+                  {(() => {
+                    const currency = acceptedQuote.currency || 'EUR';
+                    const amount = acceptedQuote.total_amount || acceptedQuote.total_price || 0;
+                    return `${amount.toLocaleString('de-DE')} ${currency}`;
+                  })()}
                 </div>
                 <div className="text-gray-400 text-xs">Gesamtbetrag</div>
               </div>
@@ -2321,7 +2371,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
               {(acceptedQuote.labor_cost !== null && acceptedQuote.labor_cost !== undefined) && (
                 <div className="text-center">
                   <div className="text-green-300 font-medium">
-                    {acceptedQuote.labor_cost?.toLocaleString('de-DE')} {acceptedQuote.currency || 'EUR'}
+                    {Number(acceptedQuote.labor_cost).toLocaleString('de-DE')} {acceptedQuote.currency || 'EUR'}
                   </div>
                   <div className="text-gray-400 text-xs">Arbeitskosten</div>
                 </div>
@@ -2330,7 +2380,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
               {(acceptedQuote.material_cost !== null && acceptedQuote.material_cost !== undefined) && (
                 <div className="text-center">
                   <div className="text-green-300 font-medium">
-                    {acceptedQuote.material_cost?.toLocaleString('de-DE')} {acceptedQuote.currency || 'EUR'}
+                    {Number(acceptedQuote.material_cost).toLocaleString('de-DE')} {acceptedQuote.currency || 'EUR'}
                   </div>
                   <div className="text-gray-400 text-xs">Materialkosten</div>
                 </div>
@@ -2339,7 +2389,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
               {(acceptedQuote.overhead_cost !== null && acceptedQuote.overhead_cost !== undefined) && (
                 <div className="text-center">
                   <div className="text-green-300 font-medium">
-                    {acceptedQuote.overhead_cost?.toLocaleString('de-DE')} {acceptedQuote.currency || 'EUR'}
+                    {Number(acceptedQuote.overhead_cost).toLocaleString('de-DE')} {acceptedQuote.currency || 'EUR'}
                   </div>
                   <div className="text-gray-400 text-xs">Nebenkosten</div>
                 </div>
@@ -2355,6 +2405,13 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                 Zeitplan
               </h4>
               <div className="space-y-2">
+                {(acceptedQuote.estimated_duration !== null && acceptedQuote.estimated_duration !== undefined) && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 text-sm">Geschätzte Dauer:</span>
+                    <span className="text-blue-300 text-sm">{acceptedQuote.estimated_duration} Tage</span>
+                  </div>
+                )}
+                
                 {acceptedQuote.start_date && (
                   <div className="flex justify-between">
                     <span className="text-gray-400 text-sm">Startdatum:</span>
@@ -2373,13 +2430,6 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                   </div>
                 )}
                 
-                {(acceptedQuote.estimated_duration !== null && acceptedQuote.estimated_duration !== undefined) && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400 text-sm">Dauer:</span>
-                    <span className="text-blue-300 text-sm">{acceptedQuote.estimated_duration} Tage</span>
-                  </div>
-                )}
-                
                 {acceptedQuote.valid_until && (
                   <div className="flex justify-between">
                     <span className="text-gray-400 text-sm">Gültig bis:</span>
@@ -2394,7 +2444,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
             <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg p-4">
               <h4 className="text-sm font-medium text-purple-300 mb-3 flex items-center gap-2">
                 <Receipt size={16} />
-                Bedingungen
+                Bedingungen & Details
               </h4>
               <div className="space-y-2">
                 {(acceptedQuote.payment_terms !== null && acceptedQuote.payment_terms !== undefined && acceptedQuote.payment_terms !== '') && (
@@ -2839,37 +2889,165 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                   
                   {isContractorExpanded && (
                     <div className="mt-4 pt-4 border-t border-emerald-500/20 space-y-4">
-                      {/* Cost Breakdown */}
-                      {(acceptedQuote.labor_cost || acceptedQuote.material_cost) && (
-                        <div className="bg-black/20 rounded-lg p-4">
-                          <h4 className="text-emerald-300 font-medium mb-3">Kostenaufschlüsselung</h4>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {/* Vollständige Angebots-Details */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {/* Dienstleister-Informationen */}
+                        <div className="bg-white/5 rounded-lg p-4">
+                          <h4 className="text-sm font-medium text-emerald-300 mb-3 flex items-center gap-2">
+                            <User size={16} />
+                            Dienstleister
+                          </h4>
+                          <div className="space-y-2">
+                            <div>
+                              <div className="text-gray-400 text-xs">Firma:</div>
+                              <div className="text-white font-semibold">
+                                {acceptedQuote.company_name || acceptedQuote.service_provider_name || `Angebot #${acceptedQuote.id}`}
+                              </div>
+                            </div>
+                            {acceptedQuote.contact_person && (
+                              <div>
+                                <div className="text-gray-400 text-xs">Ansprechpartner:</div>
+                                <div className="text-white">{acceptedQuote.contact_person}</div>
+                              </div>
+                            )}
+                            {acceptedQuote.phone && (
+                              <div>
+                                <div className="text-gray-400 text-xs">Telefon:</div>
+                                <div className="text-white">{acceptedQuote.phone}</div>
+                              </div>
+                            )}
+                            {acceptedQuote.email && (
+                              <div>
+                                <div className="text-gray-400 text-xs">E-Mail:</div>
+                                <div className="text-white">{acceptedQuote.email}</div>
+                              </div>
+                            )}
+                            {acceptedQuote.website && (
+                              <div>
+                                <div className="text-gray-400 text-xs">Website:</div>
+                                <div className="text-white">{acceptedQuote.website}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Angebotssumme */}
+                        <div className="bg-white/5 rounded-lg p-4">
+                          <h4 className="text-sm font-medium text-emerald-300 mb-3 flex items-center gap-2">
+                            <Euro size={16} />
+                            Angebotssumme
+                          </h4>
+                          <div className="space-y-2">
+                            <div className="text-center">
+                              <div className="text-emerald-400 font-bold text-2xl">
+                                {(() => {
+                                  const currency = acceptedQuote.currency || 'CHF';
+                                  const amount = acceptedQuote.total_amount || acceptedQuote.total_price || 0;
+                                  return `${currency} ${amount.toLocaleString('de-DE')}`;
+                                })()}
+                              </div>
+                              <div className="text-gray-400 text-xs">Gesamtbetrag</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-emerald-300 font-medium text-sm">
+                                {acceptedQuote.currency || 'CHF'}
+                              </div>
+                              <div className="text-gray-400 text-xs">Währung</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Zeitplan & Dauer */}
+                        <div className="bg-white/5 rounded-lg p-4">
+                          <h4 className="text-sm font-medium text-emerald-300 mb-3 flex items-center gap-2">
+                            <Calendar size={16} />
+                            Zeitplan
+                          </h4>
+                          <div className="space-y-2">
+                            {(acceptedQuote.estimated_duration !== null && acceptedQuote.estimated_duration !== undefined) && (
+                              <div>
+                                <div className="text-gray-400 text-xs">Geschätzte Dauer:</div>
+                                <div className="text-white font-semibold">{acceptedQuote.estimated_duration} Tage</div>
+                              </div>
+                            )}
+                            {acceptedQuote.start_date && (
+                              <div>
+                                <div className="text-gray-400 text-xs">Startdatum:</div>
+                                <div className="text-white">
+                                  {new Date(acceptedQuote.start_date).toLocaleDateString('de-DE')}
+                                </div>
+                              </div>
+                            )}
+                            {acceptedQuote.completion_date && (
+                              <div>
+                                <div className="text-gray-400 text-xs">Fertigstellung:</div>
+                                <div className="text-white">
+                                  {new Date(acceptedQuote.completion_date).toLocaleDateString('de-DE')}
+                                </div>
+                              </div>
+                            )}
+                            {acceptedQuote.valid_until && (
+                              <div>
+                                <div className="text-gray-400 text-xs">Gültig bis:</div>
+                                <div className="text-white">
+                                  {new Date(acceptedQuote.valid_until).toLocaleDateString('de-DE')}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Kostenaufschlüsselung */}
+                      {(acceptedQuote.labor_cost || acceptedQuote.material_cost || acceptedQuote.overhead_cost) && (
+                        <div className="bg-white/5 rounded-lg p-4">
+                          <h4 className="text-sm font-medium text-emerald-300 mb-3 flex items-center gap-2">
+                            <Euro size={16} />
+                            Kostenaufschlüsselung
+                          </h4>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div className="text-center">
                               <div className="text-emerald-300 font-bold text-lg">
-                                CHF {acceptedQuote.total_amount?.toLocaleString('de-DE')}
+                                {(() => {
+                                  const currency = acceptedQuote.currency || 'CHF';
+                                  const amount = acceptedQuote.total_amount || acceptedQuote.total_price || 0;
+                                  return `${currency} ${amount.toLocaleString('de-DE')}`;
+                                })()}
                               </div>
-                              <div className="text-gray-400 text-xs">Gesamt</div>
+                              <div className="text-gray-400 text-xs">Gesamtbetrag</div>
                             </div>
-                            {acceptedQuote.labor_cost && (
+                            
+                            {(acceptedQuote.labor_cost !== null && acceptedQuote.labor_cost !== undefined) && (
                               <div className="text-center">
                                 <div className="text-emerald-300 font-medium">
-                                  CHF {acceptedQuote.labor_cost.toLocaleString('de-DE')}
+                                  {(() => {
+                                    const currency = acceptedQuote.currency || 'CHF';
+                                    return `${currency} ${Number(acceptedQuote.labor_cost).toLocaleString('de-DE')}`;
+                                  })()}
                                 </div>
-                                <div className="text-gray-400 text-xs">Arbeit</div>
+                                <div className="text-gray-400 text-xs">Arbeitskosten</div>
                               </div>
                             )}
-                            {acceptedQuote.material_cost && (
+                            
+                            {(acceptedQuote.material_cost !== null && acceptedQuote.material_cost !== undefined) && (
                               <div className="text-center">
                                 <div className="text-emerald-300 font-medium">
-                                  CHF {acceptedQuote.material_cost.toLocaleString('de-DE')}
+                                  {(() => {
+                                    const currency = acceptedQuote.currency || 'CHF';
+                                    return `${currency} ${Number(acceptedQuote.material_cost).toLocaleString('de-DE')}`;
+                                  })()}
                                 </div>
-                                <div className="text-gray-400 text-xs">Material</div>
+                                <div className="text-gray-400 text-xs">Materialkosten</div>
                               </div>
                             )}
-                            {acceptedQuote.overhead_cost && (
+                            
+                            {(acceptedQuote.overhead_cost !== null && acceptedQuote.overhead_cost !== undefined) && (
                               <div className="text-center">
                                 <div className="text-emerald-300 font-medium">
-                                  CHF {acceptedQuote.overhead_cost.toLocaleString('de-DE')}
+                                  {(() => {
+                                    const currency = acceptedQuote.currency || 'CHF';
+                                    return `${currency} ${Number(acceptedQuote.overhead_cost).toLocaleString('de-DE')}`;
+                                  })()}
                                 </div>
                                 <div className="text-gray-400 text-xs">Nebenkosten</div>
                               </div>
@@ -2877,39 +3055,57 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                           </div>
                         </div>
                       )}
-                      
-                      {/* Timeline */}
-                      {(acceptedQuote.start_date || acceptedQuote.completion_date) && (
-                        <div className="bg-black/20 rounded-lg p-4">
-                          <h4 className="text-emerald-300 font-medium mb-3">Zeitplan</h4>
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            {acceptedQuote.start_date && (
-                              <div>
-                                <span className="text-gray-400">Start:</span>
-                                <div className="text-white font-medium">
-                                  {new Date(acceptedQuote.start_date).toLocaleDateString('de-DE')}
-                                </div>
-                              </div>
-                            )}
-                            {acceptedQuote.completion_date && (
-                              <div>
-                                <span className="text-gray-400">Fertigstellung:</span>
-                                <div className="text-white font-medium">
-                                  {new Date(acceptedQuote.completion_date).toLocaleDateString('de-DE')}
-                                </div>
+
+                      {/* Bedingungen & Details */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white/5 rounded-lg p-4">
+                          <h4 className="text-sm font-medium text-emerald-300 mb-3 flex items-center gap-2">
+                            <Receipt size={16} />
+                            Bedingungen
+                          </h4>
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span className="text-gray-400 text-sm">Status:</span>
+                              <span className="px-2 py-1 bg-emerald-500/20 text-emerald-300 rounded text-xs font-medium">
+                                Angenommen
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-400 text-sm">Erstellt am:</span>
+                              <span className="text-white text-sm">
+                                {new Date(acceptedQuote.created_at).toLocaleDateString('de-DE')}
+                              </span>
+                            </div>
+                            {acceptedQuote.contact_released && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-400 text-sm">Kontakt freigegeben:</span>
+                                <span className="text-green-300 text-sm">Ja</span>
                               </div>
                             )}
                           </div>
                         </div>
-                      )}
-                      
-                      {/* Description */}
-                      {acceptedQuote.description && (
-                        <div className="bg-black/20 rounded-lg p-4">
-                          <h4 className="text-emerald-300 font-medium mb-2">Beschreibung</h4>
-                          <p className="text-gray-300 text-sm leading-relaxed">{acceptedQuote.description}</p>
+
+                        <div className="bg-white/5 rounded-lg p-4">
+                          <h4 className="text-sm font-medium text-emerald-300 mb-3 flex items-center gap-2">
+                            <FileText size={16} />
+                            Zusätzliche Informationen
+                          </h4>
+                          <div className="space-y-2">
+                            {acceptedQuote.notes && (
+                              <div>
+                                <div className="text-gray-400 text-xs">Notizen:</div>
+                                <div className="text-white text-sm">{acceptedQuote.notes}</div>
+                              </div>
+                            )}
+                            {acceptedQuote.description && (
+                              <div>
+                                <div className="text-gray-400 text-xs">Beschreibung:</div>
+                                <div className="text-white text-sm leading-relaxed">{acceptedQuote.description}</div>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
+                      </div>
                     </div>
                   )}
                 </div>

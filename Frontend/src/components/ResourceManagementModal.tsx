@@ -16,7 +16,8 @@ import {
   Wrench,
   Award,
   Check,
-  Settings
+  Settings,
+  FileText
 } from 'lucide-react';
 import { resourceService, type Resource } from '../api/resourceService';
 import { useAuth } from '../context/AuthContext';
@@ -48,6 +49,7 @@ const ResourceManagementModal: React.FC<ResourceManagementModalProps> = ({
     service_provider_id: user?.id,
     start_date: '',
     end_date: '',
+    title: '',
     person_count: 1,
     daily_hours: 8,
     category: '',
@@ -138,6 +140,7 @@ const ResourceManagementModal: React.FC<ResourceManagementModalProps> = ({
       service_provider_id: user?.id,
       start_date: '',
       end_date: '',
+      title: '',
       person_count: 1,
       daily_hours: 8,
       category: '',
@@ -282,6 +285,27 @@ const ResourceManagementModal: React.FC<ResourceManagementModalProps> = ({
                 <span className="text-red-400">{error}</span>
               </motion.div>
             )}
+
+            {/* Titel */}
+            <div className="bg-[#2a2a2a] rounded-xl p-5">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                <FileText className="w-5 h-5 mr-2 text-[#ffbd59]" />
+                Titel
+              </h3>
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Titel der Ressource</label>
+                <input
+                  type="text"
+                  value={formData.title || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="z.B. Maurerarbeiten für Wohnhaus, Elektroinstallation..."
+                  className="w-full bg-[#333] text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Geben Sie einen aussagekräftigen Titel für Ihre Ressource ein
+                </p>
+              </div>
+            </div>
 
             {/* Zeitraum */}
             <div className="bg-[#2a2a2a] rounded-xl p-5">

@@ -14,6 +14,7 @@ export interface Resource {
   end_date: string;
   
   // Ressourcen-Details
+  title?: string;
   person_count: number;
   daily_hours?: number;
   total_hours?: number;
@@ -206,6 +207,19 @@ export interface ResourceSearchParams {
   status?: string;
   service_provider_id?: number;
   project_id?: number;
+}
+
+export interface SubmitQuoteFromAllocationData {
+  title: string;
+  description?: string;
+  labor_cost?: number;
+  material_cost?: number;
+  overhead_cost?: number;
+  total_amount: number;
+  currency?: string;
+  estimated_duration?: number;
+  start_date?: string;
+  notes?: string;
 }
 
 // ============================================
@@ -406,6 +420,15 @@ class ResourceService {
     }
   }
 
+  async getMyPendingAllocations(): Promise<ResourceAllocation[]> {
+    try {
+      const response = await apiCall<ResourceAllocation[]>(`${this.baseUrl}/allocations/my-pending`);
+      return response;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
   async getAllocationsByResource(resourceId: number): Promise<ResourceAllocation[]> {
     try {
       const response = await apiCall<ResourceAllocation[]>(`${this.baseUrl}/allocations/resource/${resourceId}`);
@@ -425,6 +448,42 @@ class ResourceService {
         method: 'PUT',
         body: JSON.stringify({ status, notes }),
       });
+      return response;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  async submitQuoteFromAllocation(
+    allocationId: number,
+    quoteData: SubmitQuoteFromAllocationData
+  ): Promise<{ message: string; quote_id: number; allocation_id: number; status: string }> {
+    try {
+      const response = await apiCall<{ message: string; quote_id: number; allocation_id: number; status: string }>(
+        `${this.baseUrl}/allocations/${allocationId}/submit-quote`,
+        {
+          method: 'POST',
+          body: JSON.stringify(quoteData),
+        }
+      );
+      return response;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  async rejectAllocation(
+    allocationId: number,
+    rejectionReason: string
+  ): Promise<{ message: string; allocation_id: number; status: string }> {
+    try {
+      const response = await apiCall<{ message: string; allocation_id: number; status: string }>(
+        `${this.baseUrl}/allocations/${allocationId}/reject`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ rejection_reason: rejectionReason }),
+        }
+      );
       return response;
     } catch (error) {
       throw handleApiError(error);
@@ -619,6 +678,30 @@ class ResourceService {
       const response = await apiCall(`${this.baseUrl}/statistics${params}`);
       return response;
     } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  async getDetailedKPIs(
+    serviceProviderId?: number,
+    periodStart?: string,
+    periodEnd?: string
+  ): Promise<any> {
+    try {
+      const params = new URLSearchParams();
+      if (serviceProviderId) params.append('service_provider_id', String(serviceProviderId));
+      if (periodStart) params.append('period_start', periodStart);
+      if (periodEnd) params.append('period_end', periodEnd);
+      
+      const url = `${this.baseUrl}/kpis/detailed?${params.toString()}`;
+      console.log('🌐 API Call:', url);
+      console.log('📊 Params:', { serviceProviderId, periodStart, periodEnd });
+      
+      const response = await apiCall(url);
+      console.log('✅ API Response:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ API Error:', error);
       throw handleApiError(error);
     }
   }

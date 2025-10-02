@@ -62,28 +62,50 @@
 
 /* ===== MOBILE OPTIMIERUNGEN ===== */
 
-/* Kanban Board Base Styles - Desktop First */
+/* Kanban Board Base Styles - Desktop First mit adaptiver Höhe */
 .kanban-desktop-grid {
   display: grid !important;
   grid-template-columns: repeat(4, 1fr) !important;
   gap: 1.5rem !important;
-  height: calc(100vh - 250px) !important;
+  height: auto !important;
+  min-height: 400px !important;
+  align-items: start !important;
+  width: 100% !important;
 }
 
 .kanban-column-desktop {
   display: flex !important;
   flex-direction: column !important;
-  height: 100% !important;
+  height: auto !important;
+  align-self: start !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
 }
 
-/* Kanban Column Content - Dynamische Höhenanpassung */
+/* Kanban Column Content - Adaptive Höhenanpassung */
 .kanban-column-content {
   min-height: 200px !important;
   height: auto !important;
-  flex: 1 !important;
+  max-height: none !important;
+  flex: none !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: flex-start !important;
+  overflow-y: visible !important;
+  overflow-x: hidden !important;
+  width: 100% !important;
+  word-wrap: break-word !important;
+}
+
+/* Task-Karten Breitenbegrenzung */
+.kanban-column-content > div {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  word-wrap: break-word !important;
+  hyphens: auto !important;
 }
 
 /* Dynamische Höhenanpassung für Container */
@@ -96,19 +118,29 @@
   min-height: fit-content !important;
 }
 
-/* Gleichmäßige Höhen für alle Spalten */
+/* Adaptive Höhen für alle Spalten mit fester Breite */
 .kanban-desktop-grid .kanban-column-desktop {
-  align-self: stretch !important;
+  align-self: start !important;
+  height: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
 }
 
 .kanban-desktop-grid .kanban-column-content {
-  flex-grow: 1 !important;
+  flex-grow: 0 !important;
   align-self: stretch !important;
+  height: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow-x: hidden !important;
 }
 
 /* Mobile-First Approach für bessere Performance */
 @media (max-width: 768px) {
-  /* Kanban Board Mobile Optimierungen - Dynamische Höhen */
+  /* Kanban Board Mobile Optimierungen - Adaptive Höhen */
   .kanban-desktop-grid {
     display: flex !important;
     flex-direction: column !important;
@@ -121,8 +153,8 @@
   .kanban-column-desktop {
     width: 100% !important;
     min-height: 200px !important;
-    max-height: 50vh !important;
-    overflow: hidden !important;
+    max-height: none !important;
+    overflow: visible !important;
     margin-bottom: 0.75rem !important;
     height: auto !important;
     border-radius: 0.75rem !important;
@@ -131,17 +163,17 @@
   
   .kanban-column-content {
     min-height: 150px !important;
-    max-height: calc(50vh - 80px) !important;
+    max-height: none !important;
     height: auto !important;
-    overflow-y: auto !important;
+    overflow-y: visible !important;
     overflow-x: hidden !important;
-    flex: 1 !important;
+    flex: none !important;
     padding: 0.75rem !important;
     -webkit-overflow-scrolling: touch !important;
     scroll-behavior: smooth !important;
   }
   
-  /* Kompakte Kanban-Ansicht für Mobile - Optimiert für Touch */
+  /* Kompakte Kanban-Ansicht für Mobile - Adaptive Höhen */
   .kanban-compact-grid {
     display: flex !important;
     flex-direction: column !important;
@@ -154,8 +186,8 @@
   .kanban-compact-grid .kanban-column-desktop {
     width: 100% !important;
     min-height: 180px !important;
-    max-height: 40vh !important;
-    overflow: hidden !important;
+    max-height: none !important;
+    overflow: visible !important;
     margin-bottom: 0.5rem !important;
     height: auto !important;
     border-radius: 0.5rem !important;
@@ -164,11 +196,11 @@
   
   .kanban-compact-grid .kanban-column-content {
     min-height: 120px !important;
-    max-height: calc(40vh - 60px) !important;
+    max-height: none !important;
     height: auto !important;
-    overflow-y: auto !important;
+    overflow-y: visible !important;
     overflow-x: hidden !important;
-    flex: 1 !important;
+    flex: none !important;
     padding: 0.5rem !important;
     -webkit-overflow-scrolling: touch !important;
     scroll-behavior: smooth !important;
@@ -455,46 +487,59 @@
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 1rem !important;
-    height: calc(100vh - 250px) !important;
+    height: auto !important;
+    min-height: 400px !important;
+    align-items: start !important;
+    width: 100% !important;
   }
   
   .kanban-column-desktop {
     display: flex !important;
     flex-direction: column !important;
-    height: 100% !important;
+    height: auto !important;
+    align-self: start !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
   }
   
   .kanban-column-content {
-    min-height: 300px !important;
+    min-height: 250px !important;
     height: auto !important;
-    flex: 1 !important;
-    overflow-y: auto !important;
+    max-height: none !important;
+    flex: none !important;
+    overflow-y: visible !important;
+    overflow-x: hidden !important;
+    width: 100% !important;
+    word-wrap: break-word !important;
   }
   
-  /* Kompakte Kanban-Ansicht für Tablets - 2x2 Grid */
+  /* Kompakte Kanban-Ansicht für Tablets - 2x2 Grid mit adaptiven Höhen */
   .kanban-compact-grid {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
-    grid-template-rows: 1fr 1fr !important;
+    grid-template-rows: auto auto !important;
     gap: 0.75rem !important;
     height: auto !important;
-    max-height: 600px !important;
+    max-height: none !important;
+    align-items: start !important;
   }
   
   .kanban-compact-grid .kanban-column-desktop {
     display: flex !important;
     flex-direction: column !important;
-    height: 100% !important;
+    height: auto !important;
     min-height: 250px !important;
-    max-height: 280px !important;
+    max-height: none !important;
+    align-self: start !important;
   }
   
   .kanban-compact-grid .kanban-column-content {
     min-height: 180px !important;
-    max-height: 200px !important;
+    max-height: none !important;
     height: auto !important;
-    flex: 1 !important;
-    overflow-y: auto !important;
+    flex: none !important;
+    overflow-y: visible !important;
     padding: 0.5rem !important;
   }
 }
@@ -505,20 +550,31 @@
     display: grid !important;
     grid-template-columns: repeat(4, 1fr) !important;
     gap: 1.5rem !important;
-    height: calc(100vh - 250px) !important;
+    height: auto !important;
+    min-height: 500px !important;
+    align-items: start !important;
+    width: 100% !important;
   }
   
   .kanban-column-desktop {
     display: flex !important;
     flex-direction: column !important;
-    height: 100% !important;
+    height: auto !important;
+    align-self: start !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
   }
   
   .kanban-column-content {
-    min-height: 400px !important;
+    min-height: 300px !important;
     height: auto !important;
-    flex: 1 !important;
-    overflow-y: auto !important;
+    max-height: none !important;
+    flex: none !important;
+    overflow-y: visible !important;
+    overflow-x: hidden !important;
+    width: 100% !important;
+    word-wrap: break-word !important;
   }
   
   .desktop-grid-4 {
@@ -527,34 +583,36 @@
     gap: 1.5rem !important;
   }
   
-  /* Spezielle Klasse für kompakte Kanban-Ansicht (alle Spalten in einer Zeile) */
+  /* Spezielle Klasse für kompakte Kanban-Ansicht (alle Spalten in einer Zeile) mit adaptiven Höhen */
   .kanban-compact-grid {
     display: grid !important;
     grid-template-columns: repeat(4, 1fr) !important;
     gap: 0.75rem !important;
     height: auto !important;
-    max-height: 500px !important;
+    max-height: none !important;
     background: linear-gradient(135deg, rgba(81, 99, 111, 0.05) 0%, rgba(255, 189, 89, 0.05) 100%) !important;
     border-radius: 1rem !important;
     padding: 0.5rem !important;
+    align-items: start !important;
   }
   
   .kanban-compact-grid .kanban-column-desktop {
     display: flex !important;
     flex-direction: column !important;
-    height: 100% !important;
+    height: auto !important;
     min-height: 400px !important;
-    max-height: 450px !important;
+    max-height: none !important;
     border-radius: 0.75rem !important;
-    overflow: hidden !important;
+    overflow: visible !important;
+    align-self: start !important;
   }
   
   .kanban-compact-grid .kanban-column-content {
     min-height: 300px !important;
-    max-height: 350px !important;
+    max-height: none !important;
     height: auto !important;
-    flex: 1 !important;
-    overflow-y: auto !important;
+    flex: none !important;
+    overflow-y: visible !important;
     padding: 0.75rem !important;
     scrollbar-width: thin !important;
     scrollbar-color: rgba(255, 189, 89, 0.3) transparent !important;

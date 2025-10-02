@@ -12,7 +12,8 @@ import {
   AlertCircle,
   FileText,
   Phone,
-  CheckCircle
+  CheckCircle,
+  Trash2
 } from 'lucide-react';
 import { appointmentService } from '../api/appointmentService';
 
@@ -166,6 +167,61 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
     setTimeout(() => {
       loadNotifications();
     }, 500);
+  };
+
+  const handleDeleteNotification = async (notificationId: number) => {
+    try {
+      // Entferne die Benachrichtigung aus dem lokalen State
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      
+      // Wenn es eine Backend-Benachrichtigung ist, lösche sie auch dort
+      const notification = notifications.find(n => n.id === notificationId);
+      if (notification?.notification?.id) {
+        await fetch(`http://localhost:8000/api/v1/notifications/${notification.notification.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      }
+      
+      // Schließe Modal falls offen
+      if (selectedNotification?.id === notificationId) {
+        setSelectedNotification(null);
+      }
+      
+      console.log('Benachrichtigung gelöscht:', notificationId);
+    } catch (error) {
+      console.error('Fehler beim Löschen der Benachrichtigung:', error);
+    }
+  };
+
+  const handleDeleteAllNotifications = async () => {
+    if (!confirm('Möchten Sie wirklich alle Benachrichtigungen löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+      return;
+    }
+    
+    try {
+      // Lösche alle Benachrichtigungen im Backend
+      await fetch('http://localhost:8000/api/v1/notifications/delete-all', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      // Leere den lokalen State
+      setNotifications([]);
+      
+      // Schließe Modal falls offen
+      setSelectedNotification(null);
+      
+      console.log('Alle Benachrichtigungen gelöscht');
+    } catch (error) {
+      console.error('Fehler beim Löschen aller Benachrichtigungen:', error);
+    }
   };
 
   const loadNotifications = async () => {
@@ -540,13 +596,24 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
               </div>
               <div className="flex items-center gap-2">
                 {notifications.length > 0 && (
-                  <button 
-                    onClick={handleMarkAllAsRead}
-                    className="hover:bg-white/20 rounded-lg px-3 py-1 transition-colors text-sm font-medium"
-                    title="Alle gelesen"
-                  >
-                    Alle gelesen
-                  </button>
+                  <>
+                    <button 
+                      onClick={handleMarkAllAsRead}
+                      className="hover:bg-white/20 rounded-lg px-3 py-1 transition-colors text-sm font-medium"
+                      title="Alle gelesen"
+                    >
+                      <CheckCircle size={14} className="inline mr-1" />
+                      Alle gelesen
+                    </button>
+                    <button 
+                      onClick={handleDeleteAllNotifications}
+                      className="hover:bg-white/20 rounded-lg px-3 py-1 transition-colors text-sm font-medium"
+                      title="Alle löschen"
+                    >
+                      <Trash2 size={14} className="inline mr-1" />
+                      Alle löschen
+                    </button>
+                  </>
                 )}
                 <button 
                   onClick={() => setIsExpanded(false)}
@@ -595,15 +662,17 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                         // Schließe Benachrichtigungs-Panel
                         setIsExpanded(false);
                       } else if (userRole === 'DIENSTLEISTER' && notification.type === 'resource_allocated') {
-                        // Öffne die betroffene Ausschreibung für Ressourcen-Zuordnung
-                        console.log('📋 Öffne Ausschreibung für Ressourcen-Zuordnung:', notification.tradeId);
+                        // Öffne die betroffene Ausschreibung für Angebotsabgabe
+                        console.log('📋 Öffne Ausschreibung für Angebotsabgabe von Resource Allocation:', notification.tradeId);
                         markAsSeen([notification.id]);
                         
-                        // Event für ServiceProviderDashboard auslösen, um TradeDetailsModal zu öffnen
+                        // Event für ServiceProviderDashboard auslösen, um CostEstimateForm zu öffnen
                         window.dispatchEvent(new CustomEvent('openTradeDetails', {
                           detail: {
                             tradeId: notification.tradeId,
-                            source: 'resource_allocation_notification'
+                            allocationId: notification.allocationId,
+                            source: 'resource_allocation_notification',
+                            showQuoteForm: true
                           }
                         }));
                         
@@ -648,6 +717,19 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
+                        {/* Lösch-Button oben rechts */}
+                        <div className="flex justify-end mb-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteNotification(notification.id);
+                            }}
+                            className="hover:bg-red-100 rounded-full p-1 transition-colors"
+                            title="Benachrichtigung löschen"
+                          >
+                            <Trash2 size={14} className="text-red-500 hover:text-red-700" />
+                          </button>
+                        </div>
                         <div className="flex items-start gap-3">
                           <div className="flex-shrink-0 mt-1">
                             {notification.type === 'appointment_invitation' ? (
@@ -743,16 +825,26 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                             {notification.type === 'resource_allocated' && (
                               <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
                                 <div className="grid grid-cols-2 gap-2 text-xs">
-                                  <div>
-                                    <span className="text-gray-500">Projekt:</span>
-                                    <div className="font-semibold text-purple-600">
-                                      {notification.projectName || 'Unbekanntes Projekt'}
+                                  {notification.tradeTitle && (
+                                    <div>
+                                      <span className="text-gray-500">Gewerk:</span>
+                                      <div className="font-semibold text-purple-600">
+                                        {notification.tradeTitle}
+                                      </div>
                                     </div>
-                                  </div>
+                                  )}
+                                  {notification.projectName && (
+                                    <div>
+                                      <span className="text-gray-500">Projekt:</span>
+                                      <div className="font-semibold text-purple-600">
+                                        {notification.projectName}
+                                      </div>
+                                    </div>
+                                  )}
                                   <div>
                                     <span className="text-gray-500">Bauträger:</span>
                                     <div className="font-semibold text-gray-700">
-                                      {notification.bautraegerName || 'Unbekannter Bauträger'}
+                                      {notification.bautraegerName}
                                     </div>
                                   </div>
                                   {notification.allocatedStartDate && (
@@ -781,7 +873,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                                   )}
                                 </div>
                                 <div className="mt-2 text-xs text-purple-600 font-medium">
-                                  👆 Klicken Sie hier, um die Ausschreibung zu öffnen
+                                  👆 Klicken Sie hier, um zur Ressourcenverwaltung zu gelangen
                                 </div>
                               </div>
                             )}
@@ -799,7 +891,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                                   <div>
                                     <span className="text-gray-500">Bauträger:</span>
                                     <div className="font-semibold text-gray-700">
-                                      {notification.bautraegerName || 'Unbekannter Bauträger'}
+                                      {notification.bautraegerName}
                                     </div>
                                   </div>
                                   {notification.deadline && (

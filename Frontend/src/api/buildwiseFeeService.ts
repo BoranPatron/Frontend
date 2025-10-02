@@ -5,6 +5,7 @@ export interface BuildWiseFee {
   id: number;
   project_id: number;
   quote_id: number;
+  quote_title?: string;  // Neues Feld für den echten Ausschreibungsnamen
   cost_position_id: number;
   service_provider_id: number;
   fee_amount: number;
@@ -109,7 +110,8 @@ export async function createFeeFromQuote(
   feePercentage: number = 1.0
 ): Promise<BuildWiseFee> {
   return safeApiCall(async () => {
-    const res = await api.post(`/buildwise-fees/create-from-quote/${quoteId}/${costPositionId}`, null, {
+    const url = `${getApiBaseUrl()}/buildwise-fees/create-from-quote/${quoteId}/${costPositionId}`;
+    const res = await api.post(url, null, {
       params: { fee_percentage: feePercentage }
     });
     return res.data;
@@ -163,21 +165,24 @@ export async function getBuildWiseFees(
 
 export async function getBuildWiseFeeStatistics(): Promise<BuildWiseFeeStatistics> {
   return safeApiCall(async () => {
-    const res = await api.get('/buildwise-fees/statistics');
+    const url = `${getApiBaseUrl()}/buildwise-fees/statistics`;
+    const res = await api.get(url);
     return res.data;
   });
 }
 
 export async function getBuildWiseFee(feeId: number): Promise<BuildWiseFee> {
   return safeApiCall(async () => {
-    const res = await api.get(`/buildwise-fees/${feeId}`);
+    const url = `${getApiBaseUrl()}/buildwise-fees/${feeId}`;
+    const res = await api.get(url);
     return res.data;
   });
 }
 
 export async function updateFee(feeId: number, feeData: BuildWiseFeeUpdate): Promise<BuildWiseFee> {
   return safeApiCall(async () => {
-    const res = await api.put(`/buildwise-fees/${feeId}`, feeData);
+    const url = `${getApiBaseUrl()}/buildwise-fees/${feeId}`;
+    const res = await api.put(url, feeData);
     return res.data;
   });
 }
@@ -187,14 +192,16 @@ export async function markFeeAsPaid(feeId: number, paymentDate?: string): Promis
     const params: any = {};
     if (paymentDate) params.payment_date = paymentDate;
     
-    const res = await api.post(`/buildwise-fees/${feeId}/mark-as-paid`, null, { params });
+    const url = `${getApiBaseUrl()}/buildwise-fees/${feeId}/mark-as-paid`;
+    const res = await api.post(url, null, { params });
     return res.data;
   });
 }
 
 export async function generateInvoice(feeId: number): Promise<{ message: string }> {
   return safeApiCall(async () => {
-    const res = await api.post(`/buildwise-fees/${feeId}/generate-invoice`);
+    const url = `${getApiBaseUrl()}/buildwise-fees/${feeId}/generate-invoice`;
+    const res = await api.post(url);
     return res.data;
   });
 }
@@ -206,35 +213,40 @@ export async function generateGewerkInvoice(feeId: number): Promise<{
   document_path?: string; 
 }> {
   return safeApiCall(async () => {
-    const res = await api.post(`/buildwise-fees/${feeId}/generate-gewerk-invoice`);
+    const url = `${getApiBaseUrl()}/buildwise-fees/${feeId}/generate-gewerk-invoice`;
+    const res = await api.post(url);
     return res.data;
   });
 }
 
 export async function downloadInvoice(feeId: number): Promise<{ download_url: string; filename: string }> {
   return safeApiCall(async () => {
-    const res = await api.get(`/buildwise-fees/${feeId}/download-invoice`);
+    const url = `${getApiBaseUrl()}/buildwise-fees/${feeId}/download-invoice`;
+    const res = await api.get(url);
     return res.data;
   });
 }
 
 export async function getMonthlyFees(month: number, year: number): Promise<BuildWiseFee[]> {
   return safeApiCall(async () => {
-    const res = await api.get(`/buildwise-fees/monthly/${month}/${year}`);
+    const url = `${getApiBaseUrl()}/buildwise-fees/monthly/${month}/${year}`;
+    const res = await api.get(url);
     return res.data;
   });
 }
 
 export async function checkOverdueFees(): Promise<{ message: string; overdue_count: number }> {
   return safeApiCall(async () => {
-    const res = await api.post('/buildwise-fees/check-overdue');
+    const url = `${getApiBaseUrl()}/buildwise-fees/check-overdue`;
+    const res = await api.post(url);
     return res.data;
   });
 }
 
 export async function deleteFee(feeId: number): Promise<{ message: string }> {
   return safeApiCall(async () => {
-    const res = await api.delete(`/buildwise-fees/${feeId}`);
+    const url = `${getApiBaseUrl()}/buildwise-fees/${feeId}`;
+    const res = await api.delete(url);
     return res.data;
   });
 }
@@ -271,10 +283,55 @@ export function calculateFeeAmount(quoteAmount: number, feePercentage: number = 
   return quoteAmount * (feePercentage / 100);
 }
 
-export function calculateTaxAmount(netAmount: number, taxRate: number = 19.0): number {
+export function calculateTaxAmount(netAmount: number, taxRate: number = 8.1): number {
   return netAmount * (taxRate / 100);
 }
 
 export function calculateGrossAmount(netAmount: number, taxAmount: number): number {
   return netAmount + taxAmount;
+}
+
+// Account Status für Dienstleister
+export interface AccountStatus {
+  account_locked: boolean;
+  has_overdue_fees: boolean;
+  overdue_fees: Array<{
+    id: number;
+    invoice_number: string;
+    due_date: string | null;
+    fee_amount: number;
+    gross_amount: number;
+    currency: string;
+    days_overdue: number;
+    stripe_payment_link_url: string | null;
+  }>;
+  total_overdue_amount: number;
+  message: string;
+}
+
+export async function checkAccountStatus(): Promise<AccountStatus> {
+  return safeApiCall(async () => {
+    try {
+      const url = `${getApiBaseUrl()}/buildwise-fees/check-account-status`;
+      const res = await api.get(url);
+      return res.data;
+    } catch (error: any) {
+      console.error('❌ [checkAccountStatus] API-Fehler:', error);
+      
+      // Bei 422 oder anderen Server-Fehlern: Fallback-Response
+      if (error.response?.status === 422 || error.response?.status >= 500) {
+        console.log('🔄 [checkAccountStatus] Verwende Fallback wegen Server-Fehler');
+        return {
+          account_locked: false,
+          has_overdue_fees: false,
+          overdue_fees: [],
+          total_overdue_amount: 0,
+          message: 'Account-Status konnte nicht geprüft werden - Account gilt als aktiv'
+        };
+      }
+      
+      // Andere Fehler weiterwerfen
+      throw error;
+    }
+  });
 } 

@@ -19,15 +19,20 @@ import {
   BarChart3,
   Filter,
   Search,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
-import { resourceService, type Resource } from '../api/resourceService';
+import { resourceService, type Resource, type ResourceAllocation } from '../api/resourceService';
 import { useAuth } from '../context/AuthContext';
 import ResourceManagementModal from './ResourceManagementModal';
+import ResourceCalendar from './ResourceCalendar';
+import ResourceKPIDashboard from './ResourceKPIDashboard';
 import dayjs from 'dayjs';
 
 interface ResourceManagementDashboardProps {
   className?: string;
+  resourceAllocations?: ResourceAllocation[];
+  onOpenTradeDetails?: (tradeId: number) => void;
 }
 
 interface ResourceStats {
@@ -40,15 +45,20 @@ interface ResourceStats {
 }
 
 const ResourceManagementDashboard: React.FC<ResourceManagementDashboardProps> = ({
-  className = ''
+  className = '',
+  resourceAllocations = [],
+  onOpenTradeDetails
 }) => {
   const { user } = useAuth();
   const [resources, setResources] = useState<Resource[]>([]);
+  const [pendingAllocations, setPendingAllocations] = useState<ResourceAllocation[]>([]);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editResource, setEditResource] = useState<Resource | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [showCalendarView, setShowCalendarView] = useState(false);
+  const [showKPIDashboard, setShowKPIDashboard] = useState(false);
   const [stats, setStats] = useState<ResourceStats>({
     totalResources: 0,
     availableResources: 0,
@@ -75,6 +85,53 @@ const ResourceManagementDashboard: React.FC<ResourceManagementDashboardProps> = 
       console.error('Error loading resources:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Lade pendente Allocations
+  const loadPendingAllocations = async () => {
+    try {
+      const data = await resourceService.getMyPendingAllocations();
+      console.log('✅ Loaded pending allocations:', data);
+      setPendingAllocations(data);
+    } catch (error) {
+      console.error('❌ Error loading pending allocations:', error);
+    }
+  };
+
+  // Handler für Angebot abgeben
+  const handleSubmitQuote = (allocation: ResourceAllocation) => {
+    console.log('📋 Öffne TradeDetailsModal für Angebotsabgabe:', allocation);
+    
+    // Dispatch Event um TradeDetailsModal zu öffnen
+    window.dispatchEvent(new CustomEvent('openTradeDetails', {
+      detail: {
+        tradeId: allocation.trade_id,
+        allocationId: allocation.id,
+        source: 'resource_allocation_submit',
+        showQuoteForm: true
+      }
+    }));
+    
+    // Optional: Navigiere zu ServiceProviderDashboard falls wir auf einer anderen Seite sind
+    if (window.location.pathname !== '/service-provider-dashboard') {
+      window.location.href = `/service-provider-dashboard?trade=${allocation.trade_id}&showQuote=true`;
+    }
+  };
+
+  // Handler für Ablehnung
+  const handleRejectAllocation = async (allocation: ResourceAllocation) => {
+    const reason = prompt('Bitte geben Sie einen Ablehnungsgrund ein:');
+    if (!reason) return;
+
+    try {
+      await resourceService.rejectAllocation(allocation.id!, reason);
+      alert('✅ Zuordnung erfolgreich abgelehnt');
+      await loadPendingAllocations();
+      await loadResources();
+    } catch (error) {
+      console.error('Error rejecting allocation:', error);
+      alert('❌ Fehler beim Ablehnen der Zuordnung');
     }
   };
 
@@ -119,7 +176,10 @@ const ResourceManagementDashboard: React.FC<ResourceManagementDashboardProps> = 
   };
 
   useEffect(() => {
-    loadResources();
+    if (user?.id) {
+      loadResources();
+      loadPendingAllocations();
+    }
   }, [user?.id]);
 
   // Filter Ressourcen
@@ -132,6 +192,11 @@ const ResourceManagementDashboard: React.FC<ResourceManagementDashboardProps> = 
     
     return matchesSearch && matchesCategory;
   });
+
+  // Hilfsfunktion: Findet die Ausschreibungsinformationen für eine Ressource
+  const getResourceAllocationInfo = (resourceId: number) => {
+    return resourceAllocations.find(allocation => allocation.resource_id === resourceId);
+  };
 
   // Berechne Nutzungsgrad für eine Ressource
   const calculateResourceUtilization = (resource: Resource) => {
@@ -168,6 +233,76 @@ const ResourceManagementDashboard: React.FC<ResourceManagementDashboardProps> = 
           Ressourcen ausschreiben
         </button>
       </div>
+
+      {/* Pendente Angebotsanfragen - WICHTIG: Aktion erforderlich */}
+      {pendingAllocations.length > 0 && (
+        <div className="bg-[#ffbd59]/10 border border-[#ffbd59]/30 rounded-lg p-6 animate-pulse">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-6 h-6 text-[#ffbd59]" />
+              <div>
+                <h2 className="text-xl font-bold text-white">
+                  ⚠️ Aktion erforderlich
+                </h2>
+                <p className="text-gray-300 text-sm">
+                  {pendingAllocations.length} Bauträger {pendingAllocations.length === 1 ? 'hat' : 'haben'} Ihre Ressourcen für Ausschreibungen ausgewählt
+                </p>
+              </div>
+            </div>
+            <span className="px-3 py-1 bg-red-500 text-white rounded-full text-sm font-bold animate-bounce">
+              {pendingAllocations.length}
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {pendingAllocations.map((allocation) => (
+              <div key={allocation.id} className="bg-[#2a2a2a] rounded-lg p-4 border border-gray-700 hover:border-[#ffbd59] transition-colors">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-white mb-1">
+                      {(allocation as any).trade?.title || 'Ausschreibung'}
+                    </h3>
+                    <p className="text-gray-400 text-sm">
+                      Projekt: {(allocation as any).trade?.project?.name || 'Unbekannt'}
+                    </p>
+                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-400">
+                      <span className="flex items-center gap-1">
+                        <Users className="w-4 h-4" />
+                        {allocation.allocated_person_count} Personen
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        {dayjs(allocation.allocated_start_date).format('DD.MM.YY')} - 
+                        {dayjs(allocation.allocated_end_date).format('DD.MM.YY')}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 bg-yellow-500/20 text-yellow-300 rounded-full text-xs font-medium">
+                    Wartet auf Angebot
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleSubmitQuote(allocation)}
+                    className="flex-1 px-4 py-2 bg-[#ffbd59] text-black rounded-lg hover:bg-[#f59e0b] transition-colors font-medium flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Angebot abgeben
+                  </button>
+                  <button
+                    onClick={() => handleRejectAllocation(allocation)}
+                    className="flex-1 px-4 py-2 bg-red-500/20 text-red-300 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors font-medium flex items-center justify-center gap-2"
+                  >
+                    <X className="w-4 h-4" />
+                    Ablehnen
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Info Banner */}
       <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
@@ -375,6 +510,87 @@ const ResourceManagementDashboard: React.FC<ResourceManagementDashboardProps> = 
                       </div>
                     </div>
 
+                    {/* Ausschreibungsinformationen */}
+                    {(() => {
+                      const allocationInfo = getResourceAllocationInfo(resource.id);
+                      if (allocationInfo) {
+                        return (
+                          <div className="mt-3 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                                <span className="text-sm text-purple-300 font-medium">Verknüpft mit Ausschreibung</span>
+                              </div>
+                              <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                                allocationInfo.allocation_status === 'pre_selected' 
+                                  ? 'bg-yellow-500/20 text-yellow-400' 
+                                  : allocationInfo.allocation_status === 'invited'
+                                  ? 'bg-blue-500/20 text-blue-400'
+                                  : allocationInfo.allocation_status === 'offer_requested'
+                                  ? 'bg-orange-500/20 text-orange-400'
+                                  : allocationInfo.allocation_status === 'offer_submitted'
+                                  ? 'bg-green-500/20 text-green-400'
+                                  : allocationInfo.allocation_status === 'accepted'
+                                  ? 'bg-green-500/20 text-green-400'
+                                  : 'bg-gray-500/20 text-gray-400'
+                              }`}>
+                                {allocationInfo.allocation_status === 'pre_selected' ? 'Vorausgewählt' :
+                                 allocationInfo.allocation_status === 'invited' ? 'Eingeladen' :
+                                 allocationInfo.allocation_status === 'offer_requested' ? 'Angebot angefordert' :
+                                 allocationInfo.allocation_status === 'offer_submitted' ? 'Angebot eingereicht' :
+                                 allocationInfo.allocation_status === 'accepted' ? 'Angenommen' :
+                                 allocationInfo.allocation_status === 'rejected' ? 'Abgelehnt' :
+                                 allocationInfo.allocation_status === 'completed' ? 'Abgeschlossen' : 'Unbekannt'}
+                              </span>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                              <div>
+                                <span className="text-gray-400">Ausschreibung ID:</span>
+                                <div className="text-purple-300 font-medium">#{allocationInfo.trade_id}</div>
+                              </div>
+                              <div>
+                                <span className="text-gray-400">Zugewiesene Personen:</span>
+                                <div className="text-purple-300 font-medium">{allocationInfo.allocated_person_count}</div>
+                              </div>
+                              <div>
+                                <span className="text-gray-400">Zeitraum:</span>
+                                <div className="text-purple-300">
+                                  {dayjs(allocationInfo.allocated_start_date).format('DD.MM.YY')} - {dayjs(allocationInfo.allocated_end_date).format('DD.MM.YY')}
+                                </div>
+                              </div>
+                              <div>
+                                <span className="text-gray-400">Status:</span>
+                                <div className="text-purple-300 font-medium">
+                                  {allocationInfo.allocation_status === 'pre_selected' ? 'Vorausgewählt' :
+                                   allocationInfo.allocation_status === 'invited' ? 'Eingeladen' :
+                                   allocationInfo.allocation_status === 'offer_requested' ? 'Angebot angefordert' :
+                                   allocationInfo.allocation_status === 'offer_submitted' ? 'Angebot eingereicht' :
+                                   allocationInfo.allocation_status === 'accepted' ? 'Angenommen' :
+                                   allocationInfo.allocation_status === 'rejected' ? 'Abgelehnt' :
+                                   allocationInfo.allocation_status === 'completed' ? 'Abgeschlossen' : 'Unbekannt'}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Button zur Ausschreibung */}
+                            {onOpenTradeDetails && (
+                              <div className="mt-3 flex justify-end">
+                                <button
+                                  onClick={() => onOpenTradeDetails(allocationInfo.trade_id)}
+                                  className="px-4 py-2 bg-purple-500/20 text-purple-300 rounded-lg hover:bg-purple-500/30 transition-colors text-sm font-medium border border-purple-500/30 flex items-center gap-2"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  Zur Ausschreibung
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
                     {/* Ressourcennutzung - Differenz zwischen tatsächlichen und gewünschten Zeiträumen */}
                     {resource.builder_preferred_start_date && resource.builder_preferred_end_date && (
                       <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
@@ -458,11 +674,22 @@ const ResourceManagementDashboard: React.FC<ResourceManagementDashboardProps> = 
 
       {/* Buttons */}
       <div className="flex justify-between items-center">
-        <button className="px-6 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#333] transition-colors border border-gray-700">
+        <button 
+          onClick={() => setShowCalendarView(true)}
+          className="px-6 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#333] transition-colors border border-gray-700 flex items-center gap-2"
+        >
+          <Calendar className="w-4 h-4" />
           Kalenderansicht
         </button>
         
-        <button className="px-6 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#333] transition-colors border border-gray-700">
+        <button 
+          onClick={() => {
+            console.log('🔄 KPI Dashboard button clicked');
+            setShowKPIDashboard(true);
+          }}
+          className="px-6 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#333] transition-colors border border-gray-700 flex items-center gap-2"
+        >
+          <BarChart3 className="w-4 h-4" />
           KPI Dashboard
         </button>
         
@@ -494,6 +721,40 @@ const ResourceManagementDashboard: React.FC<ResourceManagementDashboardProps> = 
           }}
         />
       )}
+
+      {/* Calendar View Modal */}
+      {showCalendarView && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1a1a1a] rounded-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-700">
+              <h2 className="text-2xl font-bold text-white">Ressourcen-Kalenderansicht</h2>
+              <button
+                onClick={() => setShowCalendarView(false)}
+                className="p-2 text-gray-400 hover:text-white hover:bg-[#333] rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <ResourceCalendar
+                serviceProviderId={user?.id}
+                initialResources={resources}
+                onAddResource={() => setShowCreateModal(true)}
+                showFilters={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KPI Dashboard Modal */}
+      <ResourceKPIDashboard
+        isOpen={showKPIDashboard}
+        onClose={() => {
+          console.log('🔄 KPI Dashboard closing');
+          setShowKPIDashboard(false);
+        }}
+      />
     </div>
   );
 };

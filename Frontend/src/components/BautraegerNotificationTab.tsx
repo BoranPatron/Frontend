@@ -13,7 +13,9 @@ import {
   Mail,
   Phone,
   ExternalLink,
-  FileText
+  FileText,
+  Trash2,
+  CheckCircle
 } from 'lucide-react';
 import { appointmentService, type AppointmentResponse } from '../api/appointmentService';
 import api from '../api/api';
@@ -439,62 +441,109 @@ Ihr BuildWise Team
   };
 
   const handleMarkAllAsRead = async () => {
-    // Markiere alle Benachrichtigungen als behandelt
-    setNotifications(prev => 
-      prev.map(n => ({ ...n, isHandled: true, isRead: true }))
-    );
-    
-    // Setze permanente Marker für alle Benachrichtigungen
-    notifications.forEach(notification => {
-      if (notification.type === 'appointment' && notification.appointment) {
-        // Marker für Terminantworten
-        const permanentHandledKey = `bautraeger_handled_${notification.appointment.id}_${userId}`;
-        localStorage.setItem(permanentHandledKey, JSON.stringify({
-          appointmentId: notification.appointment.id,
-          userId: userId,
-          handledAt: new Date().toISOString(),
-          action: 'marked_all_as_read'
-        }));
+    try {
+      // Markiere alle Benachrichtigungen als behandelt
+      setNotifications(prev => 
+        prev.map(n => ({ ...n, isHandled: true, isRead: true }))
+      );
+      
+      // Setze permanente Marker für alle Benachrichtigungen
+      notifications.forEach(notification => {
+        if (notification.type === 'appointment' && notification.appointment) {
+          // Marker für Terminantworten
+          const permanentHandledKey = `bautraeger_handled_${notification.appointment.id}_${userId}`;
+          localStorage.setItem(permanentHandledKey, JSON.stringify({
+            appointmentId: notification.appointment.id,
+            userId: userId,
+            handledAt: new Date().toISOString(),
+            action: 'marked_all_as_read'
+          }));
+          
+          // Marker für E-Mail-Status (als gelesen behandeln)
+          const emailSentKey = `bautraeger_email_sent_${notification.appointment.id}_${userId}`;
+          localStorage.setItem(emailSentKey, JSON.stringify({
+            appointmentId: notification.appointment.id,
+            userId: userId,
+            markedAllReadAt: new Date().toISOString(),
+            action: 'marked_all_as_read'
+          }));
+        }
         
-        // Marker für E-Mail-Status (als gelesen behandeln)
-        const emailSentKey = `bautraeger_email_sent_${notification.appointment.id}_${userId}`;
-        localStorage.setItem(emailSentKey, JSON.stringify({
-          appointmentId: notification.appointment.id,
-          userId: userId,
-          markedAllReadAt: new Date().toISOString(),
-          action: 'marked_all_as_read'
-        }));
+        if ((notification.type === 'quote_submitted' || notification.type === 'completion' || notification.type === 'defects_resolved' || notification.type === 'invoice_received') && notification.notification) {
+          // Für Angebots-, Fertigstellungs-, Mängelbehebungs- und Rechnungsbenachrichtigungen - markiere als acknowledged
+          api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
+            console.error('Fehler beim Bestätigen der Benachrichtigung:', error);
+          });
+        }
+        
+        // Speziell für Rechnungsbenachrichtigungen
+        if (notification.type === 'invoice_received') {
+          const invoiceHandledKey = `invoice_handled_${notification.invoiceId}_${userId}`;
+          localStorage.setItem(invoiceHandledKey, JSON.stringify({
+            invoiceId: notification.invoiceId,
+            userId: userId,
+            handledAt: new Date().toISOString(),
+            action: 'marked_all_as_read'
+          }));
+        }
+      });
+      
+      // Schließe Modal falls offen
+      setSelectedNotification(null);
+      
+      // Lade Benachrichtigungen neu
+      setTimeout(() => {
+        loadBautraegerNotifications();
+      }, 500);
+      
+      if (onResponseHandled) {
+        onResponseHandled();
+      }
+    } catch (error) {
+      console.error('Fehler beim Markieren aller Benachrichtigungen als gelesen:', error);
+    }
+  };
+
+  const handleDeleteNotification = async (notificationId: string) => {
+    try {
+      // Entferne die Benachrichtigung aus dem lokalen State
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      
+      // Wenn es eine Backend-Benachrichtigung ist, lösche sie auch dort
+      const notification = notifications.find(n => n.id === notificationId);
+      if (notification?.notification?.id) {
+        await api.delete(`/notifications/${notification.notification.id}`);
       }
       
-      if ((notification.type === 'quote_submitted' || notification.type === 'completion' || notification.type === 'defects_resolved' || notification.type === 'invoice_received') && notification.notification) {
-        // Für Angebots-, Fertigstellungs-, Mängelbehebungs- und Rechnungsbenachrichtigungen - markiere als acknowledged
-        api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
-          console.error('Fehler beim Bestätigen der Benachrichtigung:', error);
-        });
+      // Schließe Modal falls offen
+      if (selectedNotification?.id === notificationId) {
+        setSelectedNotification(null);
       }
       
-      // Speziell für Rechnungsbenachrichtigungen
-      if (notification.type === 'invoice_received') {
-        const invoiceHandledKey = `invoice_handled_${notification.invoiceId}_${userId}`;
-        localStorage.setItem(invoiceHandledKey, JSON.stringify({
-          invoiceId: notification.invoiceId,
-          userId: userId,
-          handledAt: new Date().toISOString(),
-          action: 'marked_all_as_read'
-        }));
-      }
-    });
+      console.log('Benachrichtigung gelöscht:', notificationId);
+    } catch (error) {
+      console.error('Fehler beim Löschen der Benachrichtigung:', error);
+    }
+  };
+
+  const handleDeleteAllNotifications = async () => {
+    if (!confirm('Möchten Sie wirklich alle Benachrichtigungen löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+      return;
+    }
     
-    // Schließe Modal falls offen
-    setSelectedNotification(null);
-    
-    // Lade Benachrichtigungen neu
-    setTimeout(() => {
-      loadBautraegerNotifications();
-    }, 500);
-    
-    if (onResponseHandled) {
-      onResponseHandled();
+    try {
+      // Lösche alle Benachrichtigungen im Backend
+      await api.delete('/notifications/delete-all');
+      
+      // Leere den lokalen State
+      setNotifications([]);
+      
+      // Schließe Modal falls offen
+      setSelectedNotification(null);
+      
+      console.log('Alle Benachrichtigungen gelöscht');
+    } catch (error) {
+      console.error('Fehler beim Löschen aller Benachrichtigungen:', error);
     }
   };
 
@@ -578,13 +627,24 @@ Ihr BuildWise Team
               </div>
               <div className="flex items-center gap-2">
                 {notifications.length > 0 && (
-                  <button 
-                    onClick={handleMarkAllAsRead}
-                    className="hover:bg-white/20 rounded-lg px-3 py-1 transition-colors text-sm font-medium"
-                    title="Alle gelesen"
-                  >
-                    Alle gelesen
-                  </button>
+                  <>
+                    <button 
+                      onClick={handleMarkAllAsRead}
+                      className="hover:bg-white/20 rounded-lg px-3 py-1 transition-colors text-sm font-medium"
+                      title="Alle gelesen"
+                    >
+                      <CheckCircle size={14} className="inline mr-1" />
+                      Alle gelesen
+                    </button>
+                    <button 
+                      onClick={handleDeleteAllNotifications}
+                      className="hover:bg-white/20 rounded-lg px-3 py-1 transition-colors text-sm font-medium"
+                      title="Alle löschen"
+                    >
+                      <Trash2 size={14} className="inline mr-1" />
+                      Alle löschen
+                    </button>
+                  </>
                 )}
                 <button 
                   onClick={() => setIsExpanded(false)}
@@ -661,6 +721,19 @@ Ihr BuildWise Team
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
+                    {/* Lösch-Button oben rechts */}
+                    <div className="flex justify-end mb-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteNotification(notification.id);
+                        }}
+                        className="hover:bg-red-100 rounded-full p-1 transition-colors"
+                        title="Benachrichtigung löschen"
+                      >
+                        <Trash2 size={14} className="text-red-500 hover:text-red-700" />
+                      </button>
+                    </div>
                     <h4 className="font-medium text-gray-900 mb-1">
                       {notification.title}
                     </h4>

@@ -44,6 +44,8 @@ import {
   MessageSquare,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Plus,
   CloudUpload,
   Image,
@@ -1195,6 +1197,9 @@ export default function Dashboard() {
   // Gewerk-Erstellung
   const [showTradeCreationForm, setShowTradeCreationForm] = useState(false);
   
+  // State für eingeklappte abgeschlossene Ausschreibungen (standardmäßig eingeklappt)
+  const [showCompletedTrades, setShowCompletedTrades] = useState(false);
+  
   // Ref für To-Do Aufgaben Abschnitt
   const todoSectionRef = useRef<HTMLDivElement>(null);
   
@@ -1992,9 +1997,9 @@ export default function Dashboard() {
             </div>
           </div>
           
-          {/* Zweigeteiltes Layout: Links offene Ausschreibungen, rechts angenommene Ausschreibungen */}
-          {/* Mobile: Gestapelt | Tablet: 1 Spalte | Desktop: 2 Spalten */}
-          <div className="mobile-stack lg:grid lg:grid-cols-2 gap-4 md:gap-6 items-start auto-rows-max">
+          {/* Festes Layout: Immer 2 Spalten, dritter Bereich in zweiter Reihe */}
+          {/* Mobile: Gestapelt | Tablet/Desktop: 2 Spalten mit Bereich in zweiter Reihe */}
+          <div className="space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-6 items-start auto-rows-max">
             {/* Linke Spalte: Offene Ausschreibungen */}
             <div className="space-y-4 w-full h-auto min-h-fit">
               <div className="flex items-center justify-between">
@@ -2098,7 +2103,8 @@ export default function Dashboard() {
                       const acceptedTrades = projectTrades.filter(trade => {
                         const quotes = allTradeQuotes[trade.id] || [];
                         const hasAcceptedQuote = quotes.some(quote => quote.status === 'accepted');
-                        return hasAcceptedQuote;
+                        const isCompleted = (trade as any).completion_status === 'completed';
+                        return hasAcceptedQuote && !isCompleted;
                       });
                       return acceptedTrades.length;
                     })()}
@@ -2112,15 +2118,16 @@ export default function Dashboard() {
                     const acceptedTrades = projectTrades.filter(trade => {
                       const quotes = allTradeQuotes[trade.id] || [];
                       const hasAcceptedQuote = quotes.some(quote => quote.status === 'accepted');
-                      return hasAcceptedQuote;
+                      const isCompleted = (trade as any).completion_status === 'completed';
+                      return hasAcceptedQuote && !isCompleted;
                     });
                     
                     if (acceptedTrades.length === 0) {
                       return (
                         <div className="text-center py-8">
                           <AlertTriangle size={48} className="text-yellow-400 mx-auto mb-4" />
-                          <p className="text-gray-400 text-sm mb-4">Noch keine Angebote angenommen</p>
-                          <p className="text-gray-500 text-xs">Angenommene Ausschreibungen erscheinen hier.</p>
+                          <p className="text-gray-400 text-sm mb-4">Keine laufenden Ausschreibungen</p>
+                          <p className="text-gray-500 text-xs">Angenommene Ausschreibungen ohne Abschluss erscheinen hier.</p>
                         </div>
                       );
                     }
@@ -2175,6 +2182,153 @@ export default function Dashboard() {
                   })()}
                 </div>
               </div>
+            </div>
+            
+            {/* Dritter Bereich: Abgeschlossene Ausschreibungen - Immer in zweiter Reihe */}
+            <div className="space-y-4 w-full h-auto min-h-fit md:col-span-2 md:mt-6 md:pt-6 md:border-t md:border-white/10">
+              {/* Header - immer sichtbar */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-base md:text-lg font-semibold text-white flex items-center gap-2 md:gap-3">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                  <span className="hidden sm:inline">Abgeschlossene Ausschreibungen</span>
+                  <span className="sm:hidden">Abgeschlossen</span>
+                  <span className="text-xs md:text-sm text-gray-400 bg-white/10 px-2 py-1 rounded-full">
+                    {(() => {
+                      const completedTrades = projectTrades.filter(trade => {
+                        const quotes = allTradeQuotes[trade.id] || [];
+                        const hasAcceptedQuote = quotes.some(quote => quote.status === 'accepted');
+                        const isCompleted = (trade as any).completion_status === 'completed';
+                        return hasAcceptedQuote && isCompleted;
+                      });
+                      return completedTrades.length;
+                    })()}
+                  </span>
+                </h3>
+                <button
+                  onClick={() => setShowCompletedTrades(!showCompletedTrades)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 hover:text-blue-200 rounded-lg transition-all duration-200 border border-blue-500/30 hover:border-blue-400/50"
+                  title={showCompletedTrades ? "Bereich einklappen" : "Bereich ausklappen"}
+                >
+                  {showCompletedTrades ? (
+                    <>
+                      <ChevronUp size={14} />
+                      <span className="text-xs font-medium hidden sm:inline">Einklappen</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown size={14} />
+                      <span className="text-xs font-medium hidden sm:inline">Ausklappen</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              
+              {/* Eingeklappter Zustand - Kompakter Hinweis */}
+              {!showCompletedTrades && (() => {
+                const completedTrades = projectTrades.filter(trade => {
+                  const quotes = allTradeQuotes[trade.id] || [];
+                  const hasAcceptedQuote = quotes.some(quote => quote.status === 'accepted');
+                  const isCompleted = (trade as any).completion_status === 'completed';
+                  return hasAcceptedQuote && isCompleted;
+                });
+                
+                if (completedTrades.length > 0) {
+                  return (
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-blue-300 text-sm">
+                          <CheckCircle size={16} />
+                          <span className="font-medium">{completedTrades.length} abgeschlossene Ausschreibung{completedTrades.length !== 1 ? 'en' : ''}</span>
+                        </div>
+                        <span className="text-blue-400 text-xs hidden sm:inline">Klicken Sie auf "Ausklappen" um Details zu sehen</span>
+                        <span className="text-blue-400 text-xs sm:hidden">Tippen zum Ausklappen</span>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="bg-gray-500/10 border border-gray-500/20 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-gray-400 text-sm">
+                      <CheckCircle size={16} />
+                      <span>Noch keine Ausschreibungen abgeschlossen</span>
+                    </div>
+                  </div>
+                );
+              })()}
+              
+              {/* Ausgeklappter Zustand - Vollständiger Inhalt */}
+              {showCompletedTrades && (
+                <div className="mobile-card bg-white/5 rounded-xl border border-white/10 overflow-hidden relative h-auto min-h-fit">
+                  <div className="mobile-spacing p-4 md:p-6 space-y-3 relative z-10 h-auto min-h-fit">
+                    {(() => {
+                      const completedTrades = projectTrades.filter(trade => {
+                        const quotes = allTradeQuotes[trade.id] || [];
+                        const hasAcceptedQuote = quotes.some(quote => quote.status === 'accepted');
+                        const isCompleted = (trade as any).completion_status === 'completed';
+                        return hasAcceptedQuote && isCompleted;
+                      });
+                      
+                      if (completedTrades.length === 0) {
+                        return (
+                          <div className="text-center py-8">
+                            <CheckCircle size={48} className="text-blue-400 mx-auto mb-4" />
+                            <p className="text-gray-400 text-sm mb-4">Noch keine Ausschreibungen abgeschlossen</p>
+                            <p className="text-gray-500 text-xs">Abgeschlossene Ausschreibungen erscheinen hier.</p>
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <TradesCard
+                          trades={completedTrades}
+                          projectId={selectedProject.id}
+                          isExpanded={true}
+                          onToggle={() => {}}
+                          onTradeClick={handleTradeClick}
+                          tradeAppointments={tradeAppointments}
+                          onAcceptQuote={async (quoteId: number) => {
+                            try {
+                              await acceptQuote(quoteId);
+                              const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                              setProjectTrades(activeTrades);
+                              await loadQuotesForTrades(activeTrades);
+                              await loadAppointmentsForTrades(activeTrades);
+                              setSuccess('Angebot erfolgreich angenommen!');
+                              setTimeout(() => setSuccess(''), 3000);
+                            } catch (e: any) {
+                              console.error('❌ Fehler beim Annehmen:', e);
+                              setError('Fehler beim Annehmen des Angebots');
+                            }
+                          }}
+                          onRejectQuote={async (quoteId: number, reason: string) => {
+                            try {
+                              await rejectQuote(quoteId, reason);
+                              const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                              setProjectTrades(activeTrades);
+                              await loadQuotesForTrades(activeTrades);
+                              await loadAppointmentsForTrades(activeTrades);
+                              setSuccess('Angebot erfolgreich abgelehnt!');
+                              setTimeout(() => setSuccess(''), 3000);
+                            } catch (e: any) {
+                              console.error('❌ Fehler beim Ablehnen:', e);
+                              setError('Fehler beim Ablehnen des Angebots');
+                            }
+                          }}
+                          onResetQuote={async (quoteId: number) => {
+                            try {
+                              await resetQuote(quoteId);
+                              const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                              setProjectTrades(activeTrades);
+                            } catch (e) {
+                              console.error('❌ Fehler beim Zurücksetzen:', e);
+                            }
+                          }}
+                        />
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -2341,20 +2495,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Debug-Info */}
-      <div className="mt-8 text-xs text-gray-400 text-center">
-        <p>Debug: AuthContext initialisiert: {isInitialized ? 'Ja' : 'Nein'}</p>
-        <p>Debug: Projekte geladen: {projects.length}</p>
-        <p>Debug: Aktuelles Projekt: {selectedProject ? selectedProject.name : 'Keines'}</p>
-        <p>Debug: User Role: {userRole}</p>
-        <p>Debug: User Role from User Object: {user?.user_role || 'nicht gesetzt'}</p>
-        <p>Debug: Subscription Plan: {user?.subscription_plan || 'nicht gesetzt'}</p>
-        <p>Debug: Subscription Status: {user?.subscription_status || 'nicht gesetzt'}</p>
-        <p>Debug: Is PRO User: {user?.subscription_plan === 'PRO' && user?.subscription_status === 'ACTIVE' ? 'JA' : 'NEIN'}</p>
-        <p>Debug: Navigation: Radial Menu aktiv</p>
-        <p>Debug: Construction Phase: {(currentProject as any).construction_phase || 'NICHT GESETZT'}</p>
-        <p>Debug: Address Country: {(currentProject as any).address_country || 'NICHT GESETZT'}</p>
-      </div>
 
       {/* Projekt-Erstellungs-Modal */}
       {showCreateProjectModal && (

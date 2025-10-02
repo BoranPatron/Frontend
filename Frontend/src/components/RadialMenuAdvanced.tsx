@@ -66,9 +66,11 @@ export function RadialMenuAdvanced({
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [showCreateMenu, setShowCreateMenu] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [isDragMode, setIsDragMode] = useState(false);
   const [draggedItem, setDraggedItem] = useState<number | null>(null);
   const [customOrder, setCustomOrder] = useState<string[]>([]);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [longPressStartTime, setLongPressStartTime] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const navigate = useNavigate();
@@ -101,8 +103,45 @@ export function RadialMenuAdvanced({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Main navigation items
-  const getMainItems = (): RadialItem[] => {
+  // Primary actions (most important - inner ring)
+  const getPrimaryItems = (): RadialItem[] => {
+    const projectId = selectedProject?.id;
+    return [
+      {
+        id: "create-project",
+        label: "Neues Projekt",
+        icon: <Building size={28} />,
+        onSelect: () => {
+          navigate(`${window.location.pathname}?create=project`);
+        },
+        color: "#ffbd59",
+        description: "Projekt erstellen",
+        ring: 1, // Primary ring
+        tourId: "radial-menu-create-project"
+        // Never disabled - always available
+      },
+      {
+        id: "create-trade",
+        label: "Neue Ausschreibung",
+        icon: <Hammer size={28} />,
+        onSelect: () => {
+          if (projectId) {
+            navigate(`${window.location.pathname}?create=trade&project=${projectId}`);
+          } else {
+            navigate(`${window.location.pathname}?create=trade`);
+          }
+        },
+        color: "#8B5CF6",
+        description: "Ausschreibung erstellen",
+        ring: 1, // Primary ring
+        disabled: !hasProjects,
+        disabledReason: "Erstellen Sie zuerst ein Projekt"
+      }
+    ];
+  };
+
+  // Secondary navigation items (outer ring)
+  const getSecondaryItems = (): RadialItem[] => {
     const projectId = selectedProject?.id;
     const items: RadialItem[] = [
       {
@@ -118,7 +157,7 @@ export function RadialMenuAdvanced({
         },
         color: "#3B82F6",
         description: "Dokumentenmanagement",
-        ring: 1,
+        ring: 2,
         tourId: "radial-menu-documents",
         disabled: !hasProjects,
         disabledReason: "Erstellen Sie zuerst ein Projekt"
@@ -136,13 +175,11 @@ export function RadialMenuAdvanced({
         },
         color: "#10B981",
         description: "Aufgabenmanagement",
-        ring: 1,
+        ring: 2,
         tourId: "radial-menu-tasks",
         disabled: !hasProjects,
         disabledReason: "Erstellen Sie zuerst ein Projekt"
       },
-
-      // Entfernt: Gewerke-Hauptpunkt (Seite /quotes deaktiviert)
       {
         id: "visualize",
         label: "Visualize",
@@ -156,7 +193,7 @@ export function RadialMenuAdvanced({
         },
         color: "#06B6D4",
         description: "Analytics & Berichte",
-        ring: 1,
+        ring: 2,
         tourId: "radial-menu-visualize",
         disabled: !hasProjects,
         disabledReason: "Erstellen Sie zuerst ein Projekt"
@@ -174,8 +211,42 @@ export function RadialMenuAdvanced({
         },
         color: "#EC4899",
         description: "Kollaboration & Zeichnungen",
-        ring: 1,
+        ring: 2,
         tourId: "radial-menu-canvas",
+        disabled: !hasProjects,
+        disabledReason: "Erstellen Sie zuerst ein Projekt"
+      },
+      {
+        id: "create-task",
+        label: "Neue Aufgabe",
+        icon: <ListPlus size={24} />,
+        onSelect: () => {
+          if (projectId) {
+            navigate(`/tasks?project=${projectId}&create=task`);
+          } else {
+            navigate('/tasks?create=task');
+          }
+        },
+        color: "#10B981",
+        description: "Aufgabe hinzufügen",
+        ring: 2,
+        disabled: !hasProjects,
+        disabledReason: "Erstellen Sie zuerst ein Projekt"
+      },
+      {
+        id: "upload-doc",
+        label: "Upload",
+        icon: <Upload size={24} />,
+        onSelect: () => {
+          if (projectId) {
+            navigate(`/documents?project=${projectId}&create=upload`);
+          } else {
+            navigate('/documents?create=upload');
+          }
+        },
+        color: "#4F46E5",
+        description: "Dokument hochladen",
+        ring: 2,
         disabled: !hasProjects,
         disabledReason: "Erstellen Sie zuerst ein Projekt"
       }
@@ -196,88 +267,11 @@ export function RadialMenuAdvanced({
     return items;
   };
 
-  // Create action items (second ring)
-  const getCreateItems = (): RadialItem[] => {
-    if (customCreateActions) return customCreateActions;
-    
-    const projectId = selectedProject?.id;
-    return [
-      {
-        id: "create-project",
-        label: "Neues Projekt",
-        icon: <Building size={20} />,
-        onSelect: () => {
-          // Öffnet das globale Projekt-Erstellungs-Modal über URL-Parameter
-          navigate(`${window.location.pathname}?create=project`);
-        },
-        color: "#ffbd59",
-        description: "Projekt erstellen",
-        ring: 2,
-        tourId: "radial-menu-create-project"
-        // Never disabled - always available
-      },
-      {
-        id: "create-task",
-        label: "Neue Aufgabe",
-        icon: <ListPlus size={20} />,
-        onSelect: () => {
-          // Öffnet die Aufgaben-Seite, optional mit Create-Hinweis
-          if (projectId) {
-            navigate(`/tasks?project=${projectId}&create=task`);
-          } else {
-            navigate('/tasks?create=task');
-          }
-        },
-        color: "#10B981",
-        description: "Aufgabe hinzufügen",
-        ring: 2,
-        disabled: !hasProjects,
-        disabledReason: "Erstellen Sie zuerst ein Projekt"
-      },
-
-      {
-        id: "create-trade",
-        label: "Neue Ausschreibung",
-        icon: <Hammer size={20} />,
-        onSelect: () => {
-          // Öffnet das aktuelle Layout und triggert Gewerk-Formular via Query-Param
-          if (projectId) {
-            navigate(`${window.location.pathname}?create=trade&project=${projectId}`);
-          } else {
-            navigate(`${window.location.pathname}?create=trade`);
-          }
-        },
-        color: "#8B5CF6",
-        description: "Ausschreibung erstellen",
-        ring: 2,
-        disabled: !hasProjects,
-        disabledReason: "Erstellen Sie zuerst ein Projekt"
-      },
-      {
-        id: "upload-doc",
-        label: "Upload",
-        icon: <Upload size={20} />,
-        onSelect: () => {
-          // Öffnet DMS und triggert Upload-Modal via Query-Param
-          if (projectId) {
-            navigate(`/documents?project=${projectId}&create=upload`);
-          } else {
-            navigate('/documents?create=upload');
-          }
-        },
-        color: "#4F46E5",
-        description: "Dokument hochladen",
-        ring: 2,
-        disabled: !hasProjects,
-        disabledReason: "Erstellen Sie zuerst ein Projekt"
-      }
-    ];
-  };
-
-  const mainItems = getMainItems();
-  // Sekundärreihe als Primärreihe integrieren
-  const createItems = getCreateItems();
-  const defaultItems = [...mainItems, ...createItems.map(ci => ({ ...ci, ring: 1 }))];
+  const primaryItems = getPrimaryItems();
+  const secondaryItems = getSecondaryItems();
+  
+  // Combine all items with proper ring assignment
+  const defaultItems = [...primaryItems, ...secondaryItems];
 
   // Apply custom order if available
   const allItems = useMemo(() => {
@@ -322,22 +316,31 @@ export function RadialMenuAdvanced({
     localStorage.removeItem('radial-menu-custom-order');
   }, []);
 
-  // Drag and drop handlers
+  // Drag and drop handlers - only for secondary buttons
   const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
-    if (!isEditMode) return;
+    if (!isDragMode) return;
+    const item = allItems[index];
+    // Only allow dragging of secondary buttons (ring 2)
+    if (item.ring === 1) return;
     setDraggedItem(index);
     e.dataTransfer.effectAllowed = 'move';
-  }, [isEditMode]);
+  }, [isDragMode, allItems]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
-    if (!isEditMode) return;
+    if (!isDragMode) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-  }, [isEditMode]);
+  }, [isDragMode]);
 
   const handleDrop = useCallback((e: React.DragEvent, dropIndex: number) => {
-    if (!isEditMode || draggedItem === null) return;
+    if (!isDragMode || draggedItem === null) return;
     e.preventDefault();
+    
+    const draggedItem_obj = allItems[draggedItem];
+    const dropItem_obj = allItems[dropIndex];
+    
+    // Only allow dropping on secondary buttons (ring 2)
+    if (draggedItem_obj.ring === 1 || dropItem_obj.ring === 1) return;
     
     const newOrder = [...allItems.map(item => item.id)];
     const draggedId = newOrder[draggedItem];
@@ -350,39 +353,68 @@ export function RadialMenuAdvanced({
     
     saveCustomOrder(newOrder);
     setDraggedItem(null);
-  }, [isEditMode, draggedItem, allItems, saveCustomOrder]);
+  }, [isDragMode, draggedItem, allItems, saveCustomOrder]);
 
   const handleDragEnd = useCallback(() => {
     setDraggedItem(null);
   }, []);
 
-  // Calculate layout with multiple rings - doubled radius for maximum spacing
+  // Calculate layout with multiple rings - screen-safe positioning with vertical primary layout
   const layout = useMemo(() => {
-    const radius1 = isMobile ? 220 : 280;  // Doubled from 110/140
-    const radius2 = isMobile ? 330 : 420;  // Doubled from 165/210
+    // Much smaller radii to ensure buttons stay within screen bounds
+    const primaryRadius = isMobile ? 80 : 100;  // Inner ring - very compact
+    const secondaryRadius = isMobile ? 140 : 180;  // Outer ring - compact
     
     return allItems.map((item, i) => {
-      const isSecondRing = false; // alles in den Primärring verschoben
-      const radius = radius1;
+      const isPrimaryRing = item.ring === 1;
       
-      // Calculate angle based on ring
-      const itemsInRing = allItems; // ein Ring
-      const indexInRing = itemsInRing.indexOf(item);
-      const countInRing = itemsInRing.length;
-      
-      const startAngle = isSecondRing ? -160 : -170;
-      const endAngle = isSecondRing ? -80 : -60;
-      const span = endAngle - startAngle;
-      
-      const t = countInRing === 1 ? 0.5 : indexInRing / (countInRing - 1);
-      const angle = (startAngle + t * span) * (Math.PI / 180);
-      
-      return {
-        x: Math.cos(angle) * radius,
-        y: Math.sin(angle) * radius,
-        angleDeg: startAngle + t * span,
-        ring: 1
-      };
+      if (isPrimaryRing) {
+        // Primary buttons positioned horizontally to the left of FAB to avoid overlap
+        const primaryItems = allItems.filter(i => i.ring === 1);
+        const indexInPrimary = primaryItems.indexOf(item);
+        const primaryCount = primaryItems.length;
+        
+        // Position horizontally to the left of the FAB button
+        const fabSize = isMobile ? 56 : 72;
+        const buttonSize = isMobile ? 52 : 64;
+        const spacing = isMobile ? 70 : 80;
+        const baseOffset = -(fabSize/2 + buttonSize/2 + spacing); // Start to the left of FAB
+        
+        // Stack vertically but offset to the left
+        const verticalSpacing = isMobile ? 60 : 70;
+        const verticalOffset = -(verticalSpacing * (primaryCount - 1)) / 2;
+        
+        return {
+          x: baseOffset, // Positioned to the left of FAB
+          y: verticalOffset + (indexInPrimary * verticalSpacing),
+          angleDeg: -90, // Always pointing up
+          ring: item.ring,
+          isVertical: true,
+          isHorizontal: true
+        };
+      } else {
+        // Secondary buttons in a compact arc
+        const radius = secondaryRadius;
+        const itemsInRing = allItems.filter(i => i.ring === 2);
+        const indexInRing = itemsInRing.indexOf(item);
+        const countInRing = itemsInRing.length;
+        
+        // Compact arc from -135 to -45 degrees (safe area)
+        const startAngle = -135;
+        const endAngle = -45;
+        const span = endAngle - startAngle;
+        
+        const t = countInRing === 1 ? 0.5 : indexInRing / (countInRing - 1);
+        const angle = (startAngle + t * span) * (Math.PI / 180);
+        
+        return {
+          x: Math.cos(angle) * radius,
+          y: Math.sin(angle) * radius,
+          angleDeg: startAngle + t * span,
+          ring: item.ring,
+          isVertical: false
+        };
+      }
     });
   }, [allItems, isMobile]);
 
@@ -393,9 +425,9 @@ export function RadialMenuAdvanced({
         setOpen(false);
         setShowCreateMenu(false);
         setHoveredIndex(null);
-        // Exit edit mode when closing menu
-        if (isEditMode) {
-          setIsEditMode(false);
+        // Exit drag mode when closing menu
+        if (isDragMode) {
+          setIsDragMode(false);
         }
       }
     };
@@ -404,7 +436,7 @@ export function RadialMenuAdvanced({
       document.addEventListener("pointerdown", handleOutsideClick);
       return () => document.removeEventListener("pointerdown", handleOutsideClick);
     }
-  }, [open, isEditMode]);
+  }, [open, isDragMode]);
 
   // Keyboard navigation
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -433,8 +465,19 @@ export function RadialMenuAdvanced({
         e.preventDefault();
         setActiveIndex((i) => {
           const currentIndex = i ?? 0;
+          const currentItem = allItems[currentIndex];
+          
+          // If in primary ring, stay in primary ring
+          if (currentItem?.ring === 1) {
+            const primaryItems = allItems.filter(item => item.ring === 1);
+            const currentPrimaryIndex = primaryItems.indexOf(currentItem);
+            let newPrimaryIndex = (currentPrimaryIndex - 1 + primaryItems.length) % primaryItems.length;
+            const newItem = primaryItems[newPrimaryIndex];
+            return allItems.indexOf(newItem);
+          }
+          
+          // Otherwise navigate normally
           let newIndex = (currentIndex - 1 + allItems.length) % allItems.length;
-          // Skip disabled items
           while (allItems[newIndex]?.disabled && newIndex !== currentIndex) {
             newIndex = (newIndex - 1 + allItems.length) % allItems.length;
           }
@@ -446,8 +489,19 @@ export function RadialMenuAdvanced({
         e.preventDefault();
         setActiveIndex((i) => {
           const currentIndex = i ?? 0;
+          const currentItem = allItems[currentIndex];
+          
+          // If in primary ring, stay in primary ring
+          if (currentItem?.ring === 1) {
+            const primaryItems = allItems.filter(item => item.ring === 1);
+            const currentPrimaryIndex = primaryItems.indexOf(currentItem);
+            let newPrimaryIndex = (currentPrimaryIndex + 1) % primaryItems.length;
+            const newItem = primaryItems[newPrimaryIndex];
+            return allItems.indexOf(newItem);
+          }
+          
+          // Otherwise navigate normally
           let newIndex = (currentIndex + 1) % allItems.length;
-          // Skip disabled items
           while (allItems[newIndex]?.disabled && newIndex !== currentIndex) {
             newIndex = (newIndex + 1) % allItems.length;
           }
@@ -487,6 +541,22 @@ export function RadialMenuAdvanced({
           });
         }
         break;
+      case "1":
+        // Jump to primary ring
+        e.preventDefault();
+        const primaryItems = allItems.filter(item => item.ring === 1 && !item.disabled);
+        if (primaryItems.length > 0) {
+          setActiveIndex(allItems.indexOf(primaryItems[0]));
+        }
+        break;
+      case "2":
+        // Jump to secondary ring
+        e.preventDefault();
+        const secondaryItems = allItems.filter(item => item.ring === 2 && !item.disabled);
+        if (secondaryItems.length > 0) {
+          setActiveIndex(allItems.indexOf(secondaryItems[0]));
+        }
+        break;
       case "c":
       case "C":
         // Toggle create menu with 'C' key
@@ -496,10 +566,15 @@ export function RadialMenuAdvanced({
         break;
       case "e":
       case "E":
-        // Toggle edit mode with 'E' key
+        // Toggle drag mode with 'E' key (alternative to long press)
         if (open) {
           e.preventDefault();
-          setIsEditMode(!isEditMode);
+          setIsDragMode(!isDragMode);
+          
+          // Trigger vibration if supported
+          if (navigator.vibrate) {
+            navigator.vibrate([100, 50, 100]);
+          }
         }
         break;
       case "r":
@@ -513,27 +588,57 @@ export function RadialMenuAdvanced({
     }
   };
 
-  // Long press detection for mobile
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
-  
-  const handleTouchStart = useCallback(() => {
+  // Long press detection for drag mode activation (3 seconds)
+  const handleFABTouchStart = useCallback(() => {
     if (!open) {
+      // Normal menu opening
       const timer = setTimeout(() => {
         setOpen(true);
         if (enableSecondRing) {
           setShowCreateMenu(true);
         }
-      }, 500);
+        // On mobile, start with primary ring focused
+        const primaryItems = allItems.filter(item => item.ring === 1 && !item.disabled);
+        if (primaryItems.length > 0) {
+          setActiveIndex(allItems.indexOf(primaryItems[0]));
+        }
+      }, isMobile ? 300 : 500);
+      setLongPressTimer(timer);
+    } else {
+      // Long press on FAB when menu is open - activate drag mode
+      setLongPressStartTime(Date.now());
+      const timer = setTimeout(() => {
+        // 3 seconds passed - activate drag mode
+        setIsDragMode(true);
+        
+        // Trigger vibration if supported
+        if (navigator.vibrate) {
+          navigator.vibrate([100, 50, 100]); // Vibrate pattern
+        }
+        
+        // Visual feedback - make all draggable buttons vibrate
+        const draggableButtons = document.querySelectorAll('[data-draggable="true"]');
+        draggableButtons.forEach(button => {
+          button.classList.add('animate-pulse');
+          setTimeout(() => button.classList.remove('animate-pulse'), 1000);
+        });
+        
+      }, 3000); // 3 seconds
       setLongPressTimer(timer);
     }
-  }, [open, enableSecondRing]);
+  }, [open, enableSecondRing, allItems, isMobile]);
 
-  const handleTouchEnd = useCallback(() => {
+  const handleFABTouchEnd = useCallback(() => {
     if (longPressTimer) {
       clearTimeout(longPressTimer);
       setLongPressTimer(null);
     }
-  }, [longPressTimer]);
+    
+    // If we were in a long press for drag mode, cancel it
+    if (longPressStartTime && Date.now() - longPressStartTime < 3000) {
+      setLongPressStartTime(null);
+    }
+  }, [longPressTimer, longPressStartTime]);
 
   return (
     <>
@@ -595,44 +700,78 @@ export function RadialMenuAdvanced({
           {open && (
             <>
 
-              {/* Orbit lines (visual enhancement) */}
-              {enableSecondRing && showCreateMenu && (
-                <>
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0 }}
-                    animate={{ opacity: 0.2, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0 }}
-                    className="absolute"
-                    style={{
-                      width: isMobile ? 440 : 560,
-                      height: isMobile ? 440 : 560,
-                      border: '1px dashed rgba(255, 189, 89, 0.3)',
-                      borderRadius: '50%',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      pointerEvents: 'none'
-                    }}
-                  />
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0 }}
-                    animate={{ opacity: 0.15, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="absolute"
-                    style={{
-                      width: isMobile ? 660 : 840,
-                      height: isMobile ? 660 : 840,
-                      border: '1px dashed rgba(255, 189, 89, 0.2)',
-                      borderRadius: '50%',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      pointerEvents: 'none'
-                    }}
-                  />
-                </>
-              )}
+              {/* Ring indicators for visual hierarchy - screen-safe with vertical primary */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: isMobile ? 0.1 : 0.15, scale: 1 }}
+                exit={{ opacity: 0, scale: 0 }}
+                className="absolute"
+                style={{
+                  width: isMobile ? 160 : 200,
+                  height: isMobile ? 160 : 200,
+                  border: isMobile ? '1px dashed rgba(255, 189, 89, 0.3)' : '2px dashed rgba(255, 189, 89, 0.4)',
+                  borderRadius: '50%',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  pointerEvents: 'none',
+                  background: 'radial-gradient(circle, rgba(255, 189, 89, 0.05) 0%, transparent 70%)'
+                }}
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: isMobile ? 0.05 : 0.1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0 }}
+                transition={{ delay: 0.1 }}
+                className="absolute"
+                style={{
+                  width: isMobile ? 280 : 360,
+                  height: isMobile ? 280 : 360,
+                  border: '1px dashed rgba(139, 92, 246, 0.2)',
+                  borderRadius: '50%',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  pointerEvents: 'none',
+                  background: 'radial-gradient(circle, rgba(139, 92, 246, 0.02) 0%, transparent 70%)'
+                }}
+              />
+              
+              {/* Horizontal indicator for primary buttons - positioned to the left */}
+              <motion.div
+                initial={{ opacity: 0, scaleX: 0 }}
+                animate={{ opacity: 0.1, scaleX: 1 }}
+                exit={{ opacity: 0, scaleX: 0 }}
+                transition={{ delay: 0.2 }}
+                className="absolute"
+                style={{
+                  width: isMobile ? '120' : '140',
+                  height: '2px',
+                  background: 'linear-gradient(to left, rgba(255, 189, 89, 0.3), transparent)',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  pointerEvents: 'none',
+                }}
+              />
+              
+              {/* Vertical indicator for primary buttons - positioned to the left */}
+              <motion.div
+                initial={{ opacity: 0, scaleY: 0 }}
+                animate={{ opacity: 0.1, scaleY: 1 }}
+                exit={{ opacity: 0, scaleY: 0 }}
+                transition={{ delay: 0.3 }}
+                className="absolute"
+                style={{
+                  width: '2px',
+                  height: isMobile ? '120' : '140',
+                  background: 'linear-gradient(to top, rgba(255, 189, 89, 0.3), transparent)',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  pointerEvents: 'none',
+                }}
+              />
 
               {/* Radial menu items */}
               {allItems.map((item, i) => (
@@ -643,7 +782,8 @@ export function RadialMenuAdvanced({
                   aria-label={item.label}
                   data-radial-item={item.id}
                   data-tour-id={item.tourId}
-                  draggable={isEditMode && !item.disabled}
+                  draggable={isDragMode && !item.disabled && item.ring === 2}
+                  data-draggable={isDragMode && !item.disabled && item.ring === 2}
                   onDragStart={(e) => handleDragStart(e as unknown as React.DragEvent<Element>, i)}
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, i)}
@@ -671,12 +811,12 @@ export function RadialMenuAdvanced({
                   }}
                   transition={{
                     type: "spring",
-                    stiffness: item.ring === 2 ? 280 : 350,
+                    stiffness: item.ring === 1 ? 400 : 350, // Primary buttons animate faster
                     damping: 25,
-                    delay: item.ring === 2 ? 0.06 * i : 0.04 * i,
+                    delay: item.ring === 1 ? 0.02 * i : 0.04 * i, // Primary buttons appear first
                   }}
                   onClick={() => {
-                    if (!item.disabled && !isEditMode) {
+                    if (!item.disabled && !isDragMode) {
                       item.onSelect();
                       setOpen(false);
                       setShowCreateMenu(false);
@@ -697,30 +837,53 @@ export function RadialMenuAdvanced({
                       setActiveIndex(i);
                     }
                   }}
-                  className={`absolute group ${item.disabled ? 'cursor-not-allowed' : isEditMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
+                  className={`absolute group ${item.disabled ? 'cursor-not-allowed' : isDragMode && item.ring === 2 ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
                   style={{
-                    width: hoveredIndex === i ? (isMobile ? 64 : 76) : (isMobile ? 52 : 64),
-                    height: hoveredIndex === i ? (isMobile ? 64 : 76) : (isMobile ? 52 : 64),
+                    // Primary ring buttons are larger and more prominent
+                    width: item.ring === 1 
+                      ? (hoveredIndex === i ? (isMobile ? 60 : 72) : (isMobile ? 52 : 64))
+                      : (hoveredIndex === i ? (isMobile ? 56 : 68) : (isMobile ? 48 : 60)),
+                    height: item.ring === 1 
+                      ? (hoveredIndex === i ? (isMobile ? 60 : 72) : (isMobile ? 52 : 64))
+                      : (hoveredIndex === i ? (isMobile ? 56 : 68) : (isMobile ? 48 : 60)),
                     borderRadius: "50%",
-                    border: "none",
+                    border: item.ring === 1 ? "2px solid rgba(255,255,255,0.3)" : "none",
                     background: item.disabled 
                       ? "linear-gradient(135deg, #6b7280, #4b5563)"
-                      : hoveredIndex === i || activeIndex === i 
-                        ? `linear-gradient(135deg, ${item.color}, ${item.color}dd)`
-                        : `linear-gradient(135deg, #2a2f3a, #1f2937)`,
+                      : item.ring === 1
+                        ? hoveredIndex === i || activeIndex === i 
+                          ? `linear-gradient(135deg, ${item.color}, ${item.color}dd)`
+                          : `linear-gradient(135deg, ${item.color}ee, ${item.color}cc)`
+                        : hoveredIndex === i || activeIndex === i 
+                          ? `linear-gradient(135deg, ${item.color}, ${item.color}dd)`
+                          : `linear-gradient(135deg, #2a2f3a, #1f2937)`,
                     color: item.disabled ? "#9ca3af" : "white",
                     boxShadow: item.disabled
                       ? "0 4px 12px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1)"
-                      : hoveredIndex === i || activeIndex === i
-                        ? `0 0 60px ${item.color}aa,
-                           0 0 40px ${item.color}88,
-                           0 0 25px ${item.color}66,
-                           0 12px 32px ${item.color}60,
-                           0 8px 20px rgba(0,0,0,0.4),
-                           0 4px 12px rgba(0,0,0,0.3),
-                           inset 0 2px 2px rgba(255,255,255,0.3),
-                           inset 0 -2px 2px rgba(0,0,0,0.2)`
-                        : "0 6px 16px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.2)",
+                      : item.ring === 1
+                        ? hoveredIndex === i || activeIndex === i
+                          ? `0 0 60px ${item.color}aa,
+                             0 0 40px ${item.color}88,
+                             0 0 25px ${item.color}66,
+                             0 12px 32px ${item.color}60,
+                             0 8px 20px rgba(0,0,0,0.4),
+                             0 4px 12px rgba(0,0,0,0.3),
+                             inset 0 2px 2px rgba(255,255,255,0.3),
+                             inset 0 -2px 2px rgba(0,0,0,0.2)`
+                          : `0 0 30px ${item.color}88,
+                             0 0 20px ${item.color}66,
+                             0 6px 20px ${item.color}50,
+                             0 3px 10px rgba(0,0,0,0.3),
+                             inset 0 1px 1px rgba(255,255,255,0.3),
+                             inset 0 -1px 1px rgba(0,0,0,0.2)`
+                        : hoveredIndex === i || activeIndex === i
+                          ? `0 0 40px ${item.color}88,
+                             0 0 25px ${item.color}66,
+                             0 8px 24px ${item.color}50,
+                             0 4px 12px rgba(0,0,0,0.3),
+                             inset 0 1px 1px rgba(255,255,255,0.2),
+                             inset 0 -1px 1px rgba(0,0,0,0.1)`
+                          : "0 4px 12px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.2)",
                     cursor: item.disabled ? "not-allowed" : "pointer",
                     willChange: "transform",
                     display: 'flex',
@@ -729,14 +892,21 @@ export function RadialMenuAdvanced({
                     outline: 'none',
                     transition: 'background 0.3s ease, z-index 0.1s ease',
                     opacity: item.disabled ? 0.6 : 1,
-                    zIndex: hoveredIndex === i ? 500 : 50,
+                    zIndex: item.ring === 1 ? (hoveredIndex === i ? 600 : 100) : (hoveredIndex === i ? 500 : 50),
                   }}
-                  whileHover={item.disabled ? {} : { scale: 1.2 }}
+                  whileHover={item.disabled ? {} : { 
+                    scale: item.ring === 1 ? 1.25 : 1.2,
+                    rotate: item.ring === 1 ? 5 : 0
+                  }}
                   whileTap={item.disabled ? {} : { scale: 0.95 }}
                 >
                   {/* Icon */}
                   <div className="relative" style={{
-                    transform: item.disabled ? 'scale(1)' : hoveredIndex === i ? 'scale(1.15)' : 'scale(1)',
+                    transform: item.disabled 
+                      ? 'scale(1)' 
+                      : item.ring === 1 
+                        ? (hoveredIndex === i ? 'scale(1.25)' : 'scale(1.1)')
+                        : (hoveredIndex === i ? 'scale(1.15)' : 'scale(1)'),
                     transition: 'transform 0.2s ease',
                     opacity: item.disabled ? 0.7 : 1
                   }}>
@@ -757,26 +927,39 @@ export function RadialMenuAdvanced({
                     )}
                   </div>
 
-                  {/* Tooltip */}
+                  {/* Enhanced Tooltip */}
                   {showTooltips && (hoveredIndex === i || activeIndex === i) && (
                     <motion.div
                       initial={{ opacity: 0, y: 10, scale: 0.9 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                      className="absolute bottom-full mb-4 px-4 py-3 bg-gray-900 backdrop-blur-lg rounded-xl shadow-2xl border-2 border-[#ffbd59]/50 whitespace-nowrap pointer-events-none"
+                      className={`absolute bottom-full mb-4 px-4 py-3 backdrop-blur-lg rounded-xl shadow-2xl whitespace-nowrap pointer-events-none ${
+                        item.ring === 1 
+                          ? 'bg-gradient-to-r from-gray-900 to-gray-800 border-2 border-[#ffbd59]/60' 
+                          : 'bg-gray-900 border-2 border-[#ffbd59]/50'
+                      }`}
                       style={{ 
                         zIndex: 99999,
-                        filter: 'drop-shadow(0 0 20px rgba(255,189,89,0.3))'
+                        filter: item.ring === 1 
+                          ? `drop-shadow(0 0 30px ${item.color}40) drop-shadow(0 0 15px rgba(255,189,89,0.4))`
+                          : 'drop-shadow(0 0 20px rgba(255,189,89,0.3))'
                       }}
                     >
-                      <div className="text-sm font-bold text-white">{item.label}</div>
+                      <div className={`text-sm font-bold text-white ${item.ring === 1 ? 'text-lg' : ''}`}>
+                        {item.label}
+                        {item.ring === 1 && (
+                          <span className="ml-2 text-xs bg-yellow-500/20 px-2 py-0.5 rounded-full">
+                            WICHTIG
+                          </span>
+                        )}
+                      </div>
                       {item.description && (
                         <div className="text-xs text-gray-300 mt-1">{item.description}</div>
                       )}
                       {item.disabled && (
                         <div className="text-xs text-red-300 mt-1">{item.disabledReason}</div>
                       )}
-                      {isEditMode && !item.disabled && (
+                      {isDragMode && !item.disabled && item.ring === 2 && (
                         <div className="text-xs text-blue-300 mt-1">Zum Verschieben ziehen</div>
                       )}
                       <div 
@@ -786,7 +969,7 @@ export function RadialMenuAdvanced({
                           height: 0,
                           borderLeft: '8px solid transparent',
                           borderRight: '8px solid transparent',
-                          borderTop: '8px solid rgb(17 24 39)',
+                          borderTop: item.ring === 1 ? '8px solid rgb(31 41 55)' : '8px solid rgb(17 24 39)',
                         }}
                       />
                     </motion.div>
@@ -817,8 +1000,8 @@ export function RadialMenuAdvanced({
               setShowCreateMenu(false);
             }
           }}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
+          onTouchStart={handleFABTouchStart}
+          onTouchEnd={handleFABTouchEnd}
           className="relative group"
           style={{
             position: 'relative',
@@ -877,66 +1060,51 @@ export function RadialMenuAdvanced({
           )}
         </motion.button>
 
-        {/* Edit Mode Controls */}
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="absolute bottom-20 right-32 flex flex-col gap-2"
-          >
-            {/* Edit Mode Toggle */}
-            <button
-              onClick={() => setIsEditMode(!isEditMode)}
-              className={`p-3 rounded-full shadow-lg transition-all duration-200 transform hover:scale-110 ${
-                isEditMode 
-                  ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' 
-                  : 'bg-gradient-to-r from-gray-600 to-gray-700 text-gray-300 hover:text-white'
-              }`}
-              title={isEditMode ? "Bearbeitungsmodus beenden" : "Reihenfolge bearbeiten"}
-            >
-              <Edit3 size={20} />
-            </button>
-
-            {/* Reset Order Button */}
-            {customOrder.length > 0 && (
-              <button
-                onClick={resetToDefault}
-                className="p-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full shadow-lg transition-all duration-200 transform hover:scale-110"
-                title="Standardreihenfolge wiederherstellen"
-              >
-                <RotateCcw size={20} />
-              </button>
-            )}
-          </motion.div>
-        )}
-
-        {/* Edit Mode Indicator */}
-        {isEditMode && (
+        {/* Drag Mode Indicator - Unauffälliger */}
+        {isDragMode && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="absolute top-4 right-36 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2"
+            className="absolute top-4 right-4 bg-blue-500/80 text-white px-3 py-1.5 rounded-full shadow-md flex items-center gap-2 text-sm"
+            style={{
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255,255,255,0.1)'
+            }}
           >
-            <Edit3 size={16} />
-            <span className="text-sm font-medium">Bearbeitungsmodus</span>
+            <Edit3 size={14} />
+            <span className="font-medium">Verschiebemodus</span>
           </motion.div>
         )}
 
-        {/* Hint for keyboard shortcuts */}
+        {/* Hint for keyboard shortcuts - desktop */}
         {open && !isMobile && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="absolute left-1/2 transform -translate-x-1/2 -bottom-20 bg-gray-900/90 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap"
+            className="absolute left-1/2 transform -translate-x-1/2 -bottom-24 bg-gray-900/90 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap"
           >
             <div className="flex items-center gap-4">
               <span>←→ Navigate</span>
+              <span>1/2 Switch Ring</span>
               <span>Enter Select</span>
-              {enableSecondRing && <span>C Create Menu</span>}
-              <span>E Edit Mode</span>
+              <span>E Drag Mode</span>
               {customOrder.length > 0 && <span>R Reset</span>}
               <span>ESC Close</span>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Mobile hint */}
+        {open && isMobile && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="absolute left-1/2 transform -translate-x-1/2 -bottom-20 bg-gray-900/90 text-white text-xs px-3 py-2 rounded-lg text-center"
+          >
+            <div className="flex flex-col items-center gap-1">
+              <span className="font-semibold">Primär-Buttons links</span>
+              <span className="text-gray-300">Tippen Sie auf die größeren Buttons links</span>
+              <span className="text-xs text-blue-300 mt-1">3s halten für Verschiebemodus</span>
             </div>
           </motion.div>
         )}

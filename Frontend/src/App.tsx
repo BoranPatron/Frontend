@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider } from './context/ProjectContext';
-import { OnboardingProvider } from './context/OnboardingContext';
+import { OnboardingProvider, useOnboarding } from './context/OnboardingContext';
 import CacheDebugPanel from './components/CacheDebugPanel';
 import './utils/serviceWorkerManager'; // Service Worker initialisieren
 import './styles/grid-optimizations.css'; // Grid-Optimierungen für dynamische Kachel-Größen
@@ -25,8 +25,8 @@ import Messages from './pages/Messages';
 import GlobalMessages from './pages/GlobalMessages';
 import Roadmap from './pages/Roadmap';
 import GlobalProjects from './pages/GlobalProjects';
-import BuildWiseFees from './pages/BuildWiseFees';
 import ServiceProviderBuildWiseFees from './pages/ServiceProviderBuildWiseFees';
+import PaymentSuccess from './pages/PaymentSuccess';
 import Canvas from './pages/Canvas';
 import GeoSearch from './pages/GeoSearch';
 import Invoices from './pages/Invoices';
@@ -39,6 +39,8 @@ import CompanyAddressModal from './components/CompanyAddressModal';
 import NotificationTab from './components/NotificationTab';
 import BautraegerNotificationTab from './components/BautraegerNotificationTab';
 import { RadialMenuAdvanced } from './components/RadialMenuAdvanced';
+import AccountLockedModal from './components/AccountLockedModal';
+import { checkAccountStatus, type AccountStatus } from './api/buildwiseFeeService';
 
 // Error Boundary
 class ErrorBoundary extends React.Component<
@@ -89,12 +91,89 @@ function LoadingSpinner() {
 // Geschützte Route-Komponente
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isInitialized, roleSelected, selectRole } = useAuth();
+  const { showWelcomeNotification, setShowWelcomeNotification } = useOnboarding();
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [showCompanyAddressModal, setShowCompanyAddressModal] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [sessionUserId, setSessionUserId] = useState<number | null>(null);
-  const [showWelcomeNotification, setShowWelcomeNotification] = useState(false);
+  const [accountStatus, setAccountStatus] = useState<AccountStatus | null>(null);
+  const [checkingAccountStatus, setCheckingAccountStatus] = useState(false);
   
+  // Account-Status-Check für Dienstleister
+  useEffect(() => {
+    let isSubscribed = true;
+    let timeoutId: NodeJS.Timeout | null = null;
+    
+    const checkAccount = async () => {
+      console.log('[ACCOUNT-CHECK] Start:', {
+        hasUser: !!user,
+        isInitialized,
+        userRole: user?.user_role,
+        isSubscribed,
+        checkingAccountStatus
+      });
+
+      // Verhindere mehrfache gleichzeitige Checks
+      if (checkingAccountStatus) {
+        console.log('[ACCOUNT-CHECK] Skip - Check bereits läuft');
+        return;
+      }
+
+      // Nur für Dienstleister prüfen
+      if (user && isInitialized && user.user_role === 'DIENSTLEISTER' && isSubscribed) {
+        try {
+          setCheckingAccountStatus(true);
+          
+          console.log('🔍 [ACCOUNT-CHECK] Prüfe Account-Status für Dienstleister...');
+          console.log('   User ID:', user.id);
+          console.log('   User Email:', user.email);
+          
+          const status = await checkAccountStatus();
+          
+          if (!isSubscribed) return; // Component wurde unmounted
+          
+          console.log('📊 [ACCOUNT-CHECK] Account-Status erhalten:', status);
+          console.log('   Account gesperrt?', status.account_locked);
+          console.log('   Überfällige Gebühren:', status.overdue_fees?.length || 0);
+          
+          if (status.account_locked) {
+            console.log('🔒 [ACCOUNT-CHECK] SPERRE ACCOUNT - Modal wird angezeigt');
+            setAccountStatus(status);
+          } else {
+            console.log('✅ [ACCOUNT-CHECK] Account ist aktiv - keine Sperre');
+            setAccountStatus(null);
+          }
+        } catch (error) {
+          console.error('❌ [ACCOUNT-CHECK] Fehler beim Prüfen des Account-Status:', error);
+          if (isSubscribed) {
+            // Bei Fehler nicht sperren, aber Status zurücksetzen
+            setAccountStatus(null);
+          }
+        } finally {
+          if (isSubscribed) {
+            setCheckingAccountStatus(false);
+          }
+        }
+      } else {
+        console.log('[ACCOUNT-CHECK] Skip - Bedingungen nicht erfüllt');
+      }
+    };
+
+    // Initialer Check mit Verzögerung
+    timeoutId = setTimeout(() => {
+      checkAccount();
+    }, 1000);
+    
+    // Prüfe Account-Status alle 5 Minuten (reduziert von 30 Sekunden)
+    const interval = setInterval(checkAccount, 5 * 60 * 1000);
+    
+    return () => {
+      isSubscribed = false;
+      if (timeoutId) clearTimeout(timeoutId);
+      clearInterval(interval);
+    };
+  }, [user, isInitialized, checkingAccountStatus]);
+
   useEffect(() => {
     // Reset bei User-Wechsel (Logout/Login)
     if (user?.id !== sessionUserId) {
@@ -102,6 +181,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       setShowRoleModal(false);
       setShowCompanyAddressModal(false);
       setSessionUserId(user?.id || null);
+      setAccountStatus(null);
     }
     
     // Prüfe ob Rollenauswahl benötigt wird - aber nur einmalig pro Login-Session
@@ -151,6 +231,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
   
+  // Account gesperrt? Zeige Sperre-Modal
+  if (accountStatus && accountStatus.account_locked) {
+    return (
+      <AccountLockedModal 
+        accountStatus={accountStatus}
+        onPaymentSuccess={() => {
+          // Nach erfolgreicher Zahlung Account-Status neu prüfen
+          setAccountStatus(null);
+          setCheckingAccountStatus(false);
+          window.location.reload();
+        }}
+      />
+    );
+  }
+
   // Normale Darstellung - Modal wird parallel gerendert, nicht blockierend
   return (
     <>
@@ -166,11 +261,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
               // Nach Rollenauswahl: Zeige Firmenadresse-Modal
               setShowCompanyAddressModal(true);
               
-              // Zeige Willkommens-Notification für Bauträger bei Erstanmeldung
-              if (role === 'bautraeger' && !localStorage.getItem(`welcome_shown_${user?.id}`)) {
-                setShowWelcomeNotification(true);
-                localStorage.setItem(`welcome_shown_${user?.id}`, 'true');
-              }
+              // Willkommens-Notification wird erst nach Abschluss der Guided Tour angezeigt
+              // (siehe OnboardingContext für die Logik)
               
               } catch (error) {
               console.error('❌ Fehler beim Speichern der Rolle:', error);
@@ -369,14 +461,14 @@ function AppContent() {
             <Quotes />
           </ProtectedRoute>
         } /> */}
-        <Route path="/buildwise-fees" element={
-          <ProtectedRoute>
-            <BuildWiseFees />
-          </ProtectedRoute>
-        } />
         <Route path="/service-provider/buildwise-fees" element={
           <ProtectedRoute>
             <ServiceProviderBuildWiseFees />
+          </ProtectedRoute>
+        } />
+        <Route path="/payment/success" element={
+          <ProtectedRoute>
+            <PaymentSuccess />
           </ProtectedRoute>
         } />
         <Route path="/visualize" element={

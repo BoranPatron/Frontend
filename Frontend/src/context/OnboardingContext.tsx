@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { useProject } from './ProjectContext';
 import { OnboardingManager } from '../utils/OnboardingManager';
+import { updateMe } from '../api/userService';
 
 interface OnboardingContextType {
   showTour: boolean;
@@ -13,6 +14,8 @@ interface OnboardingContextType {
   userRole: 'BAUTRAEGER' | 'DIENSTLEISTER' | null;
   initializeTour: () => void;
   completeTour: () => void;
+  showWelcomeNotification: boolean;
+  setShowWelcomeNotification: (show: boolean) => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
@@ -24,10 +27,22 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const [showTour, setShowTour] = useState(false);
   const [tourCompleted, setTourCompleted] = useState(false);
   const [isFirstLogin, setIsFirstLogin] = useState(false);
+  const [showWelcomeNotification, setShowWelcomeNotification] = useState(false);
 
   // Calculate derived state
   const hasProjects = projects && projects.length > 0;
   const userRole = user?.user_role as 'BAUTRAEGER' | 'DIENSTLEISTER' | null;
+
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('🔍 OnboardingContext state changed:', {
+      showTour,
+      tourCompleted,
+      showWelcomeNotification,
+      userRole,
+      userId: user?.id
+    });
+  }, [showTour, tourCompleted, showWelcomeNotification, userRole, user?.id]);
 
   // Check if tour has been completed
   useEffect(() => {
@@ -61,9 +76,50 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   };
 
   // Complete tour and re-enable UI
-  const completeTour = () => {
+  const completeTour = async () => {
+    console.log('🎯 completeTour called');
     setShowTour(false);
     setTourCompleted(true);
+    
+    // Aktualisiere die Datenbank
+    if (user) {
+      try {
+        await updateMe({
+          consent_fields: {
+            dashboard_tour: {
+              completed: true,
+              version: '2.0',
+              completed_at: new Date().toISOString(),
+            }
+          }
+        });
+      } catch (error) {
+        console.warn('Tour completion could not be saved to database', error);
+      }
+    }
+    
+    // Zeige Willkommens-Notification für Bauträger nach Abschluss der Guided Tour
+    if (userRole === 'BAUTRAEGER' && user) {
+      // Debug: Temporär localStorage-Check entfernt für Test
+      const welcomeKey = `welcome_shown_${user.id}`;
+      const alreadyShown = localStorage.getItem(welcomeKey);
+      
+      console.log('🎉 Tour completed, checking welcome notification:', {
+        userRole,
+        userId: user.id,
+        alreadyShown,
+        willShow: !alreadyShown
+      });
+      
+      if (!alreadyShown) {
+        // Kleine Verzögerung, damit die Tour vollständig geschlossen ist
+        setTimeout(() => {
+          console.log('🎉 Showing welcome notification for user:', user.id);
+          setShowWelcomeNotification(true);
+          localStorage.setItem(welcomeKey, 'true');
+        }, 500);
+      }
+    }
   };
 
   // Auto-start tour for new users
@@ -97,7 +153,9 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     hasProjects: Boolean(hasProjects),
     userRole,
     initializeTour,
-    completeTour
+    completeTour,
+    showWelcomeNotification,
+    setShowWelcomeNotification
   };
 
   return (
