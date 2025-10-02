@@ -148,7 +148,7 @@ export default function WelcomeCreditNotification({
                   </motion.div>
                 </div>
                 <p className="text-xs text-gray-700">
-                  Nutzen Sie Ihre Credits für Premium-Features und KI-Visualisierungen
+                  Nutzen Sie Ihre Credits für Premium-Features und erweiterte Funktionen
                 </p>
               </motion.div>
 
@@ -210,7 +210,7 @@ export default function WelcomeCreditNotification({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <span className="text-gray-700">KI-Visualisierungen nutzen</span>
+                  <span className="text-gray-700">Premium-Funktionen nutzen</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">

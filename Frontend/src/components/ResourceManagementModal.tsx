@@ -17,11 +17,14 @@ import {
   Award,
   Check,
   Settings,
-  FileText
+  FileText,
+  Navigation,
+  Info
 } from 'lucide-react';
 import { resourceService, type Resource } from '../api/resourceService';
 import { useAuth } from '../context/AuthContext';
 import AddressAutocomplete from './AddressAutocomplete';
+import SmartTooltip from './SmartTooltip';
 import { TRADE_CATEGORIES } from '../constants/tradeCategories';
 
 interface ResourceManagementModalProps {
@@ -32,6 +35,70 @@ interface ResourceManagementModalProps {
 }
 
 // Verwende die gemeinsamen Trade-Kategorien für Konsistenz
+
+// Branchenspezifische Vorschläge für Fähigkeiten & Zertifikate
+const SKILL_SUGGESTIONS = [
+  'Schweißerschein (MAG/MIG)',
+  'Schweißerschein (WIG/TIG)',
+  'Elektrofachkraft',
+  'Kranführerschein',
+  'Staplerschein',
+  'Höhenrettungsschein',
+  'Gerüstbauschein',
+  'Asbestschein',
+  'Befähigte Person für Leitern und Tritte',
+  'IPAF-Hubarbeitsbühnenschein',
+  'Führerschein Klasse CE (LKW)',
+  'Führerschein Klasse B',
+  'ADR-Schein (Gefahrgut)',
+  'SCC-Zertifikat (Arbeitsschutz)',
+  'Erste-Hilfe-Schein',
+  'Brandschutzhelfer',
+  'Meisterbrief',
+  'Technikerausbildung',
+  'Facharbeiter',
+  'Geselle',
+  'BIM-Kenntnisse',
+  'CAD-Kenntnisse (AutoCAD)',
+  'Vermessungskenntnisse',
+  'Prüfung ortsveränderlicher Geräte (DGUV V3)',
+  'Sachkundenachweis Baumfällung',
+  'Motorsägenschein'
+];
+
+// Branchenspezifische Vorschläge für Geräte & Werkzeuge
+const EQUIPMENT_SUGGESTIONS = [
+  'Betonmischer',
+  'Kran (mobil)',
+  'Turmdrehkran',
+  'Bagger (bis 5t)',
+  'Bagger (über 5t)',
+  'Radlader',
+  'Minibagger',
+  'Dumper/Rüttler',
+  'Gabelstapler',
+  'Hubarbeitsbühne',
+  'Gerüst (Fassade)',
+  'Gerüst (Rollgerüst)',
+  'Bauaufzug',
+  'Betonpumpe',
+  'Rüttelplatte',
+  'Stampfer',
+  'Trennschleifer',
+  'Kernbohrgerät',
+  'Abbruchhammer',
+  'Presslufthammer',
+  'Elektrowerkzeug-Set',
+  'Schweißgerät (MAG)',
+  'Schweißgerät (WIG)',
+  'Plasmaschneider',
+  'Kompressor',
+  'Bauheizer',
+  'Bautrockner',
+  'Messgeräte (Laser)',
+  'Nivelliergerät',
+  'Schuttrutsche'
+];
 
 const ResourceManagementModal: React.FC<ResourceManagementModalProps> = ({
   isOpen,
@@ -72,6 +139,9 @@ const ResourceManagementModal: React.FC<ResourceManagementModalProps> = ({
   const [skillInput, setSkillInput] = useState('');
   const [equipmentInput, setEquipmentInput] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showSkillSuggestions, setShowSkillSuggestions] = useState(false);
+  const [showEquipmentSuggestions, setShowEquipmentSuggestions] = useState(false);
+  const [gettingLocation, setGettingLocation] = useState(false);
 
   useEffect(() => {
     if (editResource) {
@@ -197,6 +267,105 @@ const ResourceManagementModal: React.FC<ResourceManagementModalProps> = ({
       ...prev,
       equipment: prev.equipment?.filter((_, i) => i !== index) || []
     }));
+  };
+
+  const addSkillSuggestion = (suggestion: string) => {
+    if (!formData.skills?.includes(suggestion)) {
+      setFormData(prev => ({
+        ...prev,
+        skills: [...(prev.skills || []), suggestion]
+      }));
+    }
+  };
+
+  const addEquipmentSuggestion = (suggestion: string) => {
+    if (!formData.equipment?.includes(suggestion)) {
+      setFormData(prev => ({
+        ...prev,
+        equipment: [...(prev.equipment || []), suggestion]
+      }));
+    }
+  };
+
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setError('Geolocation wird von diesem Browser nicht unterstützt');
+      return;
+    }
+
+    setGettingLocation(true);
+    setError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          
+          // Reverse Geocoding mit OpenStreetMap Nominatim API
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1&accept-language=de`
+          );
+          
+          if (!response.ok) {
+            throw new Error('Adresse konnte nicht ermittelt werden');
+          }
+          
+          const data = await response.json();
+          
+          if (data && data.address) {
+            const address = data.address;
+            setFormData(prev => ({
+              ...prev,
+              address_street: `${address.road || ''} ${address.house_number || ''}`.trim(),
+              address_city: address.city || address.town || address.village || '',
+              address_postal_code: address.postcode || '',
+              address_country: address.country || 'Deutschland',
+              latitude,
+              longitude
+            }));
+          } else {
+            // Fallback: Nur Koordinaten setzen
+            setFormData(prev => ({
+              ...prev,
+              latitude,
+              longitude
+            }));
+          }
+        } catch (err: any) {
+          setError('Fehler beim Ermitteln der Adresse: ' + err.message);
+          // Trotzdem Koordinaten setzen
+          setFormData(prev => ({
+            ...prev,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          }));
+        } finally {
+          setGettingLocation(false);
+        }
+      },
+      (error) => {
+        setGettingLocation(false);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            setError('Standortzugriff wurde verweigert. Bitte erlauben Sie den Zugriff in den Browser-Einstellungen.');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            setError('Standort konnte nicht ermittelt werden.');
+            break;
+          case error.TIMEOUT:
+            setError('Zeitüberschreitung beim Ermitteln des Standorts.');
+            break;
+          default:
+            setError('Unbekannter Fehler beim Ermitteln des Standorts.');
+            break;
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000 // 5 Minuten Cache
+      }
+    );
   };
 
   const handleAddressSelect = (address: any) => {
@@ -409,10 +578,31 @@ const ResourceManagementModal: React.FC<ResourceManagementModalProps> = ({
 
             {/* Standort */}
             <div className="bg-[#2a2a2a] rounded-xl p-5">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                <MapPin className="w-5 h-5 mr-2 text-[#ffbd59]" />
-                Standort
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white flex items-center">
+                  <MapPin className="w-5 h-5 mr-2 text-[#ffbd59]" />
+                  Standort
+                </h3>
+                <button
+                  type="button"
+                  onClick={getCurrentLocation}
+                  disabled={gettingLocation}
+                  className="flex items-center gap-2 px-3 py-2 bg-[#333] text-white rounded-lg hover:bg-[#ffbd59] hover:text-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  {gettingLocation ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
+                      <span>Ermitteln...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Navigation className="w-4 h-4" />
+                      <span>Aktueller Standort</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              
               <AddressAutocomplete
                 value={{
                   address_street: formData.address_street || '',
@@ -432,8 +622,20 @@ const ResourceManagementModal: React.FC<ResourceManagementModalProps> = ({
                 placeholder="Straße, PLZ, Stadt eingeben..."
                 className="mb-4"
               />
+              
+              {/* Hinweistext */}
+              <div className="bg-[#1a1a1a] border border-[#ffbd59]/20 rounded-lg p-3 mb-3">
+                <div className="flex items-start gap-2">
+                  <Info className="w-4 h-4 text-[#ffbd59] mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-gray-300">
+                    <span className="text-[#ffbd59] font-medium">Wichtig:</span> Eine vollständige Adresse ist erforderlich, damit Ihre Ressource bei der Umkreissuche von Bauträgern gefunden werden kann.
+                  </div>
+                </div>
+              </div>
+              
               {formData.latitude && formData.longitude && (
-                <div className="text-sm text-gray-400 mt-2">
+                <div className="text-sm text-gray-400 mt-2 flex items-center gap-2">
+                  <MapPin className="w-3 h-3" />
                   Koordinaten: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
                 </div>
               )}
@@ -532,20 +734,54 @@ const ResourceManagementModal: React.FC<ResourceManagementModalProps> = ({
                         <Plus className="w-5 h-5" />
                       </button>
                     </div>
+                    
+                    {/* Vorschläge */}
+                    <div className="mb-3 bg-[#222] rounded-lg overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setShowSkillSuggestions(!showSkillSuggestions)}
+                        className="w-full px-3 py-2 flex items-center justify-between text-sm text-gray-400 hover:text-white transition-colors"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Award className="w-4 h-4" />
+                          Vorschläge anzeigen ({SKILL_SUGGESTIONS.length})
+                        </span>
+                        <ChevronDown className={`w-4 h-4 transition-transform ${
+                          showSkillSuggestions ? 'rotate-180' : ''
+                        }`} />
+                      </button>
+                      {showSkillSuggestions && (
+                        <div className="px-3 pb-3 flex flex-wrap gap-2">
+                          {SKILL_SUGGESTIONS.filter(s => !formData.skills?.includes(s)).map((suggestion, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => addSkillSuggestion(suggestion)}
+                              className="px-3 py-1.5 bg-[#333] text-gray-300 rounded-full text-xs hover:bg-[#ffbd59] hover:text-black transition-colors"
+                            >
+                              + {suggestion}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                     <div className="flex flex-wrap gap-2">
                       {formData.skills?.map((skill, index) => (
                         <span
                           key={index}
-                          className="inline-flex items-center gap-1 px-3 py-1 bg-[#333] text-white rounded-full text-sm"
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-[#ffbd59]/20 text-[#ffbd59] border border-[#ffbd59]/30 rounded-full text-sm font-medium"
                         >
                           {skill}
-                          <button
-                            type="button"
-                            onClick={() => removeSkill(index)}
-                            className="hover:text-red-400"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
+                          <SmartTooltip content={`${skill} entfernen`}>
+                            <button
+                              type="button"
+                              onClick={() => removeSkill(index)}
+                              className="hover:text-red-400 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </SmartTooltip>
                         </span>
                       ))}
                     </div>
@@ -574,20 +810,54 @@ const ResourceManagementModal: React.FC<ResourceManagementModalProps> = ({
                         <Plus className="w-5 h-5" />
                       </button>
                     </div>
+                    
+                    {/* Vorschläge */}
+                    <div className="mb-3 bg-[#222] rounded-lg overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setShowEquipmentSuggestions(!showEquipmentSuggestions)}
+                        className="w-full px-3 py-2 flex items-center justify-between text-sm text-gray-400 hover:text-white transition-colors"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Wrench className="w-4 h-4" />
+                          Vorschläge anzeigen ({EQUIPMENT_SUGGESTIONS.length})
+                        </span>
+                        <ChevronDown className={`w-4 h-4 transition-transform ${
+                          showEquipmentSuggestions ? 'rotate-180' : ''
+                        }`} />
+                      </button>
+                      {showEquipmentSuggestions && (
+                        <div className="px-3 pb-3 flex flex-wrap gap-2">
+                          {EQUIPMENT_SUGGESTIONS.filter(e => !formData.equipment?.includes(e)).map((suggestion, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => addEquipmentSuggestion(suggestion)}
+                              className="px-3 py-1.5 bg-[#333] text-gray-300 rounded-full text-xs hover:bg-[#ffbd59] hover:text-black transition-colors"
+                            >
+                              + {suggestion}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                     <div className="flex flex-wrap gap-2">
                       {formData.equipment?.map((item, index) => (
                         <span
                           key={index}
-                          className="inline-flex items-center gap-1 px-3 py-1 bg-[#333] text-white rounded-full text-sm"
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-[#ffbd59]/20 text-[#ffbd59] border border-[#ffbd59]/30 rounded-full text-sm font-medium"
                         >
                           {item}
-                          <button
-                            type="button"
-                            onClick={() => removeEquipment(index)}
-                            className="hover:text-red-400"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
+                          <SmartTooltip content={`${item} entfernen`}>
+                            <button
+                              type="button"
+                              onClick={() => removeEquipment(index)}
+                              className="hover:text-red-400 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </SmartTooltip>
                         </span>
                       ))}
                     </div>

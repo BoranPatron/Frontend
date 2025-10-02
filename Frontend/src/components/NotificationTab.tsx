@@ -126,10 +126,34 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
     localStorage.setItem(seenKey, JSON.stringify(Array.from(newSeen)));
   };
 
-  const handleMarkAllAsRead = () => {
-    // Markiere alle aktuellen Benachrichtigungen als gesehen
+  const handleMarkAllAsRead = async () => {
+    // Markiere alle aktuellen Benachrichtigungen als gesehen (lokal)
     const allNotificationIds = notifications.map(n => n.id);
     markAsSeen(allNotificationIds);
+    
+    // ✅ Markiere Backend-Benachrichtigungen als acknowledged
+    const backendNotifications = notifications.filter(n => n.notification?.id);
+    if (backendNotifications.length > 0) {
+      // Sende Acknowledge-Request für jede Backend-Benachrichtigung
+      const acknowledgePromises = backendNotifications.map(notification => 
+        fetch(`http://localhost:8000/api/v1/notifications/${notification.notification.id}/acknowledge`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        .then(() => {
+          console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
+        })
+        .catch(error => {
+          console.error('❌ Fehler beim Quittieren der Benachrichtigung:', error);
+        })
+      );
+      
+      // Warte auf alle Acknowledge-Requests
+      await Promise.all(acknowledgePromises);
+    }
     
     // Für Dienstleister: Setze permanente Marker für alle Termine
     if (userRole === 'DIENSTLEISTER') {
@@ -251,7 +275,18 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
             console.log('🔔 NotificationTab: Processing notifications for DIENSTLEISTER');
             generalNotifications.forEach((notification: any) => {
               console.log('🔔 NotificationTab: Processing notification:', notification);
-              if (notification.type === 'quote_accepted') {
+              
+              // Überspringe bereits quittierte Benachrichtigungen
+              if (notification.is_acknowledged) {
+                console.log('🔔 NotificationTab: Skipping acknowledged notification:', notification.id);
+                return;
+              }
+              
+              // Normalisiere Type zu Lowercase für Vergleich
+              const notificationType = (notification.type || '').toLowerCase();
+              console.log('🔔 NotificationTab: Normalized type:', notificationType);
+              
+              if (notificationType === 'quote_accepted') {
                 console.log('🔔 NotificationTab: Adding quote_accepted notification');
                 notifications.push({
                   id: notification.id,
@@ -263,7 +298,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                   notification: notification,
                   priority: notification.priority
                 });
-              } else if (notification.type === 'resource_allocated') {
+              } else if (notificationType === 'resource_allocated') {
                 console.log('🔔 NotificationTab: Adding resource_allocated notification');
                 const data = notification.data ? JSON.parse(notification.data) : {};
                 notifications.push({
@@ -285,7 +320,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                   allocatedEndDate: data.allocated_end_date,
                   allocatedPersonCount: data.allocated_person_count
                 });
-              } else if (notification.type === 'tender_invitation') {
+              } else if (notificationType === 'tender_invitation') {
                 console.log('🔔 NotificationTab: Adding tender_invitation notification');
                 const data = notification.data ? JSON.parse(notification.data) : {};
                 notifications.push({
@@ -544,9 +579,9 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
         <div 
           className={`absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-full cursor-pointer transition-all duration-300 ${
             hasNewNotifications 
-              ? 'bg-gradient-to-r from-orange-500 to-yellow-500 animate-pulse shadow-lg shadow-orange-500/50' 
-              : 'bg-gradient-to-r from-gray-500 to-slate-500'
-          } rounded-l-lg px-3 py-4 text-white hover:shadow-xl`}
+              ? 'bg-gradient-to-r from-[#ffbd59]/80 to-[#f59e0b]/80 animate-pulse shadow-lg shadow-[#ffbd59]/50' 
+              : 'bg-gradient-to-r from-[#ffbd59]/60 to-[#f59e0b]/60'
+          } rounded-l-lg px-3 py-4 text-white hover:from-[#ffbd59]/80 hover:to-[#f59e0b]/80 hover:shadow-xl`}
           onClick={() => {
             setIsExpanded(!isExpanded);
             if (!isExpanded && hasNewNotifications) {
@@ -664,6 +699,30 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                       } else if (userRole === 'DIENSTLEISTER' && notification.type === 'resource_allocated') {
                         // Öffne die betroffene Ausschreibung für Angebotsabgabe
                         console.log('📋 Öffne Ausschreibung für Angebotsabgabe von Resource Allocation:', notification.tradeId);
+                        
+                        // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
+                        if (notification.notification?.id) {
+                          fetch(`http://localhost:8000/api/v1/notifications/${notification.notification.id}/acknowledge`, {
+                            method: 'PATCH',
+                            headers: {
+                              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                              'Content-Type': 'application/json'
+                            }
+                          })
+                          .then(() => {
+                            console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
+                            
+                            // Lade Benachrichtigungen sofort neu, um UI zu aktualisieren
+                            setTimeout(() => {
+                              loadNotifications();
+                            }, 500);
+                          })
+                          .catch(error => {
+                            console.error('❌ Fehler beim Quittieren der Benachrichtigung:', error);
+                          });
+                        }
+                        
+                        // Markiere auch lokal als gesehen
                         markAsSeen([notification.id]);
                         
                         // Event für ServiceProviderDashboard auslösen, um CostEstimateForm zu öffnen
@@ -681,6 +740,30 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                       } else if (userRole === 'DIENSTLEISTER' && notification.type === 'tender_invitation') {
                         // Öffne die betroffene Ausschreibung für Angebotsabgabe
                         console.log('📋 Öffne Ausschreibung für Angebotsabgabe:', notification.tradeId);
+                        
+                        // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
+                        if (notification.notification?.id) {
+                          fetch(`http://localhost:8000/api/v1/notifications/${notification.notification.id}/acknowledge`, {
+                            method: 'PATCH',
+                            headers: {
+                              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                              'Content-Type': 'application/json'
+                            }
+                          })
+                          .then(() => {
+                            console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
+                            
+                            // Lade Benachrichtigungen sofort neu, um UI zu aktualisieren
+                            setTimeout(() => {
+                              loadNotifications();
+                            }, 500);
+                          })
+                          .catch(error => {
+                            console.error('❌ Fehler beim Quittieren der Benachrichtigung:', error);
+                          });
+                        }
+                        
+                        // Markiere auch lokal als gesehen
                         markAsSeen([notification.id]);
                         
                         // Event für ServiceProviderDashboard auslösen, um TradeDetailsModal zu öffnen

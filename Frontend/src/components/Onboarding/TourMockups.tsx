@@ -26,7 +26,10 @@ import {
   Filter,
   Search,
   ArrowRight,
-  MoreHorizontal
+  MoreHorizontal,
+  Bell,
+  Files,
+  ChevronLeft
 } from 'lucide-react';
 
 interface ProjectMockupProps {
@@ -765,6 +768,131 @@ export function GeoMapMockup({ variant = 'bautraeger' }: ProjectMockupProps) {
             </div>
             <div className="text-xs text-orange-400 font-medium">2 Heizung</div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function TabsMockup({ variant = 'bautraeger' }: ProjectMockupProps) {
+  return (
+    <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-xl p-6 shadow-xl border border-gray-700 relative overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg flex items-center justify-center">
+            <Bell className="w-5 h-5 text-[#2c3539]" />
+          </div>
+          <h3 className="font-bold text-white text-lg">Rechte Seitenleiste</h3>
+        </div>
+        <span className="text-gray-400 text-sm">Immer verfügbar</span>
+      </div>
+
+      {/* Mockup of right side tabs */}
+      <div className="relative h-80 bg-gradient-to-br from-gray-800/30 to-gray-900/30 rounded-lg border border-gray-600 overflow-hidden">
+        {/* Background representing the main interface */}
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-700/20 to-gray-800/20">
+          <div className="p-4 space-y-2">
+            <div className="h-4 bg-gray-600/30 rounded w-3/4"></div>
+            <div className="h-4 bg-gray-600/30 rounded w-1/2"></div>
+            <div className="h-4 bg-gray-600/30 rounded w-2/3"></div>
+          </div>
+        </div>
+        
+        {/* Right side tabs mockup */}
+        <div className="absolute right-0 top-1/2 transform -translate-y-1/2 space-y-2">
+          {/* Notification Tab (Bauträger) */}
+          <div className="relative">
+            <div className="bg-gradient-to-r from-[#ffbd59]/80 to-[#f59e0b]/80 rounded-l-lg px-3 py-4 text-white shadow-xl animate-pulse">
+              <div className="flex flex-col items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                <div className="bg-white text-green-600 rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold">
+                  3
+                </div>
+                <ChevronLeft className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="absolute right-full top-1/2 transform -translate-y-1/2 mr-2">
+              <div className="bg-gray-900/95 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap border border-[#ffbd59]/50">
+                Benachrichtigungen
+                <div className="text-[#ffbd59] font-medium">3 neue Angebote</div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Notification Tab (Dienstleister) - positioned slightly higher */}
+          <div className="relative -mt-1">
+            <div className="bg-gradient-to-r from-[#ffbd59]/60 to-[#f59e0b]/60 rounded-l-lg px-3 py-4 text-white shadow-xl">
+              <div className="flex flex-col items-center gap-2">
+                <Bell className="w-5 h-5" />
+                <div className="bg-white bg-opacity-90 text-gray-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-medium">
+                  2
+                </div>
+                <ChevronLeft className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="absolute right-full top-1/2 transform -translate-y-1/2 mr-2">
+              <div className="bg-gray-900/95 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap border border-[#ffbd59]/50">
+                Terminanfragen
+                <div className="text-[#ffbd59] font-medium">2 ausstehend</div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Document Tab */}
+          <div className="relative">
+            <div className="bg-gradient-to-r from-[#ffbd59]/60 to-[#f59e0b]/60 rounded-l-lg px-3 py-4 text-white shadow-xl">
+              <div className="flex flex-col items-center gap-2">
+                <Files className="w-5 h-5" />
+                <div className="bg-white/95 text-[#f59e0b] rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold">
+                  12
+                </div>
+              </div>
+            </div>
+            <div className="absolute right-full top-1/2 transform -translate-y-1/2 mr-2">
+              <div className="bg-gray-900/95 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap border border-[#ffbd59]/50">
+                Dokumente
+                <div className="text-[#ffbd59] font-medium">12 verfügbar</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Arrow pointing to tabs */}
+        <div className="absolute right-20 top-1/2 transform -translate-y-1/2">
+          <div className="flex items-center gap-2 text-[#ffbd59]">
+            <ArrowRight className="w-6 h-6 animate-bounce" />
+            <div className="bg-[#ffbd59]/20 text-[#ffbd59] px-3 py-2 rounded-lg text-sm font-medium border border-[#ffbd59]/50">
+              Immer hier zu finden!
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Info boxes */}
+      <div className="mt-6 grid grid-cols-3 gap-4">
+        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Calendar className="w-4 h-4 text-green-400" />
+            <span className="text-sm font-medium text-green-300">Benachrichtigungen</span>
+          </div>
+          <p className="text-xs text-green-200">Neue Angebote, Terminantworten und wichtige Updates</p>
+        </div>
+        
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Bell className="w-4 h-4 text-blue-400" />
+            <span className="text-sm font-medium text-blue-300">Terminanfragen</span>
+          </div>
+          <p className="text-xs text-blue-200">Dienstleister-Antworten auf Ihre Terminvorschläge</p>
+        </div>
+        
+        <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Files className="w-4 h-4 text-purple-400" />
+            <span className="text-sm font-medium text-purple-300">Dokumente</span>
+          </div>
+          <p className="text-xs text-purple-200">Alle Projektdokumente übersichtlich sortiert</p>
         </div>
       </div>
     </div>

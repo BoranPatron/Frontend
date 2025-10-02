@@ -66,6 +66,9 @@ import DisableableButton from '../components/Onboarding/DisableableButton';
 import { DocumentCategorizer } from '../utils/documentCategorizer';
 import PageHeader from '../components/PageHeader';
 import AddressAutocomplete from '../components/AddressAutocomplete';
+import DocumentSidebar from '../components/DocumentSidebar';
+import DocumentViewerModal from '../components/DocumentViewerModal';
+import type { DocumentItem } from '../components/DocumentSidebar';
 
 // DMS-Kategorien (synchron mit Backend)
 const DOCUMENT_CATEGORIES = {
@@ -1112,6 +1115,11 @@ export default function Dashboard() {
   const [tradeInspectionStatus, setTradeInspectionStatus] = useState<{[key: number]: any}>({});
   const [tradeAppointments, setTradeAppointments] = useState<{[key: number]: any[]}>({});
 
+  // State für Dokumenten-Sidebar und Viewer
+  const [selectedDocument, setSelectedDocument] = useState<DocumentItem | null>(null);
+  const [showDocumentViewer, setShowDocumentViewer] = useState(false);
+  const [allDocuments, setAllDocuments] = useState<DocumentItem[]>([]);
+
   const loadAppointmentsForTrades = async (tradesList: any[]) => {
     console.log('🔄 loadAppointmentsForTrades aufgerufen für', tradesList.length, 'Gewerke');
     try {
@@ -1573,6 +1581,52 @@ export default function Dashboard() {
     console.log('📋 Öffne TradeDetailsModal für Dienstleister - Trade', trade.id);
     openExclusiveModal('trade', trade);
   };
+
+  // Handler für Dokumenten-Sidebar
+  const handleDocumentClick = (document: DocumentItem) => {
+    setSelectedDocument(document);
+    setShowDocumentViewer(true);
+  };
+
+  const handleDocumentViewerClose = () => {
+    setShowDocumentViewer(false);
+    setSelectedDocument(null);
+  };
+
+  const handleDocumentNavigate = (direction: 'prev' | 'next') => {
+    if (!selectedDocument || allDocuments.length === 0) return;
+    
+    const currentIndex = allDocuments.findIndex(doc => doc.id === selectedDocument.id);
+    if (currentIndex === -1) return;
+    
+    let newIndex = currentIndex;
+    if (direction === 'prev' && currentIndex > 0) {
+      newIndex = currentIndex - 1;
+    } else if (direction === 'next' && currentIndex < allDocuments.length - 1) {
+      newIndex = currentIndex + 1;
+    }
+    
+    if (newIndex !== currentIndex) {
+      setSelectedDocument(allDocuments[newIndex]);
+    }
+  };
+
+  // Check if navigation is possible
+  const canNavigatePrev = selectedDocument && allDocuments.length > 0 
+    ? allDocuments.findIndex(doc => doc.id === selectedDocument.id) > 0
+    : false;
+    
+  const canNavigateNext = selectedDocument && allDocuments.length > 0
+    ? allDocuments.findIndex(doc => doc.id === selectedDocument.id) < allDocuments.length - 1
+    : false;
+
+  // Prüfe ob User Bauträger ist
+  const isBautraegerUser = (
+    user?.user_type === 'project_owner' ||
+    user?.user_type === 'bautraeger' ||
+    user?.user_type === 'developer' ||
+    user?.user_role === 'BAUTRAEGER'
+  );
 
 
   return (
@@ -3638,6 +3692,21 @@ export default function Dashboard() {
           }}
         />
       )}
+
+      {/* Dokumenten-Sidebar (nur für Bauträger) */}
+      {isBautraegerUser && (
+        <DocumentSidebar onDocumentClick={handleDocumentClick} />
+      )}
+
+      {/* Dokumenten-Viewer-Modal */}
+      <DocumentViewerModal
+        document={selectedDocument}
+        isOpen={showDocumentViewer}
+        onClose={handleDocumentViewerClose}
+        onNavigate={handleDocumentNavigate}
+        canNavigatePrev={canNavigatePrev}
+        canNavigateNext={canNavigateNext}
+      />
 
     </div>
   );

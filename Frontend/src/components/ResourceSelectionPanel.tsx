@@ -45,7 +45,9 @@ import {
   Mail,
   Settings,
   ChevronDown,
-  HelpCircle
+  HelpCircle,
+  Award,
+  Wrench
 } from 'lucide-react';
 import { resourceService, type Resource, type ResourceAllocation } from '../api/resourceService';
 import { useAuth } from '../context/AuthContext';
@@ -78,50 +80,113 @@ interface DraggableResourceProps {
   individualDateRange?: ResourceDateRange;
 }
 
-// Tooltip-Komponente mit besserer Positionierung
-const Tooltip: React.FC<{ content: string | React.ReactNode; children: React.ReactNode; position?: 'top' | 'bottom' | 'left' | 'right' }> = ({ 
+// Intelligente Tooltip-Komponente mit automatischer Positionierung
+const Tooltip: React.FC<{ 
+  content: string | React.ReactNode; 
+  children: React.ReactNode; 
+  position?: 'auto' | 'top' | 'bottom' | 'left' | 'right';
+  maxWidth?: string;
+}> = ({ 
   content, 
   children, 
-  position = 'top' 
+  position = 'auto',
+  maxWidth = 'max-w-sm'
 }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const [actualPosition, setActualPosition] = useState<'top' | 'bottom' | 'left' | 'right'>('top');
+  const tooltipRef = React.useRef<HTMLDivElement>(null);
+  const triggerRef = React.useRef<HTMLDivElement>(null);
+
+  const calculateBestPosition = React.useCallback(() => {
+    if (!triggerRef.current || position !== 'auto') {
+      setActualPosition(position as 'top' | 'bottom' | 'left' | 'right');
+      return;
+    }
+
+    const triggerRect = triggerRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Geschätzte Tooltip-Dimensionen (wird später genauer berechnet)
+    const tooltipWidth = 320; // ca. max-w-sm
+    const tooltipHeight = 120; // geschätzt
+    
+    // Prüfe Platz in alle Richtungen
+    const spaceTop = triggerRect.top;
+    const spaceBottom = viewportHeight - triggerRect.bottom;
+    const spaceLeft = triggerRect.left;
+    const spaceRight = viewportWidth - triggerRect.right;
+    
+    // Für das Panel (links): bevorzuge right, dann top/bottom
+    if (triggerRect.left < viewportWidth / 3) {
+      // Wir sind im linken Panel
+      if (spaceRight >= tooltipWidth) {
+        setActualPosition('right');
+      } else if (spaceTop >= tooltipHeight) {
+        setActualPosition('top');
+      } else if (spaceBottom >= tooltipHeight) {
+        setActualPosition('bottom');
+      } else {
+        setActualPosition('right'); // Fallback
+      }
+    } else {
+      // Standard-Logik für andere Bereiche
+      if (spaceTop >= tooltipHeight) {
+        setActualPosition('top');
+      } else if (spaceBottom >= tooltipHeight) {
+        setActualPosition('bottom');
+      } else if (spaceRight >= tooltipWidth) {
+        setActualPosition('right');
+      } else if (spaceLeft >= tooltipWidth) {
+        setActualPosition('left');
+      } else {
+        setActualPosition('top'); // Fallback
+      }
+    }
+  }, [position]);
+
+  React.useEffect(() => {
+    if (isVisible) {
+      calculateBestPosition();
+    }
+  }, [isVisible, calculateBestPosition]);
 
   const getTooltipClasses = () => {
-    const baseClasses = "absolute z-[99999] px-4 py-3 text-sm text-white bg-gray-900 rounded shadow-lg border border-gray-600 w-96";
+    const baseClasses = `absolute z-[99999] px-3 py-2 text-xs text-white bg-gray-900 rounded-lg shadow-xl border border-gray-600 ${maxWidth}`;
     
-    switch (position) {
+    switch (actualPosition) {
       case 'top':
-        return `${baseClasses} bottom-full left-1/2 transform -translate-x-1/2 mb-1`;
+        return `${baseClasses} bottom-full left-1/2 transform -translate-x-1/2 mb-2`;
       case 'bottom':
-        return `${baseClasses} top-full left-1/2 transform -translate-x-1/2 mt-1`;
+        return `${baseClasses} top-full left-1/2 transform -translate-x-1/2 mt-2`;
       case 'left':
-        return `${baseClasses} right-full top-1/2 transform -translate-y-1/2 mr-1`;
+        return `${baseClasses} right-full top-1/2 transform -translate-y-1/2 mr-2`;
       case 'right':
-        return `${baseClasses} left-full top-1/2 transform -translate-y-1/2 ml-1`;
+        return `${baseClasses} left-full top-1/2 transform -translate-y-1/2 ml-2`;
       default:
-        return `${baseClasses} bottom-full left-1/2 transform -translate-x-1/2 mb-1`;
+        return `${baseClasses} bottom-full left-1/2 transform -translate-x-1/2 mb-2`;
     }
   };
 
   const getArrowClasses = () => {
-    const baseClasses = "absolute w-2 h-2 bg-gray-900 border border-gray-600";
+    const baseClasses = "absolute w-2 h-2 bg-gray-900 border-l border-t border-gray-600 transform rotate-45";
     
-    switch (position) {
+    switch (actualPosition) {
       case 'top':
-        return `${baseClasses} top-full left-1/2 transform -translate-x-1/2 rotate-45 -mt-1`;
+        return `${baseClasses} top-full left-1/2 -translate-x-1/2 -mt-1`;
       case 'bottom':
-        return `${baseClasses} bottom-full left-1/2 transform -translate-x-1/2 rotate-45 -mb-1`;
+        return `${baseClasses} bottom-full left-1/2 -translate-x-1/2 -mb-1 rotate-[225deg]`;
       case 'left':
-        return `${baseClasses} left-full top-1/2 transform -translate-y-1/2 rotate-45 -ml-1`;
+        return `${baseClasses} left-full top-1/2 -translate-y-1/2 -ml-1 rotate-[135deg]`;
       case 'right':
-        return `${baseClasses} right-full top-1/2 transform -translate-y-1/2 rotate-45 -mr-1`;
+        return `${baseClasses} right-full top-1/2 -translate-y-1/2 -mr-1 rotate-[315deg]`;
       default:
-        return `${baseClasses} top-full left-1/2 transform -translate-x-1/2 rotate-45 -mt-1`;
+        return `${baseClasses} top-full left-1/2 -translate-x-1/2 -mt-1`;
     }
   };
 
   return (
-    <div className="relative inline-block">
+    <div className="relative inline-block" ref={triggerRef}>
       <div
         onMouseEnter={() => setIsVisible(true)}
         onMouseLeave={() => setIsVisible(false)}
@@ -129,8 +194,15 @@ const Tooltip: React.FC<{ content: string | React.ReactNode; children: React.Rea
         {children}
       </div>
       {isVisible && (
-        <div className={getTooltipClasses()}>
-          <div className="whitespace-normal break-words">
+        <div 
+          ref={tooltipRef}
+          className={getTooltipClasses()}
+          style={{
+            // Verhindere Überlauf über Viewport-Grenzen
+            maxWidth: actualPosition === 'left' || actualPosition === 'right' ? '280px' : '320px'
+          }}
+        >
+          <div className="whitespace-normal break-words leading-relaxed">
             {content}
           </div>
           <div className={getArrowClasses()}></div>
@@ -225,7 +297,11 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
 
           {/* Basic Details */}
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <Tooltip content={`${resource.person_count} Person${resource.person_count !== 1 ? 'en' : ''} verfügbar für diesen Zeitraum`}>
+            <Tooltip 
+              content={`${resource.person_count} Person${resource.person_count !== 1 ? 'en' : ''} verfügbar für diesen Zeitraum`}
+              position="auto"
+              maxWidth="max-w-xs"
+            >
               <div className="flex items-center space-x-1 cursor-help">
                 <Users className="w-3 h-3 text-gray-400" />
                 <span className="text-gray-300">{resource.person_count} Personen</span>
@@ -233,7 +309,11 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
               </div>
             </Tooltip>
             
-            <Tooltip content={`Gesamtstunden: ${resource.total_hours}h (${resource.daily_hours || 8}h pro Tag × ${Math.ceil((dayjs(resource.end_date).diff(dayjs(resource.start_date), 'day') + 1))} Tage × ${resource.person_count} Personen)`}>
+            <Tooltip 
+              content={`Gesamtstunden: ${resource.total_hours}h (${resource.daily_hours || 8}h pro Tag × ${Math.ceil((dayjs(resource.end_date).diff(dayjs(resource.start_date), 'day') + 1))} Tage × ${resource.person_count} Personen)`}
+              position="auto"
+              maxWidth="max-w-xs"
+            >
               <div className="flex items-center space-x-1 cursor-help">
                 <Clock className="w-3 h-3 text-gray-400" />
                 <span className="text-gray-300">{resource.total_hours}h</span>
@@ -241,7 +321,11 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
               </div>
             </Tooltip>
             
-            <Tooltip content={`Verfügbar vom ${dayjs(resource.start_date).format('DD.MM.YYYY')} bis ${dayjs(resource.end_date).format('DD.MM.YYYY')} (${Math.ceil((dayjs(resource.end_date).diff(dayjs(resource.start_date), 'day') + 1))} Tage)`}>
+            <Tooltip 
+              content={`Verfügbar vom ${dayjs(resource.start_date).format('DD.MM.YYYY')} bis ${dayjs(resource.end_date).format('DD.MM.YYYY')} (${Math.ceil((dayjs(resource.end_date).diff(dayjs(resource.start_date), 'day') + 1))} Tage)`}
+              position="auto"
+              maxWidth="max-w-xs"
+            >
               <div className="flex items-center space-x-1 cursor-help">
                 <Calendar className="w-3 h-3 text-gray-400" />
                 <span className="text-gray-300">
@@ -253,7 +337,11 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
             </Tooltip>
             
             {resource.hourly_rate && (
-              <Tooltip content={`Stundensatz: ${resource.hourly_rate}€/h${resource.daily_rate ? ` | Tagessatz: ${resource.daily_rate}€/Tag` : ''}${resource.currency ? ` (${resource.currency})` : ''}`}>
+              <Tooltip 
+                content={`Stundensatz: ${resource.hourly_rate}€/h${resource.daily_rate ? ` | Tagessatz: ${resource.daily_rate}€/Tag` : ''}${resource.currency ? ` (${resource.currency})` : ''}`}
+                position="auto"
+                maxWidth="max-w-xs"
+              >
                 <div className="flex items-center space-x-1 cursor-help">
                   <Euro className="w-3 h-3 text-gray-400" />
                   <span className="text-gray-300">{resource.hourly_rate}€/h</span>
@@ -266,38 +354,42 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
           {/* Ressourcennutzung - Differenz zwischen tatsächlichen und gewünschten Zeiträumen */}
           {resource.builder_preferred_start_date && resource.builder_preferred_end_date && (
             <div className="mt-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-              <Tooltip content={
-                <div className="max-w-80">
-                  <div className="font-semibold text-white mb-2 text-sm">Ressourcennutzung</div>
-                  <div className="text-sm space-y-2">
-                    <div className="text-blue-300">
-                      <strong>🔵 Dienstleister bereit:</strong><br/>
-                      {dayjs(resource.start_date).format('DD.MM.YYYY')} - {dayjs(resource.end_date).format('DD.MM.YYYY')}<br/>
-                      ({Math.ceil(dayjs(resource.end_date).diff(dayjs(resource.start_date), 'day') + 1)} Tage)
-                    </div>
-                    <div className="text-[#ffbd59]">
-                      <strong>🟡 Bauträger wünscht:</strong><br/>
-                      {dayjs(resource.builder_preferred_start_date).format('DD.MM.YYYY')} - {dayjs(resource.builder_preferred_end_date).format('DD.MM.YYYY')}<br/>
-                      ({Math.ceil(dayjs(resource.builder_preferred_end_date).diff(dayjs(resource.builder_preferred_start_date), 'day') + 1)} Tage)
-                    </div>
-                    <div className="text-green-300">
-                      <strong>📊 Nutzungsgrad:</strong><br/>
-                      {(() => {
-                        const totalDays = Math.ceil(dayjs(resource.end_date).diff(dayjs(resource.start_date), 'day') + 1);
-                        const usedDays = Math.ceil(dayjs(resource.builder_preferred_end_date).diff(dayjs(resource.builder_preferred_start_date), 'day') + 1);
-                        const utilization = Math.round((usedDays / totalDays) * 100);
-                        return `${utilization}% der verfügbaren Zeit genutzt`;
-                      })()}
-                    </div>
-                    {resource.builder_date_range_notes && (
-                      <div className="text-gray-300">
-                        <strong>💬 Notizen:</strong><br/>
-                        {resource.builder_date_range_notes}
+              <Tooltip 
+                position="auto"
+                maxWidth="max-w-sm"
+                content={
+                  <div>
+                    <div className="font-semibold text-white mb-2 text-sm">Ressourcennutzung</div>
+                    <div className="text-sm space-y-2">
+                      <div className="text-blue-300">
+                        <strong>🔵 Dienstleister bereit:</strong><br/>
+                        {dayjs(resource.start_date).format('DD.MM.YYYY')} - {dayjs(resource.end_date).format('DD.MM.YYYY')}<br/>
+                        ({Math.ceil(dayjs(resource.end_date).diff(dayjs(resource.start_date), 'day') + 1)} Tage)
                       </div>
-                    )}
+                      <div className="text-[#ffbd59]">
+                        <strong>🟡 Bauträger wünscht:</strong><br/>
+                        {dayjs(resource.builder_preferred_start_date).format('DD.MM.YYYY')} - {dayjs(resource.builder_preferred_end_date).format('DD.MM.YYYY')}<br/>
+                        ({Math.ceil(dayjs(resource.builder_preferred_end_date).diff(dayjs(resource.builder_preferred_start_date), 'day') + 1)} Tage)
+                      </div>
+                      <div className="text-green-300">
+                        <strong>📊 Nutzungsgrad:</strong><br/>
+                        {(() => {
+                          const totalDays = Math.ceil(dayjs(resource.end_date).diff(dayjs(resource.start_date), 'day') + 1);
+                          const usedDays = Math.ceil(dayjs(resource.builder_preferred_end_date).diff(dayjs(resource.builder_preferred_start_date), 'day') + 1);
+                          const utilization = Math.round((usedDays / totalDays) * 100);
+                          return `${utilization}% der verfügbaren Zeit genutzt`;
+                        })()}
+                      </div>
+                      {resource.builder_date_range_notes && (
+                        <div className="text-gray-300">
+                          <strong>💬 Notizen:</strong><br/>
+                          {resource.builder_date_range_notes}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              }>
+                }
+              >
                 <div className="flex items-center justify-between cursor-help">
                   <div className="flex items-center space-x-1">
                     <div className="w-2 h-2 bg-green-400 rounded-full"></div>
@@ -345,21 +437,57 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
             {/* Zusätzliche Info-Badges */}
             <div className="flex gap-1">
               {resource.builder_date_range_notes && (
-                <Tooltip content={`Bauträger-Notizen: ${resource.builder_date_range_notes}`}>
+                <Tooltip 
+                  content={`Bauträger-Notizen: ${resource.builder_date_range_notes}`}
+                  position="auto"
+                  maxWidth="max-w-xs"
+                >
                   <div className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs cursor-help">
                     💬
                   </div>
                 </Tooltip>
               )}
               {resource.provider_languages && (
-                <Tooltip content={`Sprachen: ${resource.provider_languages}`}>
+                <Tooltip 
+                  content={`Sprachen: ${resource.provider_languages}`}
+                  position="auto"
+                  maxWidth="max-w-xs"
+                >
                   <div className="px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded text-xs cursor-help">
                     🌐
                   </div>
                 </Tooltip>
               )}
+              {resource.skills && resource.skills.length > 0 && (
+                <Tooltip 
+                  content={`Fähigkeiten & Zertifikate: ${resource.skills.join(', ')}`}
+                  position="auto"
+                  maxWidth="max-w-xs"
+                >
+                  <div className="px-1.5 py-0.5 bg-[#ffbd59]/20 text-[#ffbd59] rounded text-xs cursor-help flex items-center gap-0.5">
+                    <Award className="w-2.5 h-2.5" />
+                    <span>{resource.skills.length}</span>
+                  </div>
+                </Tooltip>
+              )}
+              {resource.equipment && resource.equipment.length > 0 && (
+                <Tooltip 
+                  content={`Verfügbare Geräte & Werkzeuge: ${resource.equipment.join(', ')}`}
+                  position="auto"
+                  maxWidth="max-w-xs"
+                >
+                  <div className="px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded text-xs cursor-help flex items-center gap-0.5">
+                    <Wrench className="w-2.5 h-2.5" />
+                    <span>{resource.equipment.length}</span>
+                  </div>
+                </Tooltip>
+              )}
               {resource.provider_bio && resource.provider_bio.length > 50 && (
-                <Tooltip content="Ausführliche Beschreibung verfügbar">
+                <Tooltip 
+                  content="Ausführliche Beschreibung verfügbar"
+                  position="auto"
+                  maxWidth="max-w-xs"
+                >
                   <div className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 rounded text-xs cursor-help">
                     📋
                   </div>
@@ -475,6 +603,46 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
                     <div className="text-xs text-[#ffbd59] font-medium mb-1">🌐 Sprachen</div>
                     <div className="text-gray-300 text-xs">
                       {resource.provider_languages}
+                    </div>
+                  </div>
+                )}
+
+                {/* Fähigkeiten & Zertifikate */}
+                {resource.skills && resource.skills.length > 0 && (
+                  <div>
+                    <div className="text-xs text-[#ffbd59] font-medium mb-1 flex items-center space-x-1">
+                      <Award className="w-3 h-3" />
+                      <span>Fähigkeiten & Zertifikate</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {resource.skills.map((skill, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center px-2 py-0.5 bg-[#ffbd59]/20 text-[#ffbd59] border border-[#ffbd59]/30 rounded-full text-xs font-medium"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Verfügbare Geräte & Werkzeuge */}
+                {resource.equipment && resource.equipment.length > 0 && (
+                  <div>
+                    <div className="text-xs text-[#ffbd59] font-medium mb-1 flex items-center space-x-1">
+                      <Wrench className="w-3 h-3" />
+                      <span>Verfügbare Geräte & Werkzeuge</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {resource.equipment.map((item, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center px-2 py-0.5 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full text-xs font-medium"
+                        >
+                          {item}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -1121,19 +1289,31 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
               
               {/* Stats */}
               <div className="grid grid-cols-3 gap-2">
-                <Tooltip content={`${filteredResources.length} verfügbare Ressourcen nach aktuellen Filtern`}>
+                <Tooltip 
+                  content={`${filteredResources.length} verfügbare Ressourcen nach aktuellen Filtern`}
+                  position="auto"
+                  maxWidth="max-w-xs"
+                >
                   <div className="bg-white/20 rounded p-2 text-center cursor-help">
                     <div className="text-xl font-bold text-white">{filteredResources.length}</div>
                     <div className="text-xs text-white/80">Verfügbar</div>
                   </div>
                 </Tooltip>
-                <Tooltip content={`${selectedResourceIds.length} Ressourcen für Zuweisung ausgewählt`}>
+                <Tooltip 
+                  content={`${selectedResourceIds.length} Ressourcen für Zuweisung ausgewählt`}
+                  position="auto"
+                  maxWidth="max-w-xs"
+                >
                   <div className="bg-white/20 rounded p-2 text-center cursor-help">
                     <div className="text-xl font-bold text-white">{selectedResourceIds.length}</div>
                     <div className="text-xs text-white/80">Ausgewählt</div>
                   </div>
                 </Tooltip>
-                <Tooltip content={`Gesamtanzahl Personen in ausgewählten Ressourcen: ${totalPersons}`}>
+                <Tooltip 
+                  content={`Gesamtanzahl Personen in ausgewählten Ressourcen: ${totalPersons}`}
+                  position="auto"
+                  maxWidth="max-w-xs"
+                >
                   <div className="bg-white/20 rounded p-2 text-center cursor-help">
                     <div className="text-xl font-bold text-white">{totalPersons}</div>
                     <div className="text-xs text-white/80">Personen</div>

@@ -692,10 +692,6 @@ const ResourceManagementDashboard: React.FC<ResourceManagementDashboardProps> = 
           <BarChart3 className="w-4 h-4" />
           KPI Dashboard
         </button>
-        
-        <button className="px-6 py-2 bg-[#ffbd59] text-black rounded-lg hover:bg-[#f59e0b] transition-colors font-medium">
-          Detailansicht
-        </button>
       </div>
 
       {/* Resource Management Modal */}

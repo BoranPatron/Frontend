@@ -2157,14 +2157,6 @@ export default function ServiceProviderDashboard() {
                 <BarChart size={18} />
                 <span className="text-sm font-medium">KPI Dashboard</span>
               </button>
-              
-              <button
-                onClick={() => navigate('/resources')}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] rounded-lg hover:from-[#ffa726] hover:to-[#ff9800] transition-all transform hover:scale-105 shadow-lg font-medium"
-              >
-                <ExternalLink size={18} />
-                <span className="text-sm font-medium">Detailansicht</span>
-              </button>
             </div>
         
             {/* Einklappbarer Bereich für Ressourcendetails */}
@@ -3845,6 +3837,37 @@ export default function ServiceProviderDashboard() {
           translateCategory={translateCategory}
           translateSubcategory={translateSubcategory}
         />
+      )}
+
+      {/* Resource KPI Dashboard Modal */}
+      <ResourceKPIDashboard
+        isOpen={showResourceKPIs}
+        onClose={() => setShowResourceKPIs(false)}
+      />
+
+      {/* Resource Calendar Modal */}
+      {showResourceCalendar && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1a1a1a] rounded-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-700">
+              <h2 className="text-2xl font-bold text-white">Ressourcen-Kalenderansicht</h2>
+              <button
+                onClick={() => setShowResourceCalendar(false)}
+                className="p-2 text-gray-400 hover:text-white hover:bg-[#333] rounded-lg transition-colors"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <ResourceCalendar
+                serviceProviderId={user?.id}
+                initialResources={userResources}
+                onAddResource={() => {}}
+                showFilters={true}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

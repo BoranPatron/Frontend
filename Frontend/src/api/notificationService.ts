@@ -70,6 +70,17 @@ export const notificationService = {
     }
   },
 
+  // Benachrichtigung als quittiert markieren (acknowledge)
+  async acknowledgeNotification(notificationId: number): Promise<void> {
+    try {
+      await api.patch(`/notifications/${notificationId}/acknowledge`);
+      console.log('✅ Benachrichtigung quittiert:', notificationId);
+    } catch (error) {
+      console.error('❌ Fehler beim Quittieren der Benachrichtigung:', error);
+      throw error;
+    }
+  },
+
   // Mehrere Benachrichtigungen als gelesen markieren
   async markMultipleAsRead(notificationIds: number[]): Promise<void> {
     try {

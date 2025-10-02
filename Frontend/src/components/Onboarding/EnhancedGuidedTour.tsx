@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, ArrowRight, ArrowLeft, CheckCircle, ChevronDown } from 'lucide-react';
 import { useOnboarding } from '../../context/OnboardingContext';
-import { ProjectMockup, TenderMockup, CostPositionMockup, TodoMockup, GeoMapMockup, KanbanMockup } from './TourMockups';
+import { ProjectMockup, TenderMockup, CostPositionMockup, TodoMockup, GeoMapMockup, KanbanMockup, TabsMockup } from './TourMockups';
 
 type Pointer = 'auto' | 'top' | 'bottom' | 'left' | 'right';
 
@@ -12,7 +12,7 @@ export type TourStep = {
   waitForClick?: boolean;
   pointer?: Pointer;
   scrollToElement?: boolean;
-  showMockup?: 'project' | 'tender' | 'cost' | 'todo' | 'geomap' | 'kanban';
+  showMockup?: 'project' | 'tender' | 'cost' | 'todo' | 'geomap' | 'kanban' | 'tabs';
   mockupPosition?: 'below' | 'above' | 'side';
   customContent?: React.ReactNode;
 };
@@ -115,7 +115,7 @@ const bautraegerSteps: TourStep[] = [
   },
   {
     id: 'resource-search-filters',
-    title: 'Intelligente Ressourcenfilter 🔍', 
+    title: 'Erweiterte Ressourcenfilter 🔍', 
     description: 'Nutzen Sie die erweiterten Filter um genau die Ressourcen zu finden, die Sie brauchen: Nach Kategorie, Verfügbarkeit, Entfernung, Preisvorstellungen und spezifischen Qualifikationen. So sparen Sie Zeit und finden die perfekten Partner für Ihr Projekt.',
     pointer: 'auto',
     scrollToElement: true

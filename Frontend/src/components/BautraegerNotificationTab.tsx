@@ -582,9 +582,9 @@ Ihr BuildWise Team
         <div 
           className={`absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-full cursor-pointer transition-all duration-300 ${
             hasUnhandled 
-              ? 'bg-gradient-to-r from-green-500 to-blue-500 animate-pulse shadow-lg shadow-green-500/50' 
-              : 'bg-gradient-to-r from-gray-500 to-slate-500'
-          } rounded-l-lg px-3 py-4 text-white hover:shadow-xl`}
+              ? 'bg-gradient-to-r from-[#ffbd59]/80 to-[#f59e0b]/80 animate-pulse shadow-lg shadow-[#ffbd59]/50' 
+              : 'bg-gradient-to-r from-[#ffbd59]/60 to-[#f59e0b]/60'
+          } rounded-l-lg px-3 py-4 text-white hover:from-[#ffbd59]/80 hover:to-[#f59e0b]/80 hover:shadow-xl`}
           onClick={() => setIsExpanded(!isExpanded)}
           data-tour-id="notification-tab-bautraeger"
         >
