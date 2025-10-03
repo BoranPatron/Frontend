@@ -420,9 +420,23 @@ export default function Dashboard() {
       console.log('📋 Dashboard: Event empfangen - TradeDetails öffnen für Trade:', event.detail.tradeId);
       const tradeId = event.detail.tradeId;
       
+      // Prüfe ob tradeId gültig ist (nicht 0 oder undefined)
+      if (!tradeId || tradeId === 0) {
+        console.error('❌ Dashboard: Ungültige tradeId:', tradeId);
+        alert('Die Ausschreibung konnte nicht gefunden werden. Die Benachrichtigung enthält ungültige Daten.');
+        return;
+      }
+      
       try {
+        // Prüfe ob selectedProject existiert
+        if (!selectedProject?.id) {
+          console.error('❌ Dashboard: Kein Projekt ausgewählt');
+          alert('Bitte wählen Sie zuerst ein Projekt aus.');
+          return;
+        }
+        
         // Lade das spezifische Milestone direkt von der API
-        const milestone = await getMilestones(selectedProject?.id || 0);
+        const milestone = await getMilestones(selectedProject.id);
         const trade = milestone.find((m: any) => m.id === tradeId);
         
         if (trade) {

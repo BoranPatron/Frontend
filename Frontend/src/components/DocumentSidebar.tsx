@@ -21,6 +21,7 @@ import {
   Files
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useProject } from '../context/ProjectContext';
 
 // Document Interface
 export interface DocumentItem {
@@ -58,6 +59,7 @@ const CATEGORY_CONFIG: Record<string, { icon: any; color: string; label: string 
 
 const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ onDocumentClick }) => {
   const { user } = useAuth();
+  const { selectedProject } = useProject();
   const [isOpen, setIsOpen] = useState(false);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [filteredDocuments, setFilteredDocuments] = useState<DocumentItem[]>([]);
@@ -67,12 +69,12 @@ const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ onDocumentClick }) =>
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedAusschreibung, setSelectedAusschreibung] = useState<string | null>(null);
 
-  // Lade Dokumente beim Öffnen
+  // Lade Dokumente beim Öffnen oder wenn sich das Projekt ändert
   useEffect(() => {
-    if (isOpen && documents.length === 0) {
+    if (isOpen && selectedProject?.id) {
       loadDocuments();
     }
-  }, [isOpen]);
+  }, [isOpen, selectedProject?.id]);
 
   // Filter-Effekt
   useEffect(() => {
@@ -106,6 +108,11 @@ const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ onDocumentClick }) =>
   }, [documents, searchTerm, selectedCategory, selectedAusschreibung]);
 
   const loadDocuments = async () => {
+    if (!selectedProject?.id) {
+      setError('Kein Projekt ausgewählt');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     
@@ -113,7 +120,7 @@ const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ onDocumentClick }) =>
       const token = localStorage.getItem('token');
       const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
       
-      const response = await fetch(`${baseUrl}/api/v1/documents/bautraeger/overview`, {
+      const response = await fetch(`${baseUrl}/api/v1/documents/bautraeger/overview?project_id=${selectedProject.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -229,7 +236,14 @@ const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ onDocumentClick }) =>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <FolderOpen className="w-7 h-7 text-white" />
-                    <h2 className="text-2xl font-bold text-white">Dokumente</h2>
+                    <div>
+                      <h2 className="text-2xl font-bold text-white">Dokumente</h2>
+                      {selectedProject && (
+                        <p className="text-white/80 text-sm font-medium">
+                          {selectedProject.name}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <button
                     onClick={() => setIsOpen(false)}
@@ -326,6 +340,16 @@ const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ onDocumentClick }) =>
                       >
                         Erneut versuchen
                       </button>
+                    </div>
+                  </div>
+                ) : !selectedProject ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <Building className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                      <p className="text-gray-400">Kein Projekt ausgewählt</p>
+                      <p className="text-gray-500 text-sm mt-2">
+                        Wählen Sie ein Projekt aus, um dessen Dokumente anzuzeigen
+                      </p>
                     </div>
                   </div>
                 ) : filteredDocuments.length === 0 ? (

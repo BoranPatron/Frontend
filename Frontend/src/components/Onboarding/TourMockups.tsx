@@ -803,38 +803,38 @@ export function TabsMockup({ variant = 'bautraeger' }: ProjectMockupProps) {
         <div className="absolute right-0 top-1/2 transform -translate-y-1/2 space-y-2">
           {/* Notification Tab (Bauträger) */}
           <div className="relative">
-            <div className="bg-gradient-to-r from-[#ffbd59]/80 to-[#f59e0b]/80 rounded-l-lg px-3 py-4 text-white shadow-xl animate-pulse">
+            <div className="bg-gradient-to-r from-blue-500/80 to-cyan-500/80 rounded-l-lg px-3 py-4 text-white shadow-xl animate-pulse">
               <div className="flex flex-col items-center gap-2">
                 <Calendar className="w-5 h-5" />
-                <div className="bg-white text-green-600 rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold">
+                <div className="bg-white text-blue-600 rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold">
                   3
                 </div>
                 <ChevronLeft className="w-4 h-4" />
               </div>
             </div>
             <div className="absolute right-full top-1/2 transform -translate-y-1/2 mr-2">
-              <div className="bg-gray-900/95 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap border border-[#ffbd59]/50">
+              <div className="bg-gray-900/95 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap border border-blue-500/50">
                 Benachrichtigungen
-                <div className="text-[#ffbd59] font-medium">3 neue Angebote</div>
+                <div className="text-cyan-400 font-medium">3 neue Angebote</div>
               </div>
             </div>
           </div>
           
           {/* Notification Tab (Dienstleister) - positioned slightly higher */}
           <div className="relative -mt-1">
-            <div className="bg-gradient-to-r from-[#ffbd59]/60 to-[#f59e0b]/60 rounded-l-lg px-3 py-4 text-white shadow-xl">
+            <div className="bg-gradient-to-r from-blue-500/60 to-cyan-500/60 rounded-l-lg px-3 py-4 text-white shadow-xl">
               <div className="flex flex-col items-center gap-2">
                 <Bell className="w-5 h-5" />
-                <div className="bg-white bg-opacity-90 text-gray-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-medium">
+                <div className="bg-white bg-opacity-90 text-blue-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-medium">
                   2
                 </div>
                 <ChevronLeft className="w-4 h-4" />
               </div>
             </div>
             <div className="absolute right-full top-1/2 transform -translate-y-1/2 mr-2">
-              <div className="bg-gray-900/95 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap border border-[#ffbd59]/50">
+              <div className="bg-gray-900/95 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap border border-blue-500/50">
                 Terminanfragen
-                <div className="text-[#ffbd59] font-medium">2 ausstehend</div>
+                <div className="text-cyan-400 font-medium">2 ausstehend</div>
               </div>
             </div>
           </div>
@@ -871,28 +871,28 @@ export function TabsMockup({ variant = 'bautraeger' }: ProjectMockupProps) {
       
       {/* Info boxes */}
       <div className="mt-6 grid grid-cols-3 gap-4">
-        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <Calendar className="w-4 h-4 text-green-400" />
-            <span className="text-sm font-medium text-green-300">Benachrichtigungen</span>
-          </div>
-          <p className="text-xs text-green-200">Neue Angebote, Terminantworten und wichtige Updates</p>
-        </div>
-        
         <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
           <div className="flex items-center gap-2 mb-2">
-            <Bell className="w-4 h-4 text-blue-400" />
-            <span className="text-sm font-medium text-blue-300">Terminanfragen</span>
+            <Calendar className="w-4 h-4 text-blue-400" />
+            <span className="text-sm font-medium text-blue-300">Benachrichtigungen</span>
           </div>
-          <p className="text-xs text-blue-200">Dienstleister-Antworten auf Ihre Terminvorschläge</p>
+          <p className="text-xs text-blue-200">Neue Angebote, Terminantworten und wichtige Updates</p>
         </div>
         
-        <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
+        <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3">
           <div className="flex items-center gap-2 mb-2">
-            <Files className="w-4 h-4 text-purple-400" />
-            <span className="text-sm font-medium text-purple-300">Dokumente</span>
+            <Bell className="w-4 h-4 text-cyan-400" />
+            <span className="text-sm font-medium text-cyan-300">Terminanfragen</span>
           </div>
-          <p className="text-xs text-purple-200">Alle Projektdokumente übersichtlich sortiert</p>
+          <p className="text-xs text-cyan-200">Dienstleister-Antworten auf Ihre Terminvorschläge</p>
+        </div>
+        
+        <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Files className="w-4 h-4 text-orange-400" />
+            <span className="text-sm font-medium text-orange-300">Dokumente</span>
+          </div>
+          <p className="text-xs text-orange-200">Alle Projektdokumente übersichtlich sortiert</p>
         </div>
       </div>
     </div>

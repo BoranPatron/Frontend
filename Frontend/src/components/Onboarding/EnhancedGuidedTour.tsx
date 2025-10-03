@@ -33,6 +33,15 @@ const bautraegerSteps: TourStep[] = [
     pointer: 'bottom' 
   },
   {
+    id: 'tour-mockup-tabs',
+    title: 'Ihre Kommandozentrale am rechten Bildschirmrand! 🎯',
+    description: 'Hier rechts finden Sie Ihre wichtigsten Tools: Benachrichtigungen über neue Angebote und Terminantworten, sowie alle Ihre Projektdokumente. Diese Tabs sind immer verfügbar und halten Sie über alles Wichtige auf dem Laufenden!',
+    pointer: 'auto',
+    showMockup: 'tabs',
+    mockupPosition: 'below',
+    scrollToElement: false
+  },
+  {
     id: 'tour-mockup-projects',
     title: 'So werden Ihre Projekte aussehen! ✨',
     description: 'Hier sehen Sie eine Vorschau, wie Ihre Bauprojekte im Dashboard dargestellt werden. Jedes Projekt zeigt Ihnen auf einen Blick: Fortschritt, Budget, aktuelle Bauphase und alle wichtigen Kennzahlen.',
@@ -485,7 +494,8 @@ export default function EnhancedGuidedTour({
       cost: <CostPositionMockup variant={userRole.toLowerCase() as 'bautraeger' | 'dienstleister'} />,
       todo: <TodoMockup variant={userRole.toLowerCase() as 'bautraeger' | 'dienstleister'} />,
       geomap: <GeoMapMockup variant={userRole.toLowerCase() as 'bautraeger' | 'dienstleister'} />,
-      kanban: <KanbanMockup variant={userRole.toLowerCase() as 'bautraeger' | 'dienstleister'} />
+      kanban: <KanbanMockup variant={userRole.toLowerCase() as 'bautraeger' | 'dienstleister'} />,
+      tabs: <TabsMockup variant={userRole.toLowerCase() as 'bautraeger' | 'dienstleister'} />
     };
 
     return (

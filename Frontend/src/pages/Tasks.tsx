@@ -172,7 +172,7 @@ export default function Tasks() {
       
       const taskData = {
         ...formData,
-        project_id: parseInt(formData.project_id) || 1, // Fallback auf Projekt 1
+        project_id: parseInt(formData.project_id),
         assigned_to: formData.assigned_to ? parseInt(formData.assigned_to) : null,
         estimated_hours: formData.estimated_hours ? parseInt(formData.estimated_hours) : null
       };

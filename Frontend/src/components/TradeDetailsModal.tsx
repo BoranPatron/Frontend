@@ -2654,7 +2654,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
 **Status:** Wartet auf Bauträger-Abnahme`,
         status: 'todo',
         priority: 'high',
-        project_id: trade?.project_id || 1,
+        project_id: trade?.project_id,
         assigned_to: null, // Wird vom Backend basierend auf project_id zugewiesen
         due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 Tage
         estimated_hours: 2
@@ -5657,9 +5657,9 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         <ServiceProviderRating
           isOpen={showRatingModal}
           onClose={() => setShowRatingModal(false)}
-          serviceProviderId={acceptedQuote?.service_provider_id || 0}
-          projectId={trade?.project_id || 0}
-          milestoneId={trade?.id || 0}
+          serviceProviderId={acceptedQuote?.service_provider_id}
+          projectId={trade?.project_id}
+          milestoneId={trade?.id}
           quoteId={acceptedQuote?.id}
           onRatingComplete={handleRatingComplete}
         />
@@ -5698,7 +5698,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           quote={quoteForDetails}
           trade={trade}
           project={{
-            id: trade?.project_id || 0,
+            id: trade?.project_id,
             name: trade?.project_name || 'Unbekanntes Projekt'
           }}
           user={user}
@@ -5905,7 +5905,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           isOpen={showFinalAcceptanceModal}
           onClose={() => setShowFinalAcceptanceModal(false)}
           acceptanceId={acceptanceId || 0}
-          milestoneId={trade?.id || 0}
+          milestoneId={trade?.id}
           milestoneTitle={trade?.title || 'Ausschreibung'}
           defects={acceptanceDefects}
           onAcceptanceComplete={() => {

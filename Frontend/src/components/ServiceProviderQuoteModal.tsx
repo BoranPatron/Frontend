@@ -128,9 +128,9 @@ export default function ServiceProviderQuoteModal({
             
              // Finde die eigene Antwort (robuste Typ-Konvertierung für alle Browser)
              const myResponse = Array.isArray(responses) ? responses.find((r: any) => {
-               const responseProviderId = parseInt(String(r.service_provider_id || 0));
-               const currentUserId = parseInt(String(user?.id || 0));
-                               const match = responseProviderId === currentUserId && responseProviderId > 0;
+               const responseProviderId = parseInt(String(r.service_provider_id));
+               const currentUserId = parseInt(String(user?.id));
+               const match = responseProviderId === currentUserId && responseProviderId > 0 && currentUserId > 0;
                return match;
              }) : undefined;
             

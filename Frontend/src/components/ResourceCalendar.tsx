@@ -198,7 +198,12 @@ const ResourceCalendar: React.FC<ResourceCalendarProps> = ({
     
     setLoading(true);
     try {
-      const providerId = serviceProviderId || user?.id || 0;
+      const providerId = serviceProviderId || user?.id;
+      
+      if (!providerId) {
+        console.error('❌ ResourceCalendar: Kein gültiger Provider ID gefunden');
+        return;
+      }
       
       // Zeitraum für Monatsansicht
       const startDate = currentDate.startOf('month').subtract(7, 'days').format('YYYY-MM-DD');

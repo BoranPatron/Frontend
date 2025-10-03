@@ -2468,8 +2468,8 @@ export default function CostEstimateDetailsModal({
         <ServiceProviderRating
           isOpen={showServiceProviderRating}
           onClose={() => setShowServiceProviderRating(false)}
-          serviceProviderId={trade.service_provider_id || 0}
-          projectId={trade.project_id || 0}
+          serviceProviderId={trade.service_provider_id}
+          projectId={trade.project_id}
           milestoneId={trade.id}
           onRatingComplete={() => {
             setShowServiceProviderRating(false);

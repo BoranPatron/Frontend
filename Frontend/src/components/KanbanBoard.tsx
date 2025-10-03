@@ -95,7 +95,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
     due_date: '',
     estimated_hours: '',
-    assigned_to: user?.id || 0,
+    assigned_to: user?.id,
     milestone_id: undefined as number | undefined
   });
 
@@ -240,7 +240,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         title: newTask.title,
         description: newTask.description || null,
         priority: newTask.priority,
-        project_id: projectId || 1,
+        project_id: projectId,
         assigned_to: newTask.assigned_to,
         estimated_hours: newTask.estimated_hours ? parseFloat(newTask.estimated_hours) : null,
         due_date: newTask.due_date || null,
@@ -256,7 +256,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         priority: 'medium',
         due_date: '',
         estimated_hours: '',
-        assigned_to: user?.id || 0,
+        assigned_to: user?.id,
         milestone_id: undefined
       });
     } catch (err) {

@@ -1061,7 +1061,7 @@ export default function SimpleCostEstimateModal({
         {/* Rechnungs-Management Integration - Immer anzeigen wenn Rechnung existiert */}
         <InvoiceManagementCard
           invoice={existingInvoice}
-          tradeId={trade?.id || 0}
+          tradeId={trade?.id}
           tradeTitle={trade?.title || 'Unbekanntes Gewerk'}
           projectId={project?.id || 0}
           onInvoiceUpdated={(updatedInvoice) => {

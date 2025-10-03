@@ -103,6 +103,13 @@ const ResourceManagementDashboard: React.FC<ResourceManagementDashboardProps> = 
   const handleSubmitQuote = (allocation: ResourceAllocation) => {
     console.log('📋 Öffne TradeDetailsModal für Angebotsabgabe:', allocation);
     
+    // Prüfe ob trade_id gültig ist
+    if (!allocation.trade_id || allocation.trade_id === 0) {
+      console.error('❌ ResourceManagementDashboard: Ungültige trade_id:', allocation.trade_id);
+      alert('Die Ausschreibung konnte nicht gefunden werden. Die Ressourcen-Zuweisung enthält ungültige Daten.');
+      return;
+    }
+    
     // Dispatch Event um TradeDetailsModal zu öffnen
     window.dispatchEvent(new CustomEvent('openTradeDetails', {
       detail: {

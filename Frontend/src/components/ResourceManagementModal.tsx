@@ -49,6 +49,7 @@ const SKILL_SUGGESTIONS = [
   'Befähigte Person für Leitern und Tritte',
   'IPAF-Hubarbeitsbühnenschein',
   'Führerschein Klasse CE (LKW)',
+  'Führerschein Klasse BE',
   'Führerschein Klasse B',
   'ADR-Schein (Gefahrgut)',
   'SCC-Zertifikat (Arbeitsschutz)',
@@ -63,6 +64,7 @@ const SKILL_SUGGESTIONS = [
   'Vermessungskenntnisse',
   'Prüfung ortsveränderlicher Geräte (DGUV V3)',
   'Sachkundenachweis Baumfällung',
+  'ESD-Zertifikat',
   'Motorsägenschein'
 ];
 
@@ -179,10 +181,17 @@ const ResourceManagementModal: React.FC<ResourceManagementModalProps> = ({
       const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
       const totalHours = daysDiff * (formData.daily_hours || 8) * formData.person_count;
 
+      // Prüfe ob user?.id gültig ist
+      if (!user?.id) {
+        console.error('❌ ResourceManagementModal: Kein gültiger Benutzer gefunden');
+        alert('Fehler: Kein gültiger Benutzer gefunden. Bitte melden Sie sich erneut an.');
+        return;
+      }
+
       const resourceData: Resource = {
         ...formData as Resource,
         total_hours: totalHours,
-        service_provider_id: user?.id || 0
+        service_provider_id: user.id
       };
 
       let result: Resource;

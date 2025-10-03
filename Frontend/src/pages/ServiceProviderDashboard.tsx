@@ -397,6 +397,12 @@ export default function ServiceProviderDashboard() {
   // Hilfsfunktion: Lädt Trade- und Projekt-Informationen für eine ResourceAllocation
   const loadAllocationDetails = async (allocation: any) => {
     try {
+      // Prüfe ob trade_id gültig ist
+      if (!allocation.trade_id || allocation.trade_id === 0) {
+        console.error('❌ ServiceProviderDashboard: Ungültige trade_id in loadAllocationDetails:', allocation.trade_id);
+        return null;
+      }
+      
       // Lade Trade-Informationen
       const tradeResponse = await fetch(`http://localhost:8000/api/v1/milestones/${allocation.trade_id}`, {
         headers: {
@@ -409,7 +415,7 @@ export default function ServiceProviderDashboard() {
         const trade = await tradeResponse.json();
         
         // Lade Projekt-Informationen
-        if (trade.project_id) {
+        if (trade.project_id && trade.project_id !== 0) {
           const projectResponse = await fetch(`http://localhost:8000/api/v1/projects/${trade.project_id}`, {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -475,7 +481,10 @@ export default function ServiceProviderDashboard() {
         allocations.map(allocation => loadAllocationDetails(allocation))
       );
       
-      setResourceAllocations(extendedAllocations);
+      // Filtere ungültige Allocations heraus (null Werte)
+      const validAllocations = extendedAllocations.filter(allocation => allocation !== null);
+      
+      setResourceAllocations(validAllocations);
       
       // Berechne Statistiken
       calculateResourceStats(resources);
@@ -2234,6 +2243,13 @@ export default function ServiceProviderDashboard() {
                                       </span>
                                       <button
                                         onClick={() => {
+                                          // Prüfe ob trade_id gültig ist
+                                          if (!allocationDetails.trade_id || allocationDetails.trade_id === 0) {
+                                            console.error('❌ ServiceProviderDashboard: Ungültige trade_id:', allocationDetails.trade_id);
+                                            alert('Die Ausschreibung konnte nicht gefunden werden. Die Ressourcen-Zuweisung enthält ungültige Daten.');
+                                            return;
+                                          }
+                                          
                                           // Event für TradeDetailsModal auslösen
                                           window.dispatchEvent(new CustomEvent('openTradeDetails', {
                                             detail: {
@@ -3733,7 +3749,7 @@ export default function ServiceProviderDashboard() {
             </div>
             <div className="overflow-y-auto max-h-[calc(90vh-120px)] p-6">
               <ResourceCalendar 
-                serviceProviderId={user?.id || 1}
+                serviceProviderId={user?.id}
                 onResourceClick={(resource) => {
                   console.log('Resource clicked:', resource);
                 }}
@@ -3758,7 +3774,7 @@ export default function ServiceProviderDashboard() {
             </div>
             <div className="overflow-y-auto max-h-[calc(90vh-120px)] p-6">
               <ResourceKPIDashboard 
-                serviceProviderId={user?.id || 1}
+                serviceProviderId={user?.id}
               />
             </div>
           </div>

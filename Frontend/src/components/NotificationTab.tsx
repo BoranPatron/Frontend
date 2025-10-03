@@ -579,9 +579,9 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
         <div 
           className={`absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-full cursor-pointer transition-all duration-300 ${
             hasNewNotifications 
-              ? 'bg-gradient-to-r from-[#ffbd59]/80 to-[#f59e0b]/80 animate-pulse shadow-lg shadow-[#ffbd59]/50' 
-              : 'bg-gradient-to-r from-[#ffbd59]/60 to-[#f59e0b]/60'
-          } rounded-l-lg px-3 py-4 text-white hover:from-[#ffbd59]/80 hover:to-[#f59e0b]/80 hover:shadow-xl`}
+              ? 'bg-gradient-to-r from-blue-500/80 to-cyan-500/80 animate-pulse shadow-lg shadow-blue-500/50' 
+              : 'bg-gradient-to-r from-blue-500/60 to-cyan-500/60'
+          } rounded-l-lg px-3 py-4 text-white hover:from-blue-500/80 hover:to-cyan-500/80 hover:shadow-xl`}
           onClick={() => {
             setIsExpanded(!isExpanded);
             if (!isExpanded && hasNewNotifications) {
@@ -686,6 +686,13 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                         console.log('📋 Öffne Ausschreibung für Quote:', notification.tradeId);
                         markAsSeen([notification.id]);
                         
+                        // Prüfe ob tradeId gültig ist
+                        if (!notification.tradeId || notification.tradeId === 0) {
+                          console.error('❌ NotificationTab: Ungültige tradeId:', notification.tradeId);
+                          alert('Die Ausschreibung konnte nicht gefunden werden. Die Benachrichtigung enthält ungültige Daten.');
+                          return;
+                        }
+                        
                         // Event für ServiceProviderDashboard auslösen, um TradeDetailsModal zu öffnen
                         window.dispatchEvent(new CustomEvent('openTradeDetails', {
                           detail: {
@@ -724,6 +731,13 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                         
                         // Markiere auch lokal als gesehen
                         markAsSeen([notification.id]);
+                        
+                        // Prüfe ob tradeId gültig ist
+                        if (!notification.tradeId || notification.tradeId === 0) {
+                          console.error('❌ NotificationTab: Ungültige tradeId für Ressourcen-Zuweisung:', notification.tradeId);
+                          alert('Die Ausschreibung konnte nicht gefunden werden. Die Benachrichtigung enthält ungültige Daten.');
+                          return;
+                        }
                         
                         // Event für ServiceProviderDashboard auslösen, um CostEstimateForm zu öffnen
                         window.dispatchEvent(new CustomEvent('openTradeDetails', {
@@ -765,6 +779,13 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                         
                         // Markiere auch lokal als gesehen
                         markAsSeen([notification.id]);
+                        
+                        // Prüfe ob tradeId gültig ist
+                        if (!notification.tradeId || notification.tradeId === 0) {
+                          console.error('❌ NotificationTab: Ungültige tradeId für Ausschreibungseinladung:', notification.tradeId);
+                          alert('Die Ausschreibung konnte nicht gefunden werden. Die Benachrichtigung enthält ungültige Daten.');
+                          return;
+                        }
                         
                         // Event für ServiceProviderDashboard auslösen, um TradeDetailsModal zu öffnen
                         window.dispatchEvent(new CustomEvent('openTradeDetails', {

@@ -975,6 +975,11 @@ export default function Trades() {
         throw new Error(`Bitte füllen Sie folgende Pflichtfelder aus: ${missingFields.join(', ')}`);
       }
       
+      // Prüfe ob user?.id gültig ist
+      if (!user?.id) {
+        throw new Error('Fehler: Kein gültiger Benutzer gefunden. Bitte melden Sie sich erneut an.');
+      }
+      
       // Erstelle JSON-Objekt für API-Request (Backend erwartet QuoteCreate Schema)
       const quoteData: any = {
         title: `${offerForm.company_name} - ${offerTrade.title}`,
@@ -986,7 +991,7 @@ export default function Trades() {
         completion_date: offerForm.completion_date,
         project_id: offerTrade.project_id, // KORREKTUR: Immer die Projekt-ID des Gewerks verwenden
         milestone_id: offerTrade.id,
-        service_provider_id: user?.id || 0, // Aktueller Benutzer als Dienstleister
+        service_provider_id: user.id, // Aktueller Benutzer als Dienstleister
         status: 'submitted', // Neues Angebot hat Status "submitted"
         // Dienstleister-Felder
         company_name: offerForm.company_name,
@@ -1356,13 +1361,18 @@ export default function Trades() {
 
   const handleCostEstimateSubmit = async (costEstimateData: any) => {
     try {
+      // Prüfe ob user?.id gültig ist
+      if (!user?.id) {
+        throw new Error('Fehler: Kein gültiger Benutzer gefunden. Bitte melden Sie sich erneut an.');
+      }
+      
       // API-Call für die Kostenvoranschlag-Erstellung
       const quoteData = {
         title: costEstimateData.title,
         description: costEstimateData.description,
         project_id: costEstimateData.project_id,
         milestone_id: costEstimateData.trade_id,
-        service_provider_id: user?.id || 0,
+        service_provider_id: user.id,
         total_amount: parseFloat(costEstimateData.total_amount),
         currency: costEstimateData.currency,
         valid_until: costEstimateData.valid_until,

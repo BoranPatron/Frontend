@@ -785,14 +785,6 @@ export default function Navbar() {
                         <span className="text-sm">Profil bearbeiten</span>
                       </Link>
                       
-                      <Link
-                        to="/messages"
-                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-white"
-                        onClick={() => setShowUserMenu(false)}
-                      >
-                        <MessageCircle size={16} />
-                        <span className="text-sm">Nachrichten</span>
-                      </Link>
                       
                       <div className="border-t border-white/10 pt-1 mt-1">
                         <button

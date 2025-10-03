@@ -32,8 +32,10 @@ import {
 import { getProjects } from '../api/projectService';
 import { getTasks } from '../api/taskService';
 import { getDocuments } from '../api/documentService';
-import { getQuotes } from '../api/quoteService';
+import { getQuotes, getQuoteStatistics } from '../api/quoteService';
 import { getMilestones } from '../api/milestoneService';
+import { financeAnalyticsService } from '../api/financeAnalyticsService';
+import { expenseService } from '../api/expenseService';
 import {
   PieChart as RePieChart,
   Pie,
@@ -79,6 +81,16 @@ interface GlobalStats {
   upcomingMilestones: number;
 }
 
+interface ProjectDetails {
+  projectId: number;
+  quotes: any[];
+  quoteStats: any;
+  financeData: any;
+  expenses: any[];
+  loading: boolean;
+  error: string | null;
+}
+
 export default function GlobalProjects() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -105,6 +117,7 @@ export default function GlobalProjects() {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedProject, setExpandedProject] = useState<number | null>(null);
   const [showProjectDetails, setShowProjectDetails] = useState<{ [projectId: number]: boolean }>({});
+  const [projectDetailsData, setProjectDetailsData] = useState<{ [projectId: number]: ProjectDetails }>({});
 
   useEffect(() => {
     loadGlobalData();
@@ -314,11 +327,72 @@ export default function GlobalProjects() {
     navigate(`/project/${projectId}`);
   };
 
-  const toggleProjectDetails = (projectId: number) => {
+  const toggleProjectDetails = async (projectId: number) => {
+    const isCurrentlyShown = showProjectDetails[projectId];
+    
     setShowProjectDetails(prev => ({
       ...prev,
       [projectId]: !prev[projectId]
     }));
+
+    // Wenn Details geöffnet werden und noch nicht geladen, lade die Daten
+    if (!isCurrentlyShown && !projectDetailsData[projectId]) {
+      await loadProjectDetails(projectId);
+    }
+  };
+
+  const loadProjectDetails = async (projectId: number) => {
+    // Initialisiere Loading-State
+    setProjectDetailsData(prev => ({
+      ...prev,
+      [projectId]: {
+        projectId,
+        quotes: [],
+        quoteStats: null,
+        financeData: null,
+        expenses: [],
+        loading: true,
+        error: null
+      }
+    }));
+
+    try {
+      // Lade alle benötigten Daten parallel
+      const [quotes, quoteStats, financeData, expenses] = await Promise.allSettled([
+        getQuotes(projectId),
+        getQuoteStatistics(projectId).catch(() => null), // Optional
+        financeAnalyticsService.getComprehensiveFinanceAnalytics(projectId).catch(() => null), // Optional
+        expenseService.getExpenses(projectId).catch(() => []) // Optional
+      ]);
+
+      setProjectDetailsData(prev => ({
+        ...prev,
+        [projectId]: {
+          projectId,
+          quotes: quotes.status === 'fulfilled' ? quotes.value : [],
+          quoteStats: quoteStats.status === 'fulfilled' ? quoteStats.value : null,
+          financeData: financeData.status === 'fulfilled' ? financeData.value : null,
+          expenses: expenses.status === 'fulfilled' ? expenses.value : [],
+          loading: false,
+          error: null
+        }
+      }));
+
+    } catch (error: any) {
+      console.error(`❌ Fehler beim Laden der Details für Projekt ${projectId}:`, error);
+      setProjectDetailsData(prev => ({
+        ...prev,
+        [projectId]: {
+          projectId,
+          quotes: [],
+          quoteStats: null,
+          financeData: null,
+          expenses: [],
+          loading: false,
+          error: error.message || 'Fehler beim Laden der Projektdetails'
+        }
+      }));
+    }
   };
 
   const handleRefresh = () => {
@@ -741,49 +815,202 @@ export default function GlobalProjects() {
                   {/* Expandable Details Section */}
                   {showProjectDetails[project.id] && (
                     <div className="mb-3 p-3 bg-white/5 rounded-lg border-t border-white/10">
-                      <p className="text-gray-300 text-sm mb-2">{project.description}</p>
+                      <p className="text-gray-300 text-sm mb-3">{project.description}</p>
                       
-                      <div className="space-y-2 text-sm">
-                        {project.address && (
-                          <div className="flex items-center gap-2 text-gray-300">
-                            <MapPin size={14} className="text-[#ffbd59]" />
-                            <span className="truncate">{project.address}</span>
-                          </div>
-                        )}
+                      {/* Projekt Details Data */}
+                      {(() => {
+                        const details = projectDetailsData[project.id];
+                        
+                        if (!details) {
+                          return (
+                            <div className="text-center py-4">
+                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#ffbd59] mx-auto mb-2"></div>
+                              <p className="text-gray-400 text-sm">Lade Details...</p>
+                            </div>
+                          );
+                        }
 
-                        {project.budget && (
-                          <div className="flex items-center gap-2 text-gray-300">
-                            <Euro size={14} className="text-[#ffbd59]" />
-                            <span>Budget: {formatCurrency(project.budget)}</span>
-                          </div>
-                        )}
+                        if (details.loading) {
+                          return (
+                            <div className="text-center py-4">
+                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#ffbd59] mx-auto mb-2"></div>
+                              <p className="text-gray-400 text-sm">Lade Projektdaten...</p>
+                            </div>
+                          );
+                        }
 
-                        {project.property_size && (
-                          <div className="flex items-center gap-2 text-gray-300">
-                            <Target size={14} className="text-[#ffbd59]" />
-                            <span>Grundstück: {project.property_size}m²</span>
-                          </div>
-                        )}
+                        if (details.error) {
+                          return (
+                            <div className="text-center py-4">
+                              <AlertTriangle size={20} className="text-red-400 mx-auto mb-2" />
+                              <p className="text-red-300 text-sm">{details.error}</p>
+                            </div>
+                          );
+                        }
 
-                        {project.construction_area && (
-                          <div className="flex items-center gap-2 text-gray-300">
-                            <Building size={14} className="text-[#ffbd59]" />
-                            <span>Baufläche: {project.construction_area}m²</span>
-                          </div>
-                        )}
+                        return (
+                          <div className="space-y-4">
+                            {/* Kennzahlen Grid */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                              {/* Aktive Angebote */}
+                              <div className="bg-white/5 rounded-lg p-2 text-center">
+                                <div className="text-[#ffbd59] font-bold text-lg">
+                                  {details.quotes?.filter((q: any) => ['submitted', 'pending'].includes(q.status)).length || 0}
+                                </div>
+                                <div className="text-gray-400 text-xs">Aktive Angebote</div>
+                              </div>
 
-                        {project.estimated_duration && (
-                          <div className="flex items-center gap-2 text-gray-300">
-                            <Calendar size={14} className="text-[#ffbd59]" />
-                            <span>Dauer: {project.estimated_duration} Monate</span>
-                          </div>
-                        )}
+                              {/* Gesamtangebote */}
+                              <div className="bg-white/5 rounded-lg p-2 text-center">
+                                <div className="text-[#ffbd59] font-bold text-lg">
+                                  {details.quotes?.length || 0}
+                                </div>
+                                <div className="text-gray-400 text-xs">Gesamt Angebote</div>
+                              </div>
 
-                        <div className="flex items-center gap-2 text-gray-300">
-                          <Activity size={14} className="text-[#ffbd59]" />
-                          <span>Erstellt: {formatDate(project.created_at)}</span>
-                        </div>
-                      </div>
+                              {/* Ausgaben */}
+                              <div className="bg-white/5 rounded-lg p-2 text-center">
+                                <div className="text-[#ffbd59] font-bold text-lg">
+                                  {details.expenses?.length || 0}
+                                </div>
+                                <div className="text-gray-400 text-xs">Ausgaben</div>
+                              </div>
+
+                              {/* Budget Auslastung */}
+                              <div className="bg-white/5 rounded-lg p-2 text-center">
+                                <div className="text-[#ffbd59] font-bold text-lg">
+                                  {details.financeData?.budget_analysis ? 
+                                    `${Math.round(details.financeData.budget_analysis.budget_utilization_percentage)}%` : 
+                                    project.budget ? `${Math.round((project.current_costs / project.budget) * 100)}%` : 'N/A'
+                                  }
+                                </div>
+                                <div className="text-gray-400 text-xs">Budget genutzt</div>
+                              </div>
+                            </div>
+
+                            {/* Aktive Ausschreibungen */}
+                            {details.quotes && details.quotes.length > 0 && (
+                              <div>
+                                <h5 className="text-white font-semibold text-sm mb-2 flex items-center gap-2">
+                                  <Handshake size={14} className="text-[#ffbd59]" />
+                                  Aktive Ausschreibungen
+                                </h5>
+                                <div className="space-y-1 max-h-32 overflow-y-auto">
+                                  {details.quotes
+                                    .filter((quote: any) => ['submitted', 'pending'].includes(quote.status))
+                                    .slice(0, 3)
+                                    .map((quote: any) => (
+                                      <div key={quote.id} className="bg-white/5 rounded p-2 text-sm">
+                                        <div className="flex justify-between items-start">
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-white font-medium truncate">{quote.title}</p>
+                                            <p className="text-gray-400 text-xs">{quote.company_name || 'Unbekannter Anbieter'}</p>
+                                          </div>
+                                          <div className="text-right ml-2">
+                                            <p className="text-[#ffbd59] font-bold text-sm">
+                                              {formatCurrency(quote.total_amount || 0)}
+                                            </p>
+                                            <div className={`px-2 py-1 rounded-full text-xs ${
+                                              quote.status === 'submitted' ? 'bg-green-500/20 text-green-300' :
+                                              quote.status === 'pending' ? 'bg-yellow-500/20 text-yellow-300' :
+                                              'bg-gray-500/20 text-gray-300'
+                                            }`}>
+                                              {quote.status === 'submitted' ? 'Eingereicht' :
+                                               quote.status === 'pending' ? 'Ausstehend' : quote.status}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  {details.quotes.filter((q: any) => ['submitted', 'pending'].includes(q.status)).length > 3 && (
+                                    <p className="text-gray-400 text-xs text-center">
+                                      +{details.quotes.filter((q: any) => ['submitted', 'pending'].includes(q.status)).length - 3} weitere...
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Finanz-Übersicht */}
+                            {details.financeData && (
+                              <div>
+                                <h5 className="text-white font-semibold text-sm mb-2 flex items-center gap-2">
+                                  <Euro size={14} className="text-[#ffbd59]" />
+                                  Finanz-Übersicht
+                                </h5>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div className="bg-white/5 rounded p-2">
+                                    <div className="text-gray-400">Kostenpositionen</div>
+                                    <div className="text-white font-bold">
+                                      {formatCurrency(details.financeData.cost_positions?.total_amount || 0)}
+                                    </div>
+                                  </div>
+                                  <div className="bg-white/5 rounded p-2">
+                                    <div className="text-gray-400">Bereits bezahlt</div>
+                                    <div className="text-green-400 font-bold">
+                                      {formatCurrency(details.financeData.cost_positions?.paid_amount || 0)}
+                                    </div>
+                                  </div>
+                                  <div className="bg-white/5 rounded p-2">
+                                    <div className="text-gray-400">Ausstehend</div>
+                                    <div className="text-orange-400 font-bold">
+                                      {formatCurrency(details.financeData.cost_positions?.remaining_amount || 0)}
+                                    </div>
+                                  </div>
+                                  <div className="bg-white/5 rounded p-2">
+                                    <div className="text-gray-400">BuildWise Gebühren</div>
+                                    <div className="text-blue-400 font-bold">
+                                      {formatCurrency(details.financeData.buildwise_fees?.total_amount || 0)}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Basis Projekt-Informationen */}
+                            <div>
+                              <h5 className="text-white font-semibold text-sm mb-2 flex items-center gap-2">
+                                <Building size={14} className="text-[#ffbd59]" />
+                                Projekt-Informationen
+                              </h5>
+                              <div className="space-y-1 text-sm">
+                                {project.address && (
+                                  <div className="flex items-center gap-2 text-gray-300">
+                                    <MapPin size={12} className="text-[#ffbd59]" />
+                                    <span className="truncate text-xs">{project.address}</span>
+                                  </div>
+                                )}
+
+                                {project.budget && (
+                                  <div className="flex items-center gap-2 text-gray-300">
+                                    <Euro size={12} className="text-[#ffbd59]" />
+                                    <span className="text-xs">Budget: {formatCurrency(project.budget)}</span>
+                                  </div>
+                                )}
+
+                                {project.property_size && (
+                                  <div className="flex items-center gap-2 text-gray-300">
+                                    <Target size={12} className="text-[#ffbd59]" />
+                                    <span className="text-xs">Grundstück: {project.property_size}m²</span>
+                                  </div>
+                                )}
+
+                                {project.construction_area && (
+                                  <div className="flex items-center gap-2 text-gray-300">
+                                    <Building size={12} className="text-[#ffbd59]" />
+                                    <span className="text-xs">Baufläche: {project.construction_area}m²</span>
+                                  </div>
+                                )}
+
+                                <div className="flex items-center gap-2 text-gray-300">
+                                  <Activity size={12} className="text-[#ffbd59]" />
+                                  <span className="text-xs">Erstellt: {formatDate(project.created_at)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 
