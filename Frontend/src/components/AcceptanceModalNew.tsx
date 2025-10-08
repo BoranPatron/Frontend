@@ -75,7 +75,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
   project,
   onRequestServiceProviderRating
 }) => {
-  const [step, setStep] = useState(1); // 1: Checkliste, 2: Mängel & Fotos, 3: Bewertung, 4: Entscheidung
+  const [step, setStep] = useState(1); // 1: Checkliste, 2: Mängel & Fotos, 3: Entscheidung
   const [accepted, setAccepted] = useState<boolean | null>(null);
   const [reviewDate, setReviewDate] = useState('');
   const [reviewNotes, setReviewNotes] = useState('');
@@ -462,8 +462,10 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
       case 1: return true; // Checkliste kann immer übersprungen werden
       case 2: 
         // Schritt 2: Warnen wenn nicht gespeicherte Mangel-Daten vorhanden sind
-        return !hasUnsavedDefectData();
-      case 3: 
+        if (hasUnsavedDefectData()) {
+          return false;
+        }
+        
         if (hasIssues) {
           // Bei Abnahme unter Vorbehalt: Wiedervorlage-Datum erforderlich
           return reviewDate.trim() !== '';
@@ -471,7 +473,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
           // Bei vollständiger Abnahme: Gesamtbewertung erforderlich
           return overallRating > 0;
         }
-      case 4: return accepted !== null; // Entscheidung ist erforderlich
+      case 3: return accepted !== null; // Entscheidung ist erforderlich
       default: return false;
     }
   };
@@ -486,11 +488,10 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
               Abnahme: {trade?.title || 'Gewerk'}
             </h2>
             <p className="text-gray-400 text-sm mt-1">
-              Schritt {step} von {hasIssues ? 3 : 4}: {
+              Schritt {step} von {hasIssues ? 2 : 3}: {
                 step === 1 ? 'Vor-Ort Prüfung' : 
-                step === 2 ? 'Mängel & Fotos dokumentieren' : 
-                step === 3 && hasIssues ? 'Abnahme unter Vorbehalt' :
-                step === 3 ? 'Bewertung' :
+                step === 2 && hasIssues ? 'Abnahme unter Vorbehalt' :
+                step === 2 ? 'Bewertung & Entscheidung' :
                 'Abnahme-Entscheidung'
               }
             </p>
@@ -815,8 +816,8 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
 
 
 
-          {/* Schritt 3: Abnahme unter Vorbehalt (wenn Mängel/unvollständige Checkliste) */}
-          {step === 3 && hasIssues && (
+          {/* Schritt 2: Abnahme unter Vorbehalt (wenn Mängel/unvollständige Checkliste) */}
+          {step === 2 && hasIssues && (
             <div className="space-y-6">
               <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
                 <h3 className="text-orange-300 font-semibold mb-4 flex items-center gap-2">
@@ -982,7 +983,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                           <button
                             onClick={() => {
                               setAccepted(true);
-                              setStep(4); // Zur Bewertung
+                              setStep(3); // Zur Entscheidung
                               setShowFinalAcceptanceWarning(false);
                             }}
                             className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
@@ -1004,66 +1005,59 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
             </div>
           )}
 
-          {/* Schritt 3: Bewertung (nur bei vollständiger Abnahme ohne Mängel) */}
+
+          {/* Schritt 3: Bewertung & Abnahme-Entscheidung (nur bei vollständiger Abnahme ohne Mängel) */}
           {step === 3 && !hasIssues && (
-            <div className="space-y-6">
-              <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
-                <h3 className="text-purple-300 font-semibold mb-4 flex items-center gap-2">
-                  <Star size={20} />
-                  Bewertung der Arbeiten
-                </h3>
-                <p className="text-purple-200 text-sm mb-6">
-                  Da alle Arbeiten zufriedenstellend abgeschlossen sind, können Sie nun den Dienstleister bewerten.
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                  {renderStarRating(qualityRating, setQualityRating, 'Qualität der Arbeiten')}
-                  {renderStarRating(timelinessRating, setTimelinessRating, 'Termintreue')}
-                  {renderStarRating(overallRating, setOverallRating, 'Gesamtbewertung *')}
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Allgemeine Notizen zur Abnahme
-                    </label>
-                    <textarea
-                      value={acceptanceNotes}
-                      onChange={(e) => setAcceptanceNotes(e.target.value)}
-                      placeholder="Beschreiben Sie den Zustand der Arbeiten..."
-                      className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      rows={4}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Ihre privaten Notizen
-                    </label>
-                    <textarea
-                      value={contractorNotes}
-                      onChange={(e) => setContractorNotes(e.target.value)}
-                      placeholder="Private Notizen, die nur Sie sehen..."
-                      className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      rows={3}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Schritt 4: Abnahme-Entscheidung (nur bei vollständiger Abnahme ohne Mängel) */}
-          {step === 4 && !hasIssues && (
             <div className="space-y-6">
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
                 <h3 className="text-blue-300 font-semibold mb-4 flex items-center gap-2">
                   <CheckCircle size={20} />
-                  Abnahme-Entscheidung
+                  Bewertung & Abnahme-Entscheidung
                 </h3>
                 <p className="text-blue-200 text-sm mb-6">
-                  Treffen Sie basierend auf Ihrer Prüfung die finale Entscheidung zur Abnahme.
+                  Da alle Arbeiten zufriedenstellend abgeschlossen sind, können Sie nun den Dienstleister bewerten und die finale Entscheidung zur Abnahme treffen.
                 </p>
+
+                {/* Bewertung */}
+                <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4 mb-6">
+                  <h4 className="text-purple-300 font-semibold mb-4 flex items-center gap-2">
+                    <Star size={18} />
+                    Bewertung der Arbeiten
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+                    {renderStarRating(qualityRating, setQualityRating, 'Qualität der Arbeiten')}
+                    {renderStarRating(timelinessRating, setTimelinessRating, 'Termintreue')}
+                    {renderStarRating(overallRating, setOverallRating, 'Gesamtbewertung *')}
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Allgemeine Notizen zur Abnahme
+                      </label>
+                      <textarea
+                        value={acceptanceNotes}
+                        onChange={(e) => setAcceptanceNotes(e.target.value)}
+                        placeholder="Beschreiben Sie den Zustand der Arbeiten..."
+                        className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        rows={3}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Ihre privaten Notizen
+                      </label>
+                      <textarea
+                        value={contractorNotes}
+                        onChange={(e) => setContractorNotes(e.target.value)}
+                        placeholder="Private Notizen, die nur Sie sehen..."
+                        className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <button
@@ -1144,8 +1138,8 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
               </button>
             )}
             
-            {/* Bei Mängeln/unvollständiger Checkliste: Abnahme unter Vorbehalt nach Schritt 3 */}
-            {hasIssues && step === 3 ? (
+            {/* Bei Mängeln/unvollständiger Checkliste: Abnahme unter Vorbehalt nach Schritt 2 */}
+            {hasIssues && step === 2 ? (
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowFinalAcceptanceWarning(true)}
@@ -1166,7 +1160,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                   {loading ? 'Speichere...' : 'Abnahme unter Vorbehalt'}
                 </button>
               </div>
-            ) : step < (hasIssues ? 3 : 4) ? (
+            ) : step < (hasIssues ? 2 : 3) ? (
               <div className="flex flex-col items-end gap-2">
                 <button
                   onClick={() => setStep(step + 1)}

@@ -70,7 +70,8 @@ import {
   AlertCircle,
   Info,
   FileCheck,
-  Wrench
+  Wrench,
+  Menu
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
@@ -78,6 +79,7 @@ import {
   getDocuments, 
   uploadDocument, 
   deleteDocument, 
+  deleteDocumentForServiceProvider,
   updateDocument,
   toggleDocumentFavorite,
   updateDocumentStatus,
@@ -91,6 +93,7 @@ import {
 import { getProjects } from '../api/projectService';
 import DocumentViewer from '../components/DocumentViewer';
 import PageHeader from '../components/PageHeader';
+import MobileDocumentsView from '../components/MobileDocumentsView';
 import { DocumentCategorizer } from '../utils/documentCategorizer';
 import { glass } from '../styles/glass';
 
@@ -151,6 +154,7 @@ const DOCUMENT_CATEGORIES = {
     icon: Camera,
     color: 'purple',
     subcategories: [
+      'Fotos',
       'Baufortschrittsfotos',
       'Mängeldokumentation',
       'Bestandsdokumentation',
@@ -386,6 +390,9 @@ const Documents: React.FC = () => {
   const [sortBy, setSortBy] = useState<'created_at' | 'title' | 'file_size' | 'accessed_at'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
+  // Neu: Quote-Status-Filter für Dienstleister
+  const [quoteStatusFilter, setQuoteStatusFilter] = useState<'accepted' | 'own' | 'all'>('accepted');
+  
   // State für Upload
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -447,6 +454,17 @@ const Documents: React.FC = () => {
 
   // Gefilterte und sortierte Dokumente
   const filteredDocuments = React.useMemo(() => {
+    console.log('[DEBUG] Filtering documents:', {
+      totalDocuments: documents.length,
+      documents: documents,
+      selectedCategory,
+      selectedSubcategory,
+      statusFilter,
+      favoriteFilter,
+      searchTerm,
+      selectedMilestone
+    });
+    
     let filtered = documents;
 
     // Kategorie-Filter - Dokumente sind bereits konvertiert
@@ -510,6 +528,12 @@ const Documents: React.FC = () => {
       } else {
         return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
       }
+    });
+
+    console.log('[DEBUG] Filtered documents result:', {
+      filteredCount: filtered.length,
+      originalCount: documents.length,
+      filtered: filtered
     });
 
     return filtered;
@@ -606,26 +630,44 @@ const Documents: React.FC = () => {
   // Dokumente laden
   const loadDocuments = async () => {
     
-    // Für Dienstleister: Lade eigene Dokumente (Rechnungen, etc.)
+    // Für Dienstleister: Lade Dokumente basierend auf Quote-Status-Filter
     if (user && (user.user_type === 'service_provider' || user.user_role === 'DIENSTLEISTER') && !selectedProject) {
       try {
         setLoading(true);
-        // Lade Dienstleister-spezifische Dokumente (Rechnungen, etc.)
+        // Lade Dienstleister-spezifische Dokumente (temporäre Lösung ohne Filter)
+        console.log('[DEBUG] Starting to load service provider documents...');
         const docs = await getDocuments(0, { // project_id wird ignoriert für Dienstleister-Dokumente
           service_provider_documents: true // Flag für Dienstleister-Dokumente
+          // Temporär deaktiviert: quote_status_filter: quoteStatusFilter
+        });
+        console.log('[DEBUG] getDocuments() completed, result:', docs);
+        
+        console.log('[DEBUG] Service Provider Documents loaded:', {
+          rawDocs: docs,
+          docCount: docs.length,
+          firstDoc: docs[0],
+          docsType: typeof docs,
+          docsIsArray: Array.isArray(docs)
         });
         
         // Konvertiere Backend-Kategorien zu Frontend-Kategorien
+        console.log('[DEBUG] About to convert documents, docs type:', typeof docs, 'isArray:', Array.isArray(docs));
         const convertedDocs = docs.map((doc: Document) => ({
           ...doc,
           category: doc.category ? convertBackendToFrontendCategory(doc.category) : 'documentation'
         }));
         
+        console.log('[DEBUG] Converted documents:', {
+          convertedDocs,
+          convertedCount: convertedDocs.length
+        });
+        
+        console.log('[DEBUG] Setting documents state with:', convertedDocs.length, 'documents');
         setDocuments(convertedDocs);
         
         // Kategorie-Statistiken laden und konvertieren
         try {
-          const backendStats = await getCategoryStatistics(undefined, true); // service_provider_documents = true
+          const backendStats = await getCategoryStatistics(undefined, true); // service_provider_documents = true, temporär ohne quote_status_filter
           // Backend gibt ein Objekt zurück, nicht ein Array
           const convertedStats = convertCategoryStats(backendStats || {});
           setCategoryStats(convertedStats);
@@ -639,8 +681,15 @@ const Documents: React.FC = () => {
         }
         
       } catch (err: any) {
+        console.error('[ERROR] Service Provider document loading failed:', err);
+        console.error('[ERROR] Error details:', {
+          message: err.message,
+          stack: err.stack,
+          response: err.response?.data
+        });
         setError(err.message || 'Fehler beim Laden der Dokumente');
       } finally {
+        console.log('[DEBUG] Service Provider document loading completed, setting loading to false');
         setLoading(false);
       }
       return;
@@ -774,7 +823,10 @@ const Documents: React.FC = () => {
   };
 
   const uploadAllFiles = async () => {
-    if (!selectedProject) return;
+    // Für Dienstleister: Upload ohne selectedProject möglich
+    if (!selectedProject && user && user.user_type !== 'service_provider' && user.user_role !== 'DIENSTLEISTER') {
+      return;
+    }
 
     for (let i = 0; i < uploadFiles.length; i++) {
       const uploadFile = uploadFiles[i];
@@ -789,7 +841,16 @@ const Documents: React.FC = () => {
 
          // FormData für Upload erstellen
          const formData = new FormData();
-         formData.append('project_id', selectedProject.id.toString());
+         
+         // Für Dienstleister: Verwende erstes verfügbares Projekt oder 1 als Fallback
+         if (selectedProject) {
+           formData.append('project_id', selectedProject.id.toString());
+         } else if (user && (user.user_type === 'service_provider' || user.user_role === 'DIENSTLEISTER')) {
+           // Für Dienstleister: Verwende erstes verfügbares Projekt oder Fallback
+           const defaultProjectId = allProjects.length > 0 ? allProjects[0].id : 1;
+           formData.append('project_id', defaultProjectId.toString());
+         }
+         
          formData.append('file', uploadFile.file);
          formData.append('title', uploadFile.file.name.replace(/\.[^/.]+$/, ""));
          formData.append('description', '');
@@ -965,16 +1026,32 @@ const Documents: React.FC = () => {
   };
 
   const handleDeleteDocument = async (docId: number) => {
-    if (!window.confirm('Sind Sie sicher, dass Sie dieses Dokument löschen möchten?')) {
-      return;
-    }
+    // Für Service Provider: Soft-Delete (nur für sie unsichtbar)
+    if (user && (user.user_type === 'service_provider' || user.user_role === 'DIENSTLEISTER')) {
+      if (!window.confirm('Möchten Sie dieses Dokument wirklich löschen? Eine Wiederherstellung ist nicht möglich.')) {
+        return;
+      }
 
-    try {
-      await deleteDocument(docId);
-      setDocuments(prev => prev.filter(doc => doc.id !== docId));
-      setSuccess('Dokument erfolgreich gelöscht');
-    } catch (error: any) {
-      setError(error.message);
+      try {
+        await deleteDocumentForServiceProvider(docId);
+        setDocuments(prev => prev.filter(doc => doc.id !== docId));
+        setSuccess('Dokument wurde gelöscht');
+      } catch (error: any) {
+        setError(error.message);
+      }
+    } else {
+      // Für Bauträger: Normale Löschung
+      if (!window.confirm('Sind Sie sicher, dass Sie dieses Dokument löschen möchten?')) {
+        return;
+      }
+
+      try {
+        await deleteDocument(docId);
+        setDocuments(prev => prev.filter(doc => doc.id !== docId));
+        setSuccess('Dokument erfolgreich gelöscht');
+      } catch (error: any) {
+        setError(error.message);
+      }
     }
   };
 
@@ -1039,8 +1116,7 @@ const Documents: React.FC = () => {
         category: editingDocument.category,
         subcategory: editingDocument.subcategory,
         milestone_id: duplicateTargetMilestoneId,
-        tags: editingDocument.tags,
-        is_public: editingDocument.is_public
+        tags: editingDocument.tags
       };
 
       // Hier würde normalerweise ein API-Call gemacht werden
@@ -1096,27 +1172,54 @@ const Documents: React.FC = () => {
   const stats = getDocumentStats();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
-      {/* Drag & Drop Overlay */}
-      {dragOver && (
-        <div className="fixed inset-0 bg-[#ffbd59]/20 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-2xl p-8 shadow-2xl text-center border-2 border-[#ffbd59] border-dashed">
-            <CloudUpload className="w-16 h-16 text-[#ffbd59] mx-auto mb-4 animate-bounce" />
-            <h3 className="text-xl font-bold text-white mb-2">Dateien hier ablegen</h3>
-            <p className="text-gray-300">Lassen Sie die Dateien los, um sie hochzuladen</p>
-          </div>
-        </div>
-      )}
+    <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460]">
+      {/* Mobile View */}
+      <div className="lg:hidden">
+        <MobileDocumentsView
+          documents={documents}
+          filteredDocuments={filteredDocuments}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          setSortBy={(sort: string) => setSortBy(sort as 'created_at' | 'title' | 'file_size' | 'accessed_at')}
+          setSortOrder={(order: string) => setSortOrder(order as 'asc' | 'desc')}
+          onRefresh={loadDocuments}
+          onUpload={() => fileInputRef.current?.click()}
+          onViewDocument={handleViewDocument}
+          onEditDocument={handleEditDocument}
+          onToggleFavorite={handleToggleFavorite}
+          onDeleteDocument={handleDeleteDocument}
+          formatFileSize={formatFileSize}
+          getCategoryIcon={getCategoryIcon}
+          getCategoryColor={getCategoryColor}
+        />
+      </div>
 
-      <div className="flex h-screen">
-        {/* Sidebar - Stabiler Container */}
-        <div className={`${glass.sidebar} w-80 flex flex-col sticky top-0 h-screen overflow-hidden`}>
-          {/* Projekt-Header */}
-          <div className="p-6 border-b border-gray-700/50 bg-black/10">
+      {/* Desktop View */}
+      <div className="hidden lg:block">
+        {/* Drag & Drop Overlay */}
+        {dragOver && (
+          <div className="fixed inset-0 bg-[#ffbd59]/20 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-2xl p-8 shadow-2xl text-center border-2 border-[#ffbd59] border-dashed">
+              <CloudUpload className="w-16 h-16 text-[#ffbd59] mx-auto mb-4 animate-bounce" />
+              <h3 className="text-xl font-bold text-white mb-2">Dateien hier ablegen</h3>
+              <p className="text-gray-300">Lassen Sie die Dateien los, um sie hochzuladen</p>
+            </div>
+          </div>
+        )}
+
+        <div className="flex h-screen">
+          {/* Sidebar - Stabiler Container */}
+          <div className="w-80 flex flex-col sticky top-0 h-screen overflow-hidden bg-white/10 backdrop-blur-lg border-r border-white/20">
+            {/* Projekt-Header */}
+            <div className="p-6 border-b border-white/10 bg-white/5 backdrop-blur-sm">
             <div className="flex items-center gap-3 mb-4">
               <button 
                 onClick={() => navigate('/dashboard')}
-                className="p-2 bg-[#3d4952] hover:bg-[#51646f] rounded-xl transition-colors"
+                className="p-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 hover:border-[#ffbd59]/50 rounded-xl transition-all duration-300 shadow-lg shadow-white/10 hover:shadow-[#ffbd59]/20"
               >
                 <ArrowLeft size={20} className="text-[#ffbd59]" />
               </button>
@@ -1149,9 +1252,9 @@ const Documents: React.FC = () => {
                   }}
                   className="w-full px-3 py-2 bg-[#3d4952] border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                 >
-                  <option value="">Projekt wählen...</option>
+                  <option value="" className="bg-[#3d4952] text-white">Projekt wählen...</option>
                   {allProjects.map(project => (
-                    <option key={project.id} value={project.id}>
+                    <option key={project.id} value={project.id} className="bg-[#3d4952] text-white">
                       {project.name}
                     </option>
                   ))}
@@ -1161,13 +1264,13 @@ const Documents: React.FC = () => {
             
             {/* Statistiken */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[#3d4952] rounded-lg p-3">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 hover:border-[#ffbd59]/50 transition-all duration-300 shadow-lg shadow-white/10 hover:shadow-[#ffbd59]/20">
                 <div className="text-2xl font-bold text-[#ffbd59]">{stats.totalDocs}</div>
-                <div className="text-xs text-gray-400">Dokumente</div>
+                <div className="text-xs text-gray-300">Dokumente</div>
               </div>
-              <div className="bg-[#3d4952] rounded-lg p-3">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20 hover:border-[#ffbd59]/50 transition-all duration-300 shadow-lg shadow-white/10 hover:shadow-[#ffbd59]/20">
                 <div className="text-2xl font-bold text-[#ffbd59]">{formatFileSize(stats.totalSize)}</div>
-                <div className="text-xs text-gray-400">Gesamt</div>
+                <div className="text-xs text-gray-300">Gesamt</div>
               </div>
             </div>
           </div>
@@ -1177,22 +1280,27 @@ const Documents: React.FC = () => {
             <div className="space-y-2">
               {/* Alle Dokumente */}
               <div
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-300 ${
                   selectedFolder === 'all' && !favoriteFilter && !selectedMilestone && selectedCategory === 'all' && selectedSubcategory === 'all' && statusFilter === 'all' && !searchTerm
-                    ? 'bg-[#ffbd59] text-[#1a1a2e]' 
-                    : 'text-gray-300 hover:bg-[#3d4952]'
+                    ? 'bg-[#ffbd59] text-[#1a1a2e] shadow-lg shadow-[#ffbd59]/30' 
+                    : 'text-gray-300 hover:bg-white/10 hover:border-white/20 border border-transparent backdrop-blur-sm'
                 }`}
                 onClick={handleAllDocumentsClick}
               >
                 <Home size={18} />
-                <span className="font-medium">Alle Dokumente</span>
+                <span className="font-medium">
+                  {user && (user.user_type === 'service_provider' || user.user_role === 'DIENSTLEISTER')
+                    ? 'Gewonnene Projekte'
+                    : 'Alle Dokumente'
+                  }
+                </span>
                 <span className="ml-auto text-sm">{totalDocumentCount}</span>
               </div>
 
               {/* Favoriten */}
               <div
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                  favoriteFilter === true ? 'bg-[#ffbd59] text-[#1a1a2e]' : 'text-gray-300 hover:bg-[#3d4952]'
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-300 ${
+                  favoriteFilter === true ? 'bg-[#ffbd59] text-[#1a1a2e] shadow-lg shadow-[#ffbd59]/30' : 'text-gray-300 hover:bg-white/10 hover:border-white/20 border border-transparent backdrop-blur-sm'
                 }`}
                 onClick={handleFavoritesClick}
               >
@@ -1200,6 +1308,7 @@ const Documents: React.FC = () => {
                 <span className="font-medium">Favoriten</span>
                 <span className="ml-auto text-sm">{stats.favoriteCount}</span>
               </div>
+
 
               {/* Ausschreibungs-Dokumente */}
               <div className="space-y-1">
@@ -1218,12 +1327,12 @@ const Documents: React.FC = () => {
                     className="w-full px-3 py-2 bg-[#3d4952] border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
                     disabled={loadingMilestones}
                   >
-                    <option value="">Alle Dokumente</option>
+                    <option value="" className="bg-[#3d4952] text-white">Alle Dokumente</option>
                     {loadingMilestones ? (
-                      <option disabled>Lade Ausschreibungen...</option>
+                      <option disabled className="bg-[#3d4952] text-white">Lade Ausschreibungen...</option>
                     ) : (
                       milestones.map(milestone => (
-                        <option key={milestone.id} value={milestone.id}>
+                        <option key={milestone.id} value={milestone.id} className="bg-[#3d4952] text-white">
                           {milestone.title}
                         </option>
                       ))
@@ -1282,31 +1391,12 @@ const Documents: React.FC = () => {
             </div>
           </div>
                 
-          {/* Upload Button */}
-          <div className="p-6 border-t border-gray-700/50 bg-black/10 backdrop-blur-sm">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileInputChange}
-              multiple
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif"
-              className="hidden"
-            />
-            
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full flex items-center gap-2 px-4 py-3 bg-[#ffbd59] text-[#1a1a2e] rounded-lg hover:bg-[#ffa726] transition-colors font-medium shadow-lg hover:shadow-xl"
-            >
-              <Upload size={18} />
-              Hochladen
-            </button>
-          </div>
         </div>
 
         {/* Hauptbereich */}
         <div className="flex-1 flex flex-col" ref={dropZoneRef}>
           {/* Header mit Suche und Filtern */}
-<div className={`${glass.headerBar} p-6`}>
+<div className="bg-white/10 backdrop-blur-lg border-b border-white/20 p-6">
             <div className="flex items-center justify-between mb-4">
               <PageHeader
                 title={
@@ -1319,22 +1409,48 @@ const Documents: React.FC = () => {
                 subtitle={`${filteredDocuments.length} von ${documents.length} Dokumente`}
               />
 
-              {/* View Toggle */}
-              <div className="flex items-center gap-2">
-                <div className="bg-[#2c3539]/50 rounded-lg p-1 flex">
+              {/* View Toggle and Upload Button */}
+              <div className="flex items-center gap-3">
+                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-1 flex shadow-lg shadow-white/10">
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={`p-2 rounded ${viewMode === 'grid' ? 'bg-[#ffbd59] text-[#1a1a2e]' : 'text-gray-400 hover:text-white'}`}
+                    className={`p-2 rounded transition-all duration-300 ${
+                      viewMode === 'grid' 
+                        ? 'bg-[#ffbd59] text-[#1a1a2e] shadow-lg shadow-[#ffbd59]/30' 
+                        : 'text-gray-400 hover:text-white hover:bg-white/10'
+                    }`}
                   >
                     <Grid className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setViewMode('list')}
-                    className={`p-2 rounded ${viewMode === 'list' ? 'bg-[#ffbd59] text-[#1a1a2e]' : 'text-gray-400 hover:text-white'}`}
+                    className={`p-2 rounded transition-all duration-300 ${
+                      viewMode === 'list' 
+                        ? 'bg-[#ffbd59] text-[#1a1a2e] shadow-lg shadow-[#ffbd59]/30' 
+                        : 'text-gray-400 hover:text-white hover:bg-white/10'
+                    }`}
                   >
                     <List className="w-4 h-4" />
                   </button>
                 </div>
+                
+                {/* Upload Button */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileInputChange}
+                  multiple
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif"
+                  className="hidden"
+                />
+                
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#ffbd59] text-[#1a1a2e] rounded-lg hover:bg-[#ffa726] transition-all duration-300 font-medium shadow-lg shadow-[#ffbd59]/30 hover:shadow-xl hover:shadow-[#ffbd59]/50 hover:scale-105"
+                >
+                  <Upload size={18} />
+                  Hochladen
+                </button>
               </div>
             </div>
 
@@ -1348,7 +1464,7 @@ const Documents: React.FC = () => {
                   placeholder="Dokumente durchsuchen..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`${glass.input} w-full pl-10 pr-4 py-2`}
+                  className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent w-full pl-10 pr-4 shadow-lg shadow-white/10"
                 />
               </div>
                 
@@ -1356,15 +1472,16 @@ const Documents: React.FC = () => {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-className={glass.select}
+                className="bg-[#3d4952] backdrop-blur-sm border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent shadow-lg shadow-white/10"
               >
-                <option value="all">Alle Status</option>
-                <option value="draft">Entwurf</option>
-                <option value="review">Prüfung</option>
-                <option value="approved">Genehmigt</option>
-                <option value="rejected">Abgelehnt</option>
-                <option value="archived">Archiviert</option>
+                <option value="all" className="bg-[#3d4952] text-white">Alle Status</option>
+                <option value="draft" className="bg-[#3d4952] text-white">Entwurf</option>
+                <option value="review" className="bg-[#3d4952] text-white">Prüfung</option>
+                <option value="approved" className="bg-[#3d4952] text-white">Genehmigt</option>
+                <option value="rejected" className="bg-[#3d4952] text-white">Abgelehnt</option>
+                <option value="archived" className="bg-[#3d4952] text-white">Archiviert</option>
               </select>
+
 
               {/* Ausschreibungs-Filter */}
               <select
@@ -1373,15 +1490,15 @@ className={glass.select}
                   const milestoneId = e.target.value ? parseInt(e.target.value) : null;
                   setSelectedMilestone(milestoneId);
                 }}
-                className="px-4 py-2 bg-[#2c3539]/50 hover:bg-[#3d4952]/50 text-gray-400 hover:text-white border border-gray-600 rounded-lg font-medium transition-colors"
+                className="bg-[#3d4952] backdrop-blur-sm border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent shadow-lg shadow-white/10 hover:bg-white/20 transition-all duration-300"
                 disabled={loadingMilestones}
               >
-                <option value="">Alle Dokumente</option>
+                <option value="" className="bg-[#3d4952] text-white">Alle Dokumente</option>
                 {loadingMilestones ? (
-                  <option disabled>Lade Ausschreibungen...</option>
+                  <option disabled className="bg-[#3d4952] text-white">Lade Ausschreibungen...</option>
                 ) : (
                   milestones.map(milestone => (
-                    <option key={milestone.id} value={milestone.id}>
+                    <option key={milestone.id} value={milestone.id} className="bg-[#3d4952] text-white">
                       {milestone.title}
                     </option>
                   ))
@@ -1393,24 +1510,24 @@ className={glass.select}
                 value={`${sortBy}-${sortOrder}`}
                 onChange={(e) => {
                   const [field, order] = e.target.value.split('-');
-                  setSortBy(field as any);
+                  setSortBy(field as 'created_at' | 'title' | 'file_size' | 'accessed_at');
                   setSortOrder(order as 'asc' | 'desc');
                 }}
-                className={glass.select}
+                className="bg-[#3d4952] backdrop-blur-sm border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent shadow-lg shadow-white/10"
               >
-                <option value="created_at-desc">Neueste zuerst</option>
-                <option value="created_at-asc">Älteste zuerst</option>
-                <option value="title-asc">Name A-Z</option>
-                <option value="title-desc">Name Z-A</option>
-                <option value="file_size-desc">Größte zuerst</option>
-                <option value="file_size-asc">Kleinste zuerst</option>
-                <option value="accessed_at-desc">Zuletzt verwendet</option>
+                <option value="created_at-desc" className="bg-[#3d4952] text-white">Neueste zuerst</option>
+                <option value="created_at-asc" className="bg-[#3d4952] text-white">Älteste zuerst</option>
+                <option value="title-asc" className="bg-[#3d4952] text-white">Name A-Z</option>
+                <option value="title-desc" className="bg-[#3d4952] text-white">Name Z-A</option>
+                <option value="file_size-desc" className="bg-[#3d4952] text-white">Größte zuerst</option>
+                <option value="file_size-asc" className="bg-[#3d4952] text-white">Kleinste zuerst</option>
+                <option value="accessed_at-desc" className="bg-[#3d4952] text-white">Zuletzt verwendet</option>
               </select>
 
               {/* Aktualisieren */}
               <button
                 onClick={loadDocuments}
-                className="bg-[#2c3539]/50 hover:bg-[#3d4952]/50 border border-gray-600 rounded-lg p-2 text-gray-400 hover:text-white transition-colors"
+                className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-2 text-gray-400 hover:text-white hover:bg-white/20 transition-all duration-300 shadow-lg shadow-white/10 hover:shadow-[#ffbd59]/20"
               >
                 <RefreshCw className="w-5 h-5" />
               </button>
@@ -1461,13 +1578,13 @@ className={glass.select}
                   <div className="space-y-4">
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="bg-[#ffbd59] hover:bg-[#ffa726] text-[#1a1a2e] px-6 py-3 rounded-lg font-medium transition-colors"
+                      className="bg-[#ffbd59] hover:bg-[#ffa726] text-[#1a1a2e] px-6 py-3 rounded-lg font-medium transition-all duration-300 shadow-lg shadow-[#ffbd59]/30 hover:shadow-xl hover:shadow-[#ffbd59]/50 hover:scale-105"
                     >
                       Erstes Dokument hochladen
                     </button>
                     
                     {/* Drag & Drop Hinweis */}
-                    <div className="bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 border-2 border-dashed border-[#ffbd59]/30 rounded-2xl p-8 mt-8 mx-auto max-w-md">
+                    <div className="bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 border-2 border-dashed border-[#ffbd59]/30 rounded-2xl p-8 mt-8 mx-auto max-w-md backdrop-blur-sm shadow-lg shadow-[#ffbd59]/20">
                       <div className="flex items-center justify-center mb-4">
                         <div className="relative">
                           <CloudUpload className="w-12 h-12 text-[#ffbd59] animate-pulse" />
@@ -1501,11 +1618,11 @@ className={glass.select}
                       return (
                         <div
                           key={doc.id}
-                          className="bg-gradient-to-br from-[#2c3539]/80 to-[#1a1a2e]/80 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4 hover:border-[#ffbd59]/50 transition-all duration-200 group"
+                          className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4 hover:border-[#ffbd59]/50 transition-all duration-300 group shadow-lg shadow-white/10 hover:shadow-xl hover:shadow-[#ffbd59]/30 hover:scale-105"
                         >
                           {/* Header */}
                           <div className="flex items-start justify-between mb-3">
-                            <div className={`p-2 rounded-lg bg-${categoryColor}-500/10`}>
+                            <div className={`p-2 rounded-lg bg-${categoryColor}-500/10 backdrop-blur-sm border border-${categoryColor}-500/20 shadow-lg shadow-${categoryColor}-500/20`}>
                               <CategoryIcon className={`w-6 h-6 text-${categoryColor}-400`} />
                             </div>
                             <div className="flex items-center gap-1">
@@ -1517,7 +1634,7 @@ className={glass.select}
                                   e.stopPropagation();
                                   handleToggleFavorite(doc.id);
                                 }}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-[#3d4952] rounded"
+                                className="opacity-0 group-hover:opacity-100 transition-all duration-300 p-1 hover:bg-white/20 backdrop-blur-sm rounded border border-transparent hover:border-white/20"
                               >
                                 <MoreHorizontal className="w-4 h-4 text-gray-400" />
                               </button>
@@ -1572,30 +1689,30 @@ className={glass.select}
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => handleViewDocument(doc)}
-                              className="flex-1 bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+                              className="flex-1 bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] py-2 px-3 rounded-lg text-sm font-medium transition-all duration-300 backdrop-blur-sm border border-[#ffbd59]/30 hover:border-[#ffbd59]/50 shadow-lg shadow-[#ffbd59]/20 hover:shadow-xl hover:shadow-[#ffbd59]/40"
                             >
                               Öffnen
                             </button>
                             <button
                               onClick={() => handleEditDocument(doc)}
-                              className="p-2 rounded-lg bg-[#2c3539]/50 text-gray-400 hover:text-blue-400 transition-colors"
+                              className="p-2 rounded-lg bg-white/10 backdrop-blur-sm text-gray-400 hover:text-blue-400 hover:bg-white/20 transition-all duration-300 border border-white/20 hover:border-blue-400/50 shadow-lg shadow-white/10 hover:shadow-blue-400/20"
                               title="Kategorien bearbeiten"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleToggleFavorite(doc.id)}
-                              className={`p-2 rounded-lg transition-colors ${
+                              className={`p-2 rounded-lg transition-all duration-300 backdrop-blur-sm border ${
                                 doc.is_favorite 
-                                  ? 'bg-yellow-500/20 text-yellow-400' 
-                                  : 'bg-[#2c3539]/50 text-gray-400 hover:text-yellow-400'
+                                  ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30 shadow-lg shadow-yellow-500/20' 
+                                  : 'bg-white/10 text-gray-400 hover:text-yellow-400 hover:bg-white/20 border-white/20 hover:border-yellow-400/50 shadow-lg shadow-white/10 hover:shadow-yellow-400/20'
                               }`}
                             >
                               <Star className={`w-4 h-4 ${doc.is_favorite ? 'fill-current' : ''}`} />
                             </button>
                             <button
                               onClick={() => handleDeleteDocument(doc.id)}
-                              className="p-2 rounded-lg bg-[#2c3539]/50 text-gray-400 hover:text-red-400 transition-colors"
+                              className="p-2 rounded-lg bg-white/10 backdrop-blur-sm text-gray-400 hover:text-red-400 hover:bg-white/20 transition-all duration-300 border border-white/20 hover:border-red-400/50 shadow-lg shadow-white/10 hover:shadow-red-400/20"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1614,11 +1731,11 @@ className={glass.select}
                       return (
                         <div
                           key={doc.id}
-                          className="bg-gradient-to-r from-[#2c3539]/80 to-[#1a1a2e]/80 backdrop-blur-sm rounded-lg border border-gray-700/50 p-4 hover:border-[#ffbd59]/50 transition-all duration-200 group"
+                          className="bg-white/10 backdrop-blur-lg rounded-lg border border-white/20 p-4 hover:border-[#ffbd59]/50 transition-all duration-300 group shadow-lg shadow-white/10 hover:shadow-xl hover:shadow-[#ffbd59]/30"
                         >
                           <div className="flex items-center gap-4">
                             {/* Icon */}
-                            <div className={`p-2 rounded-lg bg-${categoryColor}-500/10`}>
+                            <div className={`p-2 rounded-lg bg-${categoryColor}-500/10 backdrop-blur-sm border border-${categoryColor}-500/20 shadow-lg shadow-${categoryColor}-500/20`}>
                               <CategoryIcon className={`w-5 h-5 text-${categoryColor}-400`} />
                             </div>
                     
@@ -1668,33 +1785,33 @@ className={glass.select}
                             </div>
 
                             {/* Actions */}
-                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
                               <button
                                 onClick={() => handleViewDocument(doc)}
-                                className="p-2 rounded-lg bg-[#ffbd59]/20 text-[#ffbd59] hover:bg-[#ffbd59]/30 transition-colors"
+                                className="p-2 rounded-lg bg-[#ffbd59]/20 text-[#ffbd59] hover:bg-[#ffbd59]/30 transition-all duration-300 backdrop-blur-sm border border-[#ffbd59]/30 hover:border-[#ffbd59]/50 shadow-lg shadow-[#ffbd59]/20 hover:shadow-xl hover:shadow-[#ffbd59]/40"
                               >
                                 <Eye className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleEditDocument(doc)}
-                                className="p-2 rounded-lg bg-[#2c3539]/50 text-gray-400 hover:text-blue-400 transition-colors"
+                                className="p-2 rounded-lg bg-white/10 backdrop-blur-sm text-gray-400 hover:text-blue-400 hover:bg-white/20 transition-all duration-300 border border-white/20 hover:border-blue-400/50 shadow-lg shadow-white/10 hover:shadow-blue-400/20"
                                 title="Kategorien bearbeiten"
                               >
                                 <Edit className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleToggleFavorite(doc.id)}
-                                className={`p-2 rounded-lg transition-colors ${
+                                className={`p-2 rounded-lg transition-all duration-300 backdrop-blur-sm border ${
                                   doc.is_favorite 
-                                    ? 'bg-yellow-500/20 text-yellow-400' 
-                                    : 'bg-[#2c3539]/50 text-gray-400 hover:text-yellow-400'
+                                    ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30 shadow-lg shadow-yellow-500/20' 
+                                    : 'bg-white/10 text-gray-400 hover:text-yellow-400 hover:bg-white/20 border-white/20 hover:border-yellow-400/50 shadow-lg shadow-white/10 hover:shadow-yellow-400/20'
                                 }`}
                               >
                                 <Star className={`w-4 h-4 ${doc.is_favorite ? 'fill-current' : ''}`} />
                               </button>
                               <button
                                 onClick={() => handleDeleteDocument(doc.id)}
-                                className="p-2 rounded-lg bg-[#2c3539]/50 text-gray-400 hover:text-red-400 transition-colors"
+                                className="p-2 rounded-lg bg-white/10 backdrop-blur-sm text-gray-400 hover:text-red-400 hover:bg-white/20 transition-all duration-300 border border-white/20 hover:border-red-400/50 shadow-lg shadow-white/10 hover:shadow-red-400/20"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -1710,13 +1827,14 @@ className={glass.select}
           </div>
         </div>
       </div>
+      </div>
 
       {/* Upload Modal */}
       {showUploadModal && (
-<div className={glass.modalOverlay}>
-<div className={glass.modal}>
+<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+<div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden border border-white/20">
             {/* Header */}
-            <div className="p-6 border-b border-gray-700">
+            <div className="p-6 border-b border-white/10 bg-white/5 backdrop-blur-sm">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-white">Dokumente hochladen</h2>
                 <button
@@ -1735,7 +1853,7 @@ className={glass.select}
             <div className="p-6 overflow-y-auto max-h-[calc(80vh-140px)]">
               <div className="space-y-4">
                 {uploadFiles.map((uploadFile, index) => (
-<div key={index} className={`${glass.card} p-4`}>
+<div key={index} className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-4 shadow-lg shadow-white/10">
                     <div className="flex items-start gap-4">
                       {/* File Info */}
                       <div className="flex-1">
@@ -1761,11 +1879,11 @@ className={glass.select}
                             <select
                               value={uploadFile.category || ''}
                               onChange={(e) => assignCategoryToFile(index, e.target.value)}
-className={glass.select}
+                              className="bg-[#3d4952] backdrop-blur-sm border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent shadow-lg shadow-white/10"
                             >
-                              <option value="">Kategorie wählen...</option>
+                              <option value="" className="bg-[#3d4952] text-white">Kategorie wählen...</option>
                               {Object.entries(DOCUMENT_CATEGORIES).map(([key, category]) => (
-                                <option key={key} value={key}>{category.name}</option>
+                                <option key={key} value={key} className="bg-[#3d4952] text-white">{category.name}</option>
                               ))}
                             </select>
                           </div>
@@ -1778,11 +1896,11 @@ className={glass.select}
                               <select
                                 value={uploadFile.subcategory || ''}
                                 onChange={(e) => assignCategoryToFile(index, uploadFile.category!, e.target.value)}
-className={glass.select}
+                                className="bg-[#3d4952] backdrop-blur-sm border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent shadow-lg shadow-white/10"
                               >
-                                <option value="">Unterkategorie wählen...</option>
+                                <option value="" className="bg-[#3d4952] text-white">Unterkategorie wählen...</option>
                                 {DOCUMENT_CATEGORIES[uploadFile.category as keyof typeof DOCUMENT_CATEGORIES]?.subcategories.map(sub => (
-                                  <option key={sub} value={sub}>{sub}</option>
+                                  <option key={sub} value={sub} className="bg-[#3d4952] text-white">{sub}</option>
                                 ))}
                               </select>
                             </div>
@@ -1833,7 +1951,7 @@ className={glass.select}
             </div>
 
             {/* Footer */}
-<div className={`p-6 ${glass.footerBar} flex items-center justify-between`}>
+<div className="p-6 border-t border-white/10 bg-white/5 backdrop-blur-sm flex items-center justify-between">
               <div className="text-sm text-gray-400">
                 {uploadFiles.length} Datei{uploadFiles.length !== 1 ? 'en' : ''} ausgewählt
               </div>
@@ -1856,16 +1974,16 @@ className={glass.select}
                 />
                 <button
                   onClick={() => document.getElementById('additional-file-input')?.click()}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#2c3539] hover:bg-[#3d4952] border border-gray-600 text-white rounded-lg font-medium transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 hover:border-[#ffbd59]/50 text-white rounded-lg font-medium transition-all duration-300 shadow-lg shadow-white/10 hover:shadow-[#ffbd59]/20"
                 >
                   <Plus className="w-4 h-4" />
                   Weitere Dokumente
                 </button>
                 <button
                   onClick={uploadAllFiles}
-                  disabled={uploadFiles.some(f => !f.category || !f.subcategory) || uploadFiles.some(f => f.status === 'uploading')}
-                  className="bg-[#ffbd59] hover:bg-[#ffa726] disabled:bg-[#2c3539] disabled:cursor-not-allowed text-[#1a1a2e] disabled:text-gray-400 px-6 py-2 rounded-lg font-medium transition-colors"
-                  title={uploadFiles.some(f => !f.category || !f.subcategory) ? 'Bitte wählen Sie für alle Dokumente Kategorie und Unterkategorie aus' : ''}
+                  disabled={uploadFiles.some(f => !f.category && !f.subcategory) || uploadFiles.some(f => f.status === 'uploading')}
+                  className="bg-[#ffbd59] hover:bg-[#ffa726] disabled:bg-white/10 disabled:cursor-not-allowed text-[#1a1a2e] disabled:text-gray-400 px-6 py-2 rounded-lg font-medium transition-all duration-300 shadow-lg shadow-[#ffbd59]/30 hover:shadow-xl hover:shadow-[#ffbd59]/50 hover:scale-105 disabled:hover:scale-100"
+                  title={uploadFiles.some(f => !f.category && !f.subcategory) ? 'Bitte wählen Sie für alle Dokumente mindestens eine Kategorie oder Unterkategorie aus' : ''}
                 >
                   Alle hochladen
                 </button>
@@ -1878,9 +1996,9 @@ className={glass.select}
       {/* Edit Document Modal */}
       {showEditModal && editingDocument && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-2xl shadow-2xl w-full max-w-md border border-gray-700">
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-md border border-white/20">
             {/* Header */}
-            <div className="p-6 border-b border-gray-700">
+            <div className="p-6 border-b border-white/10 bg-white/5 backdrop-blur-sm">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-white">Dokument bearbeiten</h2>
                 <button
@@ -1918,11 +2036,11 @@ className={glass.select}
                       setEditCategory(e.target.value);
                       setEditSubcategory(''); // Reset subcategory when category changes
                     }}
-className={glass.select}
+                    className="bg-[#3d4952] backdrop-blur-sm border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent shadow-lg shadow-white/10"
                   >
-                    <option value="">Kategorie wählen...</option>
+                    <option value="" className="bg-[#3d4952] text-white">Kategorie wählen...</option>
                     {Object.entries(DOCUMENT_CATEGORIES).map(([key, category]) => (
-                      <option key={key} value={key}>{category.name}</option>
+                      <option key={key} value={key} className="bg-[#3d4952] text-white">{category.name}</option>
                     ))}
                   </select>
                 </div>
@@ -1936,11 +2054,11 @@ className={glass.select}
                     <select
                       value={editSubcategory}
                       onChange={(e) => setEditSubcategory(e.target.value)}
-className={glass.select}
+                      className="bg-[#3d4952] backdrop-blur-sm border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent shadow-lg shadow-white/10"
                     >
-                      <option value="">Unterkategorie wählen...</option>
+                      <option value="" className="bg-[#3d4952] text-white">Unterkategorie wählen...</option>
                       {DOCUMENT_CATEGORIES[editCategory as keyof typeof DOCUMENT_CATEGORIES]?.subcategories.map(sub => (
-                        <option key={sub} value={sub}>{sub}</option>
+                        <option key={sub} value={sub} className="bg-[#3d4952] text-white">{sub}</option>
                       ))}
                     </select>
                   </div>
@@ -1954,11 +2072,11 @@ className={glass.select}
                   <select
                     value={editMilestoneId || ''}
                     onChange={(e) => setEditMilestoneId(e.target.value ? parseInt(e.target.value) : null)}
-className={glass.select}
+                    className="bg-[#3d4952] backdrop-blur-sm border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent shadow-lg shadow-white/10"
                   >
-                    <option value="">Keine Ausschreibung</option>
+                    <option value="" className="bg-[#3d4952] text-white">Keine Ausschreibung</option>
                     {milestones.map(milestone => (
-                      <option key={milestone.id} value={milestone.id}>
+                      <option key={milestone.id} value={milestone.id} className="bg-[#3d4952] text-white">
                         {milestone.title}
                       </option>
                     ))}
@@ -1968,10 +2086,10 @@ className={glass.select}
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t border-gray-700 flex items-center justify-between">
+            <div className="p-6 border-t border-white/10 bg-white/5 backdrop-blur-sm flex items-center justify-between">
               <button
                 onClick={openDuplicateModal}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-300 shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/50 hover:scale-105"
                 disabled={milestones.length === 0}
                 title={milestones.length === 0 ? 'Keine Ausschreibungen verfügbar' : 'Dokument in andere Ausschreibung duplizieren'}
               >
@@ -1995,7 +2113,7 @@ className={glass.select}
                 <button
                   onClick={handleUpdateDocument}
                   disabled={!editCategory}
-                  className="bg-[#ffbd59] hover:bg-[#ffa726] disabled:bg-[#2c3539] disabled:cursor-not-allowed text-[#1a1a2e] disabled:text-gray-400 px-6 py-2 rounded-lg font-medium transition-colors"
+                  className="bg-[#ffbd59] hover:bg-[#ffa726] disabled:bg-white/10 disabled:cursor-not-allowed text-[#1a1a2e] disabled:text-gray-400 px-6 py-2 rounded-lg font-medium transition-all duration-300 shadow-lg shadow-[#ffbd59]/30 hover:shadow-xl hover:shadow-[#ffbd59]/50 hover:scale-105 disabled:hover:scale-100"
                 >
                   Speichern
                 </button>
@@ -2008,9 +2126,9 @@ className={glass.select}
       {/* Duplikations-Modal */}
       {showDuplicateModal && editingDocument && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-2xl shadow-2xl w-full max-w-md border border-gray-700">
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-md border border-white/20">
             {/* Header */}
-            <div className="p-6 border-b border-gray-700">
+            <div className="p-6 border-b border-white/10 bg-white/5 backdrop-blur-sm">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-white">Dokument duplizieren</h2>
                 <button
@@ -2046,11 +2164,11 @@ className={glass.select}
                   <select
                     value={duplicateTargetMilestoneId || ''}
                     onChange={(e) => setDuplicateTargetMilestoneId(e.target.value ? parseInt(e.target.value) : null)}
-className={glass.select}
+                    className="bg-[#3d4952] backdrop-blur-sm border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent shadow-lg shadow-white/10"
                   >
-                    <option value="">Ausschreibung wählen...</option>
+                    <option value="" className="bg-[#3d4952] text-white">Ausschreibung wählen...</option>
                     {milestones.filter(m => m.id !== editingDocument.milestone_id).map(milestone => (
-                      <option key={milestone.id} value={milestone.id}>
+                      <option key={milestone.id} value={milestone.id} className="bg-[#3d4952] text-white">
                         {milestone.title}
                       </option>
                     ))}
@@ -2060,7 +2178,7 @@ className={glass.select}
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t border-gray-700 flex items-center justify-end gap-3">
+            <div className="p-6 border-t border-white/10 bg-white/5 backdrop-blur-sm flex items-center justify-end gap-3">
               <button
                 onClick={() => {
                   setShowDuplicateModal(false);
@@ -2073,7 +2191,7 @@ className={glass.select}
               <button
                 onClick={handleDuplicateDocument}
                 disabled={!duplicateTargetMilestoneId}
-                className="bg-blue-600 hover:bg-blue-700 disabled:bg-[#2c3539] disabled:cursor-not-allowed text-white disabled:text-gray-400 px-6 py-2 rounded-lg font-medium transition-colors"
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-white/10 disabled:cursor-not-allowed text-white disabled:text-gray-400 px-6 py-2 rounded-lg font-medium transition-all duration-300 shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/50 hover:scale-105 disabled:hover:scale-100"
               >
                 Duplizieren
               </button>

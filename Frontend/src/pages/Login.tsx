@@ -81,7 +81,7 @@ export default function Login() {
       }
 
       // Token und User-Daten speichern
-      login(data.access_token, data.user);
+      await login(data.access_token, data.user);
       
       // Refresh-Token speichern (falls verfügbar)
       if (data.refresh_token) {
@@ -158,7 +158,7 @@ export default function Login() {
       }
 
       // Token und User-Daten speichern
-      login(data.access_token, data.user);
+      await login(data.access_token, data.user);
       
       // Refresh-Token speichern (falls verfügbar)
       if (data.refresh_token) {

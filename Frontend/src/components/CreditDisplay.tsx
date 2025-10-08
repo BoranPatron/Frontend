@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Coins, TrendingDown, AlertTriangle, Zap } from 'lucide-react';
+import { Coins, TrendingDown, AlertTriangle, Zap, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCreditBalance } from '../api/creditService';
 
@@ -17,6 +17,8 @@ export default function CreditDisplay() {
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
   const [loading, setLoading] = useState(true);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [previousCredits, setPreviousCredits] = useState<number | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -29,6 +31,14 @@ export default function CreditDisplay() {
   const fetchCreditBalance = async () => {
     try {
       const balance = await getCreditBalance();
+      
+      // Trigger animation if credits changed
+      if (previousCredits !== null && previousCredits !== balance.credits) {
+        setIsAnimating(true);
+        setTimeout(() => setIsAnimating(false), 2000);
+      }
+      
+      setPreviousCredits(balance.credits);
       setCreditBalance(balance);
       setLoading(false);
     } catch (error) {
@@ -55,10 +65,23 @@ export default function CreditDisplay() {
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
+      {/* Glow-Effekt bei Animation */}
+      <AnimatePresence>
+        {isAnimating && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1.2 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.3 }}
+            className="absolute inset-0 rounded-lg bg-gradient-to-r from-[#ffbd59]/30 to-[#ffa726]/30 blur-md -z-10"
+          />
+        )}
+      </AnimatePresence>
+
       <motion.button
         onClick={() => navigate('/credits')}
         className={`
-          flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200
+          relative flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 overflow-hidden
           ${isNegative 
             ? 'bg-red-500/20 border border-red-500/50 hover:bg-red-500/30' 
             : isLowCredits 
@@ -67,14 +90,47 @@ export default function CreditDisplay() {
             ? 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/50 hover:from-purple-500/30 hover:to-indigo-500/30'
             : 'bg-gray-800/50 border border-gray-700 hover:bg-gray-800/70'
           }
+          ${isAnimating ? 'shadow-lg shadow-[#ffbd59]/50' : ''}
         `}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
+        animate={isAnimating ? { 
+          boxShadow: [
+            '0 0 0px rgba(255, 189, 89, 0)',
+            '0 0 20px rgba(255, 189, 89, 0.5)',
+            '0 0 0px rgba(255, 189, 89, 0)'
+          ]
+        } : {}}
+        transition={{ duration: 0.6, ease: "easeInOut" }}
       >
-        {/* Icon with animation */}
+        {/* Shimmer-Effekt bei Animation */}
+        <AnimatePresence>
+          {isAnimating && (
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: '100%' }}
+              exit={{ x: '100%' }}
+              transition={{ duration: 0.8, ease: "easeInOut" }}
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Icon with enhanced animation */}
         <motion.div
-          animate={isLowCredits ? { rotate: [0, -10, 10, -10, 10, 0] } : {}}
-          transition={{ duration: 0.5, repeat: isLowCredits ? Infinity : 0, repeatDelay: 5 }}
+          animate={isLowCredits ? { 
+            rotate: [0, -10, 10, -10, 10, 0],
+            scale: [1, 1.1, 1, 1.1, 1]
+          } : isAnimating ? {
+            scale: [1, 1.2, 1],
+            rotate: [0, 5, -5, 0]
+          } : {}}
+          transition={{ 
+            duration: isLowCredits ? 0.5 : 0.4, 
+            repeat: isLowCredits ? Infinity : 0, 
+            repeatDelay: isLowCredits ? 5 : 0,
+            ease: "easeInOut"
+          }}
         >
           {isNegative ? (
             <AlertTriangle className="w-4 h-4 text-red-400" />
@@ -87,26 +143,63 @@ export default function CreditDisplay() {
           )}
         </motion.div>
 
-        {/* Credit amount */}
-        <span className={`
-          font-bold text-sm
-          ${isNegative 
-            ? 'text-red-400' 
-            : isLowCredits 
-            ? 'text-amber-400'
-            : creditBalance.is_pro_active
-            ? 'text-purple-400'
-            : 'text-gray-300'
-          }
-        `}>
+        {/* Credit amount with pulse animation */}
+        <motion.span 
+          className={`
+            font-bold text-sm relative
+            ${isNegative 
+              ? 'text-red-400' 
+              : isLowCredits 
+              ? 'text-amber-400'
+              : creditBalance.is_pro_active
+              ? 'text-purple-400'
+              : 'text-gray-300'
+            }
+          `}
+          animate={isAnimating ? {
+            scale: [1, 1.1, 1],
+            color: [
+              isNegative ? '#f87171' : isLowCredits ? '#fbbf24' : '#a855f7',
+              '#ffbd59',
+              isNegative ? '#f87171' : isLowCredits ? '#fbbf24' : '#a855f7'
+            ]
+          } : {}}
+          transition={{ duration: 0.6, ease: "easeInOut" }}
+        >
           {creditBalance.credits}
-        </span>
+          
+          {/* Sparkle-Effekt bei Animation */}
+          <AnimatePresence>
+            {isAnimating && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0 }}
+                transition={{ duration: 0.3, delay: 0.2 }}
+                className="absolute -top-1 -right-1"
+              >
+                <Sparkles className="w-3 h-3 text-[#ffbd59]" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.span>
 
-        {/* Status badge */}
+        {/* Status badge with enhanced animation */}
         {creditBalance.is_pro_active && (
-          <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-xs font-semibold rounded">
+          <motion.span 
+            className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-xs font-semibold rounded"
+            animate={isAnimating ? {
+              scale: [1, 1.1, 1],
+              backgroundColor: [
+                'rgba(168, 85, 247, 0.2)',
+                'rgba(255, 189, 89, 0.3)',
+                'rgba(168, 85, 247, 0.2)'
+              ]
+            } : {}}
+            transition={{ duration: 0.6, ease: "easeInOut" }}
+          >
             PRO
-          </span>
+          </motion.span>
         )}
       </motion.button>
 

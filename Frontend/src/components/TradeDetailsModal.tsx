@@ -1,5 +1,7 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import QuoteDocumentUpload from './QuoteDocumentUpload';
+import AddToContactBookButton from './AddToContactBookButton';
+import ContactBook from './ContactBook';
 import { 
   X, 
   Eye, 
@@ -35,8 +37,10 @@ import {
   Save,
   MessageCircle,
   Camera,
-  Users
+  Users,
+  Edit
 } from 'lucide-react';
+import ReviseQuoteModal from './ReviseQuoteModal';
 import type { TradeSearchResult } from '../api/geoService';
 import { useAuth } from '../context/AuthContext';
 import { getAuthenticatedFileUrl, getApiBaseUrl, apiCall } from '../api/api';
@@ -180,6 +184,7 @@ interface TradeDetailsModalProps {
   onAcceptQuote?: (quoteId: number) => void;
   onRejectQuote?: (quoteId: number, reason: string) => void;
   onTradeUpdate?: (updatedTrade: any) => void;
+  onQuotesUpdate?: () => void;
 }
 
 interface Quote {
@@ -225,6 +230,11 @@ interface Quote {
   additional_notes?: string;
   pdf_upload_path?: string;
   additional_documents?: string;
+  // Revisions-Felder für überarbeitete Angebote
+  revised_after_inspection?: boolean;
+  revision_count?: number;
+  last_revised_at?: string;
+  is_revised_quote?: boolean;
   documents?: Array<{
     id: number;
     title?: string;
@@ -743,7 +753,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   onCreateInspection,
   onAcceptQuote,
   onRejectQuote,
-  onTradeUpdate
+  onTradeUpdate,
+  onQuotesUpdate
 }: TradeDetailsModalProps) {
   
   // DEBUG: Modal Rendering
@@ -986,6 +997,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   const [isDeletingTrade, setIsDeletingTrade] = useState(false);
   const [bautraegerContact, setBautraegerContact] = useState<any>(null);
   const [loadingBautraegerContact, setLoadingBautraegerContact] = useState(false);
+  const [isContactBookButtonClicked, setIsContactBookButtonClicked] = useState(false);
+  const [showContactBook, setShowContactBook] = useState(false);
   
   // ResourceAllocations State
   const [resourceAllocations, setResourceAllocations] = useState<ResourceAllocation[]>([]);
@@ -1057,6 +1070,10 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   const [showFinalAcceptanceModal, setShowFinalAcceptanceModal] = useState(false);
   const [acceptanceDefects, setAcceptanceDefects] = useState<any[]>([]);
   const [acceptanceId, setAcceptanceId] = useState<number | null>(null);
+  
+  // State für Angebotsüberarbeitung
+  const [showReviseQuoteModal, setShowReviseQuoteModal] = useState(false);
+  const [appointments, setAppointments] = useState<any[]>([]);
   const [hasFinalAcceptance, setHasFinalAcceptance] = useState(false);
   
   // State für vollständige Trade-Daten vom Backend
@@ -1175,22 +1192,261 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   
   const [activeTab, setActiveTab] = useState(getDefaultTab());
   
+  // WICHTIG: Initialisiere hasUnreadMessages SOFORT mit dem Wert aus dem trade-Objekt
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(() => {
+    if (!trade?.id) return false;
+    const isBautraegerUser = isBautraeger();
+    const initialValue = isBautraegerUser 
+      ? (trade.has_unread_messages_bautraeger || false)
+      : (trade.has_unread_messages_dienstleister || false);
+    console.log(`📧 TradeDetailsModal - Initial hasUnreadMessages: ${initialValue} (${isBautraegerUser ? 'Bauträger' : 'Dienstleister'})`);
+    return initialValue;
+  });
+  
+  const [justSentMessage, setJustSentMessage] = useState(false);
+  
+  // Ref für aktuellen hasUnreadMessages-Wert (für Polling-Closure)
+  const hasUnreadMessagesRef = useRef(hasUnreadMessages); // Initialisiere mit aktuellem Wert!
+  const isMarkingAsReadRef = useRef(false); // Verhindert endlosen Zyklus
+  const lastMarkedAsReadTimestampRef = useRef<number>(0); // Timestamp der letzten Markierung
+  
+  // Debug-Log für hasUnreadMessages Änderungen
+  useEffect(() => {
+    console.log('🔄 hasUnreadMessages geändert zu:', hasUnreadMessages);
+    hasUnreadMessagesRef.current = hasUnreadMessages; // Ref aktualisieren
+  }, [hasUnreadMessages]);
+  
+  // Lade has_unread_messages Status beim Öffnen des Modals - USER-SPEZIFISCH
+  // WICHTIG: Wird beim Öffnen des Modals UND bei Änderungen der Felder ausgeführt
+  useEffect(() => {
+    if (isOpen && trade?.id) {
+      // Verwende user-spezifische Notification-States
+      const isBautraegerUser = isBautraeger();
+      const userSpecificUnreadMessages = isBautraegerUser 
+        ? (trade.has_unread_messages_bautraeger || false)
+        : (trade.has_unread_messages_dienstleister || false);
+      
+      // NUR setzen wenn sich der Wert WIRKLICH geändert hat UND wir nicht gerade markieren
+      const isCurrentlyMarking = isMarkingAsReadRef.current;
+      const timeSinceLastMarked = Date.now() - lastMarkedAsReadTimestampRef.current;
+      const isRecentlyMarked = timeSinceLastMarked < 30000; // 30 Sekunden Schutz nach Markierung
+      
+      if (isCurrentlyMarking) {
+        console.log(`📧 TradeDetailsModal - Ignoriere Trade-Update während markMessagesAsRead aktiv ist`);
+        return;
+      }
+      
+      // WICHTIG: Ignoriere Backend-Updates für 30 Sekunden nach dem Markieren als gelesen
+      // Das gibt dem Backend Zeit zu aktualisieren und verhindert, dass veraltete Daten den Status zurücksetzen
+      if (isRecentlyMarked && userSpecificUnreadMessages === true && hasUnreadMessagesRef.current === false) {
+        console.log(`📧 TradeDetailsModal - Ignoriere veraltetes Backend-Update (${timeSinceLastMarked}ms nach Markierung) - Backend noch nicht aktualisiert`);
+        return;
+      }
+      
+      // IMMER setzen wenn sich der Wert geändert hat, auch beim ersten Öffnen
+      if (hasUnreadMessagesRef.current !== userSpecificUnreadMessages) {
+        setHasUnreadMessages(userSpecificUnreadMessages);
+        console.log(`🔄 TradeDetailsModal - ${isBautraegerUser ? 'Bauträger' : 'Dienstleister'}-hasUnreadMessages aktualisiert: ${hasUnreadMessagesRef.current} → ${userSpecificUnreadMessages}`);
+        
+        // Debug: Zeige sofort den Status
+        if (userSpecificUnreadMessages) {
+          console.log(`📧 TradeDetailsModal - Mail-Symbol sollte SOFORT sichtbar sein für ${isBautraegerUser ? 'Bauträger' : 'Dienstleister'}`);
+        }
+      }
+    }
+    
+    // WICHTIG: Wenn Modal geschlossen wird, reset auf false (für nächstes Öffnen)
+    if (!isOpen) {
+      setHasUnreadMessages(false);
+      hasUnreadMessagesRef.current = false;
+      console.log('📧 TradeDetailsModal geschlossen - hasUnreadMessages zurückgesetzt');
+    }
+  }, [isOpen, trade?.id, trade?.has_unread_messages_bautraeger, trade?.has_unread_messages_dienstleister]);
+  
+  // Polling: Prüfe alle 10 Sekunden auf neue Nachrichten
+  useEffect(() => {
+    if (!isOpen || !trade?.id) return;
+    
+    const checkForNewMessages = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        const response = await fetch(`${getApiBaseUrl()}/milestones/${trade.id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          // Verwende user-spezifische Notification-States
+          const isBautraegerUser = isBautraeger();
+          const newStatus = isBautraegerUser 
+            ? (data.has_unread_messages_bautraeger || false)
+            : (data.has_unread_messages_dienstleister || false);
+          
+          const currentLocalStatus = hasUnreadMessagesRef.current;
+          const isCurrentlyMarking = isMarkingAsReadRef.current;
+          
+          console.log(`🔍 Polling-Check: Backend=${newStatus}, Lokal=${currentLocalStatus}, activeTab=${activeTab}, justSent=${justSentMessage}, marking=${isCurrentlyMarking}`);
+          
+          // NUR aktualisieren wenn sich der Status WIRKLICH geändert hat UND wir nicht gerade am Markieren sind
+          if (newStatus !== currentLocalStatus && !isCurrentlyMarking) {
+            console.log(`🔔 Status-Änderung erkannt! Alt: ${currentLocalStatus} → Neu: ${newStatus} (${isBautraegerUser ? 'Bauträger' : 'Dienstleister'})`);
+            
+            // Zeige Mail-Symbol nur wenn der aktuelle User nicht gerade eine Nachricht gesendet hat
+            if (!justSentMessage) {
+              console.log(`📧 Polling aktualisiert hasUnreadMessages: ${currentLocalStatus} → ${newStatus}`);
+              setHasUnreadMessages(newStatus);
+            } else {
+              console.log('📧 Status-Änderung ignoriert (justSentMessage = true)');
+            }
+          } else if (isCurrentlyMarking) {
+            console.log('📧 Polling ignoriert (gerade am Markieren als gelesen)');
+          } else {
+            // Keine Ausgabe wenn Status unverändert bleibt - reduziert Log-Spam
+          }
+        }
+      } catch (error) {
+        console.error('❌ Fehler beim Prüfen auf neue Nachrichten:', error);
+      }
+    };
+    
+    // Starte Polling alle 10 Sekunden
+    const intervalId = setInterval(checkForNewMessages, 10000);
+    
+    // Cleanup: Stoppe Polling wenn Modal geschlossen wird
+    return () => clearInterval(intervalId);
+  }, [isOpen, trade?.id, justSentMessage, activeTab]); // activeTab hinzugefügt für automatisches Markieren als gelesen
+  
   // Keyboard navigation for tabs
   const tabs = ['overview', 'quotes', 'documents', 'progress', 'abnahme'];
   
   const handleTabKeyDown = (e: React.KeyboardEvent, tabIndex: number) => {
     if (e.key === 'ArrowLeft' && tabIndex > 0) {
       e.preventDefault();
-      setActiveTab(tabs[tabIndex - 1]);
+      handleTabChange(tabs[tabIndex - 1]);
     } else if (e.key === 'ArrowRight' && tabIndex < tabs.length - 1) {
       e.preventDefault();
-      setActiveTab(tabs[tabIndex + 1]);
+      handleTabChange(tabs[tabIndex + 1]);
     } else if (e.key === 'Home') {
       e.preventDefault();
-      setActiveTab(tabs[0]);
+      handleTabChange(tabs[0]);
     } else if (e.key === 'End') {
       e.preventDefault();
-      setActiveTab(tabs[tabs.length - 1]);
+      handleTabChange(tabs[tabs.length - 1]);
+    }
+  };
+
+  // Funktion zum Markieren von Nachrichten als gelesen
+  const markMessagesAsRead = async () => {
+    if (!trade?.id) return;
+    
+    // Verhindere mehrfache gleichzeitige Aufrufe
+    if (isMarkingAsReadRef.current) {
+      console.log('📧 markMessagesAsRead bereits aktiv - ignoriere weiteren Aufruf');
+      return;
+    }
+    
+    isMarkingAsReadRef.current = true;
+    console.log('🔄 markMessagesAsRead aufgerufen - aktueller Status:', hasUnreadMessages);
+    console.log('🔍 User-Type:', isBautraeger() ? 'Bauträger' : 'Dienstleister');
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        isMarkingAsReadRef.current = false;
+        return;
+      }
+
+      console.log(`📧 Sende POST-Request an: http://localhost:8000/api/v1/milestones/${trade.id}/mark-messages-read`);
+
+      const response = await fetch(`http://localhost:8000/api/v1/milestones/${trade.id}/mark-messages-read`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('📧 Backend-Response Status:', response.status);
+
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log('📧 Backend-Response Data:', responseData);
+        
+        setHasUnreadMessages(false);
+        lastMarkedAsReadTimestampRef.current = Date.now(); // Speichere Zeitstempel
+        const userType = isBautraeger() ? 'Bauträger' : 'Dienstleister';
+        console.log(`✅ Nachrichten als gelesen markiert für ${userType} - hasUnreadMessages auf false gesetzt (Schutz für 30s aktiv)`);
+        
+        // WICHTIG: Lokales Trade-Objekt sofort aktualisieren (optimistisches Update)
+        if (trade) {
+          const isBautraegerUser = isBautraeger();
+          if (isBautraegerUser) {
+            trade.has_unread_messages_bautraeger = false;
+          } else {
+            trade.has_unread_messages_dienstleister = false;
+          }
+          console.log('📧 Lokales Trade-Objekt aktualisiert:', trade);
+        }
+        
+        // WICHTIG: Event auslösen damit das Dashboard die Trades neu lädt
+        window.dispatchEvent(new CustomEvent('messagesMarkedAsRead', { 
+          detail: { 
+            tradeId: trade.id,
+            userType: userType,
+            // Sende auch die aktualisierten Werte mit
+            has_unread_messages_bautraeger: false,
+            has_unread_messages_dienstleister: false
+          } 
+        }));
+        console.log('📧 Event "messagesMarkedAsRead" ausgelöst für Dashboard-Update');
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Backend-Fehler beim Markieren als gelesen:', response.status, errorText);
+      }
+    } catch (error) {
+      console.error('❌ Fehler beim Markieren der Nachrichten als gelesen:', error);
+    } finally {
+      // Reset nach kurzer Verzögerung, damit das Backend Zeit hat zu aktualisieren
+      setTimeout(() => {
+        isMarkingAsReadRef.current = false;
+        console.log('📧 markMessagesAsRead abgeschlossen - Polling wieder aktiv');
+      }, 2000); // 2 Sekunden Pause für Backend-Update
+    }
+  };
+
+  // Funktion die aufgerufen wird, wenn eine Nachricht gesendet wird
+  const onMessageSent = () => {
+    console.log('📧 Nachricht gesendet - setze justSentMessage auf true');
+    setJustSentMessage(true);
+    
+    // Reset nach 15 Sekunden (länger als Polling-Intervall von 10 Sekunden)
+    setTimeout(() => {
+      setJustSentMessage(false);
+      console.log('📧 justSentMessage zurückgesetzt');
+    }, 15000);
+  };
+
+  // Erweiterte Tab-Wechsel-Funktion
+  const handleTabChange = (tabName: string) => {
+    console.log('🔄 Tab-Wechsel zu:', tabName, '- hasUnreadMessages:', hasUnreadMessages);
+    console.log('🔍 Tab-Name type:', typeof tabName, '- Wert:', JSON.stringify(tabName));
+    console.log('🔍 Vergleich "progress" === tabName:', 'progress' === tabName);
+    console.log('🔍 Vergleich tabName === "progress":', tabName === 'progress');
+    
+    setActiveTab(tabName);
+    
+    console.log('🔍🔍🔍 PRÜFE IF-BEDINGUNG: tabName =', tabName, ', Typ:', typeof tabName);
+    
+    // WICHTIG: Immer markieren als gelesen wenn "Fortschritt & Kommunikation" Tab geöffnet wird
+    // Dies ist die EINZIGE Stelle wo der User aktiv bestätigt, dass er Nachrichten sehen will
+    if (tabName === 'progress') {
+      console.log('✅ Fortschritt-Tab geöffnet - markiere Nachrichten als gelesen');
+      markMessagesAsRead();
     }
   };
 
@@ -2142,6 +2398,9 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                 console.log('📡 DEBUG: User API Response (/users/profile/{id}):', userResponse);
                 
                 if (userResponse.data) {
+                  console.log('🔍 DEBUG: User-Daten verfügbare Felder:', Object.keys(userResponse.data));
+                  console.log('🔍 DEBUG: User-Daten company_address:', userResponse.data.company_address);
+                  console.log('🔍 DEBUG: User-Daten address:', userResponse.data.address);
                   setBautraegerContact(userResponse.data);
                   console.log('✅ Bauträger-Kontaktdaten geladen über /users/profile/{id}:', userResponse.data);
                   return;
@@ -2370,6 +2629,121 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       }
     }, [isOpen, user?.id, existingQuotes, isBautraeger]);
 
+    // Lade Appointments für Angebotsüberarbeitung
+    useEffect(() => {
+      const loadAppointments = async () => {
+        if (isOpen && trade?.requires_inspection && !isBautraeger() && user?.id) {
+          try {
+            const response = await fetch('http://localhost:8000/api/v1/appointments/my-appointments-simple', {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              
+              // Filtere nur Termine für dieses Gewerk
+              const relevantAppointments = (data.appointments || [])
+                .filter((apt: any) => apt.milestone_id === trade.id);
+              
+              setAppointments(relevantAppointments);
+            }
+          } catch (error) {
+            console.error('Fehler beim Laden der Termine:', error);
+          }
+        }
+      };
+      
+      loadAppointments();
+    }, [isOpen, trade?.id, trade?.requires_inspection, user?.id, isBautraeger]);
+
+    // Prüfe ob das Angebot nach Besichtigung überarbeitet werden kann
+    const canReviseQuote = () => {
+      if (!userQuote || userQuote.status !== 'submitted') {
+        console.log('🔍 canReviseQuote: Kein userQuote oder Status nicht "submitted"', {
+          hasUserQuote: !!userQuote,
+          status: userQuote?.status
+        });
+        return false;
+      }
+
+      if (!trade?.requires_inspection) {
+        console.log('🔍 canReviseQuote: Gewerk erfordert keine Besichtigung');
+        return false;
+      }
+
+      // Verwende appointmentsForTrade statt appointments (der korrekte State)
+      const relevantAppointments = appointmentsForTrade.filter(apt => apt.appointment_type === 'INSPECTION');
+      
+      console.log('🔍 canReviseQuote: Prüfe Termine', {
+        totalAppointments: appointmentsForTrade.length,
+        inspectionAppointments: relevantAppointments.length,
+        appointments: relevantAppointments
+      });
+
+      // Prüfe ob mindestens eine Besichtigung zugesagt wurde
+      // Unterstütze verschiedene Response-Strukturen
+      const hasAcceptedInspection = relevantAppointments.some((apt: any) => {
+        console.log('🔍 canReviseQuote: Prüfe Termin', {
+          appointmentId: apt.id,
+          appointmentType: apt.appointment_type,
+          responses: apt.responses,
+          responses_array: apt.responses_array
+        });
+        
+        // Prüfe verschiedene Response-Strukturen
+        let responsesArr: any[] = [];
+        
+        if (Array.isArray(apt.responses)) {
+          responsesArr = apt.responses;
+        } else if (Array.isArray(apt.responses_array)) {
+          responsesArr = apt.responses_array;
+        } else if (typeof apt.responses === 'string') {
+          try {
+            responsesArr = JSON.parse(apt.responses);
+          } catch (e) {
+            responsesArr = [];
+          }
+        }
+        
+        const hasAccepted = responsesArr.some((resp: any) => {
+          const isUser = parseInt(String(resp.service_provider_id)) === parseInt(String(user?.id));
+          const isAccepted = resp.status === 'accepted';
+          console.log('🔍 canReviseQuote: Prüfe Response', {
+            serviceProviderId: resp.service_provider_id,
+            userId: user?.id,
+            isUser,
+            responseStatus: resp.status,
+            isAccepted
+          });
+          return isUser && isAccepted;
+        });
+        
+        return hasAccepted;
+      });
+
+      console.log('🔍 canReviseQuote: Ergebnis', {
+        hasAcceptedInspection,
+        relevantAppointmentsCount: relevantAppointments.length
+      });
+
+      return hasAcceptedInspection;
+    };
+
+    const handleReviseQuote = () => {
+      setShowReviseQuoteModal(true);
+    };
+
+    const handleQuoteRevised = async () => {
+      setShowReviseQuoteModal(false);
+      // Lade Quotes neu
+      if (onQuotesUpdate) {
+        onQuotesUpdate();
+      }
+    };
+
     const getCategoryIcon = (category: string) => {
     const iconMap: { [key: string]: { color: string; icon: React.ReactNode } } = {
       'electrical': { color: '#fbbf24', icon: <span className="text-lg">âš¡</span> },
@@ -2392,6 +2766,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     
     try {
       const { api } = await import('../api/api');
+      let hasAcceptanceData = false;
       
       // Lade zuerst die Abnahme-ID
       try {
@@ -2399,21 +2774,35 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         if (acceptanceResponse.data && acceptanceResponse.data.length > 0) {
           const latestAcceptance = acceptanceResponse.data[acceptanceResponse.data.length - 1];
           setAcceptanceId(latestAcceptance.id);
+          hasAcceptanceData = true;
           console.log('✅ Abnahme-ID gesetzt:', latestAcceptance.id);
         }
-      } catch (acceptanceError) {
-        console.warn('⚠️ Keine Abnahme gefunden, verwende Standard-ID');
-        setAcceptanceId(1);
+      } catch (acceptanceError: any) {
+        console.warn('⚠️ Keine Abnahme gefunden oder Backend-Fehler:', acceptanceError.response?.status);
+        // Bei Backend-Fehlern (500, etc.) setzen wir keine Standard-ID
+        setAcceptanceId(null);
+        hasAcceptanceData = false;
       }
       
-      // Lade dann die Mängel
-      const response = await api.get(`/acceptance/milestone/${trade.id}/defects`);
-      setAcceptanceDefects(response.data || []);
-      console.log('✅ Abnahme-Mängel geladen:', response.data);
-    } catch (error) {
-      console.error('❌ Fehler beim Laden der Abnahme-Mängel:', error);
+      // Lade dann die Mängel (nur wenn Abnahme-Daten verfügbar)
+      if (hasAcceptanceData) {
+        try {
+          const response = await api.get(`/acceptance/milestone/${trade.id}/defects`);
+          setAcceptanceDefects(response.data || []);
+          console.log('✅ Abnahme-Mängel geladen:', response.data);
+        } catch (defectsError: any) {
+          console.warn('⚠️ Fehler beim Laden der Mängel:', defectsError.response?.status);
+          setAcceptanceDefects([]);
+        }
+      } else {
+        // Keine Abnahme-Daten verfügbar, setze leere Mängel-Liste
+        setAcceptanceDefects([]);
+        console.log('ℹ️ Keine Abnahme-Daten verfügbar - setze leere Mängel-Liste');
+      }
+    } catch (error: any) {
+      console.error('❌ Allgemeiner Fehler beim Laden der Abnahme-Daten:', error.response?.status || error.message);
       setAcceptanceDefects([]);
-      setAcceptanceId(1); // Fallback
+      setAcceptanceId(null);
     }
   };
 
@@ -3046,11 +3435,6 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     <>
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-2xl border border-gray-600/30 max-w-6xl w-full h-[90vh] overflow-hidden relative flex flex-col">
-        {/* DEBUG HINWEIS */}
-        <div className="absolute top-2 right-2 bg-red-500/90 text-white px-3 py-1 rounded-lg text-sm font-bold z-50 shadow-lg">
-          🔍 DEBUG: TradeDetailsModal
-        </div>
-        
         {/* TEST BUTTON für Wiedervorlage-Termine */}
         {isBautraeger() && existingQuotes?.some(q => q.status === 'accepted') && (
           <div className="absolute top-2 left-2 z-50">
@@ -3082,8 +3466,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-1">
                 <h2 className="text-xl font-bold text-white">{trade.title}</h2>
-                {/* Bearbeiten Button: nur wenn kein Angebot angenommen und keine Angebote vorliegen */}
-                {(() => {
+                {/* Bearbeiten Button: nur wenn kein Angebot angenommen und keine Angebote vorliegen - NUR FÜR BAUTRÄGER */}
+                {isBautraeger() && (() => {
                   const hasAccepted = (existingQuotes || []).some(q => String(q.status).toLowerCase() === 'accepted');
                   const hasAnyQuote = (existingQuotes || []).length > 0;
                   const disabled = hasAnyQuote;
@@ -3101,8 +3485,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   );
                 })()}
                 
-                {/* Löschen Button: nur wenn keine Angebote vorliegen */}
-                {(() => {
+                {/* Löschen Button: nur wenn keine Angebote vorliegen - NUR FÜR BAUTRÄGER */}
+                {isBautraeger() && (() => {
                   const canDelete = canDeleteTrade();
                   const title = canDelete ? 'Ausschreibung löschen' : 'Löschen nicht möglich, es liegen bereits Angebote vor';
                   return (
@@ -3118,7 +3502,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   );
                 })()}
                 
-                {(completionStatus === 'completed' || completionStatus === 'completed_with_defects' || completionStatus === 'completion_requested') && (
+                {/* Status Badge - NUR FÜR BAUTRÄGER */}
+                {isBautraeger() && (completionStatus === 'completed' || completionStatus === 'completed_with_defects' || completionStatus === 'completion_requested') && (
                   <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
                     completionStatus === 'completed' 
                       ? 'bg-green-500/20 border border-green-500/30 text-green-300'
@@ -3141,7 +3526,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                     )}
                   </div>
                 )}
-                {(trade as any).requires_inspection && (
+                {/* Besichtigung erforderlich Badge - NUR FÜR BAUTRÄGER */}
+                {isBautraeger() && (trade as any).requires_inspection && (
                   <div className="inline-flex items-center gap-1 px-3 py-1 bg-blue-500/20 border border-blue-500/30 text-blue-300 rounded-full text-sm font-medium">
                     <Eye size={14} />
                     Besichtigung erforderlich
@@ -3199,8 +3585,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   )}
                 </div>
 
-                {/* Notizen - separate Zeile fÃ¼r bessere Lesbarkeit */}
-                {(trade as any).notes && (
+                {/* Notizen - separate Zeile fÃ¼r bessere Lesbarkeit - NUR FÜR BAUTRÄGER */}
+                {isBautraeger() && (trade as any).notes && (
                   <div className="bg-black/20 rounded-lg p-3 mt-3">
                     <div className="flex items-center gap-2 mb-2">
                       <StickyNote size={14} className="text-yellow-400" />
@@ -3215,8 +3601,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   </div>
                 )}
 
-                {/* ZusÃ¤tzliche Informationen aus notify_on_completion */}
-                {(trade as any).notify_on_completion && (
+                {/* ZusÃ¤tzliche Informationen aus notify_on_completion - NUR FÜR BAUTRÄGER */}
+                {isBautraeger() && (trade as any).notify_on_completion && (
                   <div className="bg-black/20 rounded-lg p-3 mt-3">
                     <div className="flex items-center gap-2 mb-2">
                       <Info size={14} className="text-cyan-400" />
@@ -3239,7 +3625,16 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                     <div className="flex items-center gap-2 text-gray-300">
                       <Building size={14} className="text-[#ffbd59]" />
                       <span className="text-gray-400">Projekt:</span>
-                      <span className="font-medium text-white">{project.name || 'Nicht angegeben'}</span>
+                      <span 
+                        className="font-medium text-white cursor-pointer hover:text-[#ffbd59] transition-colors duration-200 hover:underline"
+                        onClick={() => {
+                          // Navigiere zur Startseite und springe zu "Aktuelles Projekt"
+                          window.location.href = '/#aktuelles-projekt';
+                        }}
+                        title="Zu Aktuelles Projekt springen"
+                      >
+                        {project.name || 'Nicht angegeben'}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2 text-gray-300">
                       <Settings size={14} className="text-[#ffbd59]" />
@@ -3249,7 +3644,19 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                     <div className="flex items-center gap-2 text-gray-300">
                       <MapPin size={14} className="text-[#ffbd59]" />
                       <span className="text-gray-400">Standort:</span>
-                      <span className="font-medium text-white">{project.address || project.location || project.city || 'Projektadresse nicht verfÃ¼gbar'}</span>
+                      <span 
+                        className="font-medium text-white cursor-pointer hover:text-[#ffbd59] transition-colors duration-200 hover:underline"
+                        onClick={() => {
+                          const address = project.address || project.location || project.city;
+                          if (address && address !== 'Projektadresse nicht verfÃ¼gbar') {
+                            const encodedAddress = encodeURIComponent(address);
+                            window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, '_blank');
+                          }
+                        }}
+                        title="In Google Maps öffnen"
+                      >
+                        {project.address || project.location || project.city || 'Projektadresse nicht verfÃ¼gbar'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -3557,7 +3964,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           <div className="flex px-6 min-w-max" role="tablist" aria-label="Ausschreibungsdetails">
             {/* Overview Tab - Always visible */}
             <button
-              onClick={() => setActiveTab('overview')}
+              onClick={() => handleTabChange('overview')}
               onKeyDown={(e) => handleTabKeyDown(e, 0)}
               role="tab"
               aria-selected={activeTab === 'overview'}
@@ -3579,7 +3986,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             
             {/* Quotes Tab */}
             <button
-              onClick={() => setActiveTab('quotes')}
+              onClick={() => handleTabChange('quotes')}
               onKeyDown={(e) => handleTabKeyDown(e, 1)}
               role="tab"
               aria-selected={activeTab === 'quotes'}
@@ -3608,7 +4015,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             
             {/* Documents Tab */}
             <button
-              onClick={() => setActiveTab('documents')}
+              onClick={() => handleTabChange('documents')}
               onKeyDown={(e) => handleTabKeyDown(e, 2)}
               role="tab"
               aria-selected={activeTab === 'documents'}
@@ -3637,7 +4044,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             
             {/* Progress Tab */}
             <button
-              onClick={() => setActiveTab('progress')}
+              onClick={() => handleTabChange('progress')}
               onKeyDown={(e) => handleTabKeyDown(e, 3)}
               role="tab"
               aria-selected={activeTab === 'progress'}
@@ -3648,7 +4055,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                 activeTab === 'progress'
                   ? 'border-[#ffbd59] text-[#ffbd59] bg-[#ffbd59]/5'
                   : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
-              }`}
+              } ${hasUnreadMessages ? 'tab-notification-blink' : ''}`}
             >
               <div className="flex items-center gap-2">
                 <Settings size={16} />
@@ -3657,13 +4064,32 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                 {(completionStatus === 'completed' || completionStatus === 'completion_requested' || completionStatus === 'completed_with_defects') && (
                   <div className="w-2 h-2 bg-[#ffbd59] rounded-full animate-pulse"></div>
                 )}
+                {/* Brief-Symbol für ungelesene Nachrichten - sehr prominent und groß */}
+                {hasUnreadMessages && !justSentMessage && (
+                  <Mail 
+                    size={22} 
+                    className="text-green-500" 
+                    style={{
+                      animation: 'mail-flash 0.5s linear infinite !important',
+                      animationName: 'mail-flash !important',
+                      animationDuration: '0.5s !important',
+                      animationTimingFunction: 'linear !important',
+                      animationIterationCount: 'infinite !important',
+                      zIndex: 9999,
+                      filter: 'drop-shadow(0 0 8px #00ff00)',
+                      fontWeight: 'bold',
+                      willChange: 'opacity',
+                      display: 'inline-block'
+                    }}
+                  />
+                )}
               </div>
             </button>
             
             {/* Kontakt Tab - nur für Dienstleister */}
             {!isBautraeger() && (
               <button
-                onClick={() => setActiveTab('contact')}
+                onClick={() => handleTabChange('contact')}
                 onKeyDown={(e) => handleTabKeyDown(e, 4)}
                 role="tab"
                 aria-selected={activeTab === 'contact'}
@@ -3687,7 +4113,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             {/* Abnahme Tab - nur für Dienstleister mit angenommenem Angebot */}
             {!isBautraeger() && acceptedQuote && (
               <button
-                onClick={() => setActiveTab('abnahme')}
+                onClick={() => handleTabChange('abnahme')}
                 onKeyDown={(e) => handleTabKeyDown(e, 5)}
                 role="tab"
                 aria-selected={activeTab === 'abnahme'}
@@ -4538,34 +4964,72 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             </div>
           )}
 
-              {/* DEBUG: Angebote für Bauträger */}
-              {(() => {
-                console.log('🔍 TradeDetailsModal DEBUG - Angebots-Sektion Bedingungen:', {
-                  isBautraeger: isBautraeger(),
-                  existingQuotes: existingQuotes,
-                  existingQuotesLength: existingQuotes?.length,
-                  existingQuotesType: typeof existingQuotes,
-                  shouldShow: isBautraeger() && existingQuotes && existingQuotes.length > 0
-                });
-                return null;
-              })()}
-              
-              {/* TEMPORÄRE DEBUG-ANZEIGE für Bauträger */}
-              {isBautraeger() && (
-                <div className="mb-6 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-xl p-4">
-                  <h3 className="text-yellow-300 font-bold mb-2">🔍 DEBUG: Angebots-Status</h3>
-                  <div className="text-sm text-gray-300 space-y-1">
-                    <div>existingQuotes: {existingQuotes ? 'vorhanden' : 'null/undefined'}</div>
-                    <div>existingQuotes.length: {existingQuotes?.length || 0}</div>
-                    <div>existingQuotes Typ: {typeof existingQuotes}</div>
-                    <div>isBautraeger(): {isBautraeger() ? 'true' : 'false'}</div>
-                    <div>Bedingung erfüllt: {(isBautraeger() && existingQuotes && existingQuotes.length > 0) ? 'JA' : 'NEIN'}</div>
-                    {existingQuotes && existingQuotes.length > 0 && (
-                      <div>Angebote: {existingQuotes.map(q => `${q.id}:${q.status}`).join(', ')}</div>
-                    )}
+          {/* Button & Banner: Angebot nach Besichtigung überarbeiten */}
+          {!isBautraeger() && canReviseQuote() && (
+            <div className="mb-6 bg-gradient-to-br from-blue-500/10 via-blue-600/10 to-indigo-500/10 border border-blue-500/30 rounded-xl overflow-hidden">
+              {/* Erklärungsbanner */}
+              <div className="bg-gradient-to-r from-blue-500/20 to-indigo-500/20 p-4 border-b border-blue-500/30">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-blue-500/30 rounded-lg flex-shrink-0">
+                    <Info size={20} className="text-blue-300" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-lg font-bold text-blue-200 mb-2">
+                      Angebot überarbeiten nach Besichtigung
+                    </h4>
+                    <p className="text-sm text-blue-100/90 leading-relaxed">
+                      Sie haben die Besichtigung durchgeführt und können nun Ihr Angebot basierend auf den gewonnenen Erkenntnissen anpassen. 
+                      Das bestehende Angebot wird dabei überschrieben, und der Bauträger erhält automatisch eine Benachrichtigung über die Änderungen.
+                    </p>
                   </div>
                 </div>
-              )}
+              </div>
+
+              {/* Button-Bereich */}
+              <div className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg shadow-blue-500/50 flex-shrink-0">
+                    <Edit size={28} className="text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h5 className="text-white font-semibold mb-1">
+                      Bereit zur Überarbeitung?
+                    </h5>
+                    <p className="text-gray-300 text-sm">
+                      Klicken Sie auf den Button, um Ihr Angebot anzupassen
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleReviseQuote}
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-blue-500/50 flex-shrink-0"
+                  >
+                    <Edit size={18} />
+                    Angebot überarbeiten
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Banner für Dienstleister: Angebot liegt beim Bauträger zur Prüfung */}
+          {!isBautraeger() && userQuote && userQuote.status === 'submitted' && !canReviseQuote() && (
+            <div className="mb-6 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-500/20 rounded-lg">
+                  <Clock size={18} className="text-amber-400" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-semibold text-amber-300 mb-1">
+                    Angebot zur Prüfung eingereicht
+                  </h4>
+                  <p className="text-sm text-gray-300">
+                    Ihr Angebot liegt jetzt beim Bauträger zur Prüfung vor. Sie erhalten eine Benachrichtigung, sobald eine Entscheidung getroffen wurde.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
 
               {/* Angebote für Bauträger - TEMPORÄR: Zeige auch wenn keine Angebote vorhanden */}
           {isBautraeger() && (
@@ -4799,9 +5263,19 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       <h4 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
                         <FileText size={18} className="text-green-400" />
                         Eingegangene Angebote ({existingQuotes.length})
+                        {existingQuotes.some(q => q.is_revised_quote) && (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                            ✏️ {existingQuotes.filter(q => q.is_revised_quote).length} überarbeitet
+                          </span>
+                        )}
                       </h4>
                       <p className="text-sm text-gray-400 mb-4">
                         Diese Dienstleister haben Angebote für die Ausschreibung eingereicht.
+                        {existingQuotes.some(q => q.is_revised_quote) && (
+                          <span className="block mt-1 text-purple-300">
+                            ✏️ Einige Angebote wurden nach der Besichtigung überarbeitet und sind entsprechend gekennzeichnet.
+                          </span>
+                        )}
                       </p>
                     </div>
                     {existingQuotes.map((quote) => {
@@ -4873,6 +5347,11 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                                quote.status === 'rejected' ? 'Abgelehnt' :
                                quote.status === 'submitted' ? 'Eingereicht' : 'Entwurf'}
                             </span>
+                            {quote.is_revised_quote && (
+                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                                ✏️ Überarbeitet
+                              </span>
+                            )}
                           </div>
                           
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -4911,6 +5390,22 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                                 <div className="flex items-center gap-1">
                                   <Mail size={14} />
                                   {quote.email}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {(quote as any).is_revised_quote && (quote as any).last_revised_at && (
+                            <div className="mt-3 p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                              <div className="flex items-center gap-2 text-sm text-purple-300">
+                                <RefreshCw size={14} />
+                                <span>Zuletzt überarbeitet: {new Date((quote as any).last_revised_at).toLocaleDateString('de-DE', {
+                                  year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                                })}</span>
+                              </div>
+                              {(quote as any).revision_count && (quote as any).revision_count > 1 && (
+                                <div className="mt-1 text-xs text-purple-400">
+                                  Dies ist die {(quote as any).revision_count}. Überarbeitung nach der Besichtigung
                                 </div>
                               )}
                             </div>
@@ -5137,11 +5632,12 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                 currentProgress={currentProgress}
                 onProgressChange={handleProgressChange}
                 isBautraeger={isBautraeger()}
-                isServiceProvider={!isBautraeger() && (acceptedQuote?.service_provider_id === user?.id || existingQuotes?.some(q => q.service_provider_id === user?.id))}
+                isServiceProvider={!isBautraeger()}
                 completionStatus={completionStatus}
                 onCompletionRequest={handleCompletionRequest}
                 onCompletionResponse={handleCompletionResponse}
                 hasAcceptedQuote={existingQuotes && existingQuotes.some(quote => quote.status === 'accepted')}
+                onMessageSent={onMessageSent}
               />
               
               {/* Acceptance Workflow for Bauträger */}
@@ -5345,6 +5841,33 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       Schnellaktionen
                     </h3>
                     <div className="flex flex-wrap gap-3">
+                      {/* Add to Contact Book Button - Mobile responsive wrapper */}
+                      {!isContactBookButtonClicked && (
+                        <div className="[&_span]:hidden [&_span]:sm:inline">
+                          <AddToContactBookButton
+                            companyName={bautraegerContact.company_name}
+                            contactPerson={[bautraegerContact.first_name, bautraegerContact.last_name].filter(Boolean).join(' ') || 'Bauträger'}
+                            email={bautraegerContact.email}
+                            phone={bautraegerContact.phone}
+                            website={bautraegerContact.website}
+                            companyAddress={bautraegerContact.company_address || bautraegerContact.address}
+                            category={trade.category}
+                            milestoneId={trade.id}
+                            milestoneTitle={trade.title}
+                            projectId={project?.id}
+                            projectName={project?.name}
+                            serviceProviderId={bautraegerContact.id}
+                            onContactAdded={() => {
+                              setIsContactBookButtonClicked(true);
+                            }}
+                            onOpenContactBook={() => {
+                              setShowContactBook(true);
+                            }}
+                            className="px-4 py-2 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition-colors flex items-center gap-2 border border-green-500/30 hover:scale-105 active:scale-95"
+                          />
+                        </div>
+                      )}
+                      
                       {bautraegerContact.email && (
                         <button
                           onClick={() => window.open(`mailto:${bautraegerContact.email}`, '_blank')}
@@ -5920,6 +6443,24 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           }}
         />
       )}
+
+      {/* ReviseQuoteModal für Angebotsüberarbeitung nach Besichtigung */}
+      {showReviseQuoteModal && userQuote && (
+        <ReviseQuoteModal
+          isOpen={showReviseQuoteModal}
+          onClose={() => setShowReviseQuoteModal(false)}
+          existingQuote={userQuote}
+          trade={trade}
+          project={project}
+          onRevised={handleQuoteRevised}
+        />
+      )}
+
+      {/* Contact Book Modal */}
+      <ContactBook
+        isOpen={showContactBook}
+        onClose={() => setShowContactBook(false)}
+      />
     </>
   );
 }

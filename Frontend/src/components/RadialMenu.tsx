@@ -341,11 +341,8 @@ export function RadialMenu({
         ref={containerRef}
         className={className}
         style={{
-          position: "fixed",
-          right: isMobile ? 112 : 144,
-          bottom: isMobile ? 32 : 64,
-          zIndex: 9999,
           filter: enableGooeyEffect && open ? 'url(#gooey)' : undefined,
+          zIndex: 9999,
         }}
         role="menu"
         aria-expanded={open}
@@ -368,7 +365,7 @@ export function RadialMenu({
                 bottom: 0,
                 background: 'rgba(0, 0, 0, 0.2)',
                 backdropFilter: 'blur(8px)',
-                zIndex: -1
+                zIndex: 9998
               }}
             />
           )}
@@ -470,7 +467,7 @@ export function RadialMenu({
                     justifyContent: 'center',
                     outline: 'none',
                     transition: 'background 0.3s ease',
-                    zIndex: layout[i].isPrimary ? (hoveredIndex === i ? 100 : 75) : 50,
+                    zIndex: layout[i].isPrimary ? (hoveredIndex === i ? 10000 : 7500) : 5000,
                   }}
                   whileHover={{ 
                     scale: layout[i].isPrimary ? 1.2 : 1.15,
@@ -514,7 +511,7 @@ export function RadialMenu({
                           : 'bg-gray-900/95 border border-gray-700'
                       }`}
                       style={{ 
-                        zIndex: 10000,
+                        zIndex: 10002,
                         filter: layout[i].isPrimary 
                           ? `drop-shadow(0 0 20px ${item.color}40)`
                           : 'none'
@@ -577,7 +574,7 @@ export function RadialMenu({
             fontSize: isMobile ? 28 : 36,
             fontWeight: 'bold',
             outline: 'none',
-            zIndex: 100,
+            zIndex: 10001,
           }}
           whileTap={{ scale: 0.9 }}
           whileHover={{ scale: 1.1 }}
@@ -613,6 +610,7 @@ export function RadialMenu({
             initial={{ opacity: 0, x: 10 }}
             animate={{ opacity: 1, x: 0 }}
             className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-gray-900/95 text-white px-3 py-2 rounded-lg text-sm whitespace-nowrap"
+            style={{ zIndex: 10003 }}
             onAnimationComplete={() => {
               setTimeout(() => {
                 localStorage.setItem('radial-menu-hint-shown', 'true');
@@ -636,6 +634,23 @@ export function RadialMenu({
           </motion.div>
         )}
       </div>
+
+      <style>{`
+        .service-provider-radial-menu {
+          position: fixed !important;
+          transform: translateZ(0) !important;
+          will-change: transform !important;
+          right: 24px !important;
+          bottom: 24px !important;
+        }
+        
+        @media (max-width: 768px) {
+          .service-provider-radial-menu {
+            right: 16px !important;
+            bottom: 16px !important;
+          }
+        }
+      `}</style>
     </>
   );
 }

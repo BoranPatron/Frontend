@@ -104,10 +104,21 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
     }
   };
 
-  const calculateVAT = (netAmount: number, vatRate: number) => {
-    const vat = netAmount * (vatRate / 100);
-    const total = netAmount + vat;
-    return { vat, total };
+  // Hilfsfunktion um Bauträger-User zu ermitteln
+  const getBautraegerUserId = async (projectId?: number): Promise<number> => {
+    try {
+      if (projectId) {
+        const projectResponse = await api.get(`/projects/${projectId}`);
+        if (projectResponse.data?.bautraeger_id) {
+          return projectResponse.data.bautraeger_id;
+        }
+      }
+      // Fallback: Verwende User-ID 1 als Standard-Bauträger
+      return 1;
+    } catch (error) {
+      console.warn('⚠️ Konnte Bauträger-User nicht ermitteln, verwende Fallback:', error);
+      return 1;
+    }
   };
 
   const handleCountryChange = (country: string) => {
@@ -241,23 +252,23 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
         
         // Erstelle Benachrichtigung für Bauträger
         try {
+          const bautraegerUserId = await getBautraegerUserId(projectId);
           await notificationService.createNotification({
-            type: 'general',
+            recipient_id: bautraegerUserId,
+            type: 'invoice_submitted',
             title: '🧾 Neue Rechnung eingegangen',
             message: `Eine neue Rechnung für "${milestoneTitle}" wurde erstellt`,
-            description: `Rechnungsnummer: ${manualInvoice.invoiceNumber}\nBetrag: ${new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(manualInvoice.totalAmount)}`,
             priority: 'high',
-            requires_action: true,
-            action_type: 'invoice_review',
-            project_id: projectId,
-            milestone_id: milestoneId,
-            metadata: {
+            data: JSON.stringify({
+              description: `Rechnungsnummer: ${manualInvoice.invoiceNumber}\nBetrag: ${new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(manualInvoice.totalAmount)}`,
               invoice_id: response.data.id,
               invoice_number: manualInvoice.invoiceNumber,
               total_amount: manualInvoice.totalAmount,
               invoice_type: 'manual',
               service_provider_id: serviceProviderId || user?.id
-            }
+            }),
+            related_project_id: projectId,
+            related_milestone_id: milestoneId
           });
           
           // Sende Custom Event für sofortige UI-Aktualisierung
@@ -342,24 +353,24 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
         
         // Erstelle Benachrichtigung für Bauträger
         try {
+          const bautraegerUserId = await getBautraegerUserId(projectId);
           await notificationService.createNotification({
-            type: 'general',
+            recipient_id: bautraegerUserId,
+            type: 'invoice_submitted',
             title: '🧾 Neue Rechnung (PDF) eingegangen',
             message: `Eine neue Rechnung für "${milestoneTitle}" wurde hochgeladen`,
-            description: `Rechnungsnummer: ${uploadData.invoiceNumber}\nBetrag: ${new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(uploadData.totalAmount)}`,
             priority: 'high',
-            requires_action: true,
-            action_type: 'invoice_review',
-            project_id: projectId,
-            milestone_id: milestoneId,
-            metadata: {
+            data: JSON.stringify({
+              description: `Rechnungsnummer: ${uploadData.invoiceNumber}\nBetrag: ${new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(uploadData.totalAmount)}`,
               invoice_id: response.data.id,
               invoice_number: uploadData.invoiceNumber,
               total_amount: uploadData.totalAmount,
               invoice_type: 'upload',
               has_pdf: true,
               service_provider_id: serviceProviderId || user?.id
-            }
+            }),
+            related_project_id: projectId,
+            related_milestone_id: milestoneId
           });
           
           // Sende Custom Event für sofortige UI-Aktualisierung

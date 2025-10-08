@@ -239,8 +239,8 @@ export default function ServiceProviderQuoteModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-[#1a1a1a] rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4">
+      <div className="bg-[#1a1a1a] rounded-lg max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
         {/* Header */}
         <div className="bg-gradient-to-r from-[#2a2a2a] to-[#3a3a3a] p-6 border-b border-gray-700">
           <div className="flex justify-between items-start">
@@ -572,6 +572,7 @@ export default function ServiceProviderQuoteModal({
                 )}
               </div>
             </div>
+
           </div>
         </div>
       </div>

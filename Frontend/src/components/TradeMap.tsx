@@ -25,6 +25,7 @@ export default function TradeMap({
   const [map, setMap] = useState<any>(null);
   const [markers, setMarkers] = useState<any[]>([]);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [isLegendExpanded, setIsLegendExpanded] = useState(false);
 
   // Leaflet CSS laden
   useEffect(() => {
@@ -126,7 +127,7 @@ export default function TradeMap({
         attributionControl: true
       }).setView(
         [currentLocation.latitude, currentLocation.longitude], 
-        12
+        9
       );
 
       // OpenStreetMap Tile Layer hinzufügen
@@ -714,58 +715,104 @@ export default function TradeMap({
         }}
       />
       
-      {/* Karten-Controls */}
-      <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-3 z-10 max-w-[200px]">
-        <div className="text-xs text-gray-600 font-medium mb-2">Legende</div>
-        
-        <div className="space-y-1 text-xs">
-                        <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white"></div>
-            <span>Ihr Standort</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-yellow-500 rounded-full border-2 border-white"></div>
-            <span>Gewerke</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-            <div className="w-3 h-3 border-2 border-yellow-500 rounded-full opacity-50"></div>
-            <span>Suchradius ({radiusKm}km)</span>
-                      </div>
-                    </div>
-                    
-        <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
-          <div className="font-medium text-gray-700">{trades.length} Gewerke gefunden</div>
-          <div>Klicken Sie auf einen Marker für Details</div>
-                      </div>
-                    </div>
-                    
-      {/* Kategorie-Legende */}
-      <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-3 z-10 max-w-[200px]">
-        <div className="text-xs text-gray-600 font-medium mb-2">Kategorien</div>
-        <div className="grid grid-cols-2 gap-1 text-xs">
-          <div className="flex items-center gap-1">
-            <span>⚡</span>
-            <span>Elektro</span>
+      {/* Kompakte ausklappbare Legende mit Glow- und Glassmorph-Effekten */}
+      <div className="absolute top-4 right-4 z-10">
+        <div 
+          className={`bg-gradient-to-br from-white/95 to-white/90 backdrop-blur-xl rounded-xl shadow-2xl border border-white/30 transition-all duration-500 ease-out overflow-hidden ${
+            isLegendExpanded 
+              ? 'w-80 shadow-[0_0_40px_rgba(255,189,89,0.3)] hover:shadow-[0_0_50px_rgba(255,189,89,0.4)]' 
+              : 'w-48 shadow-[0_0_20px_rgba(255,189,89,0.2)] hover:shadow-[0_0_30px_rgba(255,189,89,0.3)]'
+          }`}
+          onMouseEnter={() => setIsLegendExpanded(true)}
+          onMouseLeave={() => setIsLegendExpanded(false)}
+        >
+          {/* Header mit Toggle-Button */}
+          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-[#ffbd59]/20 to-[#ffa726]/20 border-b border-white/20">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg flex items-center justify-center shadow-lg">
+                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+              <span className="text-sm font-bold text-gray-800">Legende</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white px-2 py-1 rounded-full font-bold shadow-lg">
+                {trades.length}
+              </span>
+              <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                isLegendExpanded ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+              }`}></div>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <span>🔧</span>
-            <span>Sanitär</span>
+
+          {/* Kompakter Inhalt (immer sichtbar) */}
+          <div className="p-3">
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-blue-500 rounded-full border border-white shadow-sm"></div>
+                <span className="text-gray-700 font-medium">Ihr Standort</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-yellow-500 rounded-full border border-white shadow-sm"></div>
+                <span className="text-gray-700 font-medium">Ausschreibungen</span>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <span>🔥</span>
-            <span>Heizung</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span>🏠</span>
-            <span>Dach</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span>🪟</span>
-            <span>Fenster</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span>🌱</span>
-            <span>Garten</span>
+
+          {/* Erweiterte Inhalte (nur bei Hover) */}
+          <div className={`transition-all duration-500 ease-out overflow-hidden ${
+            isLegendExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+          }`}>
+            <div className="px-3 pb-3 border-t border-white/20 bg-gradient-to-b from-white/10 to-transparent">
+              {/* Kategorien */}
+              <div className="mt-3">
+                <div className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-1">
+                  <span>🏗️</span>
+                  <span>Gewerke-Kategorien</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-xs">
+                  <div className="flex items-center gap-1 hover:bg-white/20 rounded px-1 py-0.5 transition-colors">
+                    <span>⚡</span>
+                    <span className="text-gray-600">Elektro</span>
+                  </div>
+                  <div className="flex items-center gap-1 hover:bg-white/20 rounded px-1 py-0.5 transition-colors">
+                    <span>🔧</span>
+                    <span className="text-gray-600">Sanitär</span>
+                  </div>
+                  <div className="flex items-center gap-1 hover:bg-white/20 rounded px-1 py-0.5 transition-colors">
+                    <span>🔥</span>
+                    <span className="text-gray-600">Heizung</span>
+                  </div>
+                  <div className="flex items-center gap-1 hover:bg-white/20 rounded px-1 py-0.5 transition-colors">
+                    <span>🏠</span>
+                    <span className="text-gray-600">Dach</span>
+                  </div>
+                  <div className="flex items-center gap-1 hover:bg-white/20 rounded px-1 py-0.5 transition-colors">
+                    <span>🪟</span>
+                    <span className="text-gray-600">Fenster</span>
+                  </div>
+                  <div className="flex items-center gap-1 hover:bg-white/20 rounded px-1 py-0.5 transition-colors">
+                    <span>🌱</span>
+                    <span className="text-gray-600">Garten</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Zusätzliche Informationen */}
+              <div className="mt-3 pt-2 border-t border-white/20">
+                <div className="text-xs text-gray-500 space-y-1">
+                  <div className="flex items-center gap-1">
+                    <span>💡</span>
+                    <span>Klicken Sie auf Marker für Details</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span>🎯</span>
+                    <span>Angebote direkt abgeben</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

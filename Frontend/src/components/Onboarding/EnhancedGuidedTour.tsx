@@ -29,13 +29,13 @@ const bautraegerSteps: TourStep[] = [
   { 
     id: 'dashboard-title', 
     title: 'Willkommen bei BuildWise! 🏗️', 
-    description: 'Perfekt! Sie sind jetzt als Bauträger angemeldet. Ich führe Sie durch die wichtigsten Funktionen – das dauert nur 3 Minuten und zeigt Ihnen, wie BuildWise Ihre Bauprojekte revolutioniert.', 
+    description: 'Perfekt! Du bist jetzt als Bauträger angemeldet. Ich führe dich durch die wichtigsten Funktionen – das dauert nur 3 Minuten und zeigt dir, wie BuildWise deine Bauprojekte revolutioniert.', 
     pointer: 'bottom' 
   },
   {
     id: 'tour-mockup-tabs',
-    title: 'Ihre Kommandozentrale am rechten Bildschirmrand! 🎯',
-    description: 'Hier rechts finden Sie Ihre wichtigsten Tools: Benachrichtigungen über neue Angebote und Terminantworten, sowie alle Ihre Projektdokumente. Diese Tabs sind immer verfügbar und halten Sie über alles Wichtige auf dem Laufenden!',
+    title: 'Deine Kommandozentrale am rechten Bildschirmrand! 🎯',
+    description: 'Hier rechts findest du deine wichtigsten Tools: Benachrichtigungen über neue Angebote und Terminantworten, sowie alle deine Projektdokumente. Diese Tabs sind immer verfügbar und halten dich über alles Wichtige auf dem Laufenden!',
     pointer: 'auto',
     showMockup: 'tabs',
     mockupPosition: 'below',
@@ -43,8 +43,8 @@ const bautraegerSteps: TourStep[] = [
   },
   {
     id: 'tour-mockup-projects',
-    title: 'So werden Ihre Projekte aussehen! ✨',
-    description: 'Hier sehen Sie eine Vorschau, wie Ihre Bauprojekte im Dashboard dargestellt werden. Jedes Projekt zeigt Ihnen auf einen Blick: Fortschritt, Budget, aktuelle Bauphase und alle wichtigen Kennzahlen.',
+    title: 'So werden deine Projekte aussehen! ✨',
+    description: 'Hier siehst du eine Vorschau, wie deine Bauprojekte im Dashboard dargestellt werden. Jedes Projekt zeigt dir auf einen Blick: Fortschritt, Budget, aktuelle Bauphase und alle wichtigen Kennzahlen.',
     pointer: 'auto',
     showMockup: 'project',
     mockupPosition: 'below',
@@ -52,27 +52,27 @@ const bautraegerSteps: TourStep[] = [
   },
   { 
     id: 'radial-menu-fab', 
-    title: 'Ihr Kommandozentrum: Das Radial Menu! 🎯', 
-    description: 'Klicken Sie jetzt auf das Plus-Symbol! Hier finden Sie alle wichtigen Funktionen: Projekte erstellen, Gewerke verwalten, Ausschreibungen starten, Dokumente hochladen und vieles mehr.', 
+    title: 'Dein Kommandozentrum: Das Radial Menu! 🎯', 
+    description: 'Klicke jetzt auf das Plus-Symbol! Hier findest du alle wichtigen Funktionen: Projekte erstellen, Gewerke verwalten, Ausschreibungen starten, Dokumente hochladen und vieles mehr.', 
     pointer: 'left',
     waitForClick: true 
   },
   { 
     id: 'radial-menu-fab', 
     title: 'Personalisierung leicht gemacht! 🎨', 
-    description: 'Pro-Tipp: Sie können alle Buttons im Radial Menu per Drag & Drop neu anordnen! Ziehen Sie einfach die Buttons an Ihre bevorzugten Positionen – BuildWise merkt sich Ihre Einstellungen.', 
+    description: 'Pro-Tipp: Du kannst alle Buttons im Radial Menu per Drag & Drop neu anordnen! Ziehe einfach die Buttons an deine bevorzugten Positionen – BuildWise merkt sich deine Einstellungen.', 
     pointer: 'top' 
   },
   { 
     id: 'dashboard-projects', 
-    title: 'Ihre Projektzentrale', 
-    description: 'Hier sehen Sie alle Ihre Bauprojekte im Überblick. Jedes Projekt zeigt Status, Fortschritt und wichtige Kennzahlen. Sie können zwischen verschiedenen Projekten wechseln und alle Details auf einen Blick erfassen.', 
+    title: 'Deine Projektzentrale', 
+    description: 'Hier siehst du alle deine Bauprojekte im Überblick. Jedes Projekt zeigt Status, Fortschritt und wichtige Kennzahlen. Du kannst zwischen verschiedenen Projekten wechseln und alle Details auf einen Blick erfassen.', 
     pointer: 'auto' 
   },
   {
     id: 'tour-mockup-tender',
     title: 'Ausschreibungen & Angebote verwalten 📋',
-    description: 'So organisieren Sie Ihre Ausschreibungen! Sie sehen den Status jeder Ausschreibung, wie viele Angebote eingegangen sind und können diese direkt vergleichen und bewerten.',
+    description: 'So organisierst du deine Ausschreibungen! Du siehst den Status jeder Ausschreibung, wie viele Angebote eingegangen sind und kannst diese direkt vergleichen und bewerten.',
     pointer: 'auto',
     showMockup: 'tender',
     mockupPosition: 'below',
@@ -81,7 +81,7 @@ const bautraegerSteps: TourStep[] = [
   {
     id: 'tour-mockup-cost',
     title: 'Kostenkontrolle in Echtzeit 💰',
-    description: 'Behalten Sie Ihre Finanzen im Blick! Jede Kostenposition wird übersichtlich dargestellt – von genehmigten Ausgaben bis zu ausstehenden Rechnungen. So verlieren Sie nie den Überblick über Ihr Budget.',
+    description: 'Behalte deine Finanzen im Blick! Jede Kostenposition wird übersichtlich dargestellt – von genehmigten Ausgaben bis zu ausstehenden Rechnungen. So verlierst du nie den Überblick über dein Budget.',
     pointer: 'auto',
     showMockup: 'cost',
     mockupPosition: 'below',
@@ -96,20 +96,20 @@ const bautraegerSteps: TourStep[] = [
   },
   { 
     id: 'navbar-credits', 
-    title: 'Ihr Credit-System 💳', 
-    description: 'Hier sehen Sie Ihr aktuelles Credit-Guthaben. Credits ermöglichen Ihnen den Zugang zu Premium-Funktionen wie erweiterte Analysen, automatische Berichte und Priority-Support.', 
+    title: 'Dein Credit-System 💳', 
+    description: 'Hier siehst du dein aktuelles Credit-Guthaben. Credits ermöglichen dir den Zugang zu Premium-Funktionen wie erweiterte Analysen, automatische Berichte und Priority-Support.', 
     pointer: 'bottom' 
   },
   { 
     id: 'notification-tab-bautraeger', 
-    title: 'Ihr Benachrichtigungs-Center! 🔔', 
-    description: 'Hier rechts am Bildschirmrand finden Sie Ihre Benachrichtigungen. Sobald Dienstleister auf Anfragen antworten oder neue Angebote eingehen, werden Sie sofort informiert!', 
+    title: 'Dein Benachrichtigungs-Center! 🔔', 
+    description: 'Hier rechts am Bildschirmrand findest du deine Benachrichtigungen. Sobald Dienstleister auf Anfragen antworten oder neue Angebote eingehen, wirst du sofort informiert!', 
     pointer: 'left' 
   },
   {
     id: 'tour-mockup-kanban',
     title: 'Kanban Board: Drag & Drop Aufgabenverwaltung 📋',
-    description: 'Organisieren Sie Ihre Aufgaben mit unserem intuitiven Kanban Board! Ziehen Sie Aufgaben einfach per Drag & Drop zwischen den Spalten "Zu erledigen", "In Bearbeitung" und "Abgeschlossen". So behalten Sie den Überblick über alle Projektaufgaben.',
+    description: 'Organisiere deine Aufgaben mit unserem intuitiven Kanban Board! Ziehe Aufgaben einfach per Drag & Drop zwischen den Spalten "Zu erledigen", "In Bearbeitung" und "Abgeschlossen". So behältst du den Überblick über alle Projektaufgaben.',
     pointer: 'auto',
     showMockup: 'kanban',
     mockupPosition: 'below',
@@ -117,28 +117,28 @@ const bautraegerSteps: TourStep[] = [
   },
   {
     id: 'geo-search-section',
-    title: 'Ressourcen in Ihrer Nähe finden 🎯',
-    description: 'Finden Sie qualifizierte Dienstleister in Ihrer Region! Die Geo-Suche zeigt Ihnen alle verfügbaren Ressourcen auf einer interaktiven Karte. Sie können nach Gewerken filtern, Entfernungen einstellen und direkt Kontakt zu Dienstleistern aufnehmen.',
+    title: 'Ressourcen in deiner Nähe finden 🎯',
+    description: 'Finde qualifizierte Dienstleister in deiner Region! Die Geo-Suche zeigt dir alle verfügbaren Ressourcen auf einer interaktiven Karte. Du kannst nach Gewerken filtern, Entfernungen einstellen und direkt Kontakt zu Dienstleistern aufnehmen.',
     pointer: 'auto',
     scrollToElement: true
   },
   {
     id: 'resource-search-filters',
     title: 'Erweiterte Ressourcenfilter 🔍', 
-    description: 'Nutzen Sie die erweiterten Filter um genau die Ressourcen zu finden, die Sie brauchen: Nach Kategorie, Verfügbarkeit, Entfernung, Preisvorstellungen und spezifischen Qualifikationen. So sparen Sie Zeit und finden die perfekten Partner für Ihr Projekt.',
+    description: 'Nutze die erweiterten Filter um genau die Ressourcen zu finden, die du brauchst: Nach Kategorie, Verfügbarkeit, Entfernung, Preisvorstellungen und spezifischen Qualifikationen. So sparst du Zeit und findest die perfekten Partner für dein Projekt.',
     pointer: 'auto',
     scrollToElement: true
   },
   { 
     id: 'navbar-profile', 
-    title: 'Ihr Profil-Bereich', 
-    description: 'Verwalten Sie hier Ihre Einstellungen, Credits und Unternehmensdaten. Sie können auch Ihr Abonnement upgraden oder Team-Mitglieder einladen.', 
+    title: 'Dein Profil-Bereich', 
+    description: 'Verwalte hier deine Einstellungen, Credits und Unternehmensdaten. Du kannst auch dein Abonnement upgraden oder Team-Mitglieder einladen.', 
     pointer: 'bottom' 
   },
   { 
     id: 'dashboard-title', 
-    title: 'Sie sind startklar! 🎉', 
-    description: 'Perfekt! Sie kennen jetzt alle wichtigen Bereiche von BuildWise. Erstellen Sie Ihr erstes Projekt oder erkunden Sie die Plattform auf eigene Faust. Unser Support-Team hilft Ihnen gerne bei Fragen weiter!', 
+    title: 'Du bist startklar! 🎉', 
+    description: 'Perfekt! Du kennst jetzt alle wichtigen Bereiche von BuildWise. Erstelle dein erstes Projekt oder erkunde die Plattform auf eigene Faust. Unser Support-Team hilft dir gerne bei Fragen weiter!', 
     pointer: 'bottom',
     scrollToElement: true 
   }
@@ -149,13 +149,13 @@ const dienstleisterSteps: TourStep[] = [
   { 
     id: 'dashboard-title', 
     title: 'Willkommen bei BuildWise! 🔧', 
-    description: 'Großartig! Sie sind jetzt als Dienstleister registriert. Ich zeige Ihnen, wie Sie mit BuildWise neue Aufträge finden, Angebote erstellen und Ihre Projekte verwalten können.', 
+    description: 'Großartig! Du bist jetzt als Dienstleister registriert. Ich zeige dir, wie du mit BuildWise neue Aufträge findest, Angebote erstellst und deine Projekte verwaltest.', 
     pointer: 'bottom' 
   },
   {
     id: 'tour-mockup-projects',
-    title: 'Ihre Projekte im Überblick! ✨',
-    description: 'So sehen Ihre laufenden und potenziellen Projekte aus. Sie sehen sofort: eingereichte Angebote, gewonnene Aufträge und deren Status. Alles übersichtlich an einem Ort.',
+    title: 'Deine Projekte im Überblick! ✨',
+    description: 'So sehen deine laufenden und potenziellen Projekte aus. Du siehst sofort: eingereichte Angebote, gewonnene Aufträge und deren Status. Alles übersichtlich an einem Ort.',
     pointer: 'auto',
     showMockup: 'project',
     mockupPosition: 'below',
@@ -164,7 +164,7 @@ const dienstleisterSteps: TourStep[] = [
   {
     id: 'tour-mockup-tender',
     title: 'Neue Aufträge finden & verwalten 🎯',
-    description: 'Hier finden Sie verfügbare Ausschreibungen in Ihrer Region! Sie sehen die Entfernung, Deadlines und können direkt Angebote abgeben. Gewonnene Aufträge werden separat verwaltet.',
+    description: 'Hier findest du verfügbare Ausschreibungen in deiner Region! Du siehst die Entfernung, Deadlines und kannst direkt Angebote abgeben. Gewonnene Aufträge werden separat verwaltet.',
     pointer: 'auto',
     showMockup: 'tender',
     mockupPosition: 'below',
@@ -173,7 +173,7 @@ const dienstleisterSteps: TourStep[] = [
   {
     id: 'tour-mockup-geomap',
     title: 'Geografische Auftragssuche 🗺️', 
-    description: 'Entdecken Sie Aufträge in Ihrer Nähe! Auf der interaktiven Karte sehen Sie alle verfügbaren Ausschreibungen als Marker. Jeder Marker zeigt Ihnen Gewerk, Entfernung und Budget. Klicken Sie einfach auf einen Marker, um direkt ein Angebot abzugeben.', 
+    description: 'Entdecke Aufträge in deiner Nähe! Auf der interaktiven Karte siehst du alle verfügbaren Ausschreibungen als Marker. Jeder Marker zeigt dir Gewerk, Entfernung und Budget. Klicke einfach auf einen Marker, um direkt ein Angebot abzugeben.', 
     pointer: 'auto',
     showMockup: 'geomap',
     mockupPosition: 'below',
@@ -182,7 +182,7 @@ const dienstleisterSteps: TourStep[] = [
   {
     id: 'tour-mockup-cost',
     title: 'Professionelle Angebotserstellung 💰',
-    description: 'Erstellen Sie detaillierte Kostenvoranschläge mit unserem integrierten Kalkulator. Material, Arbeitszeit, Zusatzleistungen – alles wird automatisch berechnet und professionell formatiert.',
+    description: 'Erstelle detaillierte Kostenvoranschläge mit unserem integrierten Kalkulator. Material, Arbeitszeit, Zusatzleistungen – alles wird automatisch berechnet und professionell formatiert.',
     pointer: 'auto',
     showMockup: 'cost',
     mockupPosition: 'below',
@@ -190,15 +190,15 @@ const dienstleisterSteps: TourStep[] = [
   },
   { 
     id: 'service-provider-tabs', 
-    title: 'Ihre Arbeitsorganisation', 
-    description: 'Wechseln Sie zwischen "Angebote erstellen", "Laufende Projekte" und "Abgeschlossene Arbeiten". Jeder Bereich ist auf Ihre Arbeitsweise optimiert.', 
+    title: 'Deine Arbeitsorganisation', 
+    description: 'Wechsle zwischen "Angebote erstellen", "Laufende Projekte" und "Abgeschlossene Arbeiten". Jeder Bereich ist auf deine Arbeitsweise optimiert.', 
     pointer: 'auto',
     scrollToElement: true 
   },
   {
     id: 'tour-mockup-kanban',
     title: 'Aufgaben-Kanban: Organisiert durch Drag & Drop 📋',
-    description: 'Verwalten Sie Ihre Projektaufgaben mit dem praktischen Kanban Board! Verschieben Sie Aufgaben einfach per Drag & Drop zwischen "Zu erledigen", "In Bearbeitung" und "Abgeschlossen". Perfekt für die Übersicht über alle Ihre laufenden Arbeiten.',
+    description: 'Verwalte deine Projektaufgaben mit dem praktischen Kanban Board! Verschiebe Aufgaben einfach per Drag & Drop zwischen "Zu erledigen", "In Bearbeitung" und "Abgeschlossen". Perfekt für die Übersicht über alle deine laufenden Arbeiten.',
     pointer: 'auto',
     showMockup: 'kanban',
     mockupPosition: 'below',
@@ -207,7 +207,7 @@ const dienstleisterSteps: TourStep[] = [
   {
     id: 'tour-mockup-todo',
     title: 'Termine & Deadlines verwalten 📋',
-    description: 'Behalten Sie alle wichtigen Termine im Blick: von Angebots-Deadlines bis zu Projektmeilensteinen und Rechnungsstellungen. Nie wieder wichtige Fristen verpassen!',
+    description: 'Behalte alle wichtigen Termine im Blick: von Angebots-Deadlines bis zu Projektmeilensteinen und Rechnungsstellungen. Nie wieder wichtige Fristen verpassen!',
     pointer: 'auto',
     showMockup: 'todo',
     mockupPosition: 'below',
@@ -215,47 +215,47 @@ const dienstleisterSteps: TourStep[] = [
   },
   {
     id: 'resource-management-section',
-    title: 'Ihre Ressourcenverwaltung 🛠️',
-    description: 'Verwalten Sie hier Ihre verfügbaren Kapazitäten! Legen Sie Ihre freien Termine, Mitarbeiteranzahl, Stundensätze und Spezialqualifikationen fest. Je detaillierter Ihr Profil, desto häufiger werden Sie für passende Projekte gefunden.',
+    title: 'Deine Ressourcenverwaltung 🛠️',
+    description: 'Verwalte hier deine verfügbaren Kapazitäten! Lege deine freien Termine, Mitarbeiteranzahl, Stundensätze und Spezialqualifikationen fest. Je detaillierter dein Profil, desto häufiger wirst du für passende Projekte gefunden.',
     pointer: 'auto',
     scrollToElement: true
   },
   {
     id: 'resource-create-button',
     title: 'Ressourcen ausschreiben ➕',
-    description: 'Klicken Sie hier um eine neue Ressource zu erstellen! Geben Sie Ihren Zeitraum, Ihre Kapazitäten und Preise an. Bauträger können dann gezielt nach Ihren Leistungen suchen und Sie für Projekte vorauewählen.',
+    description: 'Klicke hier um eine neue Ressource zu erstellen! Gib deinen Zeitraum, deine Kapazitäten und Preise an. Bauträger können dann gezielt nach deinen Leistungen suchen und dich für Projekte vorauswählen.',
     pointer: 'auto',
     scrollToElement: true
   },
   {
     id: 'resource-stats',
-    title: 'Ihre Leistungskennzahlen 📊',
-    description: 'Behalten Sie den Überblick über Ihre Auslastung! Hier sehen Sie Ihre verfügbaren Personentage, gebuchte Kapazitäten und Ihren Auslastungsgrad. Diese KPIs helfen Ihnen bei der optimalen Ressourcenplanung.',
+    title: 'Deine Leistungskennzahlen 📊',
+    description: 'Behalte den Überblick über deine Auslastung! Hier siehst du deine verfügbaren Personentage, gebuchte Kapazitäten und deinen Auslastungsgrad. Diese KPIs helfen dir bei der optimalen Ressourcenplanung.',
     pointer: 'auto',
     scrollToElement: true
   },
   { 
     id: 'radial-menu-fab', 
-    title: 'Ihr Werkzeug-Center: Das Radial Menu! 🛠️', 
-    description: 'Entdecken Sie Ihr persönliches Werkzeug-Center! Das Radial Menu bietet Ihnen schnellen Zugriff auf alle wichtigen Funktionen: Aufgaben verwalten, Dokumente hochladen, Rechnungen erstellen und Ihr Archiv durchsuchen.', 
+    title: 'Dein Werkzeug-Center: Das Radial Menu! 🛠️', 
+    description: 'Entdecke dein persönliches Werkzeug-Center! Das Radial Menu bietet dir schnellen Zugriff auf alle wichtigen Funktionen: Aufgaben verwalten, Dokumente hochladen, Rechnungen erstellen und dein Archiv durchsuchen.', 
     pointer: 'left' 
   },
   { 
     id: 'notification-icon', 
-    title: 'Ihre Benachrichtigungen 🔔', 
-    description: 'Werden Sie sofort informiert über neue Ausschreibungen in Ihrer Region, Auftragserteilungen und Zahlungseingänge. Verpassen Sie keine Geschäftschance!', 
+    title: 'Deine Benachrichtigungen 🔔', 
+    description: 'Werde sofort informiert über neue Ausschreibungen in deiner Region, Auftragserteilungen und Zahlungseingänge. Verpasse keine Geschäftschance!', 
     pointer: 'left' 
   },
   { 
     id: 'navbar-profile', 
-    title: 'Ihr Unternehmensprofil', 
-    description: 'Pflegen Sie hier Ihr Firmenprofil, Referenzen und Zertifikate. Ein vollständiges Profil erhöht Ihre Chancen bei Ausschreibungen erheblich.', 
+    title: 'Dein Unternehmensprofil', 
+    description: 'Pflege hier dein Firmenprofil, Referenzen und Zertifikate. Ein vollständiges Profil erhöht deine Chancen bei Ausschreibungen erheblich.', 
     pointer: 'bottom' 
   },
   { 
     id: 'dashboard-title', 
     title: 'Bereit für neue Aufträge! 🚀', 
-    description: 'Perfekt! Sie können jetzt mit BuildWise durchstarten. Schauen Sie sich verfügbare Ausschreibungen an oder vervollständigen Sie Ihr Profil. Viel Erfolg bei Ihren ersten Projekten!', 
+    description: 'Perfekt! Du kannst jetzt mit BuildWise durchstarten. Schau dir verfügbare Ausschreibungen an oder vervollständige dein Profil. Viel Erfolg bei deinen ersten Projekten!', 
     pointer: 'bottom',
     scrollToElement: true 
   }

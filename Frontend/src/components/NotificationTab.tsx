@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Calendar, 
   Clock, 
@@ -16,6 +16,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { appointmentService } from '../api/appointmentService';
+import { getApiBaseUrl, apiCall } from '../api/api';
 
 interface NotificationTabProps {
   userRole: 'BAUTRAEGER' | 'DIENSTLEISTER';
@@ -25,7 +26,7 @@ interface NotificationTabProps {
 
 interface NotificationData {
   id: number;
-  type: 'appointment_invitation' | 'appointment_responses' | 'service_provider_selection_reminder' | 'quote_accepted' | 'quote_submitted' | 'resource_allocated' | 'tender_invitation';
+  type: 'appointment_invitation' | 'appointment_responses' | 'service_provider_selection_reminder' | 'quote_accepted' | 'quote_submitted' | 'resource_allocated' | 'tender_invitation' | 'acceptance_with_defects';
   title: string;
   message: string;
   description?: string;
@@ -76,8 +77,29 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
   const [suggestedTime, setSuggestedTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [seenNotifications, setSeenNotifications] = useState<Set<number>>(new Set());
+  const notificationTabRef = useRef<HTMLDivElement>(null);
+
+  // Click-Outside-Handler für automatisches Einklappen
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isExpanded && notificationTabRef.current && !notificationTabRef.current.contains(event.target as Node)) {
+        setIsExpanded(false);
+      }
+    };
+
+    if (isExpanded) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isExpanded]);
 
   useEffect(() => {
+    // Bereinige alte permanente Marker beim Laden
+    cleanupOldPermanentMarkers();
+    
     loadNotifications();
     const interval = setInterval(loadNotifications, 30000);
     
@@ -126,6 +148,27 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
     localStorage.setItem(seenKey, JSON.stringify(Array.from(newSeen)));
   };
 
+  const cleanupOldPermanentMarkers = () => {
+    // Entferne alle alten permanenten Marker für appointment responses
+    // Diese blockieren neue Benachrichtigungen unnötig
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(`appointment_response_`) && key.includes(`_${userId}`)) {
+        keysToRemove.push(key);
+      }
+    }
+    
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key);
+      console.log(`🧹 Entfernt alten permanenten Marker: ${key}`);
+    });
+    
+    if (keysToRemove.length > 0) {
+      console.log(`🧹 Bereinigung abgeschlossen: ${keysToRemove.length} alte Marker entfernt`);
+    }
+  };
+
   const handleMarkAllAsRead = async () => {
     // Markiere alle aktuellen Benachrichtigungen als gesehen (lokal)
     const allNotificationIds = notifications.map(n => n.id);
@@ -135,37 +178,28 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
     const backendNotifications = notifications.filter(n => n.notification?.id);
     if (backendNotifications.length > 0) {
       // Sende Acknowledge-Request für jede Backend-Benachrichtigung
-      const acknowledgePromises = backendNotifications.map(notification => 
-        fetch(`http://localhost:8000/api/v1/notifications/${notification.notification.id}/acknowledge`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        })
-        .then(() => {
+      const acknowledgePromises = backendNotifications.map(async notification => {
+        try {
+          await apiCall(`/notifications/${notification.notification.id}/acknowledge`, {
+            method: 'PATCH'
+          });
           console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
-        })
-        .catch(error => {
+        } catch (error) {
           console.error('❌ Fehler beim Quittieren der Benachrichtigung:', error);
-        })
-      );
+        }
+      });
       
       // Warte auf alle Acknowledge-Requests
       await Promise.all(acknowledgePromises);
     }
     
-    // Für Dienstleister: Setze permanente Marker für alle Termine
+    // Für Dienstleister: Markiere nur als gesehen, aber setze keine permanenten Marker
+    // die neue Benachrichtigungen blockieren würden
     if (userRole === 'DIENSTLEISTER') {
       notifications.forEach(notification => {
         if (notification.type === 'appointment_invitation') {
-          const permanentSeenKey = `appointment_response_${notification.appointmentId}_${userId}`;
-          localStorage.setItem(permanentSeenKey, JSON.stringify({
-            appointmentId: notification.appointmentId,
-            userId: userId,
-            status: 'marked_as_read',
-            markedAt: new Date().toISOString()
-          }));
+          // Nur als gesehen markieren, aber nicht permanent blockieren
+          markAsSeen([notification.id]);
         }
       });
     }
@@ -201,12 +235,8 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
       // Wenn es eine Backend-Benachrichtigung ist, lösche sie auch dort
       const notification = notifications.find(n => n.id === notificationId);
       if (notification?.notification?.id) {
-        await fetch(`http://localhost:8000/api/v1/notifications/${notification.notification.id}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
+        await apiCall(`/notifications/${notification.notification.id}`, {
+          method: 'DELETE'
         });
       }
       
@@ -228,12 +258,8 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
     
     try {
       // Lösche alle Benachrichtigungen im Backend
-      await fetch('http://localhost:8000/api/v1/notifications/delete-all', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
+      await apiCall('/notifications/delete-all', {
+        method: 'DELETE'
       });
       
       // Leere den lokalen State
@@ -254,115 +280,120 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
       
       // 1. Lade allgemeine Benachrichtigungen aus der Datenbank
       try {
-        const notificationResponse = await fetch('http://localhost:8000/api/v1/notifications/', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          },
+        const notificationData = await apiCall('/notifications/', {
           method: 'GET'
         });
         
-        if (notificationResponse.ok) {
-          const notificationData = await notificationResponse.json();
-          const generalNotifications = notificationData || [];
-          
-          console.log('🔔 NotificationTab: API Response:', notificationData);
-          console.log('🔔 NotificationTab: User Role:', userRole);
-          console.log('🔔 NotificationTab: User ID:', userId);
-          
-          // Filtere für Dienstleister relevante Benachrichtigungen
-          if (userRole === 'DIENSTLEISTER') {
-            console.log('🔔 NotificationTab: Processing notifications for DIENSTLEISTER');
-            generalNotifications.forEach((notification: any) => {
-              console.log('🔔 NotificationTab: Processing notification:', notification);
-              
-              // Überspringe bereits quittierte Benachrichtigungen
-              if (notification.is_acknowledged) {
-                console.log('🔔 NotificationTab: Skipping acknowledged notification:', notification.id);
-                return;
-              }
-              
-              // Normalisiere Type zu Lowercase für Vergleich
-              const notificationType = (notification.type || '').toLowerCase();
-              console.log('🔔 NotificationTab: Normalized type:', notificationType);
-              
-              if (notificationType === 'quote_accepted') {
-                console.log('🔔 NotificationTab: Adding quote_accepted notification');
-                notifications.push({
-                  id: notification.id,
-                  type: 'quote_accepted',
-                  title: notification.title,
-                  message: notification.message,
-                  timestamp: notification.created_at,
-                  isNew: !notification.is_acknowledged,
-                  notification: notification,
-                  priority: notification.priority
-                });
-              } else if (notificationType === 'resource_allocated') {
-                console.log('🔔 NotificationTab: Adding resource_allocated notification');
-                const data = notification.data ? JSON.parse(notification.data) : {};
-                notifications.push({
-                  id: notification.id,
-                  type: 'resource_allocated',
-                  title: notification.title,
-                  message: notification.message,
-                  timestamp: notification.created_at,
-                  isNew: !notification.is_acknowledged,
-                  notification: notification,
-                  priority: notification.priority,
-                  allocationId: data.allocation_id,
-                  resourceId: data.resource_id,
-                  tradeId: data.trade_id,
-                  tradeTitle: data.trade_title,
-                  projectName: data.project_name,
-                  bautraegerName: data.bautraeger_name,
-                  allocatedStartDate: data.allocated_start_date,
-                  allocatedEndDate: data.allocated_end_date,
-                  allocatedPersonCount: data.allocated_person_count
-                });
-              } else if (notificationType === 'tender_invitation') {
-                console.log('🔔 NotificationTab: Adding tender_invitation notification');
-                const data = notification.data ? JSON.parse(notification.data) : {};
-                notifications.push({
-                  id: notification.id,
-                  type: 'tender_invitation',
-                  title: notification.title,
-                  message: notification.message,
-                  timestamp: notification.created_at,
-                  isNew: !notification.is_acknowledged,
-                  notification: notification,
-                  priority: notification.priority,
-                  allocationId: data.allocation_id,
-                  resourceId: data.resource_id,
-                  tradeId: data.trade_id,
-                  tradeTitle: data.trade_title,
-                  projectName: data.project_name,
-                  bautraegerName: data.bautraeger_name,
-                  deadline: data.deadline,
-                  allocatedStartDate: data.allocated_start_date,
-                  allocatedEndDate: data.allocated_end_date,
-                  allocatedPersonCount: data.allocated_person_count
-                });
-              }
-            });
-          }
-        } else {
-          console.error('🔔 NotificationTab: API Error:', notificationResponse.status, notificationResponse.statusText);
+        const generalNotifications = notificationData || [];
+        
+        console.log('🔔 NotificationTab: API Response:', notificationData);
+        console.log('🔔 NotificationTab: User Role:', userRole);
+        console.log('🔔 NotificationTab: User ID:', userId);
+        
+        // Filtere für Dienstleister relevante Benachrichtigungen
+        if (userRole === 'DIENSTLEISTER') {
+          console.log('🔔 NotificationTab: Processing notifications for DIENSTLEISTER');
+          generalNotifications.forEach((notification: any) => {
+            console.log('🔔 NotificationTab: Processing notification:', notification);
+            
+            // Überspringe bereits quittierte Benachrichtigungen
+            if (notification.is_acknowledged) {
+              console.log('🔔 NotificationTab: Skipping acknowledged notification:', notification.id);
+              return;
+            }
+            
+            // Normalisiere Type zu Lowercase für Vergleich
+            const notificationType = (notification.type || '').toLowerCase();
+            console.log('🔔 NotificationTab: Normalized type:', notificationType);
+            
+            if (notificationType === 'quote_accepted') {
+              console.log('🔔 NotificationTab: Adding quote_accepted notification');
+              notifications.push({
+                id: notification.id,
+                type: 'quote_accepted',
+                title: notification.title,
+                message: notification.message,
+                timestamp: notification.created_at,
+                isNew: !notification.is_acknowledged,
+                notification: notification,
+                priority: notification.priority
+              });
+            } else if (notificationType === 'resource_allocated') {
+              console.log('🔔 NotificationTab: Adding resource_allocated notification');
+              const data = notification.data ? JSON.parse(notification.data) : {};
+              notifications.push({
+                id: notification.id,
+                type: 'resource_allocated',
+                title: notification.title,
+                message: notification.message,
+                timestamp: notification.created_at,
+                isNew: !notification.is_acknowledged,
+                notification: notification,
+                priority: notification.priority,
+                allocationId: data.allocation_id,
+                resourceId: data.resource_id,
+                tradeId: data.trade_id,
+                tradeTitle: data.trade_title,
+                projectName: data.project_name,
+                bautraegerName: data.bautraeger_name,
+                allocatedStartDate: data.allocated_start_date,
+                allocatedEndDate: data.allocated_end_date,
+                allocatedPersonCount: data.allocated_person_count
+              });
+            } else if (notificationType === 'tender_invitation') {
+              console.log('🔔 NotificationTab: Adding tender_invitation notification');
+              const data = notification.data ? JSON.parse(notification.data) : {};
+              notifications.push({
+                id: notification.id,
+                type: 'tender_invitation',
+                title: notification.title,
+                message: notification.message,
+                timestamp: notification.created_at,
+                isNew: !notification.is_acknowledged,
+                notification: notification,
+                priority: notification.priority,
+                allocationId: data.allocation_id,
+                resourceId: data.resource_id,
+                tradeId: data.trade_id,
+                tradeTitle: data.trade_title,
+                projectName: data.project_name,
+                bautraegerName: data.bautraeger_name,
+                deadline: data.deadline,
+                allocatedStartDate: data.allocated_start_date,
+                allocatedEndDate: data.allocated_end_date,
+                allocatedPersonCount: data.allocated_person_count
+              });
+            } else if (notificationType === 'acceptance_with_defects') {
+              console.log('🔔 NotificationTab: Adding acceptance_with_defects notification');
+              const data = notification.data ? JSON.parse(notification.data) : {};
+              notifications.push({
+                id: notification.id,
+                type: 'acceptance_with_defects',
+                title: notification.title,
+                message: notification.message,
+                timestamp: notification.created_at,
+                isNew: !notification.is_acknowledged,
+                notification: notification,
+                priority: notification.priority,
+                tradeId: data.tradeId || data.trade_id,
+                tradeTitle: data.tradeTitle || data.trade_title,
+                projectName: data.projectName || data.project_name,
+                bautraegerName: data.bautraegerName || data.bautraeger_name
+              });
+            }
+          });
         }
       } catch (error) {
         console.error('Fehler beim Laden der allgemeinen Benachrichtigungen:', error);
+        // Bei Netzwerkfehlern nicht die gesamte Funktion abbrechen
+        // sondern nur die allgemeinen Benachrichtigungen überspringen
       }
       
       // 2. Lade Termin-Benachrichtigungen (bestehende Logik)
-      const response = await fetch('http://localhost:8000/api/v1/appointments/my-appointments-simple', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
+      try {
+        const data = await apiCall('/appointments/my-appointments-simple', {
+          method: 'GET'
+        });
         const myAppointments = data.appointments || [];
         
         if (userRole === 'DIENSTLEISTER') {
@@ -385,7 +416,15 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
             // Check for permanent response marker - if user has responded, don't show as new anymore
             const permanentSeenKey = `appointment_response_${apt.id}_${userId}`;
             const hasResponded = localStorage.getItem(permanentSeenKey);
-            const isNew = !seenNotifications.has(apt.id) && !hasResponded && !myResponse;
+            
+            // Only skip if user has actually responded to THIS specific appointment
+            // Don't skip based on permanent marker alone - let user see new invitations
+            if (myResponse) {
+              console.log(`🔕 Skipping notification for appointment ${apt.id} - user has already responded`);
+              return null; // This will be filtered out later
+            }
+            
+            const isNew = !seenNotifications.has(apt.id);
             
             return {
               id: apt.id,
@@ -406,7 +445,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
               myResponse,
               responses
             };
-          });
+          }).filter(notification => notification !== null); // Remove null entries
           
           // Kombiniere allgemeine und Termin-Benachrichtigungen
           notifications = [...notifications, ...appointmentNotifications];
@@ -487,14 +526,16 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
             }
           });
         }
-      } else {
-        console.error('❌ NotificationTab: Fehler beim Laden der Termine:', response.status);
+      } catch (error) {
+        console.error('❌ NotificationTab: Fehler beim Laden der Termine:', error);
+        // Bei Netzwerkfehlern nicht die gesamte Funktion abbrechen
+        // sondern nur die Termin-Benachrichtigungen überspringen
       }
       
       console.log('🔔 NotificationTab: Final notifications array:', notifications);
       console.log('🔔 NotificationTab: Total notifications:', notifications.length);
       setNotifications(notifications);
-      } catch (error) {
+    } catch (error) {
       console.error('❌ NotificationTab: Network error:', error);
     }
   };
@@ -515,27 +556,22 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
         suggested_date: suggestedDateTime
       });
 
-      // Mark as seen and close modal
+      // Mark as seen
       markAsSeen([selectedNotification.id]);
       
-      // Create a permanent seen marker for this appointment response
-      const permanentSeenKey = `appointment_response_${selectedNotification.appointmentId}_${userId}`;
-      localStorage.setItem(permanentSeenKey, JSON.stringify({
-        appointmentId: selectedNotification.appointmentId,
-        userId: userId,
-        status: status,
-        respondedAt: new Date().toISOString()
-      }));
+      // Note: Keine permanenten Marker mehr setzen, da diese neue Benachrichtigungen blockieren
+      // Die Antwort wird über die API gespeichert und über myResponse erkannt
       
+      // Remove the notification from the list immediately
+      setNotifications(prev => prev.filter(n => n.id !== selectedNotification.id));
+      
+      console.log(`✅ Notification for appointment ${selectedNotification.appointmentId} removed after response: ${status}`);
+      
+      // Close modal and clear form
       setSelectedNotification(null);
       setResponseMessage('');
       setSuggestedDate('');
       setSuggestedTime('');
-      
-      // Reload notifications after response
-      setTimeout(() => {
-        loadNotifications();
-      }, 1000);
       
       // Notify parent component
       if (onResponseSent) {
@@ -571,17 +607,20 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
   return (
     <>
       {/* Notification Tab - Fixed Position */}
-      <div className={`fixed right-0 top-1/2 -mt-6 transform -translate-y-1/2 z-[9999] transition-all duration-300 ${
-        isExpanded ? 'translate-x-0' : 'translate-x-full'
-      }`}>
+      <div 
+        ref={notificationTabRef}
+        className={`fixed right-0 top-1/2 -mt-16 transform -translate-y-1/2 z-[9999] transition-all duration-300 ${
+          isExpanded ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
         
         {/* Tab Handle - Der "Griff" der Lasche (links) */}
         <div 
           className={`absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-full cursor-pointer transition-all duration-300 ${
             hasNewNotifications 
-              ? 'bg-gradient-to-r from-blue-500/80 to-cyan-500/80 animate-pulse shadow-lg shadow-blue-500/50' 
-              : 'bg-gradient-to-r from-blue-500/60 to-cyan-500/60'
-          } rounded-l-lg px-3 py-4 text-white hover:from-blue-500/80 hover:to-cyan-500/80 hover:shadow-xl`}
+              ? 'bg-gradient-to-r from-[#ffbd59]/80 to-[#ffa726]/80 animate-pulse shadow-lg shadow-[#ffbd59]/50' 
+              : 'bg-gradient-to-r from-[#ffbd59]/60 to-[#ffa726]/60'
+          } rounded-l-lg px-3 py-4 text-white hover:from-[#ffbd59]/80 hover:to-[#ffa726]/80 hover:shadow-xl backdrop-blur-sm border border-white/20`}
           onClick={() => {
             setIsExpanded(!isExpanded);
             if (!isExpanded && hasNewNotifications) {
@@ -598,7 +637,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
             
             {/* Anzahl neue Benachrichtigungen */}
             {hasNewNotifications && (
-              <div className="bg-white text-orange-600 rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold animate-pulse shadow-lg">
+              <div className="bg-white text-[#ffbd59] rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold animate-pulse shadow-lg">
                 {newCount}
               </div>
             )}
@@ -618,10 +657,10 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
         </div>
 
         {/* Notification Panel */}
-        <div className="bg-white shadow-2xl rounded-l-xl w-96 max-h-[80vh] overflow-hidden border-l-4 border-orange-500">
+        <div className="bg-white/10 backdrop-blur-xl shadow-2xl rounded-l-xl w-96 max-h-[80vh] overflow-hidden border-l-4 border-[#ffbd59] border border-white/20">
           
           {/* Header */}
-          <div className="bg-gradient-to-r from-orange-600 to-yellow-600 text-white p-4">
+          <div className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Bell size={20} />
@@ -668,14 +707,14 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                 <p>Keine Benachrichtigungen</p>
               </div>
             ) : (
-              <div className="space-y-0">
+              <div className="space-y-2 p-2">
                 {notifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className={`p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors ${
-                      notification.isNew ? 'bg-orange-50 border-l-4 border-l-orange-400' : ''
+                    className={`p-3 rounded-lg border border-white/20 cursor-pointer hover:border-[#ffbd59]/50 transition-all duration-300 backdrop-blur-sm ${
+                      notification.isNew ? 'bg-[#ffbd59]/10 border-l-4 border-l-[#ffbd59] shadow-lg shadow-[#ffbd59]/20' : 'bg-white/5 hover:bg-white/10'
                     }`}
-                    onClick={() => {
+                    onClick={async () => {
                       if (userRole === 'DIENSTLEISTER' && notification.type === 'appointment_invitation') {
                         setSelectedNotification(notification);
                       } else if (userRole === 'DIENSTLEISTER' && notification.type === 'quote_accepted') {
@@ -709,24 +748,19 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                         
                         // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
                         if (notification.notification?.id) {
-                          fetch(`http://localhost:8000/api/v1/notifications/${notification.notification.id}/acknowledge`, {
-                            method: 'PATCH',
-                            headers: {
-                              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                              'Content-Type': 'application/json'
-                            }
-                          })
-                          .then(() => {
+                          try {
+                            await apiCall(`/notifications/${notification.notification.id}/acknowledge`, {
+                              method: 'PATCH'
+                            });
                             console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
                             
                             // Lade Benachrichtigungen sofort neu, um UI zu aktualisieren
                             setTimeout(() => {
                               loadNotifications();
                             }, 500);
-                          })
-                          .catch(error => {
+                          } catch (error) {
                             console.error('❌ Fehler beim Quittieren der Benachrichtigung:', error);
-                          });
+                          }
                         }
                         
                         // Markiere auch lokal als gesehen
@@ -757,24 +791,19 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                         
                         // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
                         if (notification.notification?.id) {
-                          fetch(`http://localhost:8000/api/v1/notifications/${notification.notification.id}/acknowledge`, {
-                            method: 'PATCH',
-                            headers: {
-                              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                              'Content-Type': 'application/json'
-                            }
-                          })
-                          .then(() => {
+                          try {
+                            await apiCall(`/notifications/${notification.notification.id}/acknowledge`, {
+                              method: 'PATCH'
+                            });
                             console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
                             
                             // Lade Benachrichtigungen sofort neu, um UI zu aktualisieren
                             setTimeout(() => {
                               loadNotifications();
                             }, 500);
-                          })
-                          .catch(error => {
+                          } catch (error) {
                             console.error('❌ Fehler beim Quittieren der Benachrichtigung:', error);
-                          });
+                          }
                         }
                         
                         // Markiere auch lokal als gesehen
@@ -793,6 +822,48 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                             tradeId: notification.tradeId,
                             source: 'tender_invitation_notification',
                             showQuoteForm: true
+                          }
+                        }));
+                        
+                        // Schließe Benachrichtigungs-Panel
+                        setIsExpanded(false);
+                      } else if (userRole === 'DIENSTLEISTER' && notification.type === 'acceptance_with_defects') {
+                        // Öffne die betroffene Ausschreibung für Mängelbehebung
+                        console.log('⚠️ Öffne Ausschreibung für Mängelbehebung:', notification.tradeId);
+                        
+                        // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
+                        if (notification.notification?.id) {
+                          try {
+                            await apiCall(`/notifications/${notification.notification.id}/acknowledge`, {
+                              method: 'PATCH'
+                            });
+                            console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
+                            
+                            // Lade Benachrichtigungen sofort neu, um UI zu aktualisieren
+                            setTimeout(() => {
+                              loadNotifications();
+                            }, 500);
+                          } catch (error) {
+                            console.error('❌ Fehler beim Quittieren der Benachrichtigung:', error);
+                          }
+                        }
+                        
+                        // Markiere auch lokal als gesehen
+                        markAsSeen([notification.id]);
+                        
+                        // Prüfe ob tradeId gültig ist
+                        if (!notification.tradeId || notification.tradeId === 0) {
+                          console.error('❌ NotificationTab: Ungültige tradeId für Abnahme unter Vorbehalt:', notification.tradeId);
+                          alert('Die Ausschreibung konnte nicht gefunden werden. Die Benachrichtigung enthält ungültige Daten.');
+                          return;
+                        }
+                        
+                        // Event für ServiceProviderDashboard auslösen, um TradeDetailsModal zu öffnen
+                        window.dispatchEvent(new CustomEvent('openTradeDetails', {
+                          detail: {
+                            tradeId: notification.tradeId,
+                            source: 'acceptance_with_defects_notification',
+                            showDefectsTab: true
                           }
                         }));
                         
@@ -828,10 +899,10 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                               e.stopPropagation();
                               handleDeleteNotification(notification.id);
                             }}
-                            className="hover:bg-red-100 rounded-full p-1 transition-colors"
+                            className="hover:bg-red-500/20 rounded-full p-1 transition-colors"
                             title="Benachrichtigung löschen"
                           >
-                            <Trash2 size={14} className="text-red-500 hover:text-red-700" />
+                            <Trash2 size={14} className="text-red-400 hover:text-red-300" />
                           </button>
                         </div>
                         <div className="flex items-start gap-3">
@@ -846,6 +917,8 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                               <User size={16} className="text-purple-500" />
                             ) : notification.type === 'tender_invitation' ? (
                               <AlertCircle size={16} className="text-red-500 animate-pulse" />
+                            ) : notification.type === 'acceptance_with_defects' ? (
+                              <AlertCircle size={16} className="text-yellow-500 animate-pulse" />
                             ) : notification.type === 'service_provider_selection_reminder' ? (
                               <AlertCircle size={16} className="text-orange-400 animate-pulse" />
                             ) : (
@@ -853,14 +926,14 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-gray-900 mb-1">
+                            <h4 className="font-medium text-white mb-1">
                               {notification.title}
                             </h4>
-                            <p className="text-sm text-gray-600 mb-2">
+                            <p className="text-sm text-gray-300 mb-2">
                               {notification.message}
                             </p>
                             
-                            <div className="flex items-center gap-4 text-sm text-gray-500">
+                            <div className="flex items-center gap-4 text-sm text-gray-400">
                               {notification.scheduledDate && (
                                 <>
                                   <div className="flex items-center gap-1">
@@ -883,11 +956,11 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                             
                             {/* Zusätzliche Informationen für quote_submitted */}
                             {notification.type === 'quote_submitted' && notification.quoteSummary && (
-                              <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                              <div className="mt-3 p-3 bg-blue-500/10 rounded-lg border border-blue-500/20 backdrop-blur-sm">
                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                   <div>
-                                    <span className="text-gray-500">Angebotssumme:</span>
-                                    <div className="font-semibold text-blue-600">
+                                    <span className="text-gray-400">Angebotssumme:</span>
+                                    <div className="font-semibold text-blue-400">
                                       {new Intl.NumberFormat('de-DE', { 
                                         style: 'currency', 
                                         currency: notification.quoteSummary.currency || 'CHF' 
@@ -927,20 +1000,20 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
 
                             {/* Zusätzliche Informationen für resource_allocated */}
                             {notification.type === 'resource_allocated' && (
-                              <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                              <div className="mt-3 p-3 bg-purple-500/10 rounded-lg border border-purple-500/20 backdrop-blur-sm">
                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                   {notification.tradeTitle && (
                                     <div>
-                                      <span className="text-gray-500">Gewerk:</span>
-                                      <div className="font-semibold text-purple-600">
+                                      <span className="text-gray-400">Gewerk:</span>
+                                      <div className="font-semibold text-purple-400">
                                         {notification.tradeTitle}
                                       </div>
                                     </div>
                                   )}
                                   {notification.projectName && (
                                     <div>
-                                      <span className="text-gray-500">Projekt:</span>
-                                      <div className="font-semibold text-purple-600">
+                                      <span className="text-gray-400">Projekt:</span>
+                                      <div className="font-semibold text-purple-400">
                                         {notification.projectName}
                                       </div>
                                     </div>
@@ -1025,6 +1098,35 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                                 </div>
                                 <div className="mt-2 text-xs text-red-600 font-medium">
                                   🚨 Klicken Sie hier, um ein Angebot abzugeben
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Zusätzliche Informationen für acceptance_with_defects */}
+                            {notification.type === 'acceptance_with_defects' && (
+                              <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div>
+                                    <span className="text-gray-500">Projekt:</span>
+                                    <div className="font-semibold text-yellow-600">
+                                      {notification.projectName || 'Unbekanntes Projekt'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Bauträger:</span>
+                                    <div className="font-semibold text-gray-700">
+                                      {notification.bautraegerName}
+                                    </div>
+                                  </div>
+                                  <div className="col-span-2">
+                                    <span className="text-gray-500">Status:</span>
+                                    <div className="font-semibold text-yellow-600">
+                                      Abnahme unter Vorbehalt
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="mt-2 text-xs text-yellow-600 font-medium">
+                                  ⚠️ Klicken Sie hier, um die Mängel zu überprüfen und zu beheben
                                 </div>
                               </div>
                             )}
@@ -1466,19 +1568,17 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Angebot angenommen!</h3>
                 <button 
-                  onClick={() => {
+                  onClick={async () => {
                     setSelectedNotification(null);
                     // Markiere Benachrichtigung als acknowledged
                     if (selectedNotification.notification) {
-                      fetch(`http://localhost:8000/api/v1/notifications/${selectedNotification.notification.id}/acknowledge`, {
-                        method: 'PATCH',
-                        headers: {
-                          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                          'Content-Type': 'application/json'
-                        }
-                      }).catch(error => {
+                      try {
+                        await apiCall(`/notifications/${selectedNotification.notification.id}/acknowledge`, {
+                          method: 'PATCH'
+                        });
+                      } catch (error) {
                         console.error('Fehler beim Bestätigen der Benachrichtigung:', error);
-                      });
+                      }
                     }
                   }}
                   className="hover:bg-white/20 rounded-full p-1 transition-colors"
@@ -1543,19 +1643,17 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
               {/* Action Buttons */}
               <div className="flex justify-center">
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setSelectedNotification(null);
                     // Markiere als acknowledged
                     if (selectedNotification.notification) {
-                      fetch(`http://localhost:8000/api/v1/notifications/${selectedNotification.notification.id}/acknowledge`, {
-                        method: 'PATCH',
-                        headers: {
-                          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                          'Content-Type': 'application/json'
-                        }
-                      }).catch(error => {
+                      try {
+                        await apiCall(`/notifications/${selectedNotification.notification.id}/acknowledge`, {
+                          method: 'PATCH'
+                        });
+                      } catch (error) {
                         console.error('Fehler beim Bestätigen der Benachrichtigung:', error);
-                      });
+                      }
                     }
                   }}
                   className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium"

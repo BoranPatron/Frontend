@@ -197,17 +197,21 @@ export default function CreateInspectionModal({
   const renderStep1 = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
-        <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+        <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center shadow-lg shadow-[#ffbd59]/50 transform hover:scale-110 transition-transform duration-300">
           <Eye size={24} className="text-white" />
         </div>
-        <h3 className="text-xl font-bold text-white mb-2">Besichtigung planen</h3>
+        <h3 className="text-xl font-bold bg-gradient-to-r from-white to-[#ffbd59] bg-clip-text text-transparent mb-2">
+          Besichtigung planen
+        </h3>
         <p className="text-gray-400">
           Planen Sie eine Vor-Ort-Besichtigung mit {selectedQuotes.length} ausgewählten Dienstleistern
         </p>
+        
+
       </div>
 
-      {/* Ausgewählte Angebote */}
-      <div className="bg-white/5 rounded-lg p-4">
+      {/* Ausgewählte Angebote mit Glassmorphism */}
+      <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20 shadow-lg">
         <h4 className="font-semibold text-white mb-3 flex items-center gap-2">
           <Users size={16} className="text-[#ffbd59]" />
           Eingeladene Dienstleister ({selectedQuotes.length})
@@ -215,7 +219,7 @@ export default function CreateInspectionModal({
         
         <div className="space-y-2">
           {selectedQuotes.map((quote: any, index: number) => (
-            <div key={quote.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+            <div key={quote.id} className="flex items-center justify-between p-3 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-200 hover:border-[#ffbd59]/30">
               <div>
                 <div className="text-white font-medium">{quote.company_name || quote.title}</div>
                 <div className="text-sm text-gray-400">{quote.contact_person || 'Kontakt nicht verfügbar'}</div>
@@ -231,30 +235,30 @@ export default function CreateInspectionModal({
         </div>
       </div>
 
-      {/* Grundinformationen */}
+      {/* Grundinformationen mit Glassmorphism */}
       <div className="grid grid-cols-1 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-semibold text-gray-200 mb-2">
             Titel der Besichtigung *
           </label>
           <input
             type="text"
             value={formData.title}
             onChange={(e) => handleInputChange('title', e.target.value)}
-            className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+            className="w-full p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 hover:bg-white/15"
             placeholder="z.B. Besichtigung: Elektroinstallation"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-semibold text-gray-200 mb-2">
             Beschreibung
           </label>
           <textarea
             value={formData.description}
             onChange={(e) => handleInputChange('description', e.target.value)}
             rows={3}
-            className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+            className="w-full p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 hover:bg-white/15"
             placeholder="Zusätzliche Informationen zur Besichtigung..."
           />
         </div>
@@ -263,7 +267,7 @@ export default function CreateInspectionModal({
       <div className="flex justify-end">
         <button
           onClick={() => setCurrentStep(2)}
-          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white rounded-lg font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300"
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white rounded-xl font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg shadow-[#ffbd59]/50"
         >
           Weiter zu Terminplanung
           <Calendar size={16} />
@@ -275,19 +279,21 @@ export default function CreateInspectionModal({
   const renderStep2 = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
-        <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+        <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center shadow-lg shadow-[#ffbd59]/50 transform hover:scale-110 transition-transform duration-300">
           <Calendar size={24} className="text-white" />
         </div>
-        <h3 className="text-xl font-bold text-white mb-2">Terminplanung</h3>
+        <h3 className="text-xl font-bold bg-gradient-to-r from-white to-[#ffbd59] bg-clip-text text-transparent mb-2">
+          Terminplanung
+        </h3>
         <p className="text-gray-400">
           Legen Sie Datum, Uhrzeit und Ort der Besichtigung fest
         </p>
       </div>
 
-      {/* Datum und Zeit */}
+      {/* Datum und Zeit mit Glassmorphism */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-semibold text-gray-200 mb-2">
             Datum *
           </label>
           <input
@@ -295,177 +301,147 @@ export default function CreateInspectionModal({
             value={formData.scheduled_date}
             onChange={(e) => handleInputChange('scheduled_date', e.target.value)}
             min={getTomorrowDate()}
-            className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+            className="w-full p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 hover:bg-white/15"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-semibold text-gray-200 mb-2">
             Startzeit *
           </label>
           <input
             type="time"
             value={formData.scheduled_time_start}
             onChange={(e) => handleInputChange('scheduled_time_start', e.target.value)}
-            className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+            className="w-full p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 hover:bg-white/15"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-semibold text-gray-200 mb-2">
             Endzeit *
           </label>
           <input
             type="time"
             value={formData.scheduled_time_end}
             onChange={(e) => handleInputChange('scheduled_time_end', e.target.value)}
-            className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+            className="w-full p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 hover:bg-white/15"
           />
         </div>
       </div>
 
-      {/* Ort */}
+      {/* Ort mit Glassmorphism */}
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-semibold text-gray-200 mb-2">
             Adresse *
           </label>
           <input
             type="text"
             value={formData.location_address}
             onChange={(e) => handleInputChange('location_address', e.target.value)}
-            className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+            className="w-full p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 hover:bg-white/15"
             placeholder="Vollständige Adresse der Besichtigung"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-semibold text-gray-200 mb-2">
             Zusätzliche Ortsangaben
           </label>
           <textarea
             value={formData.location_notes}
             onChange={(e) => handleInputChange('location_notes', e.target.value)}
             rows={2}
-            className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+            className="w-full p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 hover:bg-white/15"
             placeholder="z.B. Eingang über Hof, Parkplätze verfügbar..."
           />
         </div>
       </div>
 
-      <div className="flex justify-between">
-        <button
-          onClick={() => setCurrentStep(1)}
-          className="px-6 py-3 text-gray-400 hover:text-white transition-colors"
-        >
-          Zurück
-        </button>
-        <button
-          onClick={() => setCurrentStep(3)}
-          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white rounded-lg font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300"
-        >
-          Weiter zu Kontaktdaten
-          <User size={16} />
-        </button>
-      </div>
-    </div>
-  );
-
-  const renderStep3 = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-6">
-        <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-          <User size={24} className="text-white" />
-        </div>
-        <h3 className="text-xl font-bold text-white mb-2">Kontaktinformationen</h3>
-        <p className="text-gray-400">
-          Geben Sie Ihre Kontaktdaten für die Dienstleister an
-        </p>
-      </div>
-
-      {/* Kontaktdaten */}
+      {/* Kontaktdaten mit Glassmorphism */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-semibold text-gray-200 mb-2">
             Ansprechpartner *
           </label>
           <input
             type="text"
             value={formData.contact_person}
             onChange={(e) => handleInputChange('contact_person', e.target.value)}
-            className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+            className="w-full p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 hover:bg-white/15"
             placeholder="Ihr Name"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-semibold text-gray-200 mb-2">
             Telefonnummer *
           </label>
           <input
             type="tel"
             value={formData.contact_phone}
             onChange={(e) => handleInputChange('contact_phone', e.target.value)}
-            className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+            className="w-full p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 hover:bg-white/15"
             placeholder="+41 XX XXX XX XX"
           />
         </div>
       </div>
 
-      {/* Vorbereitungshinweise */}
+      {/* Vorbereitungshinweise mit Glassmorphism */}
       <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">
+        <label className="block text-sm font-semibold text-gray-200 mb-2">
           Vorbereitungshinweise für Dienstleister
         </label>
         <textarea
           value={formData.preparation_notes}
           onChange={(e) => handleInputChange('preparation_notes', e.target.value)}
           rows={3}
-          className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent"
+          className="w-full p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 hover:bg-white/15"
           placeholder="z.B. Bitte Werkzeug mitbringen, Sicherheitsschuhe erforderlich, Zugang über..."
         />
       </div>
 
-      {/* Zusammenfassung */}
-      <div className="bg-white/5 rounded-lg p-4">
+      {/* Zusammenfassung mit Glassmorphism und Glow */}
+      <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20 shadow-lg">
         <h4 className="font-semibold text-white mb-3 flex items-center gap-2">
           <Clipboard size={16} className="text-[#ffbd59]" />
           Zusammenfassung
         </h4>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="text-gray-400">Datum:</span>
-            <div className="text-white">{formData.scheduled_date || '—'}</div>
+          <div className="bg-white/5 backdrop-blur-sm rounded-lg p-3 border border-white/10">
+            <span className="text-gray-400 text-xs">Datum:</span>
+            <div className="text-white font-medium mt-1">{formData.scheduled_date || '—'}</div>
           </div>
-          <div>
-            <span className="text-gray-400">Zeit:</span>
-            <div className="text-white">
+          <div className="bg-white/5 backdrop-blur-sm rounded-lg p-3 border border-white/10">
+            <span className="text-gray-400 text-xs">Zeit:</span>
+            <div className="text-white font-medium mt-1">
               {formData.scheduled_time_start} - {formData.scheduled_time_end}
             </div>
           </div>
-          <div>
-            <span className="text-gray-400">Dienstleister:</span>
-            <div className="text-white">{selectedQuotes.length} eingeladen</div>
+          <div className="bg-white/5 backdrop-blur-sm rounded-lg p-3 border border-white/10">
+            <span className="text-gray-400 text-xs">Dienstleister:</span>
+            <div className="text-white font-medium mt-1">{selectedQuotes.length} eingeladen</div>
           </div>
-          <div>
-            <span className="text-gray-400">Kontakt:</span>
-            <div className="text-white">{formData.contact_person || '—'}</div>
+          <div className="bg-white/5 backdrop-blur-sm rounded-lg p-3 border border-white/10">
+            <span className="text-gray-400 text-xs">Kontakt:</span>
+            <div className="text-white font-medium mt-1">{formData.contact_person || '—'}</div>
           </div>
         </div>
       </div>
 
       <div className="flex justify-between">
         <button
-          onClick={() => setCurrentStep(2)}
-          className="px-6 py-3 text-gray-400 hover:text-white transition-colors"
+          onClick={() => setCurrentStep(1)}
+          className="px-6 py-3 text-gray-400 hover:text-white transition-all duration-200 hover:bg-white/10 rounded-xl"
         >
           Zurück
         </button>
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-green-500/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
         >
           {loading ? (
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -478,70 +454,71 @@ export default function CreateInspectionModal({
     </div>
   );
 
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-4xl w-full max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/10">
+      <div className="bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] rounded-2xl shadow-2xl border border-white/20 max-w-4xl w-full max-h-[90vh] overflow-hidden relative">
+        {/* Glassmorphism Overlay */}
+        <div className="absolute inset-0 bg-white/5 backdrop-blur-lg rounded-2xl"></div>
+        
+        {/* Header mit Glow-Effekt */}
+        <div className="relative flex items-center justify-between p-6 border-b border-white/10 bg-gradient-to-r from-[#3d4952]/95 to-[#51646f]/95 backdrop-blur-lg">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl">
+            <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg shadow-[#ffbd59]/50">
               <Eye size={24} className="text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Neue Besichtigung</h2>
-              <p className="text-sm text-gray-400">Schritt {currentStep} von 3</p>
+              <h2 className="text-xl font-bold bg-gradient-to-r from-white to-[#ffbd59] bg-clip-text text-transparent">
+                Neue Besichtigung
+              </h2>
+              <p className="text-sm text-gray-400">Schritt {currentStep} von 2</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="p-2 hover:bg-white/10 rounded-lg transition-all duration-200 hover:shadow-lg"
           >
-            <X size={24} className="text-gray-400" />
+            <X size={24} className="text-gray-400 hover:text-white transition-colors" />
           </button>
         </div>
 
-        {/* Progress Bar */}
-        <div className="px-6 py-4 bg-white/5">
+        {/* Progress Bar mit Glassmorphism */}
+        <div className="relative px-6 py-4 bg-white/5 backdrop-blur-sm border-b border-white/10">
           <div className="flex items-center justify-between mb-2">
-            <div className={`flex items-center gap-2 ${currentStep >= 1 ? 'text-[#ffbd59]' : 'text-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                currentStep >= 1 ? 'bg-[#ffbd59]' : 'bg-gray-600'
+            <div className={`flex items-center gap-2 transition-all duration-300 ${currentStep >= 1 ? 'text-[#ffbd59]' : 'text-gray-400'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+                currentStep >= 1 
+                  ? 'bg-gradient-to-br from-[#ffbd59] to-[#ffa726] shadow-lg shadow-[#ffbd59]/50' 
+                  : 'bg-gray-600/50 backdrop-blur-sm'
               }`}>
-                {currentStep > 1 ? <CheckCircle size={16} className="text-white" /> : '1'}
+                {currentStep > 1 ? <CheckCircle size={16} className="text-white" /> : <span className="text-white font-semibold">1</span>}
               </div>
               <span className="text-sm font-medium">Grunddaten</span>
             </div>
-            <div className={`flex items-center gap-2 ${currentStep >= 2 ? 'text-[#ffbd59]' : 'text-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                currentStep >= 2 ? 'bg-[#ffbd59]' : 'bg-gray-600'
+            <div className={`flex items-center gap-2 transition-all duration-300 ${currentStep >= 2 ? 'text-[#ffbd59]' : 'text-gray-400'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+                currentStep >= 2 
+                  ? 'bg-gradient-to-br from-[#ffbd59] to-[#ffa726] shadow-lg shadow-[#ffbd59]/50' 
+                  : 'bg-gray-600/50 backdrop-blur-sm'
               }`}>
-                {currentStep > 2 ? <CheckCircle size={16} className="text-white" /> : '2'}
+                {currentStep > 2 ? <CheckCircle size={16} className="text-white" /> : <span className="text-white font-semibold">2</span>}
               </div>
               <span className="text-sm font-medium">Terminplanung</span>
             </div>
-            <div className={`flex items-center gap-2 ${currentStep >= 3 ? 'text-[#ffbd59]' : 'text-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                currentStep >= 3 ? 'bg-[#ffbd59]' : 'bg-gray-600'
-              }`}>
-                3
-              </div>
-              <span className="text-sm font-medium">Abschluss</span>
-            </div>
           </div>
-          <div className="w-full bg-gray-600 rounded-full h-2">
+          <div className="w-full bg-gray-600/30 backdrop-blur-sm rounded-full h-2 overflow-hidden">
             <div 
-              className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(currentStep / 3) * 100}%` }}
+              className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] h-2 rounded-full transition-all duration-500 ease-out shadow-lg shadow-[#ffbd59]/50"
+              style={{ width: `${(currentStep / 2) * 100}%` }}
             ></div>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(90vh-200px)]">
+        {/* Content mit Glassmorphism */}
+        <div className="relative overflow-y-auto max-h-[calc(90vh-200px)]">
           <div className="p-6">
             {currentStep === 1 && renderStep1()}
             {currentStep === 2 && renderStep2()}
-            {currentStep === 3 && renderStep3()}
           </div>
         </div>
       </div>

@@ -21,6 +21,27 @@ import {
   Building
 } from 'lucide-react';
 
+// CSS Animation für fadeInUp
+const fadeInUpStyle = `
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`;
+
+// Inject CSS
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement('style');
+  styleSheet.textContent = fadeInUpStyle;
+  document.head.appendChild(styleSheet);
+}
+
 interface Expense {
   id: number;
   title: string;
@@ -293,18 +314,9 @@ export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-3 h-3 bg-[#ffbd59] rounded-full"></div>
-          <span className="text-lg font-semibold text-white">Finanzen</span>
-        </div>
-        <button
-          onClick={() => setShowAddExpenseModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold"
-        >
-          <Plus size={18} />
-          Ausgabe hinzufügen
-        </button>
+      <div className="flex items-center space-x-3">
+        <div className="w-3 h-3 bg-[#ffbd59] rounded-full"></div>
+        <span className="text-lg font-semibold text-white">Finanzen</span>
       </div>
 
       {/* Error Banner */}
@@ -388,129 +400,304 @@ export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
       </div>
 
       {/* Kostenpositionen */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20">
-        <div className="p-4 border-b border-white/20">
+      <div className="bg-gradient-to-br from-white/10 via-white/5 to-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl shadow-[#ffbd59]/10">
+        <div className="p-6 border-b border-white/20 bg-gradient-to-r from-white/5 to-transparent">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-white">Kostenpositionen</h3>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-400">Gesamt:</span>
-                <span className="font-semibold text-white">
-                  {formatCurrency(costPositions.reduce((sum, cp) => sum + cp.amount, 0))}
-                </span>
+              <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg shadow-blue-500/30">
+                <CreditCard className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">
+                  Kostenpositionen
+                </h3>
+                <p className="text-sm text-gray-300 mt-1">Echte Kostenpositionen aus angenommenen Angeboten</p>
               </div>
             </div>
+            <div className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-blue-500/20 to-blue-600/20 rounded-xl border border-blue-500/30 backdrop-blur-sm">
+              <span className="text-sm text-gray-300">Gesamt:</span>
+              <span className="font-bold text-white text-lg">
+                {formatCurrency(costPositions.reduce((sum, cp) => sum + cp.amount, 0))}
+              </span>
+            </div>
           </div>
-          <p className="text-sm text-gray-400 mt-1">Automatisch erstellt aus akzeptierten Angeboten</p>
         </div>
 
-        <div className="p-4">
+        <div className="p-6">
           {costPositions.length === 0 ? (
-            <div className="text-center py-8">
-              <CreditCard className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-              <h4 className="text-base font-medium text-white mb-2">Keine Kostenpositionen</h4>
-              <p className="text-gray-400 text-sm">Akzeptieren Sie Angebote, um hier Kostenpositionen zu sehen.</p>
+            <div className="text-center py-12">
+              <div className="relative">
+                <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-blue-500/30 shadow-lg shadow-blue-500/20">
+                  <CreditCard className="w-10 h-10 text-blue-400" />
+                </div>
+                <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full animate-pulse"></div>
+              </div>
+              <h4 className="text-xl font-bold text-white mb-3 bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">
+                Keine Kostenpositionen verfügbar
+              </h4>
+              <p className="text-gray-400 text-sm max-w-md mx-auto leading-relaxed">
+                Akzeptieren Sie Angebote, um hier automatisch Kostenpositionen zu sehen.
+              </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm text-left text-white/90">
-                <thead className="bg-gradient-to-r from-[#1f2a33] to-[#2c3539] text-xs uppercase border border-white/10">
-                  <tr>
-                    <th className="px-3 py-2 text-[#ffbd59]">Erstellt</th>
-                    <th className="px-3 py-2 text-[#ffbd59]">Ausschreibung</th>
-                    <th className="px-3 py-2 text-[#ffbd59]">Dienstleister</th>
-                    <th className="px-3 py-2 text-right text-[#ffbd59]">Betrag</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {costPositions.map((cp) => (
-                    <tr key={cp.id} className="border-b border-white/10 hover:bg-white/5 transition-colors">
-                      <td className="px-3 py-2 text-gray-300 text-xs">
-                        {cp.created_at ? new Date(cp.created_at).toLocaleDateString('de-DE') : '–'}
-                      </td>
-                      <td className="px-3 py-2 font-medium text-sm">
-                        {cp.milestone_title || cp.title || (cp.milestone_id ? `#${cp.milestone_id}` : '–')}
-                      </td>
-                      <td className="px-3 py-2 text-gray-300 text-sm">
-                        {cp.service_provider_name || cp.contractor_name || '–'}
-                      </td>
-                      <td className="px-3 py-2 text-right font-semibold text-[#ffbd59]">
-                        {formatCurrency(cp.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-2">
+              {costPositions.map((cp, index) => (
+                <div 
+                  key={cp.id} 
+                  className="group relative bg-gradient-to-br from-white/10 via-white/5 to-white/10 backdrop-blur-xl rounded-lg p-3 border border-white/20 hover:border-blue-500/40 transition-all duration-500 transform hover:scale-[1.005] hover:shadow-lg hover:shadow-blue-500/20"
+                  style={{
+                    animationDelay: `${index * 100}ms`,
+                    animation: 'fadeInUp 0.6s ease-out forwards'
+                  }}
+                >
+                  {/* Glow Effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-transparent to-blue-600/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  
+                  {/* Content */}
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="relative">
+                          <div className="p-1.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-md shadow-md shadow-blue-500/30 group-hover:shadow-blue-500/50 transition-all duration-300">
+                            <CreditCard className="w-3 h-3 text-white" />
+                          </div>
+                          <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full border border-white/20 animate-pulse"></div>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-white text-xs group-hover:text-blue-400 transition-colors duration-300 mb-0.5">
+                            {cp.title || 'Kostenposition'}
+                          </h4>
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className={`px-1.5 py-0.5 text-xs font-medium rounded-full backdrop-blur-sm border ${
+                              cp.category === 'painting' ? 'bg-purple-500/20 text-purple-300 border-purple-400/30' :
+                              cp.category === 'electrical' ? 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30' :
+                              cp.category === 'plumbing' ? 'bg-blue-500/20 text-blue-300 border-blue-400/30' :
+                              cp.category === 'heating' ? 'bg-red-500/20 text-red-300 border-red-400/30' :
+                              cp.category === 'roofing' ? 'bg-gray-500/20 text-gray-300 border-gray-400/30' :
+                              cp.category === 'flooring' ? 'bg-green-500/20 text-green-300 border-green-400/30' :
+                              'bg-gray-500/20 text-gray-300 border-gray-400/30'
+                            }`}>
+                              {cp.category === 'painting' ? '🎨 Maler' :
+                               cp.category === 'electrical' ? '⚡ Elektro' :
+                               cp.category === 'plumbing' ? '🚿 Sanitär' :
+                               cp.category === 'heating' ? '🔥 Heizung' :
+                               cp.category === 'roofing' ? '🏠 Dach' :
+                               cp.category === 'flooring' ? '🏗️ Boden' :
+                               '📋 Sonstige'}
+                            </span>
+                            <div className="flex items-center gap-1 text-xs text-gray-400">
+                              <div className="w-0.5 h-0.5 bg-gray-400 rounded-full"></div>
+                              <span>{cp.created_at ? new Date(cp.created_at).toLocaleDateString('de-DE') : '–'}</span>
+                            </div>
+                          </div>
+                          {cp.service_provider_name || cp.contractor_name ? (
+                            <div className="flex items-center gap-1 text-xs text-gray-300">
+                              <div className="w-1 h-1 bg-gradient-to-r from-blue-400 to-blue-500 rounded-full"></div>
+                              <span className="font-medium">{cp.service_provider_name || cp.contractor_name}</span>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-white text-sm group-hover:text-blue-400 transition-colors duration-300">
+                          {formatCurrency(cp.amount)}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {cp.paid_amount > 0 ? `Bezahlt: ${formatCurrency(cp.paid_amount)}` : 'Offen'}
+                        </div>
+                        {cp.progress_percentage > 0 && (
+                          <div className="mt-0.5">
+                            <div className="flex items-center justify-between text-xs text-gray-400 mb-0.5">
+                              <span>Fortschritt</span>
+                              <span>{cp.progress_percentage}%</span>
+                            </div>
+                            <div className="w-16 h-0.5 bg-gray-700 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-500"
+                                style={{ width: `${cp.progress_percentage}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {cp.description && (
+                      <p className="text-gray-300 text-xs mb-2 leading-relaxed bg-white/5 rounded-md p-1.5 backdrop-blur-sm border border-white/10 line-clamp-1">
+                        {cp.description}
+                      </p>
+                    )}
+                    
+                    <div className="flex items-center justify-between pt-1.5 border-t border-white/10">
+                      <div className="flex items-center gap-1.5">
+                        {cp.milestone_title && (
+                          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gradient-to-r from-[#ffbd59]/20 to-[#ffa726]/20 rounded-md border border-[#ffbd59]/30 backdrop-blur-sm">
+                            <div className="w-1 h-1 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] rounded-full"></div>
+                            <span className="text-xs text-[#ffbd59] font-medium">{cp.milestone_title}</span>
+                          </div>
+                        )}
+                        {cp.payment_terms && (
+                          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-md border border-green-500/30 backdrop-blur-sm">
+                            <div className="w-1 h-1 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full"></div>
+                            <span className="text-xs text-green-400 font-medium">{cp.payment_terms}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-gray-400">
+                        <div className="w-1 h-1 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-pulse"></div>
+                        <span>#{cp.id}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
       </div>
 
       {/* Ausgaben */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20">
-        <div className="p-4 border-b border-white/20">
+      <div className="bg-gradient-to-br from-white/10 via-white/5 to-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl shadow-[#ffbd59]/10">
+        <div className="p-6 border-b border-white/20 bg-gradient-to-r from-white/5 to-transparent">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-white">Ausgaben</h3>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-400">Gesamt:</span>
-              <span className="font-semibold text-white">
-                {formatCurrency(expenses.reduce((sum, exp) => sum + exp.amount, 0))}
-              </span>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg shadow-[#ffbd59]/30">
+                <Receipt className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">
+                  Ausgaben
+                </h3>
+                <p className="text-sm text-gray-300 mt-1">Manuell erfasste Ausgaben</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-[#ffbd59]/20 to-[#ffa726]/20 rounded-xl border border-[#ffbd59]/30 backdrop-blur-sm">
+                <span className="text-sm text-gray-300">Gesamt:</span>
+                <span className="font-bold text-white text-lg">
+                  {formatCurrency(expenses.reduce((sum, exp) => sum + exp.amount, 0))}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowAddExpenseModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#3d4952] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg font-semibold"
+              >
+                <Plus size={18} />
+                Ausgabe hinzufügen
+              </button>
             </div>
           </div>
-          <p className="text-sm text-gray-400 mt-1">Manuell erfasste Ausgaben</p>
         </div>
 
-        <div className="p-4">
+        <div className="p-6">
           {expenses.length === 0 ? (
-            <div className="text-center py-8">
-              <Receipt className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-              <h4 className="text-base font-medium text-white mb-2">Keine Ausgaben</h4>
-              <p className="text-gray-400 text-sm">Fügen Sie Ihre erste Ausgabe hinzu.</p>
+            <div className="text-center py-12">
+              <div className="relative">
+                <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-[#ffbd59]/20 to-[#ffa726]/20 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-[#ffbd59]/30 shadow-lg shadow-[#ffbd59]/20">
+                  <Receipt className="w-10 h-10 text-[#ffbd59]" />
+                </div>
+                <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-full animate-pulse"></div>
+              </div>
+              <h4 className="text-xl font-bold text-white mb-3 bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">
+                Keine Ausgaben erfasst
+              </h4>
+              <p className="text-gray-400 text-sm max-w-md mx-auto leading-relaxed">
+                Fügen Sie Ihre erste Ausgabe hinzu, um den Überblick über Ihre Projektkosten zu behalten.
+              </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {expenses.slice(0, 6).map((expense) => (
-                <div key={expense.id} className="group bg-white/5 rounded-lg p-4 border border-white/10 hover:bg-white/10 transition-all duration-200">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg">
-                        {getCategoryIcon(expense.category)}
+            <div className="space-y-2">
+              {expenses.slice(0, 6).map((expense, index) => (
+                <div 
+                  key={expense.id} 
+                  className="group relative bg-gradient-to-br from-white/10 via-white/5 to-white/10 backdrop-blur-xl rounded-lg p-3 border border-white/20 hover:border-[#ffbd59]/40 transition-all duration-500 transform hover:scale-[1.005] hover:shadow-lg hover:shadow-[#ffbd59]/20"
+                  style={{
+                    animationDelay: `${index * 100}ms`,
+                    animation: 'fadeInUp 0.6s ease-out forwards'
+                  }}
+                >
+                  {/* Content */}
+                  <div className="relative z-20">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="relative">
+                          <div className="p-1.5 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-md shadow-md shadow-[#ffbd59]/30 group-hover:shadow-[#ffbd59]/50 transition-all duration-300">
+                            {getCategoryIcon(expense.category)}
+                          </div>
+                          <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full border border-white/20 animate-pulse"></div>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-white text-xs group-hover:text-[#ffbd59] transition-colors duration-300 mb-0.5">
+                            {expense.title}
+                          </h4>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`px-1.5 py-0.5 text-xs font-medium rounded-full backdrop-blur-sm border ${
+                              expense.category === 'material' ? 'bg-blue-500/20 text-blue-300 border-blue-400/30' :
+                              expense.category === 'labor' ? 'bg-green-500/20 text-green-300 border-green-400/30' :
+                              expense.category === 'equipment' ? 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30' :
+                              expense.category === 'services' ? 'bg-purple-500/20 text-purple-300 border-purple-400/30' :
+                              expense.category === 'permits' ? 'bg-red-500/20 text-red-300 border-red-400/30' :
+                              'bg-gray-500/20 text-gray-300 border-gray-400/30'
+                            }`}>
+                              {getCategoryLabel(expense.category)}
+                            </span>
+                            <div className="flex items-center gap-1 text-xs text-gray-400">
+                              <div className="w-0.5 h-0.5 bg-gray-400 rounded-full"></div>
+                              <span>{new Date(expense.date).toLocaleDateString('de-DE')}</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-medium text-white text-sm group-hover:text-[#ffbd59] transition-colors">
-                          {expense.title}
-                        </h4>
-                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getCategoryColor(expense.category)}`}>
-                          {getCategoryLabel(expense.category)}
-                        </span>
+                      <div className="text-right">
+                        <div className="font-bold text-white text-sm group-hover:text-[#ffbd59] transition-colors duration-300">
+                          {formatCurrency(expense.amount)}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {expense.category === 'material' ? 'Material' :
+                           expense.category === 'labor' ? 'Arbeit' :
+                           expense.category === 'equipment' ? 'Gerät' :
+                           expense.category === 'services' ? 'Service' :
+                           expense.category === 'permits' ? 'Genehm.' :
+                           'Sonstiges'}
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-bold text-white text-sm">
-                        {formatCurrency(expense.amount)}
+                    
+                    {expense.description && (
+                      <p className="text-gray-300 text-xs mb-3 leading-relaxed bg-white/5 rounded-md p-1.5 backdrop-blur-sm border border-white/10 line-clamp-1">
+                        {expense.description}
+                      </p>
+                    )}
+                    
+                    {/* Action Buttons - Im normalen Flow */}
+                    <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                      <div className="flex items-center gap-1 text-xs text-gray-400">
+                        <div className="w-1 h-1 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] rounded-full animate-pulse"></div>
+                        <span>#{expense.id}</span>
                       </div>
-                      <div className="text-xs text-gray-400">
-                        {new Date(expense.date).toLocaleDateString('de-DE')}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            console.log('Edit button clicked for expense:', expense.id);
+                            openEditExpenseModal(expense);
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white rounded-lg hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg font-medium text-xs"
+                        >
+                          <Edit className="w-3 h-3" />
+                          Bearbeiten
+                        </button>
+                        <button
+                          onClick={() => {
+                            console.log('Delete button clicked for expense:', expense.id);
+                            handleDeleteExpense(expense.id);
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105 shadow-lg font-medium text-xs"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          Löschen
+                        </button>
                       </div>
                     </div>
-                  </div>
-                  <p className="text-gray-300 text-xs mb-3 line-clamp-2">
-                    {expense.description || 'Keine Beschreibung'}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <button
-                      onClick={() => openEditExpenseModal(expense)}
-                      className="text-[#ffbd59] hover:text-[#ffa726] text-xs font-medium transition-colors"
-                    >
-                      Bearbeiten
-                    </button>
-                    <button
-                      onClick={() => handleDeleteExpense(expense.id)}
-                      className="text-red-400 hover:text-red-300 text-xs font-medium transition-colors"
-                    >
-                      Löschen
-                    </button>
                   </div>
                 </div>
               ))}
@@ -518,13 +705,16 @@ export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
           )}
           
           {expenses.length > 6 && (
-            <div className="mt-4 text-center">
-              <p className="text-sm text-gray-400">
-                {expenses.length - 6} weitere Ausgaben... 
-                <span className="text-[#ffbd59] ml-1 cursor-pointer hover:underline">
-                  Alle anzeigen
+            <div className="mt-6 text-center">
+              <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 rounded-xl border border-[#ffbd59]/30 backdrop-blur-sm hover:from-[#ffbd59]/20 hover:to-[#ffa726]/20 transition-all duration-300 cursor-pointer group">
+                <div className="w-2 h-2 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] rounded-full animate-pulse"></div>
+                <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+                  {expenses.length - 6} weitere Ausgaben verfügbar
                 </span>
-              </p>
+                <span className="text-[#ffbd59] font-semibold group-hover:text-[#ffa726] transition-colors">
+                  Alle anzeigen →
+                </span>
+              </div>
             </div>
           )}
         </div>

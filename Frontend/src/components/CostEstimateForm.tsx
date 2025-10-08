@@ -319,10 +319,15 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
         setSuccess('Erstangebot erfolgreich eingereicht!');
       }
       
-      // Modal nach kurzer Verzögerung schließen
-      setTimeout(() => {
-        onClose();
-      }, 2000);
+      // Modal sofort schließen nach erfolgreicher Einreichung
+      onClose();
+      
+      // Entferne auch den URL-Parameter falls vorhanden
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('quote')) {
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
       
     } catch (err: any) {
       setError(err.message || 'Fehler beim Einreichen des Erstangebots');
@@ -395,8 +400,8 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 max-w-6xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
+      <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 max-w-6xl w-full max-h-[95vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/20">
           <div className="flex items-center gap-4">
@@ -451,8 +456,9 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
             <div className="p-6">
               <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <Building size={20} className="text-[#ffbd59]" />
-                Gewerk-Details
+                Ausschreibungsdetails
               </h3>
+              
               
               <div className="space-y-4">
                 {/* Projekt-Info */}
@@ -464,9 +470,9 @@ export default function CostEstimateForm({ isOpen, onClose, onSubmit, trade, pro
 
                 {/* Gewerk-Info */}
                 <div className="bg-white/10 rounded-xl p-4 border border-white/20 backdrop-blur-sm">
-                  <h4 className="font-semibold text-[#ffbd59] mb-2">Gewerk</h4>
+                  <h4 className="font-semibold text-[#ffbd59] mb-2">Ausschreibung</h4>
                   <p className="text-white text-sm font-medium">{trade?.title}</p>
-                  <p className="text-gray-400 text-xs mt-1">{trade?.description}</p>
+                  <p className="text-gray-300 text-sm mt-2 leading-relaxed">{trade?.description}</p>
                   
                   <div className="mt-3 space-y-2">
                     <div className="flex items-center gap-2 text-xs">

@@ -1,0 +1,80 @@
+/* Benachrichtigungs-Animation für ungelesene Nachrichten */
+@keyframes notification-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.05);
+  }
+}
+
+.notification-blink {
+  animation: notification-pulse 1.5s ease-in-out infinite;
+}
+
+/* Spezielle Animation für den Tab-Button */
+.tab-notification-blink {
+  animation: notification-pulse 2s ease-in-out infinite;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+}
+
+/* Animation für den roten Punkt */
+.dot-notification-blink {
+  animation: notification-pulse 1s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+
+/* Animation für Brief-Symbol mit Glow-Effekt */
+@keyframes envelope-glow {
+  0% { 
+    opacity: 1; 
+    transform: scale(1);
+    color: #ff4444;
+  }
+  50% { 
+    opacity: 0.4; 
+    transform: scale(1.1);
+    color: #ff2222;
+  }
+  100% { 
+    opacity: 1; 
+    transform: scale(1);
+    color: #ff4444;
+  }
+}
+
+.envelope-notification-glow {
+  animation: envelope-glow 1.2s ease-in-out infinite !important;
+  will-change: transform, opacity, color;
+}
+
+/* Alternative einfache Animation als Fallback */
+@keyframes simple-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.3; }
+}
+
+.envelope-simple-blink {
+  animation: simple-blink 1s ease-in-out infinite !important;
+}
+
+/* Sehr einfache, garantierte Animation */
+@keyframes mail-flash {
+  0% { opacity: 1; }
+  50% { opacity: 0.1; }
+  100% { opacity: 1; }
+}
+
+.envelope-attention {
+  animation: mail-flash 0.8s linear infinite !important;
+  animation-name: mail-flash !important;
+  animation-duration: 0.8s !important;
+  animation-timing-function: linear !important;
+  animation-iteration-count: infinite !important;
+  animation-fill-mode: both !important;
+  will-change: opacity !important;
+  display: inline-block !important;
+  z-index: 9999 !important;
+}

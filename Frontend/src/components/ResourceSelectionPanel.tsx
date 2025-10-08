@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   DndContext,
@@ -52,6 +52,7 @@ import {
 import { resourceService, type Resource, type ResourceAllocation } from '../api/resourceService';
 import { useAuth } from '../context/AuthContext';
 import { getBrowserLocation } from '../api/geoService';
+import { TRADE_CATEGORIES } from '../constants/tradeCategories';
 import dayjs from 'dayjs';
 
 interface ResourceSelectionPanelProps {
@@ -266,9 +267,14 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
         <div className="flex-1">
           <div className="flex items-start justify-between mb-2">
             <div>
-              <h4 className="text-sm font-semibold text-white">
+              {resource.title && (
+                <h4 className="text-sm font-semibold text-[#ffbd59] mb-1">
+                  {resource.title}
+                </h4>
+              )}
+              <div className="text-xs text-gray-300 font-medium">
                 {resource.provider_name || 'Dienstleister'}
-              </h4>
+              </div>
               <div className="flex items-center space-x-2 mt-1">
                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                   resource.status === 'available' 
@@ -848,6 +854,9 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
   const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   
+  // Ref für das Panel um Click-Outside zu erkennen
+  const panelRef = useRef<HTMLDivElement>(null);
+  
   // Individuelle Zeiträume pro Ressource
   const [individualDateRanges, setIndividualDateRanges] = useState<Map<number, ResourceDateRange>>(new Map());
   
@@ -861,6 +870,7 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
   const [minPersons, setMinPersons] = useState<number | undefined>();
   const [maxRate, setMaxRate] = useState<number | undefined>();
   const [maxDistance, setMaxDistance] = useState<number>(100); // Default 100km
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isHelpExpanded, setIsHelpExpanded] = useState(false);
   const [dateRange, setDateRange] = useState({
     start: preferredDateRange?.start || dayjs().format('YYYY-MM-DD'),
@@ -883,6 +893,33 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
       });
     }
   }, [preferredDateRange]);
+
+  // Click-Outside-to-Close Funktionalität
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Nur schließen wenn das Panel geöffnet ist
+      if (!isOpen) return;
+      
+      // Prüfe ob der Klick außerhalb des Panels und des Toggle-Buttons war
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        // Prüfe auch ob der Klick nicht auf dem Toggle-Button war
+        const toggleButton = document.querySelector('[data-resource-panel-toggle]');
+        if (toggleButton && !toggleButton.contains(event.target as Node)) {
+          onToggle();
+        }
+      }
+    };
+
+    // Event Listener hinzufügen wenn Panel geöffnet ist
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    // Cleanup: Event Listener entfernen
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onToggle]);
 
   // Get user location if not available
   useEffect(() => {
@@ -943,31 +980,15 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
     }
     
     setLoading(true);
-    const searchParams = {
-      category,
-      start_date: dateRange.start,
-      end_date: dateRange.end,
-      min_persons: minPersons,
-      max_hourly_rate: maxRate,
-      latitude: currentLocation.latitude,
-      longitude: currentLocation.longitude,
-      radius_km: maxDistance,
-      status: 'available'
-    };
-    
-    console.log('Searching resources with params:', searchParams);
     
     try {
-      // TEMPORARY FIX: Always use regular search with client-side filtering
-      // This ensures we can see all resources that match the criteria
-      console.log('Using regular search with client-side filtering (temporary fix)...');
+      // Lade alle verfügbaren Ressourcen - Filterung erfolgt client-side
+      console.log('Loading all available resources for client-side filtering...');
       const allResults = await resourceService.listResources({
         category,
         // TEMPORARY: Remove date filtering to test
         // start_date: dateRange.start,
         // end_date: dateRange.end,
-        min_persons: minPersons,
-        max_hourly_rate: maxRate,
         status: 'available'
       });
       
@@ -1212,10 +1233,27 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
 
   // Filter resources
   const filteredResources = resources.filter(resource => {
+    // Kategorie-Filter
+    if (selectedCategories.length > 0 && !selectedCategories.includes(resource.category || '')) {
+      return false;
+    }
+    
+    // Personen-Filter
+    if (minPersons && resource.person_count < minPersons) {
+      return false;
+    }
+    
+    // Stundensatz-Filter
+    if (maxRate && resource.hourly_rate && resource.hourly_rate > maxRate) {
+      return false;
+    }
+    
+    // Such-Filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       return (
         resource.provider_name?.toLowerCase().includes(query) ||
+        resource.title?.toLowerCase().includes(query) ||
         resource.provider_company_name?.toLowerCase().includes(query) ||
         resource.provider_email?.toLowerCase().includes(query) ||
         resource.provider_bio?.toLowerCase().includes(query) ||
@@ -1254,7 +1292,8 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
       {/* Toggle Button */}
       <motion.button
         onClick={onToggle}
-        className={`fixed left-0 top-1/2 -translate-y-1/2 z-[60] bg-[#ffbd59] text-black p-3 rounded-r-lg shadow-lg hover:bg-[#f59e0b] transition-all ${
+        data-resource-panel-toggle
+        className={`absolute left-0 top-1/2 -translate-y-1/2 z-[60] bg-[#ffbd59] text-black p-3 rounded-r-lg shadow-lg hover:bg-[#f59e0b] transition-all ${
           isOpen ? 'translate-x-[28rem]' : 'translate-x-0'
         }`}
         animate={{ x: isOpen ? 448 : 0 }}
@@ -1266,11 +1305,12 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
       <AnimatePresence>
         {isOpen && (
           <motion.div
+            ref={panelRef}
             initial={{ x: -448 }}
             animate={{ x: 0 }}
             exit={{ x: -448 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className={`fixed left-0 top-0 h-full w-[28rem] bg-[#1a1a1a] border-r border-gray-700 shadow-2xl z-50 flex flex-col ${className}`}
+            className={`absolute left-0 top-0 h-full w-[28rem] bg-[#1a1a1a] border-r border-gray-700 shadow-2xl z-50 flex flex-col ${className}`}
           >
             {/* Header */}
             <div className="bg-gradient-to-r from-[#ffbd59] to-[#f59e0b] p-4">
@@ -1387,7 +1427,7 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Suche nach Name, Firma, E-Mail, Beschreibung, Sprachen, Ort..."
+                  placeholder="Suche nach Name, Titel, Firma, E-Mail, Beschreibung, Sprachen, Ort..."
                   className="w-full pl-10 pr-4 py-2 bg-[#2a2a2a] text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
                 />
               </div>
@@ -1426,7 +1466,12 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
               >
                 <span className="flex items-center space-x-2">
                   <Filter className="w-4 h-4" />
-                  <span>Filter</span>
+                  <span>Filter (Live)</span>
+                  {selectedCategories.length > 0 && (
+                    <span className="px-2 py-0.5 bg-[#ffbd59] text-black text-xs rounded-full font-medium">
+                      {selectedCategories.length} Kategorien
+                    </span>
+                  )}
                 </span>
                 <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
               </button>
@@ -1436,8 +1481,84 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                 <motion.div
                   initial={{ height: 0 }}
                   animate={{ height: 'auto' }}
-                  className="mt-3 space-y-3 overflow-hidden"
+                  className="mt-3 space-y-3 overflow-hidden max-h-96 overflow-y-auto"
                 >
+                  {/* Kategorie-Filter */}
+                  <div>
+                    <label className="text-xs text-gray-400 mb-2 block">Kategorien</label>
+                    <div className="flex gap-2 mb-2">
+                      <button
+                        onClick={() => setSelectedCategories(TRADE_CATEGORIES.map(cat => cat.value))}
+                        className="px-2 py-1 bg-[#ffbd59] text-black text-xs rounded hover:bg-[#f59e0b] transition-colors"
+                      >
+                        Alle auswählen
+                      </button>
+                      <button
+                        onClick={() => setSelectedCategories([])}
+                        className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 transition-colors"
+                      >
+                        Alle abwählen
+                      </button>
+                    </div>
+                    <div className="max-h-32 overflow-y-auto bg-[#2a2a2a] rounded-lg p-2 space-y-1">
+                      {TRADE_CATEGORIES.map(category => (
+                        <label key={category.value} className="flex items-center space-x-2 text-xs text-gray-300 hover:text-white cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedCategories.includes(category.value)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedCategories(prev => [...prev, category.value]);
+                              } else {
+                                setSelectedCategories(prev => prev.filter(cat => cat !== category.value));
+                              }
+                            }}
+                            className="rounded border-gray-600 text-[#ffbd59] focus:ring-[#ffbd59]"
+                          />
+                          <span className="text-lg">{category.emoji}</span>
+                          <span>{category.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {selectedCategories.length > 0 && (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="text-xs text-gray-400">
+                            Ausgewählte Kategorien ({selectedCategories.length}):
+                          </div>
+                          <button
+                            onClick={() => setSelectedCategories([])}
+                            className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                          >
+                            Alle entfernen
+                          </button>
+                        </div>
+                        <div className="max-h-20 overflow-y-auto bg-[#2a2a2a] rounded-lg p-2">
+                          <div className="flex flex-wrap gap-1">
+                            {selectedCategories.map(categoryValue => {
+                              const category = TRADE_CATEGORIES.find(cat => cat.value === categoryValue);
+                              return (
+                                <span
+                                  key={categoryValue}
+                                  className="inline-flex items-center gap-1 px-2 py-1 bg-[#ffbd59]/20 text-[#ffbd59] border border-[#ffbd59]/30 rounded-full text-xs font-medium"
+                                >
+                                  <span>{category?.emoji}</span>
+                                  <span>{category?.label}</span>
+                                  <button
+                                    onClick={() => setSelectedCategories(prev => prev.filter(cat => cat !== categoryValue))}
+                                    className="hover:text-red-400 transition-colors"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
                   <div>
                     <label className="text-xs text-gray-400">Min. Personen</label>
                     <input
@@ -1458,12 +1579,6 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                       className="w-full px-3 py-1.5 bg-[#2a2a2a] text-white rounded text-sm"
                     />
                   </div>
-                  <button
-                    onClick={loadResources}
-                    className="w-full px-3 py-1.5 bg-[#ffbd59] text-black rounded text-sm hover:bg-[#f59e0b] transition-colors"
-                  >
-                    Filter anwenden
-                  </button>
                 </motion.div>
               )}
             </div>
@@ -1512,7 +1627,12 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                   <DragOverlay>
                     {activeResource && (
                       <div className="bg-[#333] rounded-lg p-4 border border-[#ffbd59] shadow-xl">
-                        <div className="text-sm font-semibold text-white">
+                        {activeResource.title && (
+                          <div className="text-sm font-semibold text-[#ffbd59] mb-1">
+                            {activeResource.title}
+                          </div>
+                        )}
+                        <div className="text-xs text-gray-300 font-medium">
                           {activeResource.provider_name}
                         </div>
                         <div className="text-xs text-gray-400 mt-1">

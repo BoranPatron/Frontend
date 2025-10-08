@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import CreditNotification from '../components/CreditNotification';
 
 interface AuthContextType {
   token: string | null;
   user: any;
   isInitialized: boolean;
-  login: (token: string, user: any) => void;
+  login: (token: string, user: any) => Promise<void>;
   logout: () => void;
   isServiceProvider: () => boolean;
   isBautraeger: () => boolean;
@@ -35,6 +36,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isInitializing, setIsInitializing] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [roleSelected, setRoleSelected] = useState(false);
+  const [creditNotification, setCreditNotification] = useState<{
+    creditsChanged: number;
+    newBalance: number;
+  } | null>(null);
 
   // Initialisiere Auth-Daten beim ersten Laden mit Verzögerung
   useEffect(() => {
@@ -185,7 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, isInitializing]);
 
-  const login = (newToken: string, newUser: any) => {
+  const login = async (newToken: string, newUser: any) => {
     try {
       // Stoppe die Initialisierung, um Race Conditions zu vermeiden
       setIsInitializing(false);
@@ -203,6 +208,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (newUser?.role_selected !== undefined) {
         setRoleSelected(newUser.role_selected);
         }
+      
+          // Verarbeite täglichen Credit-Abzug für Bauträger (nur beim Login)
+          if (newUser?.user_role === 'bautraeger' || newUser?.user_role === 'BAUTRAEGER') {
+            try {
+              const { processDailyLoginDeduction } = await import('../api/creditService');
+              const result = await processDailyLoginDeduction();
+              console.log('💰 Täglicher Credit-Abzug beim Login:', result);
+              
+              // DEBUG: Zeige detaillierte Informationen
+              console.log('🔍 DEBUG - API Response Details:', {
+                status: result.status,
+                message: result.message,
+                fullResponse: result
+              });
+              
+              // Zeige Notification nur wenn Credit tatsächlich abgezogen wurde
+              if (result.status === 'success') {
+                console.log('✅ Credit wurde abgezogen - zeige Notification');
+                // Hole aktuelle Credit-Balance für Notification
+                const { getCreditBalance } = await import('../api/creditService');
+                const balance = await getCreditBalance();
+                
+                setCreditNotification({
+                  creditsChanged: -1, // 1 Credit wird täglich abgezogen
+                  newBalance: balance.credits
+                });
+              } else if (result.status === 'skipped') {
+                console.log('⏭️ Kein Credit-Abzug nötig:', result.message);
+              } else {
+                console.log('❓ Unbekannter Status:', result.status, result.message);
+              }
+            } catch (error) {
+              console.warn('⚠️ Fehler beim täglichen Credit-Abzug:', error);
+              // Fehler beim Credit-Abzug soll das Login nicht blockieren
+            }
+          }
       
       } catch (error) {
       console.error('❌ Fehler in login() Funktion:', error);
@@ -316,6 +357,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       selectRole
     }}>
       {children}
+      
+      {/* Credit Notification */}
+      {creditNotification && (
+        <CreditNotification
+          creditsChanged={creditNotification.creditsChanged}
+          newBalance={creditNotification.newBalance}
+          onClose={() => setCreditNotification(null)}
+        />
+      )}
     </AuthContext.Provider>
   );
 }

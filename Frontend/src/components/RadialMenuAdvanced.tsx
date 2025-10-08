@@ -28,7 +28,9 @@ import {
   Edit3,
   Save,
   RotateCcw,
-  Building
+  Building,
+  Users,
+  CreditCard
 } from 'lucide-react';
 
 type RadialItem = {
@@ -106,6 +108,39 @@ export function RadialMenuAdvanced({
   // Primary actions (most important - inner ring)
   const getPrimaryItems = (): RadialItem[] => {
     const projectId = selectedProject?.id;
+    
+    // Dienstleister-spezifische Primary Items
+    if (userRole === 'dienstleister' || userRole === 'DIENSTLEISTER') {
+      return [
+        {
+          id: "create-resource",
+          label: "Ressource erstellen",
+          icon: <Users size={28} />,
+          onSelect: () => {
+            // Navigate to resource management or show modal
+            window.location.href = '/service-provider?showResourceModal=true';
+          },
+          color: "#10B981",
+          description: "Neue Ressource hinzufügen",
+          ring: 1,
+          tourId: "radial-menu-create-resource"
+        },
+        {
+          id: "create-task",
+          label: "Neue Aufgabe",
+          icon: <CheckSquare size={28} />,
+          onSelect: () => {
+            navigate('/tasks?create=task');
+          },
+          color: "#3B82F6",
+          description: "Aufgabe hinzufügen",
+          ring: 1,
+          tourId: "radial-menu-create-task"
+        }
+      ];
+    }
+    
+    // Bauträger Primary Items
     return [
       {
         id: "create-project",
@@ -254,7 +289,57 @@ export function RadialMenuAdvanced({
 
     // Filter based on user role and subscription
     if (userRole === 'dienstleister' || userRole === 'DIENSTLEISTER') {
-      return items;
+      // Dienstleister-spezifische Items
+      return [
+        {
+          id: "documents",
+          label: "Dokumente",
+          icon: <FileText size={24} />,
+          onSelect: () => navigate('/documents'),
+          color: "#3B82F6",
+          description: "Dokumentenmanagement",
+          ring: 2,
+          tourId: "radial-menu-documents"
+        },
+        {
+          id: "tasks",
+          label: "To-Do",
+          icon: <CheckSquare size={24} />,
+          onSelect: () => navigate('/tasks'),
+          color: "#10B981",
+          description: "Aufgabenmanagement",
+          ring: 2,
+          tourId: "radial-menu-tasks"
+        },
+        {
+          id: "create-task",
+          label: "Neue Aufgabe",
+          icon: <ListPlus size={24} />,
+          onSelect: () => navigate('/tasks?create=task'),
+          color: "#10B981",
+          description: "Aufgabe hinzufügen",
+          ring: 2
+        },
+        {
+          id: "upload-doc",
+          label: "Upload",
+          icon: <Upload size={24} />,
+          onSelect: () => navigate('/documents?create=upload'),
+          color: "#4F46E5",
+          description: "Dokument hochladen",
+          ring: 2
+        },
+        {
+          id: "invoices",
+          label: "Rechnungen",
+          icon: <CreditCard size={24} />,
+          onSelect: () => navigate('/invoices'),
+          color: "#F59E0B",
+          description: "Rechnungsverwaltung",
+          ring: 2,
+          tourId: "radial-menu-invoices"
+        }
+      ];
     }
     
     if (userRole === 'bautraeger' || userRole === 'BAUTRAEGER') {
@@ -374,11 +459,11 @@ export function RadialMenuAdvanced({
         const indexInPrimary = primaryItems.indexOf(item);
         const primaryCount = primaryItems.length;
         
-        // Position horizontally to the left of the FAB button
+        // Position horizontally to the left of the FAB button - moved further left
         const fabSize = isMobile ? 56 : 72;
         const buttonSize = isMobile ? 52 : 64;
-        const spacing = isMobile ? 70 : 80;
-        const baseOffset = -(fabSize/2 + buttonSize/2 + spacing); // Start to the left of FAB
+        const spacing = isMobile ? 90 : 110; // Increased spacing to move further left
+        const baseOffset = -(fabSize/2 + buttonSize/2 + spacing); // Start further to the left of FAB
         
         // Stack vertically but offset to the left
         const verticalSpacing = isMobile ? 60 : 70;
@@ -393,22 +478,25 @@ export function RadialMenuAdvanced({
           isHorizontal: true
         };
       } else {
-        // Secondary buttons in a compact arc
+        // Secondary buttons in a compact arc - moved further left
         const radius = secondaryRadius;
         const itemsInRing = allItems.filter(i => i.ring === 2);
         const indexInRing = itemsInRing.indexOf(item);
         const countInRing = itemsInRing.length;
         
-        // Compact arc from -135 to -45 degrees (safe area)
-        const startAngle = -135;
-        const endAngle = -45;
+        // Compact arc from -150 to -30 degrees (moved further left for safety)
+        const startAngle = -150;
+        const endAngle = -30;
         const span = endAngle - startAngle;
         
         const t = countInRing === 1 ? 0.5 : indexInRing / (countInRing - 1);
         const angle = (startAngle + t * span) * (Math.PI / 180);
         
+        // Offset the entire arc to the left
+        const leftOffset = isMobile ? -20 : -30;
+        
         return {
-          x: Math.cos(angle) * radius,
+          x: Math.cos(angle) * radius + leftOffset,
           y: Math.sin(angle) * radius,
           angleDeg: startAngle + t * span,
           ring: item.ring,
@@ -664,11 +752,11 @@ export function RadialMenuAdvanced({
         ref={containerRef}
         className="radial-menu-container"
         style={{
-          position: "fixed",
-          right: isMobile ? 112 : 144,
-          bottom: isMobile ? 32 : 64,
-          zIndex: document.querySelector('[data-tour-id-root]') ? 9998 : 9999, // Niedriger z-index während Tour
           filter: enableGooeyEffect && open ? 'url(#gooey-advanced)' : undefined,
+          zIndex: document.querySelector('[data-tour-id-root]') ? 9998 : 99999,
+          position: 'fixed',
+          right: isMobile ? 16 : 24,
+          bottom: isMobile ? 16 : 24,
         }}
         role="menu"
         aria-expanded={open}
@@ -690,7 +778,7 @@ export function RadialMenuAdvanced({
                 bottom: 0,
                 background: 'rgba(0, 0, 0, 0.3)',
                 backdropFilter: 'blur(12px)',
-                zIndex: -1
+                zIndex: 9998
               }}
             />
           )}
@@ -892,7 +980,7 @@ export function RadialMenuAdvanced({
                     outline: 'none',
                     transition: 'background 0.3s ease, z-index 0.1s ease',
                     opacity: item.disabled ? 0.6 : 1,
-                    zIndex: item.ring === 1 ? (hoveredIndex === i ? 600 : 100) : (hoveredIndex === i ? 500 : 50),
+                    zIndex: item.ring === 1 ? (hoveredIndex === i ? 10000 : 7500) : (hoveredIndex === i ? 5000 : 2500),
                   }}
                   whileHover={item.disabled ? {} : { 
                     scale: item.ring === 1 ? 1.25 : 1.2,
@@ -939,7 +1027,7 @@ export function RadialMenuAdvanced({
                           : 'bg-gray-900 border-2 border-[#ffbd59]/50'
                       }`}
                       style={{ 
-                        zIndex: 99999,
+                        zIndex: 10002,
                         filter: item.ring === 1 
                           ? `drop-shadow(0 0 30px ${item.color}40) drop-shadow(0 0 15px rgba(255,189,89,0.4))`
                           : 'drop-shadow(0 0 20px rgba(255,189,89,0.3))'
@@ -1023,7 +1111,7 @@ export function RadialMenuAdvanced({
             fontSize: isMobile ? 28 : 36,
             fontWeight: 'bold',
             outline: 'none',
-            zIndex: 100,
+            zIndex: 10001,
           }}
           whileTap={{ scale: 0.9 }}
           whileHover={{ scale: 1.1 }}
@@ -1054,7 +1142,7 @@ export function RadialMenuAdvanced({
               
               {/* Notification dot */}
               {!localStorage.getItem('radial-menu-advanced-used') && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" style={{ zIndex: 10002 }} />
               )}
             </>
           )}
@@ -1068,7 +1156,8 @@ export function RadialMenuAdvanced({
             className="absolute top-4 right-4 bg-blue-500/80 text-white px-3 py-1.5 rounded-full shadow-md flex items-center gap-2 text-sm"
             style={{
               backdropFilter: 'blur(8px)',
-              border: '1px solid rgba(255,255,255,0.1)'
+              border: '1px solid rgba(255,255,255,0.1)',
+              zIndex: 10003
             }}
           >
             <Edit3 size={14} />
@@ -1082,6 +1171,7 @@ export function RadialMenuAdvanced({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="absolute left-1/2 transform -translate-x-1/2 -bottom-24 bg-gray-900/90 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap"
+            style={{ zIndex: 10003 }}
           >
             <div className="flex items-center gap-4">
               <span>←→ Navigate</span>
@@ -1100,6 +1190,7 @@ export function RadialMenuAdvanced({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="absolute left-1/2 transform -translate-x-1/2 -bottom-20 bg-gray-900/90 text-white text-xs px-3 py-2 rounded-lg text-center"
+            style={{ zIndex: 10003 }}
           >
             <div className="flex flex-col items-center gap-1">
               <span className="font-semibold">Primär-Buttons links</span>
@@ -1114,6 +1205,27 @@ export function RadialMenuAdvanced({
         .radial-menu-container {
           -webkit-tap-highlight-color: transparent;
           user-select: none;
+          position: fixed !important;
+          transform: translateZ(0) !important;
+          will-change: transform !important;
+          right: 24px !important;
+          bottom: 24px !important;
+        }
+        
+        .service-provider-radial-menu {
+          position: fixed !important;
+          transform: translateZ(0) !important;
+          will-change: transform !important;
+          right: 24px !important;
+          bottom: 24px !important;
+        }
+        
+        @media (max-width: 768px) {
+          .radial-menu-container,
+          .service-provider-radial-menu {
+            right: 16px !important;
+            bottom: 16px !important;
+          }
         }
       `}</style>
     </>

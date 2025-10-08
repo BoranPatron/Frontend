@@ -44,7 +44,6 @@ const availableItems: FavoriteItem[] = [
   
   // Tools
   { id: 'tasks', title: 'Aufgaben', path: '/tasks', icon: <Target size={16} />, category: 'tools' },
-  { id: 'finance', title: 'Finanzen', path: '/finance', icon: <Euro size={16} />, category: 'tools' },
   { id: 'documents', title: 'Dokumente', path: '/documents', icon: <FileText size={16} />, category: 'tools' },
   { id: 'visualize', title: 'Visualisierung', path: '/visualize', icon: <BarChart3 size={16} />, category: 'tools' },
   { id: 'roadmap', title: 'Roadmap', path: '/roadmap', icon: <Calendar size={16} />, category: 'tools' },
@@ -79,7 +78,6 @@ export default function FavoritesManager({ isOpen, onClose }: FavoritesManagerPr
           : [
               { id: 'dashboard', title: 'Dashboard', path: '/', icon: '<Home size={16} />', category: 'navigation' as const },
               { id: 'tasks', title: 'Aufgaben', path: '/tasks', icon: '<Target size={16} />', category: 'tools' as const },
-              { id: 'finance', title: 'Finanzen', path: '/finance', icon: '<Euro size={16} />', category: 'tools' as const },
             ];
         setFavorites(defaultFavorites);
         localStorage.setItem('buildwise-favorites', JSON.stringify(defaultFavorites));

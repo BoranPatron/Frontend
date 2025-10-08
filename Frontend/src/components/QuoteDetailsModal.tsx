@@ -121,6 +121,44 @@ export default function QuoteDetailsModal({
     return new Date(dateString).toLocaleDateString('de-DE');
   };
 
+  const formatPaymentTerms = (paymentTerms: string) => {
+    if (!paymentTerms) return 'Nicht angegeben';
+    
+    // Mapping für verschiedene Zahlungsbedingungen-Formate
+    const paymentTermsMapping: { [key: string]: string } = {
+      // ReviseQuoteModal Format
+      '30% Anzahlung, 70% nach Fertigstellung': '30% Anzahlung, 70% nach Fertigstellung',
+      '50% Anzahlung, 50% nach Fertigstellung': '50% Anzahlung, 50% nach Fertigstellung',
+      '100% nach Fertigstellung': '100% nach Fertigstellung',
+      '30% Anzahlung, 40% nach Zwischenabnahme, 30% nach Fertigstellung': '30% Anzahlung, 40% nach Zwischenabnahme, 30% nach Fertigstellung',
+      '20% Anzahlung, 30% nach 50% Fortschritt, 50% nach Fertigstellung': '20% Anzahlung, 30% nach 50% Fortschritt, 50% nach Fertigstellung',
+      'Rechnung 30 Tage netto': 'Rechnung 30 Tage netto',
+      'Rechnung 14 Tage netto': 'Rechnung 14 Tage netto',
+      'Sofortzahlung': 'Sofortzahlung',
+      'Individuelle Vereinbarung': 'Individuelle Vereinbarung',
+      
+      // CostEstimateForm Format
+      '30_days': '30 Tage netto',
+      '60_days': '60 Tage netto',
+      '2_skonto_10_days': '2% Skonto bei Zahlung innerhalb 10 Tagen, sonst 30 Tage netto',
+      '3_skonto_14_days': '3% Skonto bei Zahlung innerhalb 14 Tagen, sonst 30 Tage netto',
+      'vorkasse': 'Vorkasse (100% im Voraus)',
+      'anzahlung_30': '30% Anzahlung, Rest bei Fertigstellung',
+      'anzahlung_50': '50% Anzahlung, Rest bei Fertigstellung',
+      '50_50': '50% bei Auftrag, 50% bei Fertigstellung',
+      '30_30_40': '30% bei Auftrag, 30% bei Zwischenabnahme, 40% bei Fertigstellung',
+      'milestone': 'Nach Meilensteinen/Baufortschritt',
+      'monthly': 'Monatliche Abschlagszahlungen',
+      'bei_lieferung': 'Bei Lieferung/Übergabe',
+      
+      // TradeDetailsModal Format
+      '14_days': '14 Tage',
+      '7_days': '7 Tage'
+    };
+    
+    return paymentTermsMapping[paymentTerms] || paymentTerms;
+  };
+
   const getStatusInfo = () => {
     switch (displayQuote.status) {
       case 'accepted':
@@ -357,12 +395,8 @@ export default function QuoteDetailsModal({
               <span class="info-value">${formatDate(quote.completion_date)}</span>
             </div>
             <div class="info-item">
-              <span class="info-label">Garantie:</span>
-              <span class="info-value">${quote.warranty_period || 0} Monate</span>
-            </div>
-            <div class="info-item">
               <span class="info-label">Zahlungsbedingungen:</span>
-              <span class="info-value">${quote.payment_terms || 'Nicht angegeben'}</span>
+              <span class="info-value">${formatPaymentTerms(quote.payment_terms)}</span>
             </div>
           </div>
         </div>
@@ -1163,13 +1197,6 @@ ${displayQuote.description ? displayQuote.description.substring(0, 200) + '...' 
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-3">
-                    <Shield size={16} className="text-gray-400" />
-                    <div>
-                      <div className="text-sm text-gray-400">Garantie</div>
-                      <div className="text-white font-medium">{displayQuote.warranty_period || 0} Monate</div>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -1251,7 +1278,7 @@ ${displayQuote.description ? displayQuote.description.substring(0, 200) + '...' 
                     <Shield size={16} className="text-gray-400" />
                     <div>
                       <div className="text-sm text-gray-400">Zahlungsbedingungen</div>
-                      <div className="text-white font-medium">{displayQuote.payment_terms || 'Nicht angegeben'}</div>
+                      <div className="text-white font-medium">{formatPaymentTerms(displayQuote.payment_terms)}</div>
                     </div>
                   </div>
                 </div>
@@ -2103,7 +2130,7 @@ ${displayQuote.description ? displayQuote.description.substring(0, 200) + '...' 
                     Kategorisierung
                     {documentCategory && (
                       <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">
-                        KI-Vorschlag
+                        Vorschlag
                       </span>
                     )}
                   </h3>

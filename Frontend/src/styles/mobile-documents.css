@@ -1,0 +1,487 @@
+/* Mobile Documents View - Touch-optimierte Styles */
+
+/* Touch-Manipulation für bessere Performance */
+.touch-manipulation {
+  touch-action: manipulation;
+}
+
+/* Mobile-spezifische Button-Größen */
+@media (max-width: 1024px) {
+  .mobile-button {
+    min-height: 44px; /* Apple's empfohlene Mindestgröße für Touch-Targets */
+    min-width: 44px;
+  }
+  
+  .mobile-button-small {
+    min-height: 36px;
+    min-width: 36px;
+  }
+  
+  .mobile-button-large {
+    min-height: 48px;
+    min-width: 48px;
+  }
+}
+
+/* Mobile Grid - Responsive Spalten */
+.mobile-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .mobile-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .mobile-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .mobile-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Mobile Card - Optimiert für Touch */
+.mobile-card {
+  @apply bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4 hover:border-[#ffbd59]/50 transition-all duration-200;
+  touch-action: manipulation;
+}
+
+.mobile-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Mobile List Item - Kompakt für Listenansicht */
+.mobile-list-item {
+  @apply bg-gradient-to-r from-[#2c3539]/80 to-[#1a1a2e]/80 backdrop-blur-sm rounded-lg border border-gray-700/50 p-3 hover:border-[#ffbd59]/50 transition-all duration-200;
+  touch-action: manipulation;
+}
+
+/* Mobile Action Buttons */
+.mobile-action-button {
+  @apply p-2 rounded-lg transition-colors touch-manipulation;
+  min-height: 36px;
+  min-width: 36px;
+}
+
+.mobile-action-button:hover {
+  transform: scale(1.05);
+}
+
+.mobile-action-button:active {
+  transform: scale(0.95);
+}
+
+/* Mobile Primary Button */
+.mobile-primary-button {
+  @apply bg-[#ffbd59] hover:bg-[#ffa726] text-[#1a1a2e] px-4 py-2 rounded-lg font-medium transition-colors touch-manipulation;
+  min-height: 44px;
+}
+
+.mobile-primary-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(255, 189, 89, 0.3);
+}
+
+/* Mobile Secondary Button */
+.mobile-secondary-button {
+  @apply bg-[#2c3539]/50 hover:bg-[#3d4952]/50 border border-gray-600 text-white rounded-lg transition-colors touch-manipulation;
+  min-height: 44px;
+}
+
+/* Mobile Input */
+.mobile-input {
+  @apply w-full px-3 py-2 bg-[#2c3539]/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] text-sm;
+  min-height: 44px;
+}
+
+/* Mobile Select */
+.mobile-select {
+  @apply px-3 py-2 bg-[#2c3539]/50 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#ffbd59];
+  min-height: 44px;
+}
+
+/* Mobile Sidebar */
+.mobile-sidebar {
+  @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden;
+}
+
+.mobile-sidebar-content {
+  @apply absolute right-0 top-0 h-full w-80 bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] shadow-2xl overflow-y-auto;
+}
+
+/* Mobile Header */
+.mobile-header {
+  @apply bg-gradient-to-r from-[#3d4952]/95 to-[#51646f]/95 backdrop-blur-lg text-white px-4 py-3 shadow-lg border-b border-[#ffbd59]/20;
+}
+
+/* Mobile Navigation Item */
+.mobile-nav-item {
+  @apply w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-colors touch-manipulation;
+  min-height: 48px;
+}
+
+.mobile-nav-item:hover {
+  transform: translateX(4px);
+}
+
+/* Mobile Filter Panel */
+.mobile-filter-panel {
+  @apply mt-3 space-y-2;
+}
+
+.mobile-filter-grid {
+  @apply grid grid-cols-2 gap-2;
+}
+
+/* Mobile Document Card */
+.mobile-document-card {
+  @apply bg-gradient-to-br from-[#2c3539]/80 to-[#1a1a2e]/80 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4 hover:border-[#ffbd59]/50 transition-all duration-200;
+  touch-action: manipulation;
+}
+
+.mobile-document-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Mobile Document Actions */
+.mobile-document-actions {
+  @apply flex items-center gap-1;
+}
+
+.mobile-document-action {
+  @apply p-2 rounded-lg transition-colors touch-manipulation;
+  min-height: 36px;
+  min-width: 36px;
+}
+
+.mobile-document-action:hover {
+  transform: scale(1.1);
+}
+
+.mobile-document-action:active {
+  transform: scale(0.9);
+}
+
+/* Mobile View Toggle */
+.mobile-view-toggle {
+  @apply flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#2c3539]/50 border border-gray-600 rounded-lg text-white text-sm hover:bg-[#3d4952]/50 transition-colors touch-manipulation;
+  min-height: 44px;
+}
+
+/* Mobile Empty State */
+.mobile-empty-state {
+  @apply text-center py-12;
+}
+
+.mobile-empty-state-icon {
+  @apply w-16 h-16 text-gray-400 mx-auto mb-4;
+}
+
+.mobile-empty-state-title {
+  @apply text-xl font-semibold text-white mb-2;
+}
+
+.mobile-empty-state-description {
+  @apply text-gray-400 mb-6;
+}
+
+/* Mobile Upload Button */
+.mobile-upload-button {
+  @apply bg-[#ffbd59] hover:bg-[#ffa726] text-[#1a1a2e] px-6 py-3 rounded-lg font-medium transition-colors touch-manipulation;
+  min-height: 48px;
+}
+
+.mobile-upload-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(255, 189, 89, 0.4);
+}
+
+/* Mobile Search Bar */
+.mobile-search-bar {
+  @apply relative mt-3;
+}
+
+.mobile-search-input {
+  @apply w-full pl-10 pr-4 py-2 bg-[#2c3539]/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] text-sm;
+  min-height: 44px;
+}
+
+.mobile-search-icon {
+  @apply absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4;
+}
+
+/* Mobile Category Badge */
+.mobile-category-badge {
+  @apply px-2 py-1 rounded-full text-xs font-medium;
+}
+
+/* Mobile Status Badge */
+.mobile-status-badge {
+  @apply px-2 py-1 rounded text-xs font-medium capitalize;
+}
+
+/* Mobile File Size */
+.mobile-file-size {
+  @apply text-xs text-gray-400;
+}
+
+/* Mobile Date */
+.mobile-date {
+  @apply text-xs text-gray-500;
+}
+
+/* Mobile Favorite Star */
+.mobile-favorite-star {
+  @apply w-4 h-4 text-yellow-400 fill-current flex-shrink-0;
+}
+
+/* Mobile Category Icon */
+.mobile-category-icon {
+  @apply w-5 h-5;
+}
+
+/* Mobile Document Title */
+.mobile-document-title {
+  @apply font-semibold text-white mb-1 line-clamp-2 text-sm;
+}
+
+/* Mobile Document Filename */
+.mobile-document-filename {
+  @apply text-xs text-gray-400 mb-2;
+}
+
+/* Mobile Document Description */
+.mobile-document-description {
+  @apply text-xs text-gray-500 line-clamp-2;
+}
+
+/* Mobile Metadata */
+.mobile-metadata {
+  @apply space-y-2 mb-4;
+}
+
+.mobile-metadata-row {
+  @apply flex items-center justify-between text-xs text-gray-400;
+}
+
+/* Mobile Subcategory */
+.mobile-subcategory {
+  @apply text-xs text-gray-500;
+}
+
+/* Mobile Actions Row */
+.mobile-actions-row {
+  @apply flex items-center gap-1;
+}
+
+/* Mobile Primary Action */
+.mobile-primary-action {
+  @apply flex-1 bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] py-2 px-2 rounded-lg text-xs font-medium transition-colors touch-manipulation;
+  min-height: 36px;
+}
+
+.mobile-primary-action:hover {
+  transform: scale(1.02);
+}
+
+/* Mobile Secondary Action */
+.mobile-secondary-action {
+  @apply p-2 rounded-lg bg-[#2c3539]/50 text-gray-400 hover:text-blue-400 transition-colors touch-manipulation;
+  min-height: 36px;
+  min-width: 36px;
+}
+
+/* Mobile Favorite Action */
+.mobile-favorite-action {
+  @apply p-2 rounded-lg transition-colors touch-manipulation;
+  min-height: 36px;
+  min-width: 36px;
+}
+
+.mobile-favorite-action:hover {
+  transform: scale(1.1);
+}
+
+/* Mobile Delete Action */
+.mobile-delete-action {
+  @apply p-2 rounded-lg bg-[#2c3539]/50 text-gray-400 hover:text-red-400 transition-colors touch-manipulation;
+  min-height: 36px;
+  min-width: 36px;
+}
+
+.mobile-delete-action:hover {
+  transform: scale(1.1);
+}
+
+/* Mobile List View */
+.mobile-list-view {
+  @apply space-y-2;
+}
+
+.mobile-list-item {
+  @apply bg-gradient-to-r from-[#2c3539]/80 to-[#1a1a2e]/80 backdrop-blur-sm rounded-lg border border-gray-700/50 p-3 hover:border-[#ffbd59]/50 transition-all duration-200;
+  touch-action: manipulation;
+}
+
+.mobile-list-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Mobile List Content */
+.mobile-list-content {
+  @apply flex items-center gap-3;
+}
+
+.mobile-list-icon {
+  @apply p-2 rounded-lg flex-shrink-0;
+}
+
+.mobile-list-text {
+  @apply flex-1 min-w-0;
+}
+
+.mobile-list-title {
+  @apply font-semibold text-white truncate text-sm;
+}
+
+.mobile-list-meta {
+  @apply flex items-center gap-3 text-xs text-gray-400;
+}
+
+.mobile-list-actions {
+  @apply flex items-center gap-1;
+}
+
+/* Mobile Responsive Utilities */
+@media (max-width: 640px) {
+  .mobile-hide-xs {
+    display: none !important;
+  }
+  
+  .mobile-text-xs {
+    font-size: 0.75rem;
+  }
+  
+  .mobile-p-2 {
+    padding: 0.5rem;
+  }
+  
+  .mobile-gap-1 {
+    gap: 0.25rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .mobile-hide-sm {
+    display: none !important;
+  }
+}
+
+/* Mobile Animation Classes */
+.mobile-fade-in {
+  animation: mobileFadeIn 0.3s ease-in-out;
+}
+
+.mobile-slide-in-right {
+  animation: mobileSlideInRight 0.3s ease-in-out;
+}
+
+.mobile-slide-in-left {
+  animation: mobileSlideInLeft 0.3s ease-in-out;
+}
+
+.mobile-bounce-in {
+  animation: mobileBounceIn 0.4s ease-out;
+}
+
+@keyframes mobileFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mobileSlideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes mobileSlideInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes mobileBounceIn {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Mobile Focus States */
+.mobile-focus-ring:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: #ffbd59;
+  ring-offset: 2px;
+  ring-offset-color: #1a1a2e;
+}
+
+/* Mobile High Contrast Mode */
+@media (prefers-contrast: high) {
+  .mobile-card {
+    border-width: 2px;
+    border-color: #ffffff;
+  }
+  
+  .mobile-button {
+    border-width: 2px;
+    border-color: #ffffff;
+  }
+}
+
+/* Mobile Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-card,
+  .mobile-button,
+  .mobile-list-item {
+    transition: none;
+  }
+  
+  .mobile-card:hover,
+  .mobile-button:hover,
+  .mobile-list-item:hover {
+    transform: none;
+  }
+}

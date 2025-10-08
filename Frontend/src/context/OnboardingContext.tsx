@@ -100,7 +100,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     
     // Zeige Willkommens-Notification für Bauträger nach Abschluss der Guided Tour
     if (userRole === 'BAUTRAEGER' && user) {
-      // Debug: Temporär localStorage-Check entfernt für Test
+      // Prüfe ob Willkommens-Notification bereits einmalig angezeigt wurde
       const welcomeKey = `welcome_shown_${user.id}`;
       const alreadyShown = localStorage.getItem(welcomeKey);
       

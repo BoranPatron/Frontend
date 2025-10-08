@@ -6,6 +6,8 @@ import TradeProgress from './TradeProgress';
 import AcceptanceModal from './AcceptanceModalNew';
 import FinalAcceptanceModal from './FinalAcceptanceModal';
 import InvoiceManagementCard from './InvoiceManagementCard';
+import AddToContactBookButton from './AddToContactBookButton';
+import ContactBook from './ContactBook';
 
 // Tab System Components and Interfaces
 interface TabItem {
@@ -618,6 +620,8 @@ export default function SimpleCostEstimateModal({
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [communicationLoading, setCommunicationLoading] = useState(false);
+  const [isContactBookButtonClicked, setIsContactBookButtonClicked] = useState(false);
+  const [showContactBook, setShowContactBook] = useState(false);
   
   // Fortschritts-States
   const [currentProgress, setCurrentProgress] = useState(0);
@@ -1126,40 +1130,9 @@ export default function SimpleCostEstimateModal({
           console.error('❌ 401 Unauthorized beim Mängel-Laden - Token möglicherweise abgelaufen');
         }
         
-        // Fallback: Verwende Test-Daten für Demo-Zwecke wenn Status defects_resolved ist
-        if (completionStatus === 'defects_resolved') {
-          console.log('🔧 Verwende Fallback-Mängel für defects_resolved Status');
-          const fallbackDefects = [
-            {
-              id: 1,
-              title: 'Kratzer an der Wand',
-              description: 'Kleine Kratzer an der Wand im Wohnzimmer',
-              severity: 'MINOR',
-              location: 'Wohnzimmer',
-              room: 'Wohnzimmer',
-              photos: [],
-              resolved: true,
-              resolved_at: new Date().toISOString(),
-              task_id: null
-            },
-            {
-              id: 2,
-              title: 'Undichte Stelle',
-              description: 'Wassertropfen unter dem Waschbecken',
-              severity: 'MAJOR',
-              location: 'Badezimmer',
-              room: 'Badezimmer',
-              photos: [],
-              resolved: true,
-              resolved_at: new Date().toISOString(),
-              task_id: null
-            }
-          ];
-          setAcceptanceDefects(fallbackDefects);
-          console.log('✅ Fallback-Mängel gesetzt:', fallbackDefects);
-        } else {
-          setAcceptanceDefects([]);
-        }
+        // Keine Mock-Daten mehr verwenden - nur echte Daten vom Backend
+        console.log('⚠️ Keine Mängel-Daten vom Backend verfügbar');
+        setAcceptanceDefects([]);
       }
       
     } catch (error) {
@@ -2814,6 +2787,140 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                 </div>
               )}
             </div>
+            
+            {/* Progress Timeline */}
+            <div className="bg-gradient-to-br from-[#2c3539]/50 to-[#1a1a2e]/50 rounded-xl border border-gray-600/30 p-6">
+              <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+                <TrendingUp size={20} className="text-[#ffbd59]" />
+                Projekt-Fortschritt
+              </h3>
+              
+              {/* Progress Bar */}
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-cyan-300">Gesamtfortschritt</span>
+                  <span className="text-sm text-gray-400">
+                    {completionStatus === 'completed' ? '100%' : 
+                     completionStatus === 'completed_with_defects' ? '95%' : 
+                     completionStatus === 'completion_requested' ? '85%' :
+                     acceptedQuote ? '60%' : '20%'}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-3 shadow-inner">
+                  <div 
+                    className={`h-3 rounded-full transition-all duration-500 ${
+                      completionStatus === 'completed' ? 'bg-gradient-to-r from-green-500 to-green-400 w-full shadow-lg shadow-green-500/30' :
+                      completionStatus === 'completed_with_defects' ? 'bg-gradient-to-r from-yellow-500 to-yellow-400 w-[95%] shadow-lg shadow-yellow-500/30' :
+                      completionStatus === 'completion_requested' ? 'bg-gradient-to-r from-orange-500 to-orange-400 w-[85%] shadow-lg shadow-orange-500/30' :
+                      acceptedQuote ? 'bg-gradient-to-r from-cyan-500 to-blue-500 w-[60%] shadow-lg shadow-cyan-500/30' : 
+                      'bg-gradient-to-r from-blue-500 to-blue-400 w-[20%] shadow-lg shadow-blue-500/30'
+                    }`}
+                  />
+                </div>
+              </div>
+              
+              {/* Milestone Steps */}
+              <div className="space-y-4">
+                {[
+                  {
+                    step: 1,
+                    title: 'Angebot angenommen',
+                    description: `${acceptedQuote?.company_name || 'Anbieter'} beauftragt`,
+                    completed: !!acceptedQuote,
+                    current: false
+                  },
+                  {
+                    step: 2,
+                    title: 'Arbeiten in Ausführung',
+                    description: completionStatus === 'completion_requested' ? 'Fertigstellung gemeldet' : 'In Bearbeitung',
+                    completed: completionStatus !== 'in_progress',
+                    current: completionStatus === 'in_progress'
+                  },
+                  {
+                    step: 3,
+                    title: 'Abnahme durchführen',
+                    description: completionStatus === 'completed' ? 'Erfolgreich abgenommen' : 
+                               completionStatus === 'completed_with_defects' ? 'Unter Vorbehalt abgenommen' :
+                               completionStatus === 'completion_requested' ? 'Abnahme erforderlich' : 'Ausstehend',
+                    completed: completionStatus === 'completed',
+                    current: completionStatus === 'completion_requested' || completionStatus === 'defects_resolved'
+                  },
+                  {
+                    step: 4,
+                    title: 'Projekt abgeschlossen',
+                    description: completionStatus === 'completed' ? 'Vollständig fertiggestellt' : 'Noch ausstehend',
+                    completed: completionStatus === 'completed',
+                    current: false
+                  }
+                ].map((milestone) => (
+                  <div key={milestone.step} className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm border-2 ${
+                      milestone.completed 
+                        ? 'bg-green-500 border-green-400 text-white shadow-lg shadow-green-500/30' 
+                        : milestone.current
+                        ? 'bg-orange-500 border-orange-400 text-white shadow-lg shadow-orange-500/30 animate-pulse'
+                        : 'bg-gray-700 border-gray-600 text-gray-400'
+                    }`}>
+                      {milestone.completed ? <Check size={16} /> : milestone.step}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className={`font-medium ${
+                        milestone.completed ? 'text-green-300' :
+                        milestone.current ? 'text-orange-300' : 'text-gray-300'
+                      }`}>
+                        {milestone.title}
+                      </h4>
+                      <p className="text-gray-400 text-sm">{milestone.description}</p>
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                      milestone.completed ? 'bg-green-500/20 text-green-300' :
+                      milestone.current ? 'bg-orange-500/20 text-orange-300' :
+                      'bg-gray-500/20 text-gray-400'
+                    }`}>
+                      {milestone.completed ? '✓ Erledigt' : milestone.current ? '🔄 Aktuell' : 'Ausstehend'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Schedule Information */}
+              {(acceptedQuote?.start_date || acceptedQuote?.completion_date) && (
+                <div className="mt-6 pt-6 border-t border-gray-600/30">
+                  <h4 className="text-cyan-300 font-medium mb-3 flex items-center gap-2">
+                    <Calendar size={16} />
+                    Geplanter Zeitplan
+                  </h4>
+                  <div className="grid grid-cols-2 gap-6 text-sm">
+                    {acceptedQuote?.start_date && (
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                          <PlayCircle size={14} className="text-blue-400" />
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Geplanter Start</span>
+                          <div className="text-white font-medium">
+                            {new Date(acceptedQuote.start_date).toLocaleDateString('de-DE')}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {acceptedQuote?.completion_date && (
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
+                          <Flag size={14} className="text-green-400" />
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Geplante Fertigstellung</span>
+                          <div className="text-white font-medium">
+                            {new Date(acceptedQuote.completion_date).toLocaleDateString('de-DE')}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </TabPanel>
           
           {/* Offers Tab Panel */}
@@ -3390,36 +3497,64 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
               <div className="space-y-6">
                 {/* Communication Header */}
                 <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl p-6">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
-                      <MessageCircle size={24} />
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4 gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+                        <MessageCircle size={24} />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-white">Kommunikation mit {acceptedQuote.company_name}</h3>
+                        <p className="text-blue-200 text-sm">Direkte Kommunikation mit dem beauftragten Dienstleister</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-white">Kommunikation mit {acceptedQuote.company_name}</h3>
-                      <p className="text-blue-200 text-sm">Direkte Kommunikation mit dem beauftragten Dienstleister</p>
+                    
+                    {/* Contact Actions - All buttons in one horizontal line */}
+                    <div className="flex gap-3 flex-wrap items-center">
+                      {/* Add to Contact Book Button - Mobile responsive wrapper */}
+                      {!isContactBookButtonClicked && (
+                        <div className="[&_span]:hidden [&_span]:sm:inline">
+                          <AddToContactBookButton
+                            companyName={acceptedQuote.company_name}
+                            contactPerson={acceptedQuote.contact_person}
+                            email={acceptedQuote.email}
+                            phone={acceptedQuote.phone}
+                            website={acceptedQuote.website}
+                            companyAddress={acceptedQuote.company_address || acceptedQuote.address}
+                            category={trade.category}
+                            rating={acceptedQuote.rating}
+                            milestoneId={trade.id}
+                            milestoneTitle={trade.title}
+                            projectId={trade.project_id}
+                            projectName={project?.name}
+                            serviceProviderId={acceptedQuote.service_provider_id || acceptedQuote.user_id}
+                            onContactAdded={() => setIsContactBookButtonClicked(true)}
+                            onOpenContactBook={() => setShowContactBook(true)}
+                          />
+                        </div>
+                      )}
+                      
+                      {/* Quick Contact Actions */}
+                      {acceptedQuote.phone && (
+                        <a
+                          href={`tel:${acceptedQuote.phone}`}
+                          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                          title={`Anrufen: ${acceptedQuote.phone}`}
+                        >
+                          <Phone size={16} />
+                          <span className="hidden sm:inline">{acceptedQuote.phone}</span>
+                        </a>
+                      )}
+                      {acceptedQuote.email && (
+                        <a
+                          href={`mailto:${acceptedQuote.email}`}
+                          className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                          title={`E-Mail senden: ${acceptedQuote.email}`}
+                        >
+                          <Mail size={16} />
+                          <span className="hidden sm:inline">{acceptedQuote.email}</span>
+                        </a>
+                      )}
                     </div>
-                  </div>
-                  
-                  {/* Quick Contact Actions */}
-                  <div className="flex gap-3 flex-wrap">
-                    {acceptedQuote.phone && (
-                      <a
-                        href={`tel:${acceptedQuote.phone}`}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                      >
-                        <Phone size={16} />
-                        {acceptedQuote.phone}
-                      </a>
-                    )}
-                    {acceptedQuote.email && (
-                      <a
-                        href={`mailto:${acceptedQuote.email}`}
-                        className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-                      >
-                        <Mail size={16} />
-                        {acceptedQuote.email}
-                      </a>
-                    )}
                   </div>
                 </div>
                 
@@ -3442,103 +3577,6 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                     hideCompletionResponseControls={true}
                     hasAcceptedQuote={true}
                   />
-                </div>
-                
-                {/* Message History */}
-                <div className="bg-gradient-to-br from-[#2c3539]/50 to-[#1a1a2e]/50 rounded-xl border border-gray-600/30">
-                  <div className="p-6 border-b border-gray-600/30">
-                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                      <MessageCircle size={20} className="text-blue-400" />
-                      Nachrichten-Verlauf
-                      {messages.length > 0 && (
-                        <span className="px-2 py-1 bg-blue-500/20 text-blue-300 text-sm rounded-full font-medium">
-                          {messages.length}
-                        </span>
-                      )}
-                    </h3>
-                  </div>
-                  
-                  {/* Messages Container */}
-                  <div className="h-80 overflow-y-auto p-6">
-                    {communicationLoading ? (
-                      <div className="flex items-center justify-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
-                        <span className="ml-3 text-gray-400">Nachrichten werden geladen...</span>
-                      </div>
-                    ) : messages.length === 0 ? (
-                      <div className="text-center py-8">
-                        <MessageCircle size={48} className="text-gray-500 mx-auto mb-4" />
-                        <h4 className="text-lg font-medium text-gray-300 mb-2">Noch keine Nachrichten</h4>
-                        <p className="text-gray-400 text-sm">Starten Sie die Kommunikation mit dem Dienstleister.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {messages.map((message, index) => (
-                          <div
-                            key={message.id || index}
-                            className={`flex ${
-                              message.sender_type === 'bautraeger' ? 'justify-end' : 'justify-start'
-                            }`}
-                          >
-                            <div
-                              className={`max-w-[70%] rounded-lg p-3 ${
-                                message.sender_type === 'bautraeger'
-                                  ? 'bg-[#ffbd59] text-[#1a1a2e]'
-                                  : 'bg-gray-700 text-gray-100'
-                              }`}
-                            >
-                              <p className="text-sm">{message.message}</p>
-                              <div className="flex items-center justify-between mt-2 text-xs opacity-70">
-                                <span>
-                                  {message.sender_type === 'bautraeger' ? 'Sie' : acceptedQuote?.company_name || 'Dienstleister'}
-                                </span>
-                                <span>
-                                  {message.created_at 
-                                    ? new Date(message.created_at).toLocaleString('de-DE', {
-                                        day: '2-digit',
-                                        month: '2-digit',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                      })
-                                    : 'Jetzt'
-                                  }
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Message Input */}
-                  <div className="p-6 border-t border-gray-600/30">
-                    <div className="flex gap-3">
-                      <textarea
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Nachricht eingeben..."
-                        className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent resize-none"
-                        rows={2}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            sendMessage();
-                          }
-                        }}
-                      />
-                      <button
-                        onClick={sendMessage}
-                        disabled={!newMessage.trim() || communicationLoading}
-                        className="px-4 py-2 bg-[#ffbd59] hover:bg-[#ffa726] text-[#1a1a2e] rounded-lg font-medium transition-colors disabled:opacity-50 self-end"
-                      >
-                        {communicationLoading ? 'Senden...' : 'Senden'}
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-2">
-                      Drücken Sie Enter zum Senden, Shift+Enter für neue Zeile
-                    </p>
-                  </div>
                 </div>
               </div>
             ) : (
@@ -3596,140 +3634,6 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
                 
                 {/* Main Completion Workflow */}
                 {renderAbnahmeWorkflow()}
-                
-                {/* Progress Timeline */}
-                <div className="bg-gradient-to-br from-[#2c3539]/50 to-[#1a1a2e]/50 rounded-xl border border-gray-600/30 p-6">
-                  <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
-                    <TrendingUp size={20} className="text-[#ffbd59]" />
-                    Projekt-Fortschritt
-                  </h3>
-                  
-                  {/* Progress Bar */}
-                  <div className="mb-6">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-cyan-300">Gesamtfortschritt</span>
-                      <span className="text-sm text-gray-400">
-                        {completionStatus === 'completed' ? '100%' : 
-                         completionStatus === 'completed_with_defects' ? '95%' : 
-                         completionStatus === 'completion_requested' ? '85%' :
-                         acceptedQuote ? '60%' : '20%'}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-700 rounded-full h-3 shadow-inner">
-                      <div 
-                        className={`h-3 rounded-full transition-all duration-500 ${
-                          completionStatus === 'completed' ? 'bg-gradient-to-r from-green-500 to-green-400 w-full shadow-lg shadow-green-500/30' :
-                          completionStatus === 'completed_with_defects' ? 'bg-gradient-to-r from-yellow-500 to-yellow-400 w-[95%] shadow-lg shadow-yellow-500/30' :
-                          completionStatus === 'completion_requested' ? 'bg-gradient-to-r from-orange-500 to-orange-400 w-[85%] shadow-lg shadow-orange-500/30' :
-                          acceptedQuote ? 'bg-gradient-to-r from-cyan-500 to-blue-500 w-[60%] shadow-lg shadow-cyan-500/30' : 
-                          'bg-gradient-to-r from-blue-500 to-blue-400 w-[20%] shadow-lg shadow-blue-500/30'
-                        }`}
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Milestone Steps */}
-                  <div className="space-y-4">
-                    {[
-                      {
-                        step: 1,
-                        title: 'Angebot angenommen',
-                        description: `${acceptedQuote.company_name} beauftragt`,
-                        completed: !!acceptedQuote,
-                        current: false
-                      },
-                      {
-                        step: 2,
-                        title: 'Arbeiten in Ausführung',
-                        description: completionStatus === 'completion_requested' ? 'Fertigstellung gemeldet' : 'In Bearbeitung',
-                        completed: completionStatus !== 'in_progress',
-                        current: completionStatus === 'in_progress'
-                      },
-                      {
-                        step: 3,
-                        title: 'Abnahme durchführen',
-                        description: completionStatus === 'completed' ? 'Erfolgreich abgenommen' : 
-                                   completionStatus === 'completed_with_defects' ? 'Unter Vorbehalt abgenommen' :
-                                   completionStatus === 'completion_requested' ? 'Abnahme erforderlich' : 'Ausstehend',
-                        completed: completionStatus === 'completed',
-                        current: completionStatus === 'completion_requested' || completionStatus === 'defects_resolved'
-                      },
-                      {
-                        step: 4,
-                        title: 'Projekt abgeschlossen',
-                        description: completionStatus === 'completed' ? 'Vollständig fertiggestellt' : 'Noch ausstehend',
-                        completed: completionStatus === 'completed',
-                        current: false
-                      }
-                    ].map((milestone) => (
-                      <div key={milestone.step} className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm border-2 ${
-                          milestone.completed 
-                            ? 'bg-green-500 border-green-400 text-white shadow-lg shadow-green-500/30' 
-                            : milestone.current
-                            ? 'bg-orange-500 border-orange-400 text-white shadow-lg shadow-orange-500/30 animate-pulse'
-                            : 'bg-gray-700 border-gray-600 text-gray-400'
-                        }`}>
-                          {milestone.completed ? <Check size={16} /> : milestone.step}
-                        </div>
-                        <div className="flex-1">
-                          <h4 className={`font-medium ${
-                            milestone.completed ? 'text-green-300' :
-                            milestone.current ? 'text-orange-300' : 'text-gray-300'
-                          }`}>
-                            {milestone.title}
-                          </h4>
-                          <p className="text-gray-400 text-sm">{milestone.description}</p>
-                        </div>
-                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                          milestone.completed ? 'bg-green-500/20 text-green-300' :
-                          milestone.current ? 'bg-orange-500/20 text-orange-300' :
-                          'bg-gray-500/20 text-gray-400'
-                        }`}>
-                          {milestone.completed ? '✓ Erledigt' : milestone.current ? '🔄 Aktuell' : 'Ausstehend'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {/* Schedule Information */}
-                  {(acceptedQuote.start_date || acceptedQuote.completion_date) && (
-                    <div className="mt-6 pt-6 border-t border-gray-600/30">
-                      <h4 className="text-cyan-300 font-medium mb-3 flex items-center gap-2">
-                        <Calendar size={16} />
-                        Geplanter Zeitplan
-                      </h4>
-                      <div className="grid grid-cols-2 gap-6 text-sm">
-                        {acceptedQuote.start_date && (
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                              <PlayCircle size={14} className="text-blue-400" />
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Geplanter Start</span>
-                              <div className="text-white font-medium">
-                                {new Date(acceptedQuote.start_date).toLocaleDateString('de-DE')}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        {acceptedQuote.completion_date && (
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
-                              <Flag size={14} className="text-green-400" />
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Geplante Fertigstellung</span>
-                              <div className="text-white font-medium">
-                                {new Date(acceptedQuote.completion_date).toLocaleDateString('de-DE')}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
                 
               </div>
             ) : (
@@ -3947,6 +3851,12 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
           }}
         />
       )}
+
+      {/* Contact Book Modal */}
+      <ContactBook
+        isOpen={showContactBook}
+        onClose={() => setShowContactBook(false)}
+      />
     </div>
   );
 };

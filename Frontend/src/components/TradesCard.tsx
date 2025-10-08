@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Wrench, User, Euro, BarChart3, Calendar, Tag, CheckCircle, XCircle, AlertTriangle, Eye, FileText, ChevronDown, ChevronUp, Clock, Users, Trophy, Sparkles, MessageCircle, Edit, Trash2, MoreHorizontal, StickyNote } from 'lucide-react';
+import { Wrench, User, Euro, BarChart3, Calendar, Tag, CheckCircle, XCircle, AlertTriangle, Eye, FileText, ChevronDown, ChevronUp, Clock, Users, Trophy, Sparkles, MessageCircle, Edit, Trash2, MoreHorizontal, StickyNote, Mail } from 'lucide-react';
 import { updateMilestone, deleteMilestone } from '../api/milestoneService';
 import { useNavigate } from 'react-router-dom';
 import { getQuotesForMilestone } from '../api/quoteService';
 import { TRADE_CATEGORIES } from '../constants/tradeCategories';
+import { useAuth } from '../context/AuthContext';
 
 interface Trade {
   id: number;
@@ -23,6 +24,11 @@ interface Trade {
   requires_inspection?: boolean;
   created_at: string;
   updated_at: string;
+  // Benachrichtigungssystem für ungelesene Nachrichten
+  has_unread_messages_bautraeger?: boolean;
+  has_unread_messages_dienstleister?: boolean;
+  // Legacy: Behalten für Rückwärtskompatibilität
+  has_unread_messages?: boolean;
 }
 
 interface QuoteData {
@@ -80,6 +86,7 @@ export default function TradesCard({
   tradeAppointments = {}
 }: TradesCardProps) {
   const navigate = useNavigate();
+  const { isBautraeger } = useAuth();
   const [showAll, setShowAll] = useState(false);
   const [quoteData, setQuoteData] = useState<{ [tradeId: number]: QuoteData | null }>({});
   const [quoteStatus, setQuoteStatus] = useState<{ [tradeId: number]: string }>({});
@@ -689,8 +696,30 @@ export default function TradesCard({
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-[#ffbd59]/20 rounded-lg">
-                          <Wrench size={16} className="text-[#ffbd59]" />
+                        <div className="relative">
+                          <div className="p-2 bg-[#ffbd59]/20 rounded-lg">
+                            <Wrench size={16} className="text-[#ffbd59]" />
+                          </div>
+                          {/* Brief-Symbol für ungelesene Nachrichten - USER-SPEZIFISCH */}
+                          {(() => {
+                            const isBautraegerUser = isBautraeger();
+                            const userSpecificUnreadMessages = isBautraegerUser 
+                              ? (trade.has_unread_messages_bautraeger || false)
+                              : (trade.has_unread_messages_dienstleister || false);
+                            
+                            return userSpecificUnreadMessages && (
+                              <Mail 
+                                size={20} 
+                                className="absolute -top-3 -right-3 text-green-500 animate-pulse" 
+                                style={{
+                                  animationDuration: '0.6s',
+                                  zIndex: 9999,
+                                  filter: 'drop-shadow(0 0 4px #00ff00)',
+                                  fontWeight: 'bold'
+                                }}
+                              />
+                            );
+                          })()}
                         </div>
                         <div className="flex-1 min-w-0">
                           <h4 className="text-white font-medium text-sm truncate">{effectiveTrade.title}</h4>
@@ -731,7 +760,8 @@ export default function TradesCard({
                                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600/30 via-cyan-500/30 to-blue-600/30 border border-blue-400/40 rounded-full cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20">
                                     <div className="flex items-center gap-1.5">
                                       <Calendar size={12} className="text-blue-300" />
-                                      <span className="text-xs font-semibold text-blue-200">
+                                      {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                                      <span className="text-xs font-semibold text-blue-200 hidden md:inline">
                                         🗓️ Besichtigung
                                       </span>
                                     </div>
@@ -770,7 +800,8 @@ export default function TradesCard({
                                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600/30 via-emerald-500/30 to-green-600/30 border border-green-400/40 rounded-full cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-green-500/20 animate-pulse-slow hover:animate-none">
                                     <div className="flex items-center gap-1.5">
                                       <Trophy size={12} className="text-green-300" />
-                                      <span className="text-xs font-semibold text-green-200">
+                                      {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                                      <span className="text-xs font-semibold text-green-200 hidden md:inline">
                                         ✓ Angenommen
                                       </span>
                                       <Sparkles size={10} className="text-yellow-300 animate-sparkle" />
@@ -862,26 +893,29 @@ export default function TradesCard({
                                           {actualCompletionStatus === 'completion_requested' ? (
                                             <>
                                               <Clock size={12} className="text-orange-200" />
-                                              <span className="text-xs font-semibold text-orange-200">
+                                              {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                                              <span className="text-xs font-semibold text-orange-200 hidden md:inline">
                                                 🔄 Als fertiggestellt markiert
                                               </span>
                                             </>
                                           ) : actualCompletionStatus === 'completed' ? (
                                             <>
                                               <CheckCircle size={12} className="text-green-200" />
-                                              <span className="text-xs font-semibold text-green-200">
+                                              {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                                              <span className="text-xs font-semibold text-green-200 hidden md:inline">
                                                 ✅ Abgeschlossen
                                               </span>
                                             </>
                                           ) : actualCompletionStatus === 'completed_with_defects' ? (
                                             <>
                                               <AlertTriangle size={12} className="text-yellow-200" />
-                                              <span className="text-xs font-semibold text-yellow-200">
+                                              {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                                              <span className="text-xs font-semibold text-yellow-200 hidden md:inline">
                                                 ⚠️ Unter Vorbehalt
                                               </span>
                                             </>
                                           ) : (
-                                            <span className="text-xs font-semibold text-gray-200">{actualCompletionStatus}</span>
+                                            <span className="text-xs font-semibold text-gray-200 hidden md:inline">{actualCompletionStatus}</span>
                                           )}
                                         </div>
                                         
@@ -938,21 +972,51 @@ export default function TradesCard({
 
                               {/* Offene Angebote mit verbessertem Design */}
                               {!tradeStatsForTrade?.acceptedQuote && (tradeStatsForTrade?.pendingQuotes || 0) > 0 && (
-                                <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-500/20 border border-blue-500/30 rounded-full hover:bg-blue-500/30 transition-colors">
-                                  <Clock size={12} className="text-blue-400" />
-                                  <span className="text-xs text-blue-300 font-medium">
-                                    {tradeStatsForTrade?.pendingQuotes || 0} offen
-                                  </span>
+                                <div className="relative group">
+                                  <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-500/20 border border-blue-500/30 rounded-full hover:bg-blue-500/30 transition-colors">
+                                    <Clock size={12} className="text-blue-400" />
+                                    {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                                    <span className="text-xs text-blue-300 font-medium hidden md:inline">
+                                      {tradeStatsForTrade?.pendingQuotes || 0} offen
+                                    </span>
+                                    {/* Mobile: Anzahl als Badge */}
+                                    <span className="md:hidden absolute -top-1 -right-1 w-4 h-4 bg-blue-400 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                                      {tradeStatsForTrade?.pendingQuotes || 0}
+                                    </span>
+                                  </div>
+                                  
+                                  {/* Tooltip für Mobile */}
+                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                                      {tradeStatsForTrade?.pendingQuotes || 0} offene Angebote
+                                    </div>
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                                  </div>
                                 </div>
                               )}
                               
                               {/* Abgelehnte Angebote */}
                               {(tradeStatsForTrade?.rejectedQuotes || 0) > 0 && (
-                                <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-500/20 border border-red-500/30 rounded-full">
-                                  <XCircle size={12} className="text-red-400" />
-                                  <span className="text-xs text-red-300 font-medium">
-                                    {tradeStatsForTrade?.rejectedQuotes || 0} abgelehnt
-                                  </span>
+                                <div className="relative group">
+                                  <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-500/20 border border-red-500/30 rounded-full">
+                                    <XCircle size={12} className="text-red-400" />
+                                    {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                                    <span className="text-xs text-red-300 font-medium hidden md:inline">
+                                      {tradeStatsForTrade?.rejectedQuotes || 0} abgelehnt
+                                    </span>
+                                    {/* Mobile: Anzahl als Badge */}
+                                    <span className="md:hidden absolute -top-1 -right-1 w-4 h-4 bg-red-400 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                                      {tradeStatsForTrade?.rejectedQuotes || 0}
+                                    </span>
+                                  </div>
+                                  
+                                  {/* Tooltip für Mobile */}
+                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                                      {tradeStatsForTrade?.rejectedQuotes || 0} abgelehnte Angebote
+                                    </div>
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -963,9 +1027,27 @@ export default function TradesCard({
                       {/* Aktionen */}
                       <div className="flex flex-col gap-1 items-end">
                         <div className="flex items-center gap-2">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(effectiveTrade.priority)}`}>
-                            {getPriorityLabel(effectiveTrade.priority)}
-                          </span>
+                          <div className="relative group">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(effectiveTrade.priority)}`}>
+                              {/* Mobile: Nur Icon, Desktop: Text */}
+                              <span className="hidden md:inline">{getPriorityLabel(effectiveTrade.priority)}</span>
+                              {/* Mobile: Prioritäts-Icon */}
+                              <div className="md:hidden">
+                                {effectiveTrade.priority === 'low' && <div className="w-2 h-2 bg-green-400 rounded-full"></div>}
+                                {effectiveTrade.priority === 'medium' && <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>}
+                                {effectiveTrade.priority === 'high' && <div className="w-2 h-2 bg-orange-400 rounded-full"></div>}
+                                {effectiveTrade.priority === 'critical' && <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>}
+                              </div>
+                            </span>
+                            
+                            {/* Tooltip für Mobile */}
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                              <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                                Priorität: {getPriorityLabel(effectiveTrade.priority)}
+                              </div>
+                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                            </div>
+                          </div>
                           {/* Bearbeiten/Löschen Aktionen */}
                           <div className="flex items-center gap-2">
                             {/* Bearbeiten-Button: erlaubt nur wenn keine Angebote vorhanden */}
@@ -977,15 +1059,26 @@ export default function TradesCard({
                                 ? 'Bearbeiten nicht möglich, Angebot wurde bereits angenommen'
                                 : (hasAnyQuote ? 'Bearbeiten nicht möglich, es liegen bereits Angebote vor' : 'Gewerk bearbeiten');
                               return (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); if (!disabled) openEditModal(effectiveTrade); }}
-                                  className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${disabled ? 'bg-white/5 text-gray-400 cursor-not-allowed opacity-50' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                                  title={title}
-                                  disabled={disabled}
-                                >
-                                  <Edit className="w-3 h-3" />
-                                  Bearbeiten
-                                </button>
+                                <div className="relative group">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); if (!disabled) openEditModal(effectiveTrade); }}
+                                    className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${disabled ? 'bg-white/5 text-gray-400 cursor-not-allowed opacity-50' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                                    title={title}
+                                    disabled={disabled}
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                    {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                                    <span className="hidden md:inline">Bearbeiten</span>
+                                  </button>
+                                  
+                                  {/* Tooltip für Mobile */}
+                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                                      Gewerk bearbeiten
+                                    </div>
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                                  </div>
+                                </div>
                               );
                             })()}
                             {/* Löschen-Button: nur wenn keine Angebote vorhanden */}
@@ -993,15 +1086,26 @@ export default function TradesCard({
                               const canDelete = canEditOrDeleteTrade(trade.id);
                               const title = canDelete ? 'Gewerk löschen' : 'Löschen nicht möglich, es liegen bereits Angebote vor';
                               return (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); if (canDelete) setShowDeleteConfirm(prev => ({ ...prev, [trade.id]: true })); }}
-                                  className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${canDelete ? 'bg-red-500/10 text-red-300 hover:bg-red-500/20' : 'bg-white/5 text-gray-400 cursor-not-allowed opacity-50'}`}
-                                  title={title}
-                                  disabled={!canDelete}
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                  Löschen
-                                </button>
+                                <div className="relative group">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); if (canDelete) setShowDeleteConfirm(prev => ({ ...prev, [trade.id]: true })); }}
+                                    className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${canDelete ? 'bg-red-500/10 text-red-300 hover:bg-red-500/20' : 'bg-white/5 text-gray-400 cursor-not-allowed opacity-50'}`}
+                                    title={title}
+                                    disabled={!canDelete}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                                    <span className="hidden md:inline">Löschen</span>
+                                  </button>
+                                  
+                                  {/* Tooltip für Mobile */}
+                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                                      Gewerk löschen
+                                    </div>
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                                  </div>
+                                </div>
                               );
                             })()}
                           </div>
@@ -1011,46 +1115,109 @@ export default function TradesCard({
 
                     <div className="grid grid-cols-2 gap-2 text-xs text-gray-400 mt-2">
                       {effectiveTrade.planned_date && (
-                        <div className="flex items-center gap-1">
+                        <div className="relative group flex items-center gap-1">
                           <Calendar size={12} className="text-[#ffbd59]" />
-                          <span>Geplant: {formatDate(effectiveTrade.planned_date)}</span>
+                          {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                          <span className="hidden md:inline">Geplant: {formatDate(effectiveTrade.planned_date)}</span>
+                          {/* Mobile: Nur Datum */}
+                          <span className="md:hidden">{formatDate(effectiveTrade.planned_date)}</span>
+                          
+                          {/* Tooltip für Mobile */}
+                          <div className="absolute bottom-full left-0 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                            <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                              Geplant: {formatDate(effectiveTrade.planned_date)}
+                            </div>
+                            <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                          </div>
                         </div>
                       )}
                       
                       {effectiveTrade.contractor && (
-                        <div className="flex items-center gap-1">
+                        <div className="relative group flex items-center gap-1">
                           <User size={12} className="text-[#ffbd59]" />
-                          <span className="truncate">{effectiveTrade.contractor}</span>
+                          {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                          <span className="truncate hidden md:inline">{effectiveTrade.contractor}</span>
+                          {/* Mobile: Nur Icon mit Tooltip */}
+                          <div className="md:hidden">
+                            <div className="absolute bottom-full left-0 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100]">
+                              <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                                Dienstleister: {effectiveTrade.contractor}
+                              </div>
+                              <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                            </div>
+                          </div>
                         </div>
                       )}
                       
                       {effectiveTrade.budget && effectiveTrade.budget > 0 && (
-                        <div className="flex items-center gap-1">
+                        <div className="relative group flex items-center gap-1">
                           <Euro size={12} className="text-[#ffbd59]" />
-                          <span>{effectiveTrade.budget.toLocaleString('de-DE')} €</span>
+                          {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                          <span className="hidden md:inline">{effectiveTrade.budget.toLocaleString('de-DE')} €</span>
+                          {/* Mobile: Nur Betrag */}
+                          <span className="md:hidden">{effectiveTrade.budget.toLocaleString('de-DE')} €</span>
+                          
+                          {/* Tooltip für Mobile */}
+                          <div className="absolute bottom-full left-0 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                            <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                              Budget: {effectiveTrade.budget.toLocaleString('de-DE')} €
+                            </div>
+                            <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                          </div>
                         </div>
                       )}
                       
                       {effectiveTrade.start_date && (
-                        <div className="flex items-center gap-1">
+                        <div className="relative group flex items-center gap-1">
                           <Calendar size={12} className="text-[#ffbd59]" />
-                          <span>Start: {formatDate(effectiveTrade.start_date)}</span>
+                          {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                          <span className="hidden md:inline">Start: {formatDate(effectiveTrade.start_date)}</span>
+                          {/* Mobile: Nur Datum */}
+                          <span className="md:hidden">{formatDate(effectiveTrade.start_date)}</span>
+                          
+                          {/* Tooltip für Mobile */}
+                          <div className="absolute bottom-full left-0 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                            <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                              Start: {formatDate(effectiveTrade.start_date)}
+                            </div>
+                            <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                          </div>
                         </div>
                       )}
                       
                       {(effectiveTrade as any).requires_inspection || (effectiveTrade as any).inspection_required ? (
-                        <div className="flex items-center gap-1">
+                        <div className="relative group flex items-center gap-1">
                           <Eye size={12} className="text-blue-400" />
-                          <span>Besichtigung erforderlich</span>
+                          {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                          <span className="hidden md:inline">Besichtigung erforderlich</span>
+                          
+                          {/* Tooltip für Mobile */}
+                          <div className="absolute bottom-full left-0 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                            <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                              Besichtigung erforderlich
+                            </div>
+                            <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                          </div>
                         </div>
                       ) : null}
                       
 
                       
                       {effectiveTrade.progress_percentage > 0 && (
-                        <div className="flex items-center gap-1">
+                        <div className="relative group flex items-center gap-1">
                           <BarChart3 size={12} className="text-green-400" />
-                          <span>{effectiveTrade.progress_percentage}% abgeschlossen</span>
+                          {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                          <span className="hidden md:inline">{effectiveTrade.progress_percentage}% abgeschlossen</span>
+                          {/* Mobile: Nur Prozent */}
+                          <span className="md:hidden">{effectiveTrade.progress_percentage}%</span>
+                          
+                          {/* Tooltip für Mobile */}
+                          <div className="absolute bottom-full left-0 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                            <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                              {effectiveTrade.progress_percentage}% abgeschlossen
+                            </div>
+                            <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1072,33 +1239,85 @@ export default function TradesCard({
 
                     <div className="mt-3 flex flex-wrap gap-2">
                       {effectiveTrade.category && (
-                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-[#ffbd59]/20 text-[#ffbd59] border border-[#ffbd59]/30">
-                          <Tag size={10} />
-                          {getCategoryLabel(effectiveTrade.category)}
-                        </span>
+                        <div className="relative group">
+                          <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-[#ffbd59]/20 text-[#ffbd59] border border-[#ffbd59]/30">
+                            <Tag size={10} />
+                            {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                            <span className="hidden md:inline">{getCategoryLabel(effectiveTrade.category)}</span>
+                          </span>
+                          
+                          {/* Tooltip für Mobile */}
+                          <div className="absolute bottom-full left-0 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                            <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                              {getCategoryLabel(effectiveTrade.category)}
+                            </div>
+                            <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                          </div>
+                        </div>
                       )}
                       
                       {(effectiveTrade.notes || effectiveTrade.description) && (
-                        <span 
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30 cursor-help" 
-                          title={effectiveTrade.notes || effectiveTrade.description || 'Beschreibung & Leistungsumfang verfügbar'}
-                        >
-                          <StickyNote size={10} />
-                          Beschreibung & Leistungsumfang
-                        </span>
+                        <div className="relative group">
+                          <span 
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30 cursor-help" 
+                            title={effectiveTrade.notes || effectiveTrade.description || 'Beschreibung & Leistungsumfang verfügbar'}
+                          >
+                            <StickyNote size={10} />
+                            {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                            <span className="hidden md:inline">Beschreibung & Leistungsumfang</span>
+                          </span>
+                          
+                          {/* Tooltip für Mobile */}
+                          <div className="absolute bottom-full left-0 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                            <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                              Beschreibung & Leistungsumfang
+                            </div>
+                            <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                          </div>
+                        </div>
                       )}
                       
                       {(trade.requires_inspection || (trade as any).inspection_required) && (
-                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                          <Eye size={10} />
-                          Besichtigung erforderlich
-                        </span>
+                        <div className="relative group">
+                          <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                            <Eye size={10} />
+                            {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                            <span className="hidden md:inline">Besichtigung erforderlich</span>
+                          </span>
+                          
+                          {/* Tooltip für Mobile */}
+                          <div className="absolute bottom-full left-0 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                            <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                              Besichtigung erforderlich
+                            </div>
+                            <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                          </div>
+                        </div>
                       )}
                       
                       {effectiveTrade.status && (
-                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${getTradeStatusColor(trade.status)}`}>
-                          {getTradeStatusLabel(effectiveTrade.status)}
-                        </span>
+                        <div className="relative group">
+                          <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${getTradeStatusColor(trade.status)}`}>
+                            {/* Mobile: Nur Icon, Desktop: Text */}
+                            <span className="hidden md:inline">{getTradeStatusLabel(effectiveTrade.status)}</span>
+                            {/* Mobile: Status-Icon */}
+                            <div className="md:hidden">
+                              {effectiveTrade.status === 'planned' && <div className="w-2 h-2 bg-blue-400 rounded-full"></div>}
+                              {effectiveTrade.status === 'in_progress' && <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>}
+                              {effectiveTrade.status === 'completed' && <div className="w-2 h-2 bg-green-400 rounded-full"></div>}
+                              {effectiveTrade.status === 'delayed' && <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>}
+                              {effectiveTrade.status === 'cancelled' && <div className="w-2 h-2 bg-red-400 rounded-full"></div>}
+                            </div>
+                          </span>
+                          
+                          {/* Tooltip für Mobile */}
+                          <div className="absolute bottom-full left-0 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                            <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                              Status: {getTradeStatusLabel(effectiveTrade.status)}
+                            </div>
+                            <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                          </div>
+                        </div>
                       )}
                     </div>
 
@@ -1173,41 +1392,74 @@ export default function TradesCard({
                         <div className="mt-3 flex flex-wrap gap-2">
                           {currentQuoteStatus === 'submitted' && (
                             <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAcceptQuote(trade.id);
-                                }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg text-xs font-medium hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
-                              >
-                                <CheckCircle size={12} />
-                                Angebot annehmen
-                              </button>
+                              <div className="relative group">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAcceptQuote(trade.id);
+                                  }}
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg text-xs font-medium hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
+                                >
+                                  <CheckCircle size={12} />
+                                  {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                                  <span className="hidden md:inline">Angebot annehmen</span>
+                                </button>
+                                
+                                {/* Tooltip für Mobile */}
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                                  <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                                    Angebot annehmen
+                                  </div>
+                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                                </div>
+                              </div>
                               
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setShowRejectModal(prev => ({ ...prev, [trade.id]: true }));
-                                }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg text-xs font-medium hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
-                              >
-                                <XCircle size={12} />
-                                Angebot ablehnen
-                              </button>
+                              <div className="relative group">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowRejectModal(prev => ({ ...prev, [trade.id]: true }));
+                                  }}
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg text-xs font-medium hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
+                                >
+                                  <XCircle size={12} />
+                                  {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                                  <span className="hidden md:inline">Angebot ablehnen</span>
+                                </button>
+                                
+                                {/* Tooltip für Mobile */}
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                                  <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                                    Angebot ablehnen
+                                  </div>
+                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                                </div>
+                              </div>
                             </>
                           )}
                           
                           {currentQuoteStatus === 'accepted' && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleResetQuote(trade.id);
-                              }}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg text-xs font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
-                            >
-                              <AlertTriangle size={12} />
-                              Angebot zurücksetzen
-                            </button>
+                            <div className="relative group">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleResetQuote(trade.id);
+                                }}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg text-xs font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
+                              >
+                                <AlertTriangle size={12} />
+                                {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                                <span className="hidden md:inline">Angebot zurücksetzen</span>
+                              </button>
+                              
+                              {/* Tooltip für Mobile */}
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100] md:hidden">
+                                <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-lg border border-gray-600/50 backdrop-blur-sm whitespace-nowrap">
+                                  Angebot zurücksetzen
+                                </div>
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                              </div>
+                            </div>
                           )}
                           
                           {currentQuoteStatus === 'rejected' && currentQuoteData.rejection_reason && (

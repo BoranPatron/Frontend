@@ -30,7 +30,8 @@ import {
   Users,
   Calendar,
   BarChart,
-  ChevronDown
+  ChevronDown,
+  Mail
 } from 'lucide-react';
 
 import CostEstimateForm from '../components/CostEstimateForm';
@@ -44,8 +45,9 @@ import InvoiceManagementModal from '../components/InvoiceManagementModal';
 import ResourceManagementModal from '../components/ResourceManagementModal';
 import ResourceCalendar from '../components/ResourceCalendar';
 import ResourceKPIDashboard from '../components/ResourceKPIDashboard';
+import ServiceProviderDocumentTab from '../components/ServiceProviderDocumentTab';
+import UserRankDisplay from '../components/UserRankDisplay';
 
-import { RadialMenu } from '../components/RadialMenu';
 import KanbanBoard from '../components/KanbanBoard';
 import { 
   searchTradesInRadius, 
@@ -414,42 +416,65 @@ export default function ServiceProviderDashboard() {
       if (tradeResponse.ok) {
         const trade = await tradeResponse.json();
         
-        // Lade Projekt-Informationen
+        // Lade Projekt-Informationen (mit Fehlerbehandlung für 403)
         if (trade.project_id && trade.project_id !== 0) {
-          const projectResponse = await fetch(`http://localhost:8000/api/v1/projects/${trade.project_id}`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (projectResponse.ok) {
-            const project = await projectResponse.json();
-            
-            // Lade Bauträger-Informationen
-            if (project.owner_id) {
-              const userResponse = await fetch(`http://localhost:8000/api/v1/users/${project.owner_id}`, {
-                headers: {
-                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                  'Content-Type': 'application/json'
-                }
-              });
-              
-              if (userResponse.ok) {
-                const bautraeger = await userResponse.json();
-                return {
-                  ...allocation,
-                  trade,
-                  project,
-                  bautraeger
-                };
+          try {
+            const projectResponse = await fetch(`http://localhost:8000/api/v1/projects/${trade.project_id}`, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
               }
-            }
+            });
             
+            if (projectResponse.ok) {
+              const project = await projectResponse.json();
+              
+              // Lade Bauträger-Informationen
+              if (project.owner_id) {
+                const userResponse = await fetch(`http://localhost:8000/api/v1/users/${project.owner_id}`, {
+                  headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Content-Type': 'application/json'
+                  }
+                });
+                
+                if (userResponse.ok) {
+                  const bautraeger = await userResponse.json();
+                  return {
+                    ...allocation,
+                    trade,
+                    project,
+                    bautraeger
+                  };
+                }
+              }
+              
+              return {
+                ...allocation,
+                trade,
+                project
+              };
+            } else if (projectResponse.status === 403) {
+              console.warn('⚠️ ServiceProviderDashboard: Keine Berechtigung für Projekt', trade.project_id, '- überspringe Projekt-Details');
+              return {
+                ...allocation,
+                trade,
+                project: null
+              };
+            } else {
+              console.error('❌ ServiceProviderDashboard: Fehler beim Laden des Projekts', trade.project_id, ':', projectResponse.status);
+              return {
+                ...allocation,
+                trade,
+                project: null
+              };
+            }
+          } catch (error) {
+            console.error('❌ ServiceProviderDashboard: Fehler beim Laden des Projekts', trade.project_id, ':', error);
             return {
               ...allocation,
               trade,
-              project
+              project: null
             };
           }
         }
@@ -476,13 +501,24 @@ export default function ServiceProviderDashboard() {
       // Lade auch die Allokationen für Markierungen
       const allocations = await resourceService.getMyAllocations();
       
-      // Erweitere Allokationen mit Trade- und Projekt-Informationen
-      const extendedAllocations = await Promise.all(
-        allocations.map(allocation => loadAllocationDetails(allocation))
+      // Filtere ungültige Allocations VOR der Verarbeitung (trade_id = 0)
+      const validAllocationsBeforeProcessing = allocations.filter(allocation => {
+        if (!allocation.trade_id || allocation.trade_id === 0) {
+          console.warn('⚠️ ServiceProviderDashboard: Überspringe Allocation mit ungültiger trade_id:', allocation.trade_id);
+          return false;
+        }
+        return true;
+      });
+      
+      // Erweitere Allokationen mit Trade- und Projekt-Informationen (mit Fehlerbehandlung)
+      const extendedAllocations = await Promise.allSettled(
+        validAllocationsBeforeProcessing.map(allocation => loadAllocationDetails(allocation))
       );
       
-      // Filtere ungültige Allocations heraus (null Werte)
-      const validAllocations = extendedAllocations.filter(allocation => allocation !== null);
+      // Filtere erfolgreiche Allocations heraus
+      const validAllocations = extendedAllocations
+        .filter(result => result.status === 'fulfilled' && result.value !== null)
+        .map(result => result.value);
       
       setResourceAllocations(validAllocations);
       
@@ -632,6 +668,19 @@ export default function ServiceProviderDashboard() {
       }
     }
   }, [location.search, trades, geoTrades]);
+
+  // Handler für das Schließen des CostEstimateForm Modals
+  const handleCloseCostEstimateForm = () => {
+    setShowCostEstimateForm(false);
+    setSelectedTradeForQuote(null);
+    
+    // Entferne auch den URL-Parameter falls er noch vorhanden ist
+    const urlParams = new URLSearchParams(location.search);
+    if (urlParams.get('quote')) {
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  };
 
   // Event-Listener für Benachrichtigungs-Klicks (TradeDetailsModal öffnen)
   useEffect(() => {
@@ -835,22 +884,22 @@ export default function ServiceProviderDashboard() {
     }
   }, [currentLocation, radiusKm, geoTradeCategory, geoTradeStatus, geoTradePriority, geoMinBudget, geoMaxBudget]);
 
-  // Periodischer Refresh der Trade-Daten für aktuelle Projekte
-  useEffect(() => {
-    const refreshInterval = setInterval(() => {
-      const tradesWithQuotes = getAllTradesWithQuotes;
-      const activeTradeIds = tradesWithQuotes
-        .filter((trade: any) => getServiceProviderQuoteStatus(trade.id) === 'accepted')
-        .map((trade: any) => trade.id);
-      
-      if (activeTradeIds.length > 0) {
-        console.log('🔄 Periodischer Refresh für aktive Trades:', activeTradeIds);
-        activeTradeIds.forEach(tradeId => refreshTradeData(tradeId));
-      }
-    }, 60000); // Alle 60 Sekunden
-
-    return () => clearInterval(refreshInterval);
-  }, []);
+  // Periodischer Refresh der Trade-Daten für aktuelle Projekte (DEAKTIVIERT)
+  // useEffect(() => {
+  //   const refreshInterval = setInterval(() => {
+  //     // getAllTradesWithQuotes ist bereits ein useMemo, keine Funktion
+  //     const activeTradeIds = getAllTradesWithQuotes
+  //       .filter((trade: any) => getServiceProviderQuoteStatus(trade.id) === 'accepted')
+  //       .map((trade: any) => trade.id);
+  //     
+  //     if (activeTradeIds.length > 0) {
+  //       console.log('🔄 Periodischer Refresh für aktive Trades:', activeTradeIds);
+  //       activeTradeIds.forEach(tradeId => refreshTradeData(tradeId));
+  //     }
+  //   }, 60000); // Alle 60 Sekunden
+  //
+  //   return () => clearInterval(refreshInterval);
+  // }, []);
 
   // Auto-Dismissal Logic: Clear errors wenn entsprechende API erfolgreich wird
   useEffect(() => {
@@ -885,6 +934,16 @@ export default function ServiceProviderDashboard() {
       // Dienstleister: alle Milestones (Ausschreibungen) global laden
       const tradesData = await getAllMilestones();
       console.log('🔍 loadTrades: Milestones geladen:', tradesData.length, 'Trades');
+      
+      // Debug: Prüfe has_unread_messages Status - DIENSTLEISTER-SPEZIFISCH
+      tradesData.forEach((trade: any) => {
+        const dienstleisterUnread = trade.has_unread_messages_dienstleister || false;
+        console.log(`🔍 Trade ${trade.id} (${trade.title}): has_unread_messages_dienstleister = ${dienstleisterUnread} (type: ${typeof dienstleisterUnread})`);
+        if (dienstleisterUnread) {
+          console.log(`📧 Trade ${trade.id} (${trade.title}): Dienstleister hat ungelesene Nachrichten = ${dienstleisterUnread}`);
+        }
+      });
+      
       setTrades(tradesData);
       
       // Debug: Prüfe ob Error-State korrekt zurückgesetzt wird
@@ -1052,7 +1111,10 @@ export default function ServiceProviderDashboard() {
           }
         });
         
-        const loadedTrades = (await Promise.all(tradePromises)).filter(Boolean);
+        const tradeResults = await Promise.allSettled(tradePromises);
+        const loadedTrades = tradeResults
+          .filter(result => result.status === 'fulfilled' && result.value !== null)
+          .map(result => result.value);
         console.log('🔍 loadServiceProviderQuotes: Alle geladenen Trades:', loadedTrades);
         setServiceProviderTrades(loadedTrades);
         
@@ -1117,24 +1179,65 @@ export default function ServiceProviderDashboard() {
     });
   }, []);
 
-  // Zusätzlicher useEffect für regelmäßige Aktualisierung der Service Provider Quotes
+  // Zusätzlicher useEffect für regelmäßige Aktualisierung der Service Provider Quotes und Trades
   useEffect(() => {
     if (!user) return;
     
     const refreshServiceProviderData = () => {
       console.log('🔄 Regelmäßige Aktualisierung der Service Provider Daten...');
+      
+      // Aktualisiere Quotes
       loadServiceProviderQuotes().catch(error => {
-        console.error('❌ Fehler bei regelmäßiger Aktualisierung:', error);
+        console.error('❌ Fehler bei regelmäßiger Aktualisierung (Quotes):', error);
+      });
+      
+      // Aktualisiere Trades (für has_unread_messages)
+      console.log('📧 Aktualisiere Trades für Benachrichtigungen...');
+      loadTrades().catch(error => {
+        console.error('❌ Fehler bei regelmäßiger Aktualisierung (Trades):', error);
       });
     };
     
     // Sofortige Aktualisierung
     refreshServiceProviderData();
     
-    // Dann alle 30 Sekunden
-    const interval = setInterval(refreshServiceProviderData, 30000);
+    // Dann alle 15 Sekunden (schneller für Benachrichtigungen)
+    const interval = setInterval(refreshServiceProviderData, 15000);
     
-    return () => clearInterval(interval);
+    // Event Listener für "messagesMarkedAsRead" - aktualisiert Trades sofort wenn Nachrichten als gelesen markiert wurden
+    const handleMessagesMarkedAsRead = (event: any) => {
+      console.log('📧 Event "messagesMarkedAsRead" empfangen - aktualisiere Trades...', event.detail);
+      const { tradeId, userType } = event.detail;
+      
+      // OPTIMISTISCHES UPDATE: Aktualisiere Trades sofort lokal, ohne auf Backend zu warten
+      setTrades(prevTrades => {
+        return prevTrades.map(trade => {
+          if (trade.id === tradeId) {
+            console.log(`📧 Aktualisiere Trade ${tradeId} lokal - setze Mail-Symbol auf false`);
+            return {
+              ...trade,
+              has_unread_messages_bautraeger: false,
+              has_unread_messages_dienstleister: false
+            };
+          }
+          return trade;
+        });
+      });
+      
+      // Dann asynchron vom Backend neu laden (für Konsistenz)
+      setTimeout(() => {
+        loadTrades().catch(error => {
+          console.error('❌ Fehler beim Aktualisieren der Trades nach messagesMarkedAsRead:', error);
+        });
+      }, 500); // Kurze Verzögerung damit Backend Zeit hat zu committen
+    };
+    
+    window.addEventListener('messagesMarkedAsRead', handleMessagesMarkedAsRead);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('messagesMarkedAsRead', handleMessagesMarkedAsRead);
+    };
   }, [user?.id]); // Abhängig von user.id, damit es bei User-Wechsel neu lädt
 
   // Lade Rechnungen wenn Tab auf 'completed' gewechselt wird
@@ -1257,148 +1360,56 @@ export default function ServiceProviderDashboard() {
     try {
       console.log('🔍 getAllTradesWithQuotes START');
       
-      // SOFORT-FIX: Wenn serviceProviderQuotes vorhanden sind, erstelle Trades direkt daraus
-      if (serviceProviderQuotes.length > 0) {
-        console.log('🔍 SOFORT-FIX: Erstelle Trades aus serviceProviderQuotes');
-        
-        const tradesFromQuotes = serviceProviderQuotes.map(quote => {
-          // Suche nach existierendem Trade
-          let existingTrade = [...geoTrades, ...serviceProviderTrades].find(t => t.id === quote.milestone_id);
-          
-          if (!existingTrade) {
-            // Erstelle minimalen Trade aus Quote-Daten
-            existingTrade = {
-              id: quote.milestone_id,
-              title: quote.title || `Gewerk ${quote.milestone_id}`,
-              project_id: quote.project_id,
-              completion_status: 'in_progress',
-              category: 'unknown',
-              description: quote.description || '',
-              project_name: `Projekt ${quote.project_id}`,
-              status: 'active',
-              priority: 'medium',
-              planned_date: new Date().toISOString(),
-              progress_percentage: 0,
-              budget: 0,
-              created_at: new Date().toISOString(),
-              project_status: 'active',
-              // Required TradeSearchResult properties
-              project_type: 'residential',
-              project_address: 'Unbekannte Adresse',
-              address_street: '',
-              address_zip: '',
-              address_city: '',
-              address_latitude: 0,
-              address_longitude: 0,
-              distance_km: 0,
-              quote_stats: {
-                total_quotes: 0,
-                accepted_quotes: 0,
-                pending_quotes: 0,
-                rejected_quotes: 0,
-                has_accepted_quote: false,
-                has_pending_quotes: false,
-                has_rejected_quotes: false
-              }
-            };
-          }
-          
-          return existingTrade;
-        });
-        
-        console.log('🔍 SOFORT-FIX: Trades aus Quotes erstellt:', tradesFromQuotes.length);
-        return tradesFromQuotes;
-      }
-      
-      // ORIGINAL LOGIK (falls keine serviceProviderQuotes)
-      const allTrades = [...geoTrades, ...serviceProviderTrades];
-      
-      // ZUSÄTZLICH: Lade auch Trades aus serviceProviderQuotes, falls sie nicht in den anderen Listen sind
-      const quotesTradeIds = serviceProviderQuotes.map(q => q.milestone_id).filter(Boolean);
-      const missingTrades: any[] = [];
-      
-      for (const tradeId of quotesTradeIds) {
-        const existsInTrades = allTrades.some(t => t.id === tradeId);
-        if (!existsInTrades) {
-          // Erstelle einen minimalen Trade-Eintrag aus den Quote-Daten
-          const quote = serviceProviderQuotes.find(q => q.milestone_id === tradeId);
-          if (quote) {
-            missingTrades.push({
-              id: tradeId,
-              title: quote.title || `Gewerk ${tradeId}`,
-              project_id: quote.project_id,
-              completion_status: 'in_progress', // Default-Status
-              category: 'unknown',
-              description: quote.description || '',
-              project_name: `Projekt ${quote.project_id}`,
-              project_status: 'active'
-            });
-          }
-        }
-      }
-      
-      const combinedTrades = [...allTrades, ...missingTrades];
-      
-      console.log('🔍 getAllTradesWithQuotes DEBUG:', {
-        geoTradesCount: geoTrades.length,
-        serviceProviderTradesCount: serviceProviderTrades.length,
-        allTradesCount: allTrades.length,
-        missingTradesCount: missingTrades.length,
-        combinedTradesCount: combinedTrades.length,
-        allTradeQuotesKeys: Object.keys(allTradeQuotes),
-        serviceProviderQuotesCount: serviceProviderQuotes.length,
-        quotesTradeIds: quotesTradeIds,
-        userId: user?.id
-      });
-      
-      // Dedupliziere basierend auf ID und verwende die neueste Version
+      // WICHTIG: Verwende die echten Milestones mit has_unread_messages Feldern
+      // Kombiniere und dedupliziere Geo-Trades und lokale Trades
       const tradeMap: { [key: number]: any } = {};
-      combinedTrades.forEach((trade: any) => {
-        const existingTrade = tradeMap[trade.id];
-        if (!existingTrade || (trade.updated_at && existingTrade.updated_at && new Date(trade.updated_at) > new Date(existingTrade.updated_at))) {
-          tradeMap[trade.id] = trade;
+      
+      // Füge Geo-Trades hinzu (haben Priorität wegen Distanz-Info)
+      geoTrades.forEach(trade => {
+        tradeMap[trade.id] = {...trade, isGeoResult: true};
+      });
+      
+      // WICHTIG: Merge lokale Trades mit Geo-Trades um has_unread_messages Felder zu erhalten
+      serviceProviderTrades.forEach(trade => {
+        if (tradeMap[trade.id]) {
+          // Trade existiert bereits in geoTrades - MERGE die Felder
+          tradeMap[trade.id] = {
+            ...tradeMap[trade.id], // Behalte Geo-Daten (distance_km, etc.)
+            has_unread_messages_bautraeger: trade.has_unread_messages_bautraeger,
+            has_unread_messages_dienstleister: trade.has_unread_messages_dienstleister,
+            // Weitere wichtige Felder aus lokalen Trades übernehmen
+            completion_status: trade.completion_status || tradeMap[trade.id].completion_status,
+          };
+        } else {
+          // Trade existiert nur in lokalen Trades
+          tradeMap[trade.id] = {...trade, isGeoResult: false};
         }
       });
       
-      // Filtere nur Trades mit Service Provider Angeboten
-      const tradesWithQuotes = Object.values(tradeMap).filter((trade: any) => {
-        try {
-          const hasQuote = hasServiceProviderQuote(trade.id);
-          console.log('🔍 Trade', trade.id, 'hasQuote:', hasQuote, 'completion_status:', trade.completion_status);
-          return hasQuote;
-        } catch (error) {
-          console.error('❌ Fehler in hasServiceProviderQuote für Trade:', trade.id, error);
-          console.error('❌ Error Stack:', error.stack);
-          return false;
-        }
+      const combinedTrades = Object.values(tradeMap);
+      
+      // Debug: Zeige has_unread_messages Status für alle Trades
+      console.log('🔍 CombinedTrades - Mail-Symbol Status:', combinedTrades.map(t => ({
+        id: t.id,
+        title: t.title,
+        has_unread_messages_dienstleister: t.has_unread_messages_dienstleister,
+        isGeoResult: t.isGeoResult
+      })));
+      
+      // Filtere nur Trades mit Quotes
+      const tradesWithQuotes = combinedTrades.filter(trade => {
+        const hasQuote = serviceProviderQuotes.some(quote => quote.milestone_id === trade.id);
+        return hasQuote;
       });
       
       console.log('🔍 getAllTradesWithQuotes RESULT:', {
         totalTradesWithQuotes: tradesWithQuotes.length,
-        trades: tradesWithQuotes.map(t => ({ id: t.id, title: t.title, completion_status: t.completion_status }))
+        trades: tradesWithQuotes
       });
       
       return tradesWithQuotes;
     } catch (error) {
       console.error('❌ Fehler in getAllTradesWithQuotes:', error);
-      console.error('❌ Error Stack:', error.stack);
-      
-      // NOTFALL-FALLBACK: Erstelle Trades direkt aus serviceProviderQuotes
-      if (serviceProviderQuotes.length > 0) {
-        console.log('🚨 NOTFALL-FALLBACK: Erstelle Trades aus serviceProviderQuotes');
-        const fallbackTrades = serviceProviderQuotes.map(quote => ({
-          id: quote.milestone_id,
-          title: quote.title || `Gewerk ${quote.milestone_id}`,
-          project_id: quote.project_id,
-          completion_status: 'in_progress',
-          category: 'unknown',
-          description: quote.description || '',
-          project_name: `Projekt ${quote.project_id}`,
-          project_status: 'active'
-        }));
-        return fallbackTrades;
-      }
-      
       return [];
     }
   }, [geoTrades, serviceProviderTrades, serviceProviderQuotes, allTradeQuotes, user?.id]);
@@ -1480,62 +1491,17 @@ export default function ServiceProviderDashboard() {
     }
   };
 
-  // Hilfsfunktion: Prüft ob ein Quote dem aktuellen User gehört
-  const isUserQuote = (quote: any, user: any): boolean => {
-    if (!quote || !user) {
-      console.log('🔍 isUserQuote: quote oder user ist null/undefined', { quote: !!quote, user: !!user });
-      return false;
-    }
-    
-    const directMatch = quote.service_provider_id === user.id;
-    const looseMatch = quote.service_provider_id == user.id;
-    const stringMatch = String(quote.service_provider_id) === String(user.id);
-    const numberMatch = Number(quote.service_provider_id) === Number(user.id);
-    
-    // ZUSÄTZLICHE CHECKS: Manchmal ist service_provider_id null/undefined
-    const hasServiceProviderId = quote.service_provider_id !== null && quote.service_provider_id !== undefined;
-    const hasUserId = user.id !== null && user.id !== undefined;
-    
-    console.log('🔍 ServiceProvider isUserQuote Vergleich:', {
-      quoteId: quote.id,
-      quoteServiceProviderId: quote.service_provider_id,
-      quoteServiceProviderIdType: typeof quote.service_provider_id,
-      userId: user.id,
-      userIdType: typeof user.id,
-      hasServiceProviderId,
-      hasUserId,
-      directMatch,
-      looseMatch,
-      stringMatch,
-      numberMatch,
-      // ZUSÄTZLICHE DEBUG-INFO
-      quoteTitle: quote.title,
-      quoteEmail: quote.email,
-      userEmail: user.email,
-      emailMatch: quote.email === user.email
-    });
-    
-    // Robuste ID-Vergleiche (number vs string handling)
-    let isMatch = directMatch || looseMatch || stringMatch || numberMatch;
-    
-    // FALLBACK: Wenn service_provider_id fehlt, vergleiche über Email
-    if (!isMatch && !hasServiceProviderId && quote.email && user.email) {
-      isMatch = quote.email === user.email;
-      console.log('🔍 isUserQuote: Fallback Email-Vergleich:', { 
-        quoteEmail: quote.email, 
-        userEmail: user.email, 
-        emailMatch: isMatch 
-      });
-    }
-    
-    console.log('🔍 isUserQuote RESULT:', { 
-      quoteId: quote.id, 
-      isMatch, 
-      matchReason: directMatch ? 'directId' : looseMatch ? 'looseId' : stringMatch ? 'stringId' : numberMatch ? 'numberId' : isMatch ? 'email' : 'none'
-    });
-    
-    return isMatch;
-  };
+  // Hilfsfunktion: Prüft ob ein Quote dem aktuellen User gehört (optimiert)
+  const isUserQuote = useMemo(() => {
+    return (quote: any, user: any): boolean => {
+      if (!quote || !user) {
+        return false;
+      }
+      
+      // Einfacher, direkter Vergleich
+      return quote.service_provider_id === user.id;
+    };
+  }, []);
 
   // Prüfe den Status des Angebots des aktuellen Dienstleisters
   const getServiceProviderQuoteStatus = (tradeId: number): string | null => {
@@ -1861,20 +1827,9 @@ export default function ServiceProviderDashboard() {
         }
       }));
       
-      // Separates Event für BautraegerNotificationTab auslösen
-      console.log('📢 ServiceProviderDashboard: Löse quoteSubmittedForBautraeger Event aus...');
-      window.dispatchEvent(new CustomEvent('quoteSubmittedForBautraeger', {
-        detail: {
-          quote: quote,
-          trade: trade,
-          serviceProvider: {
-            id: user.id,
-            name: quote.company_name || quote.contact_person,
-            email: user.email
-          }
-        }
-      }));
-      console.log('✅ ServiceProviderDashboard: quoteSubmittedForBautraeger Event ausgelöst');
+      // Event für Bautraeger wird bereits vom quoteService.ts ausgelöst
+      // Kein separates Event nötig
+      console.log('📢 ServiceProviderDashboard: Event für Bautraeger wird vom quoteService.ts ausgelöst');
 
       // Browser-Benachrichtigung falls erlaubt
       if ('Notification' in window && Notification.permission === 'granted') {
@@ -1897,67 +1852,9 @@ export default function ServiceProviderDashboard() {
         };
       }
 
-      // Erstelle Backend-Benachrichtigungen für beide Parteien
-      try {
-        const { api } = await import('../api/api');
-        
-        // 1. Benachrichtigung für Dienstleister (Bestätigung)
-        await api.post('/notifications/', {
-          type: 'quote_submitted',
-          title: notification.title,
-          message: notification.message,
-          description: notification.description,
-          priority: 'normal',
-          user_id: user.id, // Dienstleister
-          metadata: {
-            quote_id: quote.id,
-            milestone_id: trade?.id,
-            project_id: trade?.project_id,
-            quote_amount: quote.total_amount,
-            quote_currency: quote.currency
-          }
-        });
-        console.log('✅ Dienstleister-Benachrichtigung erstellt');
-        
-        // 2. Benachrichtigung für Bauträger (neues Angebot eingegangen)
-        if (trade?.project_id) {
-          // Finde den Bauträger (Projekteigentümer)
-          try {
-            const projectResponse = await api.get(`/projects/${trade.project_id}`);
-            const projectData = projectResponse.data;
-            const bautraegerId = projectData.owner_id || projectData.created_by;
-            
-            if (bautraegerId && bautraegerId !== user.id) {
-              await api.post('/notifications/', {
-                type: 'quote_submitted',
-                title: 'Neues Angebot eingegangen! 📋',
-                message: `Ein Dienstleister hat ein Angebot für "${trade?.title}" eingereicht.`,
-                description: `Angebotssumme: ${new Intl.NumberFormat('de-DE', { 
-                  style: 'currency', 
-                  currency: quote.currency || 'CHF' 
-                }).format(quote.total_amount || 0)} | Von: ${quote.company_name || quote.contact_person || 'Dienstleister'}`,
-                priority: 'high',
-                user_id: bautraegerId, // Bauträger
-                metadata: {
-                  quote_id: quote.id,
-                  milestone_id: trade?.id,
-                  project_id: trade?.project_id,
-                  quote_amount: quote.total_amount,
-                  quote_currency: quote.currency,
-                  service_provider_id: user.id,
-                  service_provider_name: quote.company_name || quote.contact_person
-                }
-              });
-              console.log('✅ Bauträger-Benachrichtigung erstellt für User:', bautraegerId);
-            }
-          } catch (projectError) {
-            console.warn('⚠️ Projekt-Daten konnten nicht geladen werden für Bauträger-Benachrichtigung:', projectError);
-          }
-        }
-        
-      } catch (backendError) {
-        console.warn('⚠️ Backend-Benachrichtigung fehlgeschlagen (nicht kritisch):', backendError);
-      }
+      // Backend-Benachrichtigungen werden automatisch vom quote_service.py erstellt
+      // Keine manuellen Backend-Benachrichtigungen nötig
+      console.log('📢 ServiceProviderDashboard: Backend-Benachrichtigungen werden automatisch erstellt');
 
     } catch (error) {
       console.error('❌ Fehler beim Erstellen der Angebot-Benachrichtigung:', error);
@@ -1993,7 +1890,8 @@ export default function ServiceProviderDashboard() {
   }
 
   return (
-    <div className="service-provider-dashboard mobile-container min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6">
+    <>
+      <div className="service-provider-dashboard mobile-container min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6">
       {/* Header mit Dienstleister-Informationen */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
@@ -2011,8 +1909,79 @@ export default function ServiceProviderDashboard() {
           </div>
         </div>
 
+        {/* Shortcut-Zeile mit wichtigen Funktionen */}
+        <div className="mb-8">
+          <div className="grid grid-cols-4 gap-2 md:gap-4">
+            {/* Dokument-Kachel */}
+            <button
+              onClick={() => navigate('/documents')}
+              className="group bg-gradient-to-br from-blue-500/20 to-blue-600/10 backdrop-blur-lg rounded-xl p-2 md:p-4 border border-blue-500/30 hover:border-blue-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20 hover:scale-105"
+            >
+              <div className="flex flex-col items-center text-center space-y-1 md:space-y-2">
+                <div className="p-2 md:p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg group-hover:shadow-blue-500/30 transition-all duration-300">
+                  <FileText size={16} className="md:w-5 md:h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xs md:text-sm font-semibold text-white group-hover:text-blue-300 transition-colors">Dokument</h3>
+                </div>
+              </div>
+            </button>
+
+            {/* Angebote-Kachel */}
+            <button
+              onClick={() => {
+                // Scroll zum Abschnitt "Ausschreibungen in Ihrer Nähe"
+                const geoSearchSection = document.querySelector('[data-tour-id="geo-search-section"]');
+                if (geoSearchSection) {
+                  geoSearchSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
+              className="group bg-gradient-to-br from-green-500/20 to-green-600/10 backdrop-blur-lg rounded-xl p-2 md:p-4 border border-green-500/30 hover:border-green-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20 hover:scale-105"
+            >
+              <div className="flex flex-col items-center text-center space-y-1 md:space-y-2">
+                <div className="p-2 md:p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg group-hover:shadow-green-500/30 transition-all duration-300">
+                  <Gavel size={16} className="md:w-5 md:h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xs md:text-sm font-semibold text-white group-hover:text-green-300 transition-colors">Angebote</h3>
+                </div>
+              </div>
+            </button>
+
+            {/* Rechnungen-Kachel */}
+            <button
+              onClick={() => navigate('/invoices')}
+              className="group bg-gradient-to-br from-purple-500/20 to-purple-600/10 backdrop-blur-lg rounded-xl p-2 md:p-4 border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20 hover:scale-105"
+            >
+              <div className="flex flex-col items-center text-center space-y-1 md:space-y-2">
+                <div className="p-2 md:p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg group-hover:shadow-purple-500/30 transition-all duration-300">
+                  <Euro size={16} className="md:w-5 md:h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xs md:text-sm font-semibold text-white group-hover:text-purple-300 transition-colors">Rechnungen</h3>
+                </div>
+              </div>
+            </button>
+
+            {/* Gebühren-Kachel */}
+            <button
+              onClick={() => navigate('/service-provider/buildwise-fees')}
+              className="group bg-gradient-to-br from-orange-500/20 to-orange-600/10 backdrop-blur-lg rounded-xl p-2 md:p-4 border border-orange-500/30 hover:border-orange-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-orange-500/20 hover:scale-105"
+            >
+              <div className="flex flex-col items-center text-center space-y-1 md:space-y-2">
+                <div className="p-2 md:p-3 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-lg group-hover:shadow-orange-500/30 transition-all duration-300">
+                  <TrendingUp size={16} className="md:w-5 md:h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xs md:text-sm font-semibold text-white group-hover:text-orange-300 transition-colors">Gebühren</h3>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+
         {/* Dienstleister-Profil-Karte */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 transition-all duration-300 hover:bg-white/15">
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 transition-all duration-300 hover:bg-white/15 relative z-20">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
               <div className="w-3 h-3 bg-[#ffbd59] rounded-full"></div>
@@ -2032,6 +2001,9 @@ export default function ServiceProviderDashboard() {
               {user?.company_address || 'Dienstleister für Bauprojekte'}
             </p>
             
+            {/* Rang-Anzeige */}
+            <UserRankDisplay className="mb-4" />
+            
             {/* Badges entfernt */}
           </div>
 
@@ -2040,6 +2012,40 @@ export default function ServiceProviderDashboard() {
       </div>
 
       {/* Dashboard-Karten entfernt - Funktionalität jetzt über Radiales Menü */}
+
+      {/* Kanban-Board für To-Do Aufgaben */}
+      <div className="mb-8 relative z-10" data-tour-id="kanban-board-section">
+        <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="p-3 bg-gradient-to-br from-[#10B981] to-[#059669] rounded-xl shadow-lg shadow-[#10B981]/20">
+              <CheckSquare size={24} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">To-Do Aufgaben</h2>
+              <p className="text-gray-400 text-sm mt-1">
+                Verwalten Sie Ihre Aufgaben im Kanban-Board
+              </p>
+            </div>
+          </div>
+          
+          {/* Kanban Board Container - Mit Error Boundary */}
+          <div className="bg-white/5 rounded-xl p-4 border border-white/10 mobile-container">
+            <React.Suspense fallback={
+              <div className="text-center py-8 text-white">
+                <p className="text-lg font-semibold mb-2">Kanban Board wird geladen...</p>
+              </div>
+            }>
+              <KanbanBoard 
+                key={`kanban-${user?.id}`}
+                showOnlyAssignedToMe={true}
+                showArchived={false}
+                className="compact mobile-scroll"
+                mobileViewMode="auto"
+              />
+            </React.Suspense>
+          </div>
+        </div>
+      </div>
 
       {/* Ressourcenverwaltung Sektion - Einklappbar */}
       <div className="mb-8 bg-gradient-to-br from-[#ffbd59]/10 to-[#ffa726]/5 backdrop-blur-xl rounded-2xl border border-[#ffbd59]/20 shadow-2xl hover:shadow-[0_0_30px_rgba(255,189,89,0.15)] transition-all duration-300" data-tour-id="resource-management-section">
@@ -2363,7 +2369,7 @@ export default function ServiceProviderDashboard() {
 
       {/* Moderne Zwei-Spalten Layout: Angebotsbereich + Geo-Search */}
       {/* Mobile: Einspaltiges Layout | Desktop: Zwei-Spalten | Expanded: Vollbild */}
-      <div className={`mb-8 transition-all duration-500 ${geoSearchExpanded ? 'fixed inset-0 z-50 bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6 overflow-y-auto' : ''}`}>
+      <div className={`mb-8 transition-all duration-500 ${geoSearchExpanded ? 'fixed inset-0 z-[9999] bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6 overflow-y-auto' : ''}`}>
         <div className={`transition-all duration-1000 ease-out ${
           geoSearchExpanded 
             ? 'max-w-7xl mx-auto' 
@@ -2371,7 +2377,7 @@ export default function ServiceProviderDashboard() {
         }`}>
           
           {/* Linke Spalte: Angebotsverfahren / Gewonnene Ausschreibungen mit Toggle */}
-          <div className={`${geoSearchExpanded ? 'hidden' : 'space-y-6'}`}>
+          <div className={`${geoSearchExpanded ? 'hidden' : 'space-y-6'}`} data-tour-id="offer-management-section">
             {/* Moderner Toggle-Header */}
             <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
               <div className="flex items-center justify-between mb-6">
@@ -2474,7 +2480,27 @@ export default function ServiceProviderDashboard() {
                                   {getCategoryIcon(trade.category)}
                                 </div>
                                 <div>
-                                  <h3 className="font-semibold text-white text-sm">{trade.title}</h3>
+                                  <h3 className="font-semibold text-white text-sm">
+                                    {trade.title}
+                                    {trade.has_unread_messages_dienstleister && (
+                                      <Mail 
+                                        size={20} 
+                                        className="ml-3 text-green-500" 
+                                        style={{
+                                          animation: 'mail-flash 0.5s linear infinite !important',
+                                          animationName: 'mail-flash !important',
+                                          animationDuration: '0.5s !important',
+                                          animationTimingFunction: 'linear !important',
+                                          animationIterationCount: 'infinite !important',
+                                          filter: 'drop-shadow(0 0 8px #00ff00)',
+                                          fontWeight: 'bold',
+                                          fontSize: '20px',
+                                          willChange: 'opacity',
+                                          display: 'inline-block'
+                                        }}
+                                      />
+                                    )}
+                                  </h3>
                                   <p className="text-gray-400 text-xs">Projekt ID: {trade.project_id}</p>
                                   {/* Beschreibung mit Trunkierung für Angebotsverfahren */}
                                   {trade.description && (
@@ -2586,7 +2612,27 @@ export default function ServiceProviderDashboard() {
                                   {getCategoryIcon(trade.category)}
                                 </div>
                                 <div>
-                                  <h3 className="font-semibold text-white text-sm">{trade.title}</h3>
+                                  <h3 className="font-semibold text-white text-sm">
+                                    {trade.title}
+                                    {trade.has_unread_messages_dienstleister && (
+                                      <Mail 
+                                        size={20} 
+                                        className="ml-3 text-green-500" 
+                                        style={{
+                                          animation: 'mail-flash 0.5s linear infinite !important',
+                                          animationName: 'mail-flash !important',
+                                          animationDuration: '0.5s !important',
+                                          animationTimingFunction: 'linear !important',
+                                          animationIterationCount: 'infinite !important',
+                                          filter: 'drop-shadow(0 0 8px #00ff00)',
+                                          fontWeight: 'bold',
+                                          fontSize: '20px',
+                                          willChange: 'opacity',
+                                          display: 'inline-block'
+                                        }}
+                                      />
+                                    )}
+                                  </h3>
                                   <p className="text-gray-400 text-xs">Projekt ID: {trade.project_id}</p>
                                   {/* Beschreibung mit Trunkierung für Gewonnene Projekte */}
                                   {trade.description && (
@@ -2711,7 +2757,27 @@ export default function ServiceProviderDashboard() {
                                   {getCategoryIcon(trade.category)}
                                 </div>
                                 <div>
-                                  <h3 className="font-semibold text-white text-sm">{trade.title}</h3>
+                                  <h3 className="font-semibold text-white text-sm">
+                                    {trade.title}
+                                    {trade.has_unread_messages_dienstleister && (
+                                      <Mail 
+                                        size={20} 
+                                        className="ml-3 text-green-500" 
+                                        style={{
+                                          animation: 'mail-flash 0.5s linear infinite !important',
+                                          animationName: 'mail-flash !important',
+                                          animationDuration: '0.5s !important',
+                                          animationTimingFunction: 'linear !important',
+                                          animationIterationCount: 'infinite !important',
+                                          filter: 'drop-shadow(0 0 8px #00ff00)',
+                                          fontWeight: 'bold',
+                                          fontSize: '20px',
+                                          willChange: 'opacity',
+                                          display: 'inline-block'
+                                        }}
+                                      />
+                                    )}
+                                  </h3>
                                   <p className="text-gray-400 text-xs">Projekt ID: {trade.project_id}</p>
                                   {/* Beschreibung mit Trunkierung */}
                                   {trade.description && (
@@ -2846,7 +2912,7 @@ export default function ServiceProviderDashboard() {
           {/* Rechte Spalte: Erweiterte Geo-Search mit Hover-Vergrößerung */}
           <div className={`transition-all duration-1000 ease-out ${
             geoSearchExpanded ? 'col-span-2' : ''
-          }`}>
+          }`} data-tour-id="geo-search-section">
             {/* Geo-Search Container */}
             <div 
               className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl p-6 hover:shadow-[0_0_30px_rgba(255,189,89,0.15)] transition-all duration-300"
@@ -3159,14 +3225,32 @@ export default function ServiceProviderDashboard() {
                     tradeMap[trade.id] = {...trade, isGeoResult: true};
                   });
                   
-                  // Füge lokale Trades hinzu (nur wenn nicht bereits vorhanden)
+                  // WICHTIG: Merge lokale Trades mit Geo-Trades um has_unread_messages Felder zu erhalten
                   trades.forEach(trade => {
-                    if (!tradeMap[trade.id]) {
+                    if (tradeMap[trade.id]) {
+                      // Trade existiert bereits in geoTrades - MERGE die Felder
+                      tradeMap[trade.id] = {
+                        ...tradeMap[trade.id], // Behalte Geo-Daten (distance_km, etc.)
+                        has_unread_messages_bautraeger: trade.has_unread_messages_bautraeger,
+                        has_unread_messages_dienstleister: trade.has_unread_messages_dienstleister,
+                        // Weitere wichtige Felder aus lokalen Trades übernehmen
+                        completion_status: trade.completion_status || tradeMap[trade.id].completion_status,
+                      };
+                    } else {
+                      // Trade existiert nur in lokalen Trades
                       tradeMap[trade.id] = {...trade, isGeoResult: false};
                     }
                   });
                   
                   const combinedTrades = Object.values(tradeMap);
+                  
+                  // Debug: Zeige has_unread_messages Status für alle Trades
+                  console.log('🔍 CombinedTrades - Mail-Symbol Status:', combinedTrades.map(t => ({
+                    id: t.id,
+                    title: t.title,
+                    has_unread_messages_dienstleister: t.has_unread_messages_dienstleister,
+                    isGeoResult: t.isGeoResult
+                  })));
                   
                   // Zeige Fallback-Meldung nur wenn BEIDE APIs fehlschlagen
                   if (combinedTrades.length === 0 && geoError && tradesError) {
@@ -3261,8 +3345,35 @@ export default function ServiceProviderDashboard() {
                         {/* Header mit Titel und Status */}
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex items-center gap-3 flex-1">
-                            <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg">
-                              {getCategoryIcon(trade.category || '')}
+                            <div className="relative">
+                              <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg">
+                                {getCategoryIcon(trade.category || '')}
+                              </div>
+                              {/* Brief-Symbol für ungelesene Nachrichten - DIENSTLEISTER-SPEZIFISCH */}
+                              {trade.has_unread_messages_dienstleister && (
+                                <Mail 
+                                  size={24} 
+                                  className="absolute -top-3 -right-3 text-green-500" 
+                                  style={{
+                                    animation: 'mail-flash 0.5s linear infinite !important',
+                                    animationName: 'mail-flash !important',
+                                    animationDuration: '0.5s !important',
+                                    animationTimingFunction: 'linear !important',
+                                    animationIterationCount: 'infinite !important',
+                                    zIndex: 9999,
+                                    filter: 'drop-shadow(0 0 12px #00ff00)',
+                                    fontWeight: 'bold',
+                                    fontSize: '24px',
+                                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                                    borderRadius: '50%',
+                                    padding: '4px',
+                                    willChange: 'opacity',
+                                    display: 'inline-block'
+                                  }}
+                                />
+                              )}
+                              {/* Debug: Zeige has_unread_messages Status */}
+                              {console.log(`🔍 Trade ${trade.id} (${trade.title}): has_unread_messages_dienstleister = ${trade.has_unread_messages_dienstleister}`)}
                             </div>
                             <div className="flex-1 min-w-0">
                               <h3 className="text-white font-bold text-lg leading-tight mb-1">
@@ -3393,14 +3504,36 @@ export default function ServiceProviderDashboard() {
                           {/* Linke Seite: Hauptinformationen */}
                           <div className="flex items-center gap-4 flex-1">
                             {/* Icon */}
-                            <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg shadow-lg shadow-[#ffbd59]/20 flex-shrink-0">
-                              {getCategoryIcon(trade.category || '')}
+                            <div className="relative">
+                              <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg shadow-lg shadow-[#ffbd59]/20 flex-shrink-0">
+                                {getCategoryIcon(trade.category || '')}
+                              </div>
                             </div>
                             
                             {/* Titel und Beschreibung */}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-white font-semibold truncate">{trade.title}</h3>
+                                <h3 className="text-white font-semibold truncate">
+                                  {trade.title}
+                                  {trade.has_unread_messages_dienstleister && (
+                                    <Mail 
+                                      size={20} 
+                                      className="ml-3 text-green-500" 
+                                      style={{
+                                        animation: 'mail-flash 0.5s linear infinite !important',
+                                        animationName: 'mail-flash !important',
+                                        animationDuration: '0.5s !important',
+                                        animationTimingFunction: 'linear !important',
+                                        animationIterationCount: 'infinite !important',
+                                        filter: 'drop-shadow(0 0 8px #00ff00)',
+                                        fontWeight: 'bold',
+                                        fontSize: '20px',
+                                        willChange: 'opacity',
+                                        display: 'inline-block'
+                                      }}
+                                    />
+                                  )}
+                                </h3>
                                 {trade.isGeoResult && (
                                   <span className="text-blue-400 text-xs bg-blue-500/20 px-2 py-1 rounded-full flex items-center gap-1">
                                     <MapPin size={10} />
@@ -3513,67 +3646,8 @@ export default function ServiceProviderDashboard() {
         </div>
       </div>
 
-      {/* Kanban-Board für To-Do Aufgaben */}
-      <div className="mb-8">
-        <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="p-3 bg-gradient-to-br from-[#10B981] to-[#059669] rounded-xl shadow-lg shadow-[#10B981]/20">
-              <CheckSquare size={24} className="text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">To-Do Aufgaben</h2>
-              <p className="text-gray-400 text-sm mt-1">
-                Verwalten Sie Ihre Aufgaben im Kanban-Board
-              </p>
-            </div>
-          </div>
-          
-          {/* Kanban Board Container */}
-          <div className="bg-white/5 rounded-xl p-4 border border-white/10 mobile-container">
-            <KanbanBoard 
-              showOnlyAssignedToMe={true}
-              showArchived={false}
-              className="compact mobile-scroll"
-              mobileViewMode="auto"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Dienstleister-Aktionen und Tipps */}
-      <div className="mobile-stack lg:grid lg:grid-cols-2 gap-6">
-        {/* Aktuelle Aktivitäten */}
-        <div className="mobile-card bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-          <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <Clock size={24} className="text-[#ffbd59]" />
-            Aktuelle Aktivitäten
-          </h3>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
-              <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-              <div className="flex-1">
-                <div className="text-sm font-medium text-white">Neues Angebot eingereicht</div>
-                <div className="text-xs text-gray-400">Sanitärinstallation - vor 2 Stunden</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
-              <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-              <div className="flex-1">
-                <div className="text-sm font-medium text-white">Dokument hochgeladen</div>
-                <div className="text-xs text-gray-400">Kostenvoranschlag.pdf - vor 4 Stunden</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
-              <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-              <div className="flex-1">
-                <div className="text-sm font-medium text-white">Ausschreibung verfügbar</div>
-                <div className="text-xs text-gray-400">Elektroinstallation - vor 6 Stunden</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Tipps für Dienstleister */}
+      {/* Tipps für Dienstleister */}
+      <div className="mobile-stack lg:grid lg:grid-cols-1 gap-6" data-tour-id="tips-section">
         <div className="mobile-card bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
             <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <Sparkles size={24} className="text-[#ffbd59]" />
@@ -3605,286 +3679,243 @@ export default function ServiceProviderDashboard() {
         </div>
       </div>
 
-
+      </div>
+    
+      {/* Modals - außerhalb des Hauptcontainers */}
       {/* Angebot-Erstellungsformular */}
       {showCostEstimateForm && selectedTradeForQuote && (
-        <CostEstimateForm
-          isOpen={showCostEstimateForm}
-          onClose={() => {
-            setShowCostEstimateForm(false);
-            setSelectedTradeForQuote(null);
-          }}
-          onSubmit={handleCostEstimateSubmit}
-          trade={selectedTradeForQuote}
-          project={{
-            id: selectedTradeForQuote.project_id,
-            name: selectedTradeForQuote.project_name,
-            project_type: selectedTradeForQuote.project_type,
-            status: selectedTradeForQuote.project_status
-          }}
-        />
-      )}
+      <CostEstimateForm
+        isOpen={showCostEstimateForm}
+        onClose={handleCloseCostEstimateForm}
+        onSubmit={handleCostEstimateSubmit}
+        trade={selectedTradeForQuote}
+        project={{
+          id: selectedTradeForQuote.project_id,
+          name: selectedTradeForQuote.project_name,
+          project_type: selectedTradeForQuote.project_type,
+          status: selectedTradeForQuote.project_status
+        }}
+      />
+    )}
 
-      {/* TradeDetailsModal */}
-      <TradeDetailsModal
-        trade={detailTrade}
-        isOpen={showTradeDetails}
+    {/* TradeDetailsModal */}
+    <TradeDetailsModal
+      trade={detailTrade}
+      isOpen={showTradeDetails}
+      onClose={() => {
+        setShowTradeDetails(false);
+        setDetailTrade(null);
+      }}
+      onCreateQuote={handleCreateQuote}
+      onTradeUpdate={(updatedTrade) => {
+        // Aktualisiere Trade-Daten nach Änderungen (z.B. completion_status)
+        console.log('🔄 Trade aktualisiert, refreshe Daten für ID:', updatedTrade.id);
+        refreshTradeData(updatedTrade.id);
+      }}
+      existingQuotes={(() => {
+        if (!detailTrade) return [];
+        
+        // Kombiniere allTradeQuotes und serviceProviderQuotes
+        const tradeQuotes = allTradeQuotes[detailTrade.id] || [];
+        const serviceQuotes = serviceProviderQuotes.filter(q => q.milestone_id === detailTrade.id);
+        const allQuotes = [...tradeQuotes, ...serviceQuotes];
+        
+        // Entferne Duplikate basierend auf ID
+        const uniqueQuotes = allQuotes.filter((quote, index, self) => 
+          index === self.findIndex(q => q.id === quote.id)
+        );
+        
+        console.log('🔍 DEBUG: Erweiterte Übergabe an TradeDetailsModal', {
+          tradeId: detailTrade.id,
+          tradeQuotesLength: tradeQuotes.length,
+          serviceQuotesLength: serviceQuotes.length,
+          totalQuotesLength: uniqueQuotes.length,
+          quotes: uniqueQuotes.map(q => ({
+            id: q.id,
+            service_provider_id: q.service_provider_id,
+            service_provider_id_type: typeof q.service_provider_id,
+            status: q.status,
+            title: q.title,
+            hasNewFields: !!(q.quote_number || q.qualifications || q.technical_approach)
+          })),
+          userId: user?.id,
+          userIdType: typeof user?.id
+        });
+        
+        return uniqueQuotes;
+      })()}
+    />
+
+    {/* ServiceProviderQuoteModal für Dienstleister - zeigt nur das eigene Angebot */}
+    {showCostEstimateDetailsModal && selectedTradeForCostEstimateDetails && (
+      <ServiceProviderQuoteModal
+        isOpen={showCostEstimateDetailsModal}
         onClose={() => {
-          setShowTradeDetails(false);
-          setDetailTrade(null);
+          setShowCostEstimateDetailsModal(false);
+          setSelectedTradeForCostEstimateDetails(null);
         }}
-        onCreateQuote={handleCreateQuote}
-        onTradeUpdate={(updatedTrade) => {
-          // Aktualisiere Trade-Daten nach Änderungen (z.B. completion_status)
-          console.log('🔄 Trade aktualisiert, refreshe Daten für ID:', updatedTrade.id);
-          refreshTradeData(updatedTrade.id);
+        trade={selectedTradeForCostEstimateDetails}
+        quote={getServiceProviderQuote(selectedTradeForCostEstimateDetails.id)}
+        project={{
+          id: selectedTradeForCostEstimateDetails.project_id,
+          name: selectedTradeForCostEstimateDetails.project_name || `Projekt ${selectedTradeForCostEstimateDetails.project_id}`,
+          description: selectedTradeForCostEstimateDetails.description || '',
+          location: selectedTradeForCostEstimateDetails.project?.location || 'Nicht angegeben',
+          owner_name: selectedTradeForCostEstimateDetails.project?.owner_name || 'Nicht angegeben'
         }}
-        existingQuotes={(() => {
-          if (!detailTrade) return [];
-          
-          // Kombiniere allTradeQuotes und serviceProviderQuotes
-          const tradeQuotes = allTradeQuotes[detailTrade.id] || [];
-          const serviceQuotes = serviceProviderQuotes.filter(q => q.milestone_id === detailTrade.id);
-          const allQuotes = [...tradeQuotes, ...serviceQuotes];
-          
-          // Entferne Duplikate basierend auf ID
-          const uniqueQuotes = allQuotes.filter((quote, index, self) => 
-            index === self.findIndex(q => q.id === quote.id)
-          );
-          
-          console.log('🔍 DEBUG: Erweiterte Übergabe an TradeDetailsModal', {
-            tradeId: detailTrade.id,
-            tradeQuotesLength: tradeQuotes.length,
-            serviceQuotesLength: serviceQuotes.length,
-            totalQuotesLength: uniqueQuotes.length,
-            quotes: uniqueQuotes.map(q => ({
-              id: q.id,
-              service_provider_id: q.service_provider_id,
-              service_provider_id_type: typeof q.service_provider_id,
-              status: q.status,
-              title: q.title,
-              hasNewFields: !!(q.quote_number || q.qualifications || q.technical_approach)
-            })),
-            userId: user?.id,
-            userIdType: typeof user?.id
-          });
-          
-          return uniqueQuotes;
-        })()}
+
       />
+    )}
 
-      {/* ServiceProviderQuoteModal für Dienstleister - zeigt nur das eigene Angebot */}
-      {showCostEstimateDetailsModal && selectedTradeForCostEstimateDetails && (
-        <ServiceProviderQuoteModal
-          isOpen={showCostEstimateDetailsModal}
-          onClose={() => {
-            setShowCostEstimateDetailsModal(false);
-            setSelectedTradeForCostEstimateDetails(null);
-          }}
-          trade={selectedTradeForCostEstimateDetails}
-          quote={getServiceProviderQuote(selectedTradeForCostEstimateDetails.id)}
-          project={{
-            id: selectedTradeForCostEstimateDetails.project_id,
-            name: selectedTradeForCostEstimateDetails.project_name || `Projekt ${selectedTradeForCostEstimateDetails.project_id}`,
-            description: selectedTradeForCostEstimateDetails.description || '',
-            location: selectedTradeForCostEstimateDetails.project?.location || 'Nicht angegeben',
-            owner_name: selectedTradeForCostEstimateDetails.project?.owner_name || 'Nicht angegeben'
-          }}
-
-        />
-      )}
-
-      {/* Archiv Modal */}
-      {showArchive && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-7xl w-full max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white">Archivierte Gewerke</h2>
-              <button
-                onClick={() => setShowArchive(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <XCircle size={24} className="text-gray-400" />
-              </button>
-            </div>
-            <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
-              <ArchivedTrades />
-            </div>
+    {/* Archiv Modal */}
+    {showArchive && (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+        <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-7xl w-full max-h-[95vh] overflow-hidden">
+          <div className="flex items-center justify-between p-6 border-b border-white/10">
+            <h2 className="text-xl font-bold text-white">Archivierte Gewerke</h2>
+            <button
+              onClick={() => setShowArchive(false)}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <XCircle size={24} className="text-gray-400" />
+            </button>
+          </div>
+          <div className="overflow-y-auto max-h-[calc(95vh-120px)]">
+            <ArchivedTrades />
           </div>
         </div>
-      )}
+      </div>
+    )}
 
-      {/* Rechnungsmanagement Modal */}
-      {showInvoiceManagement && (
-        <InvoiceManagementModal
-          isOpen={showInvoiceManagement}
-          onClose={() => setShowInvoiceManagement(false)}
-        />
-      )}
-
-      {/* Ressourcenmanagement Modal */}
-      {showResourceManagement && (
-        <ResourceManagementModal
-          isOpen={showResourceManagement}
-          onClose={() => setShowResourceManagement(false)}
-          onResourceCreated={(resource) => {
-            // Reload resources after creation
-            loadUserResources();
-          }}
-        />
-      )}
-
-      {/* Ressourcenkalender Modal */}
-      {showResourceCalendar && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-7xl w-full max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white">Ressourcenkalender</h2>
-              <button
-                onClick={() => setShowResourceCalendar(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <XCircle size={24} className="text-gray-400" />
-              </button>
-            </div>
-            <div className="overflow-y-auto max-h-[calc(90vh-120px)] p-6">
-              <ResourceCalendar 
-                serviceProviderId={user?.id}
-                onResourceClick={(resource) => {
-                  console.log('Resource clicked:', resource);
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Ressourcen KPI Dashboard Modal */}
-      {showResourceKPIs && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-7xl w-full max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white">Ressourcen KPIs</h2>
-              <button
-                onClick={() => setShowResourceKPIs(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <XCircle size={24} className="text-gray-400" />
-              </button>
-            </div>
-            <div className="overflow-y-auto max-h-[calc(90vh-120px)] p-6">
-              <ResourceKPIDashboard 
-                serviceProviderId={user?.id}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Radiales Menü für Dienstleister-Navigation */}
-      <RadialMenu
-        items={[
-          {
-            id: "resources",
-            label: "Ressourcen",
-            icon: <Users size={24} />,
-            onSelect: () => navigate('/resources'),
-            color: "#8B5CF6",
-            description: "Ressourcenplanung & Personal"
-          },
-          {
-            id: "tasks",
-            label: "To Do",
-            icon: <CheckSquare size={24} />,
-            onSelect: () => navigate('/tasks'),
-            color: "#10B981",
-            description: "Aufgaben & Termine verwalten"
-          },
-          {
-            id: "documents",
-            label: "Docs",
-            icon: <FileText size={24} />,
-            onSelect: () => navigate('/documents'),
-            color: "#3B82F6",
-            description: "Dokumenten-Upload & Verwaltung"
-          },
-          {
-            id: "invoices",
-            label: "Rechnungen",
-            icon: <Euro size={24} />,
-            onSelect: () => navigate('/invoices'),
-            color: "#059669",
-            description: "Rechnungsmanagement"
-          },
-          {
-            id: "archive",
-            label: "Archiv",
-            icon: <Archive size={24} />,
-            onSelect: () => setShowArchive(true),
-            color: "#6B7280",
-            description: "Abgeschlossene Projekte"
-          }
-        ]}
-        showTooltips={true}
+    {/* Rechnungsmanagement Modal */}
+    {showInvoiceManagement && (
+      <InvoiceManagementModal
+        isOpen={showInvoiceManagement}
+        onClose={() => setShowInvoiceManagement(false)}
       />
+    )}
 
-      {/* Enhanced Guided Tour for Service Providers */}
-      {showTour && (
-        <EnhancedGuidedTour
-          onClose={() => setShowTour(false)}
-          onCompleted={() => completeTour()}
-          userRole="DIENSTLEISTER"
-        />
-      )}
-
-      {/* Resource Details Modal */}
-      {showResourceDetailsModal && selectedResourceForDetails && (
-        <ResourceDetailsModal
-          resource={selectedResourceForDetails}
-          isOpen={showResourceDetailsModal}
-          onClose={() => {
-            setShowResourceDetailsModal(false);
-            setSelectedResourceForDetails(null);
-          }}
-          onEdit={() => handleEditResource(selectedResourceForDetails)}
-          onDelete={() => handleDeleteResource(selectedResourceForDetails)}
-          isAllocated={isResourceAllocated(selectedResourceForDetails.id)}
-          allocationDetails={getResourceAllocationDetails(selectedResourceForDetails.id)}
-          translateCategory={translateCategory}
-          translateSubcategory={translateSubcategory}
-        />
-      )}
-
-      {/* Resource KPI Dashboard Modal */}
-      <ResourceKPIDashboard
-        isOpen={showResourceKPIs}
-        onClose={() => setShowResourceKPIs(false)}
+    {/* Ressourcenmanagement Modal */}
+    {showResourceManagement && (
+      <ResourceManagementModal
+        isOpen={showResourceManagement}
+        onClose={() => setShowResourceManagement(false)}
+        onResourceCreated={(resource) => {
+          // Reload resources after creation
+          loadUserResources();
+        }}
       />
+    )}
 
-      {/* Resource Calendar Modal */}
-      {showResourceCalendar && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1a1a1a] rounded-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-gray-700">
-              <h2 className="text-2xl font-bold text-white">Ressourcen-Kalenderansicht</h2>
-              <button
-                onClick={() => setShowResourceCalendar(false)}
-                className="p-2 text-gray-400 hover:text-white hover:bg-[#333] rounded-lg transition-colors"
-              >
-                <XCircle className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-              <ResourceCalendar
-                serviceProviderId={user?.id}
-                initialResources={userResources}
-                onAddResource={() => {}}
-                showFilters={true}
-              />
-            </div>
+    {/* Ressourcenkalender Modal */}
+    {showResourceCalendar && (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+        <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-7xl w-full max-h-[95vh] overflow-hidden">
+          <div className="flex items-center justify-between p-6 border-b border-white/10">
+            <h2 className="text-xl font-bold text-white">Ressourcenkalender</h2>
+            <button
+              onClick={() => setShowResourceCalendar(false)}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <XCircle size={24} className="text-gray-400" />
+            </button>
+          </div>
+          <div className="overflow-y-auto max-h-[calc(95vh-120px)] p-6">
+            <ResourceCalendar 
+              serviceProviderId={user?.id}
+              onResourceClick={(resource) => {
+                console.log('Resource clicked:', resource);
+              }}
+            />
           </div>
         </div>
+      </div>
+    )}
+
+    {/* Ressourcen KPI Dashboard Modal */}
+    {showResourceKPIs && (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+        <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-7xl w-full max-h-[95vh] overflow-hidden">
+          <div className="flex items-center justify-between p-6 border-b border-white/10">
+            <h2 className="text-xl font-bold text-white">Ressourcen KPIs</h2>
+            <button
+              onClick={() => setShowResourceKPIs(false)}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <XCircle size={24} className="text-gray-400" />
+            </button>
+          </div>
+          <div className="overflow-y-auto max-h-[calc(95vh-120px)] p-6">
+            <ResourceKPIDashboard 
+              serviceProviderId={user?.id}
+            />
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Enhanced Guided Tour for Service Providers */}
+    {showTour && (
+      <EnhancedGuidedTour
+        onClose={() => setShowTour(false)}
+        onCompleted={() => completeTour()}
+        userRole="DIENSTLEISTER"
+      />
+    )}
+
+    {/* Resource Details Modal */}
+    {showResourceDetailsModal && selectedResourceForDetails && (
+      <ResourceDetailsModal
+        resource={selectedResourceForDetails}
+        isOpen={showResourceDetailsModal}
+        onClose={() => {
+          setShowResourceDetailsModal(false);
+          setSelectedResourceForDetails(null);
+        }}
+        onEdit={() => handleEditResource(selectedResourceForDetails)}
+        onDelete={() => handleDeleteResource(selectedResourceForDetails)}
+        isAllocated={isResourceAllocated(selectedResourceForDetails.id)}
+        allocationDetails={getResourceAllocationDetails(selectedResourceForDetails.id)}
+        translateCategory={translateCategory}
+        translateSubcategory={translateSubcategory}
+      />
+    )}
+
+    {/* Resource KPI Dashboard Modal */}
+    <ResourceKPIDashboard
+      isOpen={showResourceKPIs}
+      onClose={() => setShowResourceKPIs(false)}
+    />
+
+    {/* Resource Calendar Modal */}
+    {showResourceCalendar && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+        <div className="bg-[#1a1a1a] rounded-2xl w-full max-w-7xl max-h-[95vh] overflow-hidden">
+          <div className="flex items-center justify-between p-6 border-b border-gray-700">
+            <h2 className="text-2xl font-bold text-white">Ressourcen-Kalenderansicht</h2>
+            <button
+              onClick={() => setShowResourceCalendar(false)}
+              className="p-2 text-gray-400 hover:text-white hover:bg-[#333] rounded-lg transition-colors"
+            >
+              <XCircle className="w-6 h-6" />
+            </button>
+          </div>
+          <div className="p-6 overflow-y-auto max-h-[calc(95vh-120px)]">
+            <ResourceCalendar
+              serviceProviderId={user?.id}
+              initialResources={userResources}
+              onAddResource={() => {}}
+              showFilters={true}
+            />
+          </div>
+        </div>
+      </div>
+    )}
+
+      {/* Service Provider Document Tab */}
+      {user && (user.user_type === 'service_provider' || user.user_role === 'DIENSTLEISTER') && (
+        <ServiceProviderDocumentTab userId={user.id} />
       )}
-    </div>
+    </>
   );
 } 

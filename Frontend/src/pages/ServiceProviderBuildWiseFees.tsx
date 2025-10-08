@@ -370,26 +370,38 @@ export default function ServiceProviderBuildWiseFees() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539]">
-      {/* Simplified Header */}
-      <div className="bg-white/10 backdrop-blur border-b border-white/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-[#51646f] via-[#3d4952] to-[#2c3539] relative overflow-hidden">
+      {/* Enhanced Background with Glassmorphism Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a2e]/20 via-[#16213e]/30 to-[#0f3460]/40"></div>
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%23ffffff%22%20fill-opacity%3D%220.02%22%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%2230%22%20r%3D%221%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-30"></div>
+      
+      {/* Enhanced Header with Glow Effects */}
+      <div className="relative bg-white/10 backdrop-blur-xl border-b border-white/20 shadow-lg shadow-black/20">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/5 via-transparent to-[#ffbd59]/5"></div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => navigate('/service-provider-dashboard')}
-                className="flex items-center space-x-2 px-3 py-2 text-white hover:text-[#ffbd59] transition-colors"
+                className="group flex items-center space-x-2 px-4 py-2 text-white hover:text-[#ffbd59] transition-all duration-300 rounded-lg hover:bg-white/10 backdrop-blur-sm border border-transparent hover:border-white/20"
               >
-                <ArrowLeft className="w-5 h-5" />
-                <span>Zurück</span>
+                <ArrowLeft className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
+                <span className="font-medium">Zurück</span>
               </button>
-              <h1 className="text-2xl font-bold text-white">Gebühren-Übersicht</h1>
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg shadow-[#ffbd59]/50">
+                  <Receipt className="w-6 h-6 text-white" />
+                </div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-[#ffbd59] bg-clip-text text-transparent">
+                  Gebühren-Übersicht
+                </h1>
+              </div>
             </div>
             <button
               onClick={loadData}
-              className="flex items-center space-x-2 px-4 py-2 bg-[#ffbd59] text-[#2c3539] rounded-lg hover:bg-[#ffa726] transition-colors"
+              className="group flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] rounded-xl font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg shadow-[#ffbd59]/50 hover:shadow-[#ffbd59]/70"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
               <span>Aktualisieren</span>
             </button>
           </div>
@@ -397,21 +409,21 @@ export default function ServiceProviderBuildWiseFees() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Messages */}
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Enhanced Messages with Glassmorphism */}
         {error && (
-          <div className="mb-6 p-4 bg-white/95 backdrop-blur-sm border border-red-200 rounded-lg shadow-lg">
+          <div className="mb-6 p-4 bg-red-500/10 backdrop-blur-lg border border-red-500/30 rounded-xl shadow-lg shadow-red-500/20">
             <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0 w-6 h-6 bg-red-100 rounded-full flex items-center justify-center mt-0.5">
-                <XCircle className="w-4 h-4 text-red-600" />
+              <div className="flex-shrink-0 w-6 h-6 bg-red-500/20 rounded-full flex items-center justify-center mt-0.5">
+                <XCircle className="w-4 h-4 text-red-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900">{error}</p>
-                <p className="text-xs text-gray-500 mt-1">Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.</p>
+                <p className="text-sm font-medium text-red-200">{error}</p>
+                <p className="text-xs text-red-300/80 mt-1">Bitte versuchen Sie es erneut oder kontaktieren Sie den Support.</p>
               </div>
               <button
                 onClick={() => setError('')}
-                className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                className="flex-shrink-0 p-1 text-red-400 hover:text-red-300 transition-colors hover:bg-red-500/20 rounded-lg"
                 aria-label="Schließen"
               >
                 <X className="w-4 h-4" />
@@ -420,18 +432,18 @@ export default function ServiceProviderBuildWiseFees() {
           </div>
         )}
         {success && (
-          <div className="mb-6 p-4 bg-white/95 backdrop-blur-sm border border-green-200 rounded-lg shadow-lg">
+          <div className="mb-6 p-4 bg-green-500/10 backdrop-blur-lg border border-green-500/30 rounded-xl shadow-lg shadow-green-500/20">
             <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mt-0.5">
-                <CheckCircle className="w-4 h-4 text-green-600" />
+              <div className="flex-shrink-0 w-6 h-6 bg-green-500/20 rounded-full flex items-center justify-center mt-0.5">
+                <CheckCircle className="w-4 h-4 text-green-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900">{success}</p>
-                <p className="text-xs text-gray-500 mt-1">Die Gebührenübersicht wird automatisch aktualisiert.</p>
+                <p className="text-sm font-medium text-green-200">{success}</p>
+                <p className="text-xs text-green-300/80 mt-1">Die Gebührenübersicht wird automatisch aktualisiert.</p>
               </div>
               <button
                 onClick={() => setSuccess('')}
-                className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                className="flex-shrink-0 p-1 text-green-400 hover:text-green-300 transition-colors hover:bg-green-500/20 rounded-lg"
                 aria-label="Schließen"
               >
                 <X className="w-4 h-4" />
@@ -440,37 +452,68 @@ export default function ServiceProviderBuildWiseFees() {
           </div>
         )}
 
-        {/* Simplified Statistics */}
+        {/* Enhanced Statistics Cards with Glow Effects */}
         {statistics && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white/10 rounded-lg p-4 border border-white/20">
-              <p className="text-sm text-gray-300 mb-1">Gesamt</p>
-              <p className="text-2xl font-bold text-white">{formatCurrency(statistics.total_amount)}</p>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="group bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 hover:border-white/30 transition-all duration-300 hover:shadow-lg hover:shadow-white/10 hover:scale-105">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-2 bg-gradient-to-br from-gray-400 to-gray-600 rounded-lg shadow-lg">
+                  <DollarSign className="w-5 h-5 text-white" />
+                </div>
+                <div className="text-xs text-gray-400 bg-white/10 px-2 py-1 rounded-full">Gesamt</div>
+              </div>
+              <p className="text-2xl font-bold text-white group-hover:text-gray-100 transition-colors">{formatCurrency(statistics.total_amount)}</p>
+              <p className="text-sm text-gray-400 mt-1">Alle Gebühren</p>
             </div>
-            <div className="bg-green-500/20 rounded-lg p-4 border border-green-500/30">
-              <p className="text-sm text-green-200 mb-1">Bezahlt</p>
-              <p className="text-2xl font-bold text-green-100">{formatCurrency(statistics.total_paid)}</p>
+            
+            <div className="group bg-green-500/10 backdrop-blur-lg rounded-xl p-6 border border-green-500/30 hover:border-green-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20 hover:scale-105">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-2 bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg shadow-green-500/50">
+                  <CheckCircle className="w-5 h-5 text-white" />
+                </div>
+                <div className="text-xs text-green-300 bg-green-500/20 px-2 py-1 rounded-full">Bezahlt</div>
+              </div>
+              <p className="text-2xl font-bold text-green-100 group-hover:text-green-50 transition-colors">{formatCurrency(statistics.total_paid)}</p>
+              <p className="text-sm text-green-300/80 mt-1">Erfolgreich abgerechnet</p>
             </div>
-            <div className="bg-yellow-500/20 rounded-lg p-4 border border-yellow-500/30">
-              <p className="text-sm text-yellow-200 mb-1">Offen</p>
-              <p className="text-2xl font-bold text-yellow-100">{formatCurrency(statistics.total_open)}</p>
+            
+            <div className="group bg-yellow-500/10 backdrop-blur-lg rounded-xl p-6 border border-yellow-500/30 hover:border-yellow-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-yellow-500/20 hover:scale-105">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-2 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-lg shadow-lg shadow-yellow-500/50">
+                  <Clock className="w-5 h-5 text-white" />
+                </div>
+                <div className="text-xs text-yellow-300 bg-yellow-500/20 px-2 py-1 rounded-full">Offen</div>
+              </div>
+              <p className="text-2xl font-bold text-yellow-100 group-hover:text-yellow-50 transition-colors">{formatCurrency(statistics.total_open)}</p>
+              <p className="text-sm text-yellow-300/80 mt-1">Ausstehende Zahlungen</p>
             </div>
-            <div className="bg-red-500/20 rounded-lg p-4 border border-red-500/30">
-              <p className="text-sm text-red-200 mb-1">Überfällig</p>
-              <p className="text-2xl font-bold text-red-100">{formatCurrency(statistics.total_overdue)}</p>
+            
+            <div className="group bg-red-500/10 backdrop-blur-lg rounded-xl p-6 border border-red-500/30 hover:border-red-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-red-500/20 hover:scale-105">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-2 bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow-lg shadow-red-500/50">
+                  <AlertTriangle className="w-5 h-5 text-white" />
+                </div>
+                <div className="text-xs text-red-300 bg-red-500/20 px-2 py-1 rounded-full">Überfällig</div>
+              </div>
+              <p className="text-2xl font-bold text-red-100 group-hover:text-red-50 transition-colors">{formatCurrency(statistics.total_overdue)}</p>
+              <p className="text-sm text-red-300/80 mt-1">Sofortige Zahlung erforderlich</p>
             </div>
           </div>
         )}
 
-        {/* Simplified Filters */}
-        <div className="bg-white/10 rounded-lg p-4 border border-white/20 mb-6">
-          <div className="flex items-center space-x-4">
-            <div className="space-y-1">
-              <label className="block text-sm text-gray-300">Monat</label>
+        {/* Enhanced Filters with Glassmorphism */}
+        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 mb-8 shadow-lg shadow-black/10">
+          <div className="flex items-center gap-2 mb-4">
+            <Filter className="w-5 h-5 text-[#ffbd59]" />
+            <h3 className="text-lg font-semibold text-white">Filter & Suche</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">Monat</label>
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59]/50 transition-all duration-200 hover:bg-white/15"
               >
                 {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
                   <option key={month} value={month} className="bg-[#2c3539]">{getMonthName(month)}</option>
@@ -478,12 +521,12 @@ export default function ServiceProviderBuildWiseFees() {
               </select>
             </div>
             
-            <div className="space-y-1">
-              <label className="block text-sm text-gray-300">Jahr</label>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">Jahr</label>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
-                className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59]/50 transition-all duration-200 hover:bg-white/15"
               >
                 {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
                   <option key={year} value={year} className="bg-[#2c3539]">{year}</option>
@@ -491,12 +534,12 @@ export default function ServiceProviderBuildWiseFees() {
               </select>
             </div>
             
-            <div className="space-y-1">
-              <label className="block text-sm text-gray-300">Status</label>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-300">Status</label>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]"
+                className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59]/50 transition-all duration-200 hover:bg-white/15"
               >
                 <option value="all" className="bg-[#2c3539]">Alle</option>
                 <option value="open" className="bg-[#2c3539]">Offen</option>
@@ -508,21 +551,31 @@ export default function ServiceProviderBuildWiseFees() {
           </div>
         </div>
 
-        {/* Simplified Table */}
-        <div className="bg-white/10 rounded-lg border border-white/20 overflow-hidden">
-          <div className="px-6 py-4 border-b border-white/20">
+        {/* Enhanced Table with Glassmorphism */}
+        <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 overflow-hidden shadow-lg shadow-black/10">
+          <div className="px-6 py-4 border-b border-white/20 bg-gradient-to-r from-white/5 to-transparent">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">Gebühren ({filteredFees.length})</h3>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg shadow-lg shadow-[#ffbd59]/50">
+                  <FileText className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-white">Gebühren ({filteredFees.length})</h3>
+              </div>
             </div>
           </div>
           
           {filteredFees.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-gray-300 mb-4">Keine Gebühren für den ausgewählten Zeitraum gefunden.</p>
+            <div className="p-12 text-center bg-gradient-to-br from-white/5 to-transparent">
+              <div className="mx-auto w-16 h-16 bg-gray-500/20 rounded-full flex items-center justify-center mb-4">
+                <FileText className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-300 mb-2 font-medium">Keine Gebühren gefunden</p>
+              <p className="text-gray-400 text-sm mb-6">Für den ausgewählten Zeitraum wurden keine Gebühren gefunden.</p>
               <button
                 onClick={loadData}
-                className="px-4 py-2 bg-[#ffbd59] text-[#2c3539] rounded-lg hover:bg-[#ffa726] transition-colors"
+                className="px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] rounded-xl font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg shadow-[#ffbd59]/50"
               >
+                <RefreshCw className="w-4 h-4 inline mr-2" />
                 Erneut laden
               </button>
             </div>
@@ -556,7 +609,7 @@ export default function ServiceProviderBuildWiseFees() {
                 </thead>
                 <tbody className="bg-white/5 divide-y divide-white/10">
                   {filteredFees.map((fee) => (
-                    <tr key={fee.id} className="hover:bg-white/10 transition-colors">
+                    <tr key={fee.id} className="group hover:bg-white/10 transition-all duration-200 hover:shadow-lg hover:shadow-white/5">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-white">
                           BW-{fee.id.toString().padStart(6, '0')}
@@ -597,10 +650,10 @@ export default function ServiceProviderBuildWiseFees() {
                         <div className="flex space-x-2">
                           <button 
                             onClick={() => handleShowDetails(fee)} 
-                            className="p-1 text-blue-400 hover:text-blue-300 transition-colors" 
+                            className="group p-2 text-blue-400 hover:text-blue-300 transition-all duration-200 hover:bg-blue-500/20 rounded-lg hover:scale-110" 
                             title="Details anzeigen"
                           >
-                            <Info className="w-4 h-4" />
+                            <Info className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
                           </button>
                           
                           {/* Stripe Zahlungs-Button - nur für offene oder überfällige Gebühren */}
@@ -608,7 +661,7 @@ export default function ServiceProviderBuildWiseFees() {
                             <button 
                               onClick={() => handlePayWithStripe(fee)}
                               disabled={processingPayment === fee.id}
-                              className="flex items-center space-x-1 px-3 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                              className="group flex items-center space-x-1 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/50 hover:shadow-indigo-500/70"
                               title="Jetzt mit Stripe bezahlen"
                             >
                               {processingPayment === fee.id ? (
@@ -618,9 +671,9 @@ export default function ServiceProviderBuildWiseFees() {
                                 </>
                               ) : (
                                 <>
-                                  <CreditCard className="w-4 h-4" />
+                                  <CreditCard className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
                                   <span className="text-xs font-medium">Bezahlen</span>
-                                  <ExternalLink className="w-3 h-3" />
+                                  <ExternalLink className="w-3 h-3 group-hover:scale-110 transition-transform duration-200" />
                                 </>
                               )}
                             </button>
@@ -629,19 +682,22 @@ export default function ServiceProviderBuildWiseFees() {
                           {fee.status === 'open' && (
                             <button 
                               onClick={() => handleMarkAsPaid(fee.id)} 
-                              className="p-1 text-green-400 hover:text-green-300 transition-colors" 
+                              className="group p-2 text-green-400 hover:text-green-300 transition-all duration-200 hover:bg-green-500/20 rounded-lg hover:scale-110" 
                               title="Manuell als bezahlt markieren"
                             >
-                              <CheckCircle className="w-4 h-4" />
+                              <CheckCircle className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
                             </button>
                           )}
                           
                           <button 
                             onClick={() => fee.invoice_pdf_generated ? handleDownloadInvoice(fee.id) : handleGenerateInvoice(fee.id)} 
-                            className="p-1 text-[#ffbd59] hover:text-[#ffa726] transition-colors" 
+                            className="group p-2 text-[#ffbd59] hover:text-[#ffa726] transition-all duration-200 hover:bg-[#ffbd59]/20 rounded-lg hover:scale-110" 
                             title={fee.invoice_pdf_generated ? "PDF herunterladen" : "PDF generieren"}
                           >
-                            {fee.invoice_pdf_generated ? <Download className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                            {fee.invoice_pdf_generated ? 
+                              <Download className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" /> : 
+                              <FileText className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+                            }
                           </button>
                         </div>
                       </td>
@@ -654,38 +710,45 @@ export default function ServiceProviderBuildWiseFees() {
         </div>
       </div>
 
-      {/* Details Modal */}
+      {/* Enhanced Details Modal with Glassmorphism */}
       {showDetailsModal && selectedFeeDetails && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-xl border border-white/20 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-[#2c3539]/95 via-[#1a1a2e]/95 to-[#0f3460]/95 backdrop-blur-xl rounded-2xl border border-white/20 max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl shadow-black/50">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-white flex items-center space-x-2">
-                  <Info className="w-6 h-6 text-[#ffbd59]" />
-                  <span>Gebühren-Details</span>
-                </h3>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg shadow-[#ffbd59]/50">
+                    <Info className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-white to-[#ffbd59] bg-clip-text text-transparent">
+                    Gebühren-Details
+                  </h3>
+                </div>
                 <button
                   onClick={() => setShowDetailsModal(false)}
-                  className="p-2 text-gray-400 hover:text-white transition-colors"
+                  className="group p-2 text-gray-400 hover:text-white transition-all duration-200 hover:bg-white/10 rounded-lg hover:scale-110"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
                 </button>
               </div>
               
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white/10 rounded-lg p-4">
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:border-white/30 transition-all duration-200">
                     <h4 className="text-sm font-medium text-gray-300 mb-2">Gebühren-ID</h4>
                     <p className="text-white font-semibold">BW-{selectedFeeDetails.id.toString().padStart(6, '0')}</p>
                   </div>
-                  <div className="bg-white/10 rounded-lg p-4">
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:border-white/30 transition-all duration-200">
                     <h4 className="text-sm font-medium text-gray-300 mb-2">Ausschreibung</h4>
                     <p className="text-white font-semibold">{selectedFeeDetails.quote_title || `Quote ${selectedFeeDetails.quote_id}`}</p>
                   </div>
                 </div>
                 
-                <div className="bg-white/10 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-gray-300 mb-2">Finanzielle Details</h4>
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 hover:border-white/30 transition-all duration-200">
+                  <h4 className="text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-[#ffbd59]" />
+                    Finanzielle Details
+                  </h4>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-gray-400">Angebotsbetrag:</span>
@@ -714,8 +777,11 @@ export default function ServiceProviderBuildWiseFees() {
                   </div>
                 </div>
                 
-                <div className="bg-white/10 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-gray-300 mb-2">Status & Termine</h4>
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 hover:border-white/30 transition-all duration-200">
+                  <h4 className="text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-[#ffbd59]" />
+                    Status & Termine
+                  </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-gray-400">Status:</span>
@@ -743,17 +809,20 @@ export default function ServiceProviderBuildWiseFees() {
                 </div>
                 
                 {selectedFeeDetails.notes && (
-                  <div className="bg-white/10 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-300 mb-2">Notizen</h4>
-                    <p className="text-white text-sm">{selectedFeeDetails.notes}</p>
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 hover:border-white/30 transition-all duration-200">
+                    <h4 className="text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-[#ffbd59]" />
+                      Notizen
+                    </h4>
+                    <p className="text-white text-sm leading-relaxed">{selectedFeeDetails.notes}</p>
                   </div>
                 )}
               </div>
               
-              <div className="flex justify-end mt-6">
+              <div className="flex justify-end mt-8">
                 <button
                   onClick={() => setShowDetailsModal(false)}
-                  className="px-4 py-2 bg-[#ffbd59] text-[#2c3539] rounded-lg hover:bg-[#ffa726] transition-colors font-medium"
+                  className="px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] rounded-xl font-semibold hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-300 transform hover:scale-105 shadow-lg shadow-[#ffbd59]/50"
                 >
                   Schließen
                 </button>

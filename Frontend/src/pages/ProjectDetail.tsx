@@ -611,9 +611,6 @@ export default function ProjectDetail() {
       case 'quotes':
         navigate('/quotes');
         break;
-      case 'finance':
-        navigate(`/finance?project=${project?.id}`);
-        break;
       case 'analytics':
         navigate(`/project/${project?.id}/analytics`);
         break;

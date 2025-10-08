@@ -19,7 +19,8 @@ import {
   EyeOff,
   User,
   Calendar,
-  Hash
+  Hash,
+  HelpCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -68,6 +69,7 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
   const [newComment, setNewComment] = useState('');
   const [showComments, setShowComments] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   
   // PDF-spezifische States
   const [pdfUrl, setPdfUrl] = useState<string>('');
@@ -75,6 +77,11 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
   const [totalPages, setTotalPages] = useState(1);
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
+  
+  // Bild-spezifische States
+  const [imageUrl, setImageUrl] = useState<string>('');
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
   
   // Text-spezifische States
   const [fontSize, setFontSize] = useState(14);
@@ -129,6 +136,9 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
   const loadDocument = async () => {
     try {
       setLoading(true);
+      setImageLoading(fileType === 'image');
+      setImageError(null);
+      
       const response = await fetch(`http://localhost:8000/api/v1/documents/${document.id}/content`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -144,6 +154,12 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         setPdfUrl(url);
+      } else if (fileType === 'image') {
+        // Bild als Blob laden und URL erstellen
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        setImageUrl(url);
+        setImageLoading(false);
       } else if (fileType === 'text') {
         // Text-Inhalt laden
         const text = await response.text();
@@ -151,6 +167,10 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
       }
     } catch (err: any) {
       setError(err.message || 'Fehler beim Laden des Dokuments');
+      if (fileType === 'image') {
+        setImageError(err.message || 'Bild konnte nicht geladen werden');
+        setImageLoading(false);
+      }
     } finally {
       setLoading(false);
     }
@@ -263,14 +283,78 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
   const increaseFontSize = () => setFontSize(prev => Math.min(prev + 2, 24));
   const decreaseFontSize = () => setFontSize(prev => Math.max(prev - 2, 10));
 
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return; // Ignoriere Shortcuts wenn in Eingabefeldern
+      }
+
+      switch (e.key) {
+        case 'Escape':
+          onClose();
+          break;
+        case '+':
+        case '=':
+          if (fileType === 'pdf' || fileType === 'image') {
+            e.preventDefault();
+            zoomIn();
+          }
+          break;
+        case '-':
+          if (fileType === 'pdf' || fileType === 'image') {
+            e.preventDefault();
+            zoomOut();
+          }
+          break;
+        case '0':
+          if (fileType === 'pdf' || fileType === 'image') {
+            e.preventDefault();
+            setZoom(1);
+          }
+          break;
+        case 'r':
+        case 'R':
+          if (fileType === 'pdf' || fileType === 'image') {
+            e.preventDefault();
+            rotate();
+          }
+          break;
+        case 'f':
+        case 'F':
+          e.preventDefault();
+          toggleFullscreen();
+          break;
+        case 'ArrowLeft':
+          if (fileType === 'pdf') {
+            e.preventDefault();
+            prevPage();
+          }
+          break;
+        case 'ArrowRight':
+          if (fileType === 'pdf') {
+            e.preventDefault();
+            nextPage();
+          }
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [fileType, onClose, toggleFullscreen, zoomIn, zoomOut, rotate, prevPage, nextPage]);
+
   // Cleanup bei Unmount
   useEffect(() => {
     return () => {
       if (pdfUrl) {
         URL.revokeObjectURL(pdfUrl);
       }
+      if (imageUrl) {
+        URL.revokeObjectURL(imageUrl);
+      }
     };
-  }, [pdfUrl]);
+  }, [pdfUrl, imageUrl]);
 
   if (loading) {
     return (
@@ -360,9 +444,34 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
               </>
             )}
 
+            {fileType === 'image' && (
+              <>
+                <button onClick={zoomOut} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                  <ZoomOut className="w-5 h-5 text-white" />
+                </button>
+                <span className="text-white text-sm px-2">{Math.round(zoom * 100)}%</span>
+                <button onClick={zoomIn} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                  <ZoomIn className="w-5 h-5 text-white" />
+                </button>
+                <button onClick={rotate} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                  <RotateCw className="w-5 h-5 text-white" />
+                </button>
+                <button 
+                  onClick={() => setZoom(1)} 
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  title="Auf Originalgröße zurücksetzen"
+                >
+                  <span className="text-white text-sm">100%</span>
+                </button>
+              </>
+            )}
+
             {/* Allgemeine Steuerung */}
             <button onClick={() => setShowComments(!showComments)} className={`p-2 rounded-lg transition-colors ${showComments ? 'bg-[#ffbd59] text-[#1a1a2e]' : 'hover:bg-white/10 text-white'}`}>
               <MessageSquare className="w-5 h-5" />
+            </button>
+            <button onClick={() => setShowHelp(!showHelp)} className={`p-2 rounded-lg transition-colors ${showHelp ? 'bg-blue-500 text-white' : 'hover:bg-white/10 text-white'}`}>
+              <HelpCircle className="w-5 h-5" />
             </button>
             <button onClick={toggleFullscreen} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
               {isFullscreen ? <Minimize2 className="w-5 h-5 text-white" /> : <Maximize2 className="w-5 h-5 text-white" />}
@@ -378,6 +487,80 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
 
         {/* Content */}
         <div className="flex-1 flex overflow-hidden">
+          {/* Hilfe-Panel */}
+          {showHelp && (
+            <div className="w-80 bg-[#2c3539] border-r border-gray-600 p-4 overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <HelpCircle className="w-5 h-5" />
+                  Tastenkürzel
+                </h3>
+                <button
+                  onClick={() => setShowHelp(false)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              
+              <div className="space-y-4 text-sm">
+                <div>
+                  <h4 className="font-medium text-white mb-2">Allgemein</h4>
+                  <div className="space-y-1 text-gray-300">
+                    <div className="flex justify-between">
+                      <span>Schließen</span>
+                      <kbd className="bg-gray-600 px-2 py-1 rounded text-xs">Esc</kbd>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Vollbild</span>
+                      <kbd className="bg-gray-600 px-2 py-1 rounded text-xs">F</kbd>
+                    </div>
+                  </div>
+                </div>
+                
+                {(fileType === 'pdf' || fileType === 'image') && (
+                  <div>
+                    <h4 className="font-medium text-white mb-2">Zoom & Rotation</h4>
+                    <div className="space-y-1 text-gray-300">
+                      <div className="flex justify-between">
+                        <span>Hineinzoomen</span>
+                        <kbd className="bg-gray-600 px-2 py-1 rounded text-xs">+</kbd>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Herauszoomen</span>
+                        <kbd className="bg-gray-600 px-2 py-1 rounded text-xs">-</kbd>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Originalgröße</span>
+                        <kbd className="bg-gray-600 px-2 py-1 rounded text-xs">0</kbd>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Drehen</span>
+                        <kbd className="bg-gray-600 px-2 py-1 rounded text-xs">R</kbd>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {fileType === 'pdf' && (
+                  <div>
+                    <h4 className="font-medium text-white mb-2">PDF-Navigation</h4>
+                    <div className="space-y-1 text-gray-300">
+                      <div className="flex justify-between">
+                        <span>Vorherige Seite</span>
+                        <kbd className="bg-gray-600 px-2 py-1 rounded text-xs">←</kbd>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Nächste Seite</span>
+                        <kbd className="bg-gray-600 px-2 py-1 rounded text-xs">→</kbd>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Dokument-Viewer */}
           <div className={`flex-1 bg-gray-100 overflow-auto ${showComments ? 'border-r border-gray-700' : ''}`} ref={viewerRef}>
             {fileType === 'pdf' && pdfUrl && (
@@ -419,16 +602,53 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
             )}
 
             {fileType === 'image' && (
-              <div className="h-full flex items-center justify-center p-4">
-                <img 
-                  src={`http://localhost:8000/api/v1/documents/${document.id}/content`}
-                  alt={document.title}
-                  className="max-w-full max-h-full object-contain"
-                  style={{ 
-                    transform: `scale(${zoom}) rotate(${rotation}deg)`,
-                    transition: 'transform 0.3s ease'
-                  }}
-                />
+              <div className="h-full flex items-center justify-center p-4 bg-gray-50">
+                {imageLoading ? (
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ffbd59] mx-auto mb-4"></div>
+                    <p className="text-gray-600">Bild wird geladen...</p>
+                  </div>
+                ) : imageError ? (
+                  <div className="text-center">
+                    <div className="text-red-400 mb-4">
+                      <FileText className="w-16 h-16 mx-auto mb-2" />
+                      <h3 className="text-xl font-bold">Fehler beim Laden des Bildes</h3>
+                    </div>
+                    <p className="text-gray-600 mb-6">{imageError}</p>
+                    <button
+                      onClick={loadDocument}
+                      className="bg-[#ffbd59] text-[#1a1a2e] px-6 py-2 rounded-lg font-medium hover:bg-[#ffa726] transition-colors"
+                    >
+                      Erneut versuchen
+                    </button>
+                  </div>
+                ) : imageUrl ? (
+                  <div className="relative">
+                    <img 
+                      src={imageUrl}
+                      alt={document.title}
+                      className="max-w-full max-h-full object-contain shadow-2xl rounded-lg"
+                      style={{ 
+                        transform: `scale(${zoom}) rotate(${rotation}deg)`,
+                        transition: 'transform 0.3s ease',
+                        maxWidth: '90vw',
+                        maxHeight: '90vh'
+                      }}
+                      onLoad={() => setImageLoading(false)}
+                      onError={() => {
+                        setImageError('Bild konnte nicht geladen werden');
+                        setImageLoading(false);
+                      }}
+                    />
+                    {/* Bild-Overlay mit Informationen */}
+                    <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-sm">
+                      <div className="flex items-center gap-2">
+                        <span>Zoom: {Math.round(zoom * 100)}%</span>
+                        {rotation !== 0 && <span>• Rotation: {rotation}°</span>}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             )}
 

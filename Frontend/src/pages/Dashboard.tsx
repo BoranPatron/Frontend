@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useSwipeable } from 'react-swipeable';
 import { useAuth } from '../context/AuthContext';
 import { useProject } from '../context/ProjectContext';
+import { useMobileViewport, useMobilePerformance } from '../hooks/useMobileOptimization';
+import MobileDashboardOptimized from '../components/mobile/MobileDashboardOptimized';
 import { getProjects, createProject, updateProject } from '../api/projectService';
 import { uploadDocument } from '../api/documentService';
 import ConstructionPhaseTimeline from '../components/ConstructionPhaseTimeline';
@@ -14,6 +16,9 @@ import SimpleCostEstimateModal from '../components/SimpleCostEstimateModal';
 import CreateInspectionModal from '../components/CreateInspectionModal';
 import TradeCreationForm from '../components/TradeCreationForm';
 import FinanceWidget from '../components/FinanceWidget';
+import FinanceAnalytics from '../components/FinanceAnalytics';
+import FinancialCharts from '../components/FinancialCharts';
+import ProjectFinancialAnalysis from '../components/ProjectFinancialAnalysis';
 import { getMilestones } from '../api/milestoneService';
 import { acceptQuote, rejectQuote, resetQuote, getQuotesForMilestone, getQuotes } from '../api/quoteService';
 import { getTasks } from '../api/taskService';
@@ -57,7 +62,11 @@ import {
   Sparkles,
   Target,
   Wrench,
-  Calendar
+  Calendar,
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  BarChart3
 } from 'lucide-react';
 import GuidedTourOverlay from '../components/Onboarding/GuidedTourOverlay';
 import EnhancedGuidedTour from '../components/Onboarding/EnhancedGuidedTour';
@@ -127,6 +136,7 @@ const DOCUMENT_CATEGORIES = {
     icon: Camera,
     color: 'purple',
     subcategories: [
+      'Fotos',
       'Baufortschrittsfotos',
       'Mängeldokumentation',
       'Bestandsdokumentation',
@@ -242,6 +252,11 @@ export default function Dashboard() {
     isLoading: projectsLoading,
     error: projectsError 
   } = useProject();
+
+
+  // Mobile Optimierung Hooks
+  const viewport = useMobileViewport();
+  const performance = useMobilePerformance();
 
   // Weiterleitung für Dienstleister zur dedizierten Dienstleister-Ansicht
   useEffect(() => {
@@ -420,23 +435,9 @@ export default function Dashboard() {
       console.log('📋 Dashboard: Event empfangen - TradeDetails öffnen für Trade:', event.detail.tradeId);
       const tradeId = event.detail.tradeId;
       
-      // Prüfe ob tradeId gültig ist (nicht 0 oder undefined)
-      if (!tradeId || tradeId === 0) {
-        console.error('❌ Dashboard: Ungültige tradeId:', tradeId);
-        alert('Die Ausschreibung konnte nicht gefunden werden. Die Benachrichtigung enthält ungültige Daten.');
-        return;
-      }
-      
       try {
-        // Prüfe ob selectedProject existiert
-        if (!selectedProject?.id) {
-          console.error('❌ Dashboard: Kein Projekt ausgewählt');
-          alert('Bitte wählen Sie zuerst ein Projekt aus.');
-          return;
-        }
-        
         // Lade das spezifische Milestone direkt von der API
-        const milestone = await getMilestones(selectedProject.id);
+        const milestone = await getMilestones(selectedProject?.id || 0);
         const trade = milestone.find((m: any) => m.id === tradeId);
         
         if (trade) {
@@ -566,13 +567,6 @@ export default function Dashboard() {
       navigate(`/tasks?project=${selectedProject.id}`);
     } else {
       navigate('/tasks');
-    }
-  };
-  const onFinanceClick = () => {
-    if (selectedProject) {
-      navigate(`/finance?project=${selectedProject.id}`);
-    } else {
-      navigate('/finance');
     }
   };
   const onOfferingClick = () => {
@@ -861,7 +855,19 @@ export default function Dashboard() {
       };
     });
     
-    setUploadFiles(newUploadFiles);
+    // Automatically accept suggestions for auto-detected files
+    const autoAcceptedFiles = newUploadFiles.map(file => {
+      if (file.autoDetected && file.suggestedCategory && file.suggestedSubcategory) {
+        return {
+          ...file,
+          category: file.suggestedCategory,
+          subcategory: file.suggestedSubcategory
+        };
+      }
+      return file;
+    });
+    
+    setUploadFiles(autoAcceptedFiles);
     setShowUploadModal(true);
   };
 
@@ -939,13 +945,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleCreateExpense = () => {
-    if (selectedProject) {
-      navigate(`/finance/expense/create?project=${selectedProject.id}`);
-    } else {
-      navigate('/finance/expense/create');
-    }
-  };
 
   // Hilfsfunktionen für Projekt-Daten
   const getProjectTypeLabel = (type: string) => {
@@ -993,6 +992,43 @@ export default function Dashboard() {
       month: '2-digit',
       year: 'numeric'
     });
+  };
+
+  // Berechnung der Werktage zwischen zwei Daten
+  const calculateWorkingDays = (startDate: string, endDate: string) => {
+    if (!startDate || !endDate) return 0;
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (start >= end) return 0;
+    
+    let workingDays = 0;
+    const current = new Date(start);
+    
+    while (current < end) {
+      const dayOfWeek = current.getDay();
+      // Montag = 1, Dienstag = 2, ..., Samstag = 6, Sonntag = 0
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        workingDays++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    
+    return workingDays;
+  };
+
+  // Berechnung der Gesamttage zwischen zwei Daten
+  const calculateTotalDays = (startDate: string, endDate: string) => {
+    if (!startDate || !endDate) return 0;
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (start >= end) return 0;
+    
+    const timeDiff = end.getTime() - start.getTime();
+    return Math.ceil(timeDiff / (1000 * 3600 * 24));
   };
 
   // Berechne Budget-Auslastung
@@ -1666,55 +1702,83 @@ export default function Dashboard() {
 
         {/* Fixierte Schnellzugriff-Kacheln */}
         <div className="sticky top-0 z-40 bg-gradient-to-br from-[#1a1a2e]/95 via-[#16213e]/95 to-[#0f3460]/95 backdrop-blur-lg border-b border-white/10 mb-6 -mx-6 px-6 py-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4" data-tour-id="dashboard-projects">
+          <div className="grid grid-cols-4 gap-2 md:gap-3 lg:gap-4" data-tour-id="dashboard-projects">
             {/* Quick Stats */}
             <div 
-              className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200 cursor-pointer group"
-              onClick={() => {
+              className={`backdrop-blur-lg rounded-xl p-2 md:p-3 lg:p-4 border shadow-lg transition-all duration-300 group transform ${
+                projects.length === 0 
+                  ? 'bg-white/5 border-gray-600/30 cursor-not-allowed opacity-50' 
+                  : 'bg-white/10 border-[#ffbd59]/30 hover:border-[#ffbd59]/60 shadow-[#ffbd59]/20 hover:shadow-[#ffbd59]/40 hover:bg-white/15 cursor-pointer hover:scale-105'
+              }`}
+              onClick={projects.length === 0 ? undefined : () => {
                 const tradesSection = document.querySelector('[data-section="trades"]');
                 if (tradesSection) {
                   tradesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
               }}
-              title="Zu den Gewerken scrollen"
+              title={projects.length === 0 ? "Erstellen Sie zuerst ein Projekt" : "Zu den Gewerken scrollen"}
             >
-              <div className="flex items-center justify-between mb-2">
-                <Users size={20} className="text-[#ffbd59] group-hover:scale-110 transition-transform duration-200" />
-                  <span className="text-2xl font-bold text-white">{projectStats.activeTrades}</span>
+              <div className="flex items-center justify-between mb-1 md:mb-2">
+                <Users size={16} className={`md:w-5 md:h-5 transition-transform duration-200 ${
+                  projects.length === 0 ? 'text-gray-500' : 'text-[#ffbd59] group-hover:scale-110'
+                }`} />
+                  <span className="text-lg md:text-xl lg:text-2xl font-bold text-white">{projectStats.activeTrades}</span>
               </div>
-                <p className="text-sm text-gray-300">Aktive Ausschreibungen</p>
+                <p className="text-xs md:text-sm text-gray-300">Aktive Ausschreibungen</p>
             </div>
             
             <div 
-              className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200 cursor-pointer group"
-              onClick={scrollToTodoSection}
-              title="Zu den To-Do Aufgaben scrollen"
+              className={`backdrop-blur-lg rounded-xl p-2 md:p-3 lg:p-4 border shadow-lg transition-all duration-300 group transform ${
+                projects.length === 0 
+                  ? 'bg-white/5 border-gray-600/30 cursor-not-allowed opacity-50' 
+                  : 'bg-white/10 border-[#ffbd59]/30 hover:border-[#ffbd59]/60 shadow-[#ffbd59]/20 hover:shadow-[#ffbd59]/40 hover:bg-white/15 cursor-pointer hover:scale-105'
+              }`}
+              onClick={projects.length === 0 ? undefined : scrollToTodoSection}
+              title={projects.length === 0 ? "Erstellen Sie zuerst ein Projekt" : "Zu den To-Do Aufgaben scrollen"}
             >
-              <div className="flex items-center justify-between mb-2">
-                <CheckSquare size={20} className="text-green-400 group-hover:scale-110 transition-transform duration-200" />
-                  <span className="text-2xl font-bold text-white">{projectStats.openTasks}</span>
+              <div className="flex items-center justify-between mb-1 md:mb-2">
+                <CheckSquare size={16} className={`md:w-5 md:h-5 transition-transform duration-200 ${
+                  projects.length === 0 ? 'text-gray-500' : 'text-green-400 group-hover:scale-110'
+                }`} />
+                  <span className="text-lg md:text-xl lg:text-2xl font-bold text-white">{projectStats.openTasks}</span>
               </div>
-              <p className="text-sm text-gray-300">Offene Aufgaben</p>
+              <p className="text-xs md:text-sm text-gray-300">Offene Aufgaben</p>
             </div>
             
             <div 
-              className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200 cursor-pointer group"
-              onClick={() => navigate('/documents')}
-              title="Zum intelligenten DMS"
+              className={`backdrop-blur-lg rounded-xl p-2 md:p-3 lg:p-4 border shadow-lg transition-all duration-300 group transform ${
+                projects.length === 0 
+                  ? 'bg-white/5 border-gray-600/30 cursor-not-allowed opacity-50' 
+                  : 'bg-white/10 border-[#ffbd59]/30 hover:border-[#ffbd59]/60 shadow-[#ffbd59]/20 hover:shadow-[#ffbd59]/40 hover:bg-white/15 cursor-pointer hover:scale-105'
+              }`}
+              onClick={projects.length === 0 ? undefined : () => navigate('/documents')}
+              title={projects.length === 0 ? "Erstellen Sie zuerst ein Projekt" : "Zum intelligenten DMS"}
             >
-              <div className="flex items-center justify-between mb-2">
-                <FileText size={20} className="text-blue-400 group-hover:scale-110 transition-transform duration-200" />
-                  <span className="text-2xl font-bold text-white">{projectStats.documentsTotal}</span>
+              <div className="flex items-center justify-between mb-1 md:mb-2">
+                <FileText size={16} className={`md:w-5 md:h-5 transition-transform duration-200 ${
+                  projects.length === 0 ? 'text-gray-500' : 'text-blue-400 group-hover:scale-110'
+                }`} />
+                  <span className="text-lg md:text-xl lg:text-2xl font-bold text-white">{projectStats.documentsTotal}</span>
               </div>
-                <p className="text-sm text-gray-300">Dokumente</p>
+                <p className="text-xs md:text-sm text-gray-300">Dokumente</p>
             </div>
             
-            <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200 cursor-pointer group">
-              <div className="flex items-center justify-between mb-2">
-                <MessageSquare size={20} className="text-purple-400 group-hover:scale-110 transition-transform duration-200" />
-                  <span className="text-2xl font-bold text-white">{projectStats.newQuotes}</span>
+            <div 
+              className={`backdrop-blur-lg rounded-xl p-2 md:p-3 lg:p-4 border shadow-lg transition-all duration-300 group transform ${
+                projects.length === 0 
+                  ? 'bg-white/5 border-gray-600/30 cursor-not-allowed opacity-50' 
+                  : 'bg-white/10 border-[#ffbd59]/30 hover:border-[#ffbd59]/60 shadow-[#ffbd59]/20 hover:shadow-[#ffbd59]/40 hover:bg-white/15 cursor-pointer hover:scale-105'
+              }`}
+              onClick={projects.length === 0 ? undefined : () => navigate('/quotes')}
+              title={projects.length === 0 ? "Erstellen Sie zuerst ein Projekt" : "Zu den Angeboten"}
+            >
+              <div className="flex items-center justify-between mb-1 md:mb-2">
+                <MessageSquare size={16} className={`md:w-5 md:h-5 transition-transform duration-200 ${
+                  projects.length === 0 ? 'text-gray-500' : 'text-purple-400 group-hover:scale-110'
+                }`} />
+                  <span className="text-lg md:text-xl lg:text-2xl font-bold text-white">{projectStats.newQuotes}</span>
               </div>
-              <p className="text-sm text-gray-300">Neue Angebote</p>
+              <p className="text-xs md:text-sm text-gray-300">Neue Angebote</p>
             </div>
           </div>
         </div>
@@ -1733,85 +1797,53 @@ export default function Dashboard() {
                 <span className="text-sm text-gray-400">Aktuelles Projekt</span>
               </div>
               
-              {/* Desktop: Prominente, zentrierte Projektnavigation */}
+              {/* Desktop: Projektnavigation mit Dots */}
               <div className="hidden md:flex justify-center mb-4">
-                <div className="inline-flex items-center gap-4 px-6 py-3 rounded-2xl bg-gradient-to-r from-white/10 to-white/5 border border-[#ffbd59]/50 shadow-lg shadow-[#ffbd59]/20 backdrop-blur-lg">
-                  <button
-                    onClick={goPrevProject}
-                    disabled={!canGoPrev}
-                    className={`p-3 rounded-xl hover:bg-white/15 transition-all duration-200 ${!canGoPrev ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105'}`}
-                    title="Vorheriges Projekt (Pfeil links)"
-                  >
-                    <ChevronLeft size={20} className="text-[#ffbd59]" />
-                  </button>
-                  
-                  <div className="text-center px-4">
-                    <div className="text-sm font-semibold text-[#ffbd59] mb-1">
-                      Projekt {selectedProjectIndex + 1} von {projects.length}
-                    </div>
-                    <select
-                      value={selectedProjectIndex}
-                      onChange={(e) => setSelectedProjectIndex(parseInt(e.target.value, 10))}
-                      className="px-4 py-2 pr-8 bg-[#2c3539] border border-[#ffbd59]/30 rounded-lg text-sm text-white hover:bg-[#3d4952] focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 appearance-none font-medium"
-                      title="Projekt direkt auswählen"
-                    >
-                      {projects.map((p, idx) => (
-                        <option key={p.id} value={idx}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <button
-                    onClick={goNextProject}
-                    disabled={!canGoNext}
-                    className={`p-3 rounded-xl hover:bg-white/15 transition-all duration-200 ${!canGoNext ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105'}`}
-                    title="Nächstes Projekt (Pfeil rechts)"
-                  >
-                    <ChevronRight size={20} className="text-[#ffbd59]" />
-                  </button>
+                {/* Dot-Indikatoren */}
+                <div className="flex items-center gap-3">
+                  {projects.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setSelectedProjectIndex(index)}
+                      className={`transition-all duration-300 ${
+                        index === selectedProjectIndex
+                          ? 'w-3 h-3 bg-[#ffbd59] shadow-lg shadow-[#ffbd59]/50 ring-2 ring-[#ffbd59]/30'
+                          : 'w-2 h-2 bg-white/30 hover:bg-white/50'
+                      } rounded-full hover:scale-125 active:scale-110`}
+                      title={`Zu Projekt ${index + 1} wechseln`}
+                    />
+                  ))}
                 </div>
               </div>
 
-              {/* Mobile: Minimale transparente Pfeile + Swipe */}
-              <div className="md:hidden relative mb-4">
-                {/* Linker Pfeil */}
-                {canGoPrev && (
-                  <button
-                    onClick={goPrevProject}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-all duration-200"
-                    title="Vorheriges Projekt"
-                  >
-                    <ChevronLeft size={24} className="text-white/80" />
-                  </button>
-                )}
-                
-                {/* Zentraler Indikator */}
-                <div className="text-center py-2">
-                  <div className="text-sm font-medium text-[#ffbd59]">
-                    {selectedProjectIndex + 1} / {projects.length}
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    Wischen zum Wechseln
+              {/* Mobile: Projektnavigation mit Dots */}
+              <div className="md:hidden mb-4">
+                <div className="text-center mb-3">
+                  <div className="text-xs text-gray-400">
+                    Wischen oder Punkt antippen zum Wechseln
                   </div>
                 </div>
                 
-                {/* Rechter Pfeil */}
-                {canGoNext && (
-                  <button
-                    onClick={goNextProject}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-black/20 backdrop-blur-sm hover:bg-black/30 transition-all duration-200"
-                    title="Nächstes Projekt"
-                  >
-                    <ChevronRight size={24} className="text-white/80" />
-                  </button>
-                )}
+                {/* Dot-Indikatoren für Mobile */}
+                <div className="flex items-center justify-center gap-3">
+                  {projects.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setSelectedProjectIndex(index)}
+                      className={`transition-all duration-300 ${
+                        index === selectedProjectIndex
+                          ? 'w-4 h-4 bg-[#ffbd59] shadow-lg shadow-[#ffbd59]/50 ring-2 ring-[#ffbd59]/30'
+                          : 'w-3 h-3 bg-white/30 hover:bg-white/50'
+                      } rounded-full hover:scale-125 active:scale-110`}
+                      title={`Zu Projekt ${index + 1} wechseln`}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
 
             <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-3">
                 <h2 className="text-2xl font-bold text-white">{currentProject.name}</h2>
                 <div className="flex items-center gap-2">
                   <button
@@ -1832,6 +1864,88 @@ export default function Dashboard() {
                   </button>
                 </div>
               </div>
+              
+              {/* Prominente Start- und Enddaten unter dem Titel */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 mb-4">
+                <div className="group relative flex items-center gap-3 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 shadow-lg shadow-green-500/20 hover:bg-green-500/20 hover:border-green-500/50 hover:shadow-xl hover:shadow-green-500/30 transition-all duration-300 cursor-pointer">
+                  <div className="w-3 h-3 bg-green-400 rounded-full shadow-lg shadow-green-400/50 group-hover:shadow-green-400/80 transition-all duration-300"></div>
+                  <span className="text-sm font-semibold text-green-300 group-hover:text-green-200 transition-colors duration-300">Start:</span>
+                  <span className="text-sm font-bold text-green-100 group-hover:text-white transition-colors duration-300">{formatDate(currentProject.start_date || '')}</span>
+                  
+                  {/* Tooltip für Startdatum */}
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900/95 backdrop-blur-sm border border-green-500/30 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-10">
+                    <div className="text-xs text-green-300 font-medium mb-1">Projektstart</div>
+                    <div className="text-sm text-white font-semibold">{formatDate(currentProject.start_date || '')}</div>
+                    {currentProject.start_date && (
+                      <div className="text-xs text-gray-400 mt-1">
+                        {new Date(currentProject.start_date).toLocaleDateString('de-DE', { 
+                          weekday: 'long',
+                          day: '2-digit',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </div>
+                    )}
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900/95"></div>
+                  </div>
+                </div>
+                
+                <div className="group relative flex items-center gap-3 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/30 shadow-lg shadow-red-500/20 hover:bg-red-500/20 hover:border-red-500/50 hover:shadow-xl hover:shadow-red-500/30 transition-all duration-300 cursor-pointer">
+                  <div className="w-3 h-3 bg-red-400 rounded-full shadow-lg shadow-red-400/50 group-hover:shadow-red-400/80 transition-all duration-300"></div>
+                  <span className="text-sm font-semibold text-red-300 group-hover:text-red-200 transition-colors duration-300">Ende:</span>
+                  <span className="text-sm font-bold text-red-100 group-hover:text-white transition-colors duration-300">{formatDate(currentProject.end_date || '')}</span>
+                  
+                  {/* Tooltip für Enddatum */}
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900/95 backdrop-blur-sm border border-red-500/30 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-10">
+                    <div className="text-xs text-red-300 font-medium mb-1">Projektende</div>
+                    <div className="text-sm text-white font-semibold">{formatDate(currentProject.end_date || '')}</div>
+                    {currentProject.end_date && (
+                      <div className="text-xs text-gray-400 mt-1">
+                        {new Date(currentProject.end_date).toLocaleDateString('de-DE', { 
+                          weekday: 'long',
+                          day: '2-digit',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </div>
+                    )}
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900/95"></div>
+                  </div>
+                </div>
+                
+                {/* Projektlaufzeit Tooltip */}
+                {currentProject.start_date && currentProject.end_date && (
+                  <div className="group relative flex items-center gap-3 px-4 py-2 rounded-xl bg-blue-500/10 border border-blue-500/30 shadow-lg shadow-blue-500/20 hover:bg-blue-500/20 hover:border-blue-500/50 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 cursor-pointer">
+                    <div className="w-3 h-3 bg-blue-400 rounded-full shadow-lg shadow-blue-400/50 group-hover:shadow-blue-400/80 transition-all duration-300"></div>
+                    <span className="text-sm font-semibold text-blue-300 group-hover:text-blue-200 transition-colors duration-300">Dauer:</span>
+                    <span className="text-sm font-bold text-blue-100 group-hover:text-white transition-colors duration-300">
+                      {calculateTotalDays(currentProject.start_date, currentProject.end_date)} Tage
+                    </span>
+                    
+                    {/* Tooltip für Projektlaufzeit */}
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900/95 backdrop-blur-sm border border-blue-500/30 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-10 min-w-[200px]">
+                      <div className="text-xs text-blue-300 font-medium mb-2">Projektlaufzeit</div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-400">Gesamttage:</span>
+                          <span className="text-white font-semibold">{calculateTotalDays(currentProject.start_date, currentProject.end_date)} Tage</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-400">Werktage:</span>
+                          <span className="text-white font-semibold">{calculateWorkingDays(currentProject.start_date, currentProject.end_date)} Tage</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-400">Wochenenden:</span>
+                          <span className="text-white font-semibold">
+                            {calculateTotalDays(currentProject.start_date, currentProject.end_date) - calculateWorkingDays(currentProject.start_date, currentProject.end_date)} Tage
+                          </span>
+                        </div>
+                      </div>
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900/95"></div>
+                    </div>
+                  </div>
+                )}
+              </div>
               {/* Einklappbare Projektbeschreibung */}
               {currentProject.description && (
                 <div className="mb-3">
@@ -1844,9 +1958,9 @@ export default function Dashboard() {
                     
                     return (
                       <div>
-                        <p className="text-gray-300 leading-relaxed">
+                        <div className="text-gray-300 leading-relaxed whitespace-pre-wrap break-words">
                           {displayText}
-                        </p>
+                        </div>
                         {isLongText && (
                           <button
                             onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
@@ -1963,39 +2077,31 @@ export default function Dashboard() {
 
             {/* Projekt-Fortschritt entfernt */}
 
-            {/* Projekt-Details */}
-            <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
-              <div>
-                <span className="text-gray-400">Start:</span>
-                <span className="text-white ml-2">{formatDate(currentProject.start_date || '')}</span>
-              </div>
-              <div>
-                <span className="text-gray-400">Ende:</span>
-                <span className="text-white ml-2">{formatDate(currentProject.end_date || '')}</span>
-              </div>
-            </div>
-
-            {/* Bauphasen-Zeitstrahl */}
-            {(currentProject as any).construction_phase && (currentProject as any).address_country && (
-              <ConstructionPhaseTimeline 
-                currentPhase={(currentProject as any).construction_phase}
-                country={(currentProject as any).address_country}
-                showLegend={true}
-                showProgress={true}
-                compact={false}
-              />
-            )}
-            
-            {/* Bauphasen-Info falls keine Phase gesetzt ist */}
-            {!((currentProject as any).construction_phase) && (
-              <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <div className="flex items-center gap-2 text-blue-300">
-                  <span className="text-sm">🏗️ Keine Bauphase ausgewählt</span>
-                </div>
-                <p className="text-xs text-blue-400 mt-1">
-                  Wählen Sie eine Bauphase im Projekt-Details, um den Fortschritt zu verfolgen.
-                </p>
-              </div>
+            {/* Bauphasen-Zeitstrahl - nur für Neubau-Projekte */}
+            {currentProject.project_type === 'new_build' && (
+              <>
+                {(currentProject as any).construction_phase && (currentProject as any).address_country && (
+                  <ConstructionPhaseTimeline 
+                    currentPhase={(currentProject as any).construction_phase}
+                    country={(currentProject as any).address_country}
+                    showLegend={true}
+                    showProgress={true}
+                    compact={false}
+                  />
+                )}
+                
+                {/* Bauphasen-Info falls keine Phase gesetzt ist */}
+                {!((currentProject as any).construction_phase) && (
+                  <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                    <div className="flex items-center gap-2 text-blue-300">
+                      <span className="text-sm">🏗️ Keine Bauphase ausgewählt</span>
+                    </div>
+                    <p className="text-xs text-blue-400 mt-1">
+                      Wählen Sie eine Bauphase im Projekt-Details, um den Fortschritt zu verfolgen.
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -2035,7 +2141,19 @@ export default function Dashboard() {
 
         
 
+        
 
+      {/* Kanban-Board für To-Do Aufgaben - ÜBER den Ausschreibungen */}
+      {selectedProject && (
+        <div ref={todoSectionRef} className="mb-8">
+          <KanbanBoard 
+            showOnlyAssignedToMe={false}
+            showArchived={false}
+            projectId={selectedProject.id}
+            defaultExpanded={false}
+          />
+        </div>
+      )}
 
       {/* Ausschreibungen für aktuelles Projekt - Zweigeteiltes Layout */}
       {selectedProject && (
@@ -2088,7 +2206,7 @@ export default function Dashboard() {
                 </h3>
               </div>
               
-              <div className="mobile-card bg-white/5 rounded-xl border border-white/10 overflow-hidden relative h-auto min-h-fit">
+              <div className="mobile-card bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 overflow-hidden relative h-auto min-h-fit">
                 <div className="mobile-spacing p-4 md:p-6 space-y-3 relative z-10 h-auto min-h-fit">
                   {(() => {
                     const openTrades = projectTrades.filter(trade => {
@@ -2180,7 +2298,7 @@ export default function Dashboard() {
                 </h3>
               </div>
               
-              <div className="mobile-card bg-white/5 rounded-xl border border-white/10 overflow-hidden relative h-auto min-h-fit">
+              <div className="mobile-card bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 overflow-hidden relative h-auto min-h-fit">
                 <div className="mobile-spacing p-4 md:p-6 space-y-3 relative z-10 h-auto min-h-fit">
                   {(() => {
                     const acceptedTrades = projectTrades.filter(trade => {
@@ -2326,7 +2444,7 @@ export default function Dashboard() {
               
               {/* Ausgeklappter Zustand - Vollständiger Inhalt */}
               {showCompletedTrades && (
-                <div className="mobile-card bg-white/5 rounded-xl border border-white/10 overflow-hidden relative h-auto min-h-fit">
+                <div className="mobile-card bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 overflow-hidden relative h-auto min-h-fit">
                   <div className="mobile-spacing p-4 md:p-6 space-y-3 relative z-10 h-auto min-h-fit">
                     {(() => {
                       const completedTrades = projectTrades.filter(trade => {
@@ -2402,6 +2520,17 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Finanz-Analyse - für alle Benutzer */}
+      {selectedProject && (
+        <div className="mb-8" data-section="financial-analysis">
+          <ProjectFinancialAnalysis 
+            projectId={selectedProject.id}
+            projectName={selectedProject.name}
+            budget={selectedProject.budget}
+          />
+        </div>
+      )}
+
       {/* Finance Widget - unter den Gewerken */}
       {selectedProject && (
         <div className="mb-8">
@@ -2409,35 +2538,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Kanban-Board für To-Do Aufgaben - analog dem Dienstleister Dashboard */}
-      {selectedProject && (
-        <div ref={todoSectionRef} className="mb-8">
-          <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="p-3 bg-gradient-to-br from-[#10B981] to-[#059669] rounded-xl shadow-lg shadow-[#10B981]/20">
-                <CheckSquare size={24} className="text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-white">To-Do Aufgaben</h2>
-                <p className="text-gray-400 text-sm mt-1">
-                  Verwalten Sie Ihre Aufgaben im Kanban-Board
-                </p>
-              </div>
-            </div>
-            
-            {/* Kanban Board Container - Kompakte horizontale Darstellung analog Dienstleister */}
-            <div className="bg-white/5 rounded-xl p-4 border border-white/10 mobile-container">
-              <KanbanBoard 
-                showOnlyAssignedToMe={false}
-                showArchived={false}
-                projectId={selectedProject.id}
-                className="compact mobile-scroll"
-                mobileViewMode="auto"
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
       {selectedProject && (
         <div className="mb-8" data-section="trades-continued">
@@ -2855,11 +2955,47 @@ export default function Dashboard() {
                       onChange={handleProjectFormChange}
                       className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
                     />
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const today = new Date();
+                          const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, today.getDate());
+                          setProjectForm(prev => ({ ...prev, start_date: nextMonth.toISOString().split('T')[0] }));
+                        }}
+                        className="px-2 py-1 text-xs bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] rounded border border-[#ffbd59]/30 transition-colors"
+                      >
+                        +1M
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const today = new Date();
+                          const next3Months = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate());
+                          setProjectForm(prev => ({ ...prev, start_date: next3Months.toISOString().split('T')[0] }));
+                        }}
+                        className="px-2 py-1 text-xs bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] rounded border border-[#ffbd59]/30 transition-colors"
+                      >
+                        +3M
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const today = new Date();
+                          const next6Months = new Date(today.getFullYear(), today.getMonth() + 6, today.getDate());
+                          setProjectForm(prev => ({ ...prev, start_date: next6Months.toISOString().split('T')[0] }));
+                        }}
+                        className="px-2 py-1 text-xs bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] rounded border border-[#ffbd59]/30 transition-colors"
+                      >
+                        +6M
+                      </button>
+                    </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-200 mb-3">
-                      Enddatum
+                      <span className="hidden sm:inline">Voraussichtliches Enddatum</span>
+                      <span className="sm:hidden">Vrsl. Enddatum</span>
                     </label>
                     <input
                       type="date"
@@ -2868,6 +3004,52 @@ export default function Dashboard() {
                       onChange={handleProjectFormChange}
                       className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200"
                     />
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const today = new Date();
+                          const next6Months = new Date(today.getFullYear(), today.getMonth() + 6, today.getDate());
+                          setProjectForm(prev => ({ ...prev, end_date: next6Months.toISOString().split('T')[0] }));
+                        }}
+                        className="px-2 py-1 text-xs bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] rounded border border-[#ffbd59]/30 transition-colors"
+                      >
+                        +6M
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const today = new Date();
+                          const nextYear = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
+                          setProjectForm(prev => ({ ...prev, end_date: nextYear.toISOString().split('T')[0] }));
+                        }}
+                        className="px-2 py-1 text-xs bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] rounded border border-[#ffbd59]/30 transition-colors"
+                      >
+                        +1J
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const today = new Date();
+                          const next18Months = new Date(today.getFullYear(), today.getMonth() + 18, today.getDate());
+                          setProjectForm(prev => ({ ...prev, end_date: next18Months.toISOString().split('T')[0] }));
+                        }}
+                        className="px-2 py-1 text-xs bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] rounded border border-[#ffbd59]/30 transition-colors"
+                      >
+                        +18M
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const today = new Date();
+                          const next2Years = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate());
+                          setProjectForm(prev => ({ ...prev, end_date: next2Years.toISOString().split('T')[0] }));
+                        }}
+                        className="px-2 py-1 text-xs bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] rounded border border-[#ffbd59]/30 transition-colors"
+                      >
+                        +2J
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -3507,15 +3689,8 @@ export default function Dashboard() {
                     <div className="flex-1">
                       <p className="text-green-300 font-medium">Intelligente Dokumentenerkennung aktiv</p>
                       <p className="text-green-200 text-sm mt-1">
-                        Unsere KI hat {uploadFiles.filter(f => f.autoDetected).length} von {uploadFiles.length} Dokumenten automatisch erkannt und Kategorisierungsvorschläge erstellt.
+                        {uploadFiles.filter(f => f.autoDetected).length} von {uploadFiles.length} Dokumenten automatisch erkannt und Kategorisierungsvorschläge erstellt.
                       </p>
-                      <button
-                        onClick={handleAutoAcceptSuggestions}
-                        className="mt-3 bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        Alle Vorschläge übernehmen
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -3543,18 +3718,6 @@ export default function Dashboard() {
                           )}
                         </div>
 
-                        {/* Auto-Detection Suggestion */}
-                        {uploadFile.autoDetected && uploadFile.suggestedCategory && (
-                          <div className="mb-3 p-3 bg-[#ffbd59]/10 border border-[#ffbd59]/30 rounded-lg">
-                            <div className="flex items-center gap-2">
-                              <Target className="w-4 h-4 text-[#ffbd59]" />
-                              <span className="text-[#ffbd59] text-sm font-medium">
-                                KI-Vorschlag: <strong>{DOCUMENT_CATEGORIES[uploadFile.suggestedCategory as keyof typeof DOCUMENT_CATEGORIES]?.name}</strong>
-                                {uploadFile.suggestedSubcategory && ` > ${uploadFile.suggestedSubcategory}`}
-                              </span>
-                            </div>
-                          </div>
-                        )}
 
                         {/* Category Selection */}
                         <div className="grid grid-cols-2 gap-4">
@@ -3575,7 +3738,6 @@ export default function Dashboard() {
                               {Object.entries(DOCUMENT_CATEGORIES).map(([key, category]) => (
                                 <option key={key} value={key}>
                                   {category.name}
-                                  {key === uploadFile.suggestedCategory && ' (KI-Vorschlag)'}
                                 </option>
                               ))}
                             </select>
@@ -3599,7 +3761,6 @@ export default function Dashboard() {
                                 {DOCUMENT_CATEGORIES[(uploadFile.category || uploadFile.suggestedCategory) as keyof typeof DOCUMENT_CATEGORIES]?.subcategories.map(sub => (
                                   <option key={sub} value={sub}>
                                     {sub}
-                                    {sub === uploadFile.suggestedSubcategory && ' (KI-Vorschlag)'}
                                   </option>
                                 ))}
                               </select>
@@ -3721,6 +3882,53 @@ export default function Dashboard() {
         canNavigatePrev={canNavigatePrev}
         canNavigateNext={canNavigateNext}
       />
+
+
+
+      {/* Mobile Optimierte Ansicht */}
+      {viewport.isMobile && (
+        <MobileDashboardOptimized
+          projects={projects}
+          selectedProjectIndex={selectedProjectIndex}
+          onProjectChange={setSelectedProjectIndex}
+          projectStats={projectStats}
+          projectTrades={projectTrades}
+          allTradeQuotes={allTradeQuotes}
+          onTradeClick={handleTradeClick}
+          onAcceptQuote={async (quoteId: number) => {
+            try {
+              await acceptQuote(quoteId);
+              const activeTrades = await loadAndFilterTrades(selectedProject.id);
+              setProjectTrades(activeTrades);
+              await loadQuotesForTrades(activeTrades);
+              await loadAppointmentsForTrades(activeTrades);
+              setSuccess('Angebot erfolgreich angenommen!');
+              setTimeout(() => setSuccess(''), 3000);
+            } catch (e: any) {
+              console.error('❌ Fehler beim Annehmen:', e);
+              setError('Fehler beim Annehmen des Angebots');
+            }
+          }}
+          onRejectQuote={async (quoteId: number, reason: string) => {
+            try {
+              await rejectQuote(quoteId, reason);
+              const activeTrades = await loadAndFilterTrades(selectedProject.id);
+              setProjectTrades(activeTrades);
+              await loadQuotesForTrades(activeTrades);
+              await loadAppointmentsForTrades(activeTrades);
+              setSuccess('Angebot erfolgreich abgelehnt!');
+              setTimeout(() => setSuccess(''), 3000);
+            } catch (e: any) {
+              console.error('❌ Fehler beim Ablehnen:', e);
+              setError('Fehler beim Ablehnen des Angebots');
+            }
+          }}
+          onCreateProject={handleCreateProjectClick}
+          onCreateTrade={handleCreateTrade}
+          onEditProject={handleOpenEditProjectModal}
+          onProjectDetails={handleProjectDetailsClick}
+        />
+      )}
 
     </div>
   );

@@ -613,163 +613,207 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
   }
 
       return (
-      <div className="rounded-2xl shadow-xl p-8 border" style={{ backgroundColor: '#51646f' }}>
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center space-x-3 mb-3">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#ffbd59' }}>
-            <span className="text-xl" style={{ color: '#51646f' }}>📊</span>
+      <div className="relative">
+        {/* Äußerer Glow-Effekt */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/10 via-[#ffa726]/10 to-[#ffbd59]/10 rounded-2xl blur-xl"></div>
+        
+        {/* Haupt-Container mit Glassmorphism */}
+        <div className="relative bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-xl rounded-2xl border border-[#ffbd59]/20 p-8 shadow-2xl">
+          {/* Header mit Glow-Effekt */}
+          <div className="mb-8">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="relative">
+                <div className="absolute inset-0 bg-[#ffbd59] rounded-xl blur-lg opacity-60"></div>
+                <div className="relative w-12 h-12 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl flex items-center justify-center shadow-lg">
+                  <span className="text-xl text-[#2c3539] drop-shadow-lg">📊</span>
+                </div>
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-white via-[#ffbd59] to-white bg-clip-text text-transparent">
+                  Finanz-Analytics
+                </h2>
+                <p className="mt-1 text-gray-300">
+                  Detaillierte Analyse der Projektkosten und -entwicklung
+                </p>
+              </div>
+            </div>
           </div>
-          <div>
-            <h2 className="text-3xl font-bold" style={{ color: '#ffbd59' }}>
-              Finanz-Analytics
-            </h2>
-            <p className="mt-1" style={{ color: '#ffbd59' }}>
-              Detaillierte Analyse der Projektkosten und -entwicklung
-            </p>
-          </div>
-        </div>
-      </div>
 
-      {/* Chart Navigation */}
-      <div className="flex items-center justify-between mb-8">
-        <button
-          onClick={() => setCurrentChartIndex(Math.max(currentChartIndex - 1, 0))}
-          disabled={currentChartIndex === 0}
-          className="p-3 rounded-xl shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 border"
-          style={{ backgroundColor: '#ffbd59', borderColor: '#ffbd59' }}
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#51646f' }}>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-
-        <div className="text-center">
-          <div className="flex items-center justify-center space-x-2 mb-2">
-            <span className="text-2xl">{chartConfigs[currentChartIndex].icon}</span>
-            <h3 className="text-xl font-bold" style={{ color: '#ffbd59' }}>{chartConfigs[currentChartIndex].title}</h3>
-          </div>
-          <p className="text-sm" style={{ color: '#ffbd59' }}>{chartConfigs[currentChartIndex].description}</p>
-        </div>
-
-        <button
-          onClick={() => setCurrentChartIndex(Math.min(currentChartIndex + 1, chartConfigs.length - 1))}
-          disabled={currentChartIndex === chartConfigs.length - 1}
-          className="p-3 rounded-xl shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 border"
-          style={{ backgroundColor: '#ffbd59', borderColor: '#ffbd59' }}
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#51646f' }}>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Progress Dots */}
-      <div className="flex justify-center mb-8">
-        <div className="flex space-x-3">
-          {chartConfigs.map((_, index) => (
+          {/* Chart Navigation mit Glow-Effekten */}
+          <div className="flex items-center justify-between mb-8">
             <button
-              key={index}
-              onClick={() => setCurrentChartIndex(index)}
-              className={`w-4 h-4 rounded-full transition-all duration-200 ${
-                index === currentChartIndex 
-                  ? 'shadow-lg' 
-                  : 'hover:opacity-80'
-              }`}
-              style={{ 
-                backgroundColor: index === currentChartIndex ? '#ffbd59' : 'rgba(255, 189, 89, 0.3)' 
-              }}
-            />
-          ))}
-        </div>
-      </div>
+              onClick={() => setCurrentChartIndex(Math.max(currentChartIndex - 1, 0))}
+              disabled={currentChartIndex === 0}
+              className="group relative overflow-hidden bg-gradient-to-r from-[#ffbd59]/20 to-[#ffa726]/20 hover:from-[#ffbd59]/30 hover:to-[#ffa726]/30 backdrop-blur-sm border border-[#ffbd59]/40 hover:border-[#ffbd59]/60 rounded-xl p-3 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-[#ffbd59]/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <svg className="relative w-6 h-6 text-[#ffbd59] group-hover:text-white transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
 
-      {/* Swipeable Chart Container */}
-      <div {...swipeHandlers} className="relative overflow-hidden rounded-xl" style={{ maxWidth: '100%' }}>
-        <div className="flex transition-transform duration-500 ease-out" style={{
-          transform: `translateX(-${currentChartIndex * 100}%)`,
-          width: `${chartConfigs.length * 100}%`,
-          maxWidth: '100%'
-        }}>
+            <div className="text-center">
+              <div className="flex items-center justify-center space-x-3 mb-2">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-[#ffbd59] rounded-lg blur-md opacity-50"></div>
+                  <div className="relative w-10 h-10 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg flex items-center justify-center">
+                    <span className="text-lg text-[#2c3539] drop-shadow-lg">{chartConfigs[currentChartIndex].icon}</span>
+                  </div>
+                </div>
+                <h3 className="text-xl font-bold bg-gradient-to-r from-white via-[#ffbd59] to-white bg-clip-text text-transparent">
+                  {chartConfigs[currentChartIndex].title}
+                </h3>
+              </div>
+              <p className="text-sm text-gray-300">{chartConfigs[currentChartIndex].description}</p>
+            </div>
+
+            <button
+              onClick={() => setCurrentChartIndex(Math.min(currentChartIndex + 1, chartConfigs.length - 1))}
+              disabled={currentChartIndex === chartConfigs.length - 1}
+              className="group relative overflow-hidden bg-gradient-to-r from-[#ffbd59]/20 to-[#ffa726]/20 hover:from-[#ffbd59]/30 hover:to-[#ffa726]/30 backdrop-blur-sm border border-[#ffbd59]/40 hover:border-[#ffbd59]/60 rounded-xl p-3 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-[#ffbd59]/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <svg className="relative w-6 h-6 text-[#ffbd59] group-hover:text-white transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Progress Dots mit Glow-Effekten */}
+          <div className="flex justify-center mb-8">
+            <div className="flex space-x-3">
+              {chartConfigs.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentChartIndex(index)}
+                  className={`group relative w-4 h-4 rounded-full transition-all duration-300 ${
+                    index === currentChartIndex 
+                      ? 'scale-125' 
+                      : 'hover:scale-110'
+                  }`}
+                >
+                  {index === currentChartIndex && (
+                    <div className="absolute inset-0 bg-[#ffbd59] rounded-full blur-md opacity-60"></div>
+                  )}
+                  <div 
+                    className={`relative w-full h-full rounded-full transition-all duration-300 ${
+                      index === currentChartIndex 
+                        ? 'bg-[#ffbd59] shadow-lg shadow-[#ffbd59]/50' 
+                        : 'bg-[#ffbd59]/30 hover:bg-[#ffbd59]/50'
+                    }`}
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Swipeable Chart Container mit Glassmorphism */}
+          <div {...swipeHandlers} className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a1a2e]/50 to-[#16213e]/50 backdrop-blur-sm border border-[#ffbd59]/10" style={{ maxWidth: '100%' }}>
+            <div className="flex transition-transform duration-500 ease-out" style={{
+              transform: `translateX(-${currentChartIndex * 100}%)`,
+              width: `${chartConfigs.length * 100}%`,
+              maxWidth: '100%'
+            }}>
           
           {/* Summary Chart */}
           <div className="w-full flex-shrink-0 px-2">
             {summary && (
               <div className="space-y-6">
-                {/* KPI Cards */}
+                {/* KPI Cards mit Glow-Effekten */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="rounded-2xl p-6 text-white shadow-lg" style={{ backgroundColor: '#51646f' }}>
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#ffbd59' }}>
-                          <span className="text-2xl" style={{ color: '#51646f' }}>💰</span>
+                  {/* Gesamtkosten Card */}
+                  <div className="group relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="relative bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 backdrop-blur-lg rounded-2xl border border-green-500/30 p-6 shadow-xl hover:shadow-green-500/25 transition-all duration-300 transform hover:scale-105">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-2xl text-white drop-shadow-lg">💰</span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium" style={{ color: '#ffbd59' }}>Gesamtkosten</p>
-                        <p className="text-3xl font-bold" style={{ color: '#ffbd59' }}>
-                          {(summary?.summary?.total_amount ?? 0).toLocaleString('de-DE')} €
-                        </p>
+                        <div className="ml-4">
+                          <p className="text-sm font-medium text-green-300">Gesamtkosten</p>
+                          <p className="text-3xl font-bold text-white">
+                            {(summary?.summary?.total_amount ?? 0).toLocaleString('de-DE')} €
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="rounded-2xl p-6 text-white shadow-lg" style={{ backgroundColor: '#51646f' }}>
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#ffbd59' }}>
-                          <span className="text-2xl" style={{ color: '#51646f' }}>💳</span>
+                  {/* Bezahlt Card */}
+                  <div className="group relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="relative bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 backdrop-blur-lg rounded-2xl border border-blue-500/30 p-6 shadow-xl hover:shadow-blue-500/25 transition-all duration-300 transform hover:scale-105">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-2xl text-white drop-shadow-lg">💳</span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium" style={{ color: '#ffbd59' }}>Bezahlt</p>
-                        <p className="text-3xl font-bold" style={{ color: '#ffbd59' }}>
-                          {(summary?.summary?.total_paid ?? 0).toLocaleString('de-DE')} €
-                        </p>
+                        <div className="ml-4">
+                          <p className="text-sm font-medium text-blue-300">Bezahlt</p>
+                          <p className="text-3xl font-bold text-white">
+                            {(summary?.summary?.total_paid ?? 0).toLocaleString('de-DE')} €
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="rounded-2xl p-6 text-white shadow-lg" style={{ backgroundColor: '#51646f' }}>
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#ffbd59' }}>
-                          <span className="text-2xl" style={{ color: '#51646f' }}>⏳</span>
+                  {/* Verbleibend Card */}
+                  <div className="group relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-yellow-500/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="relative bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 backdrop-blur-lg rounded-2xl border border-orange-500/30 p-6 shadow-xl hover:shadow-orange-500/25 transition-all duration-300 transform hover:scale-105">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-yellow-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-2xl text-white drop-shadow-lg">⏳</span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium" style={{ color: '#ffbd59' }}>Verbleibend</p>
-                        <p className="text-3xl font-bold" style={{ color: '#ffbd59' }}>
-                          {(summary?.summary?.total_remaining ?? 0).toLocaleString('de-DE')} €
-                        </p>
+                        <div className="ml-4">
+                          <p className="text-sm font-medium text-orange-300">Verbleibend</p>
+                          <p className="text-3xl font-bold text-white">
+                            {(summary?.summary?.total_remaining ?? 0).toLocaleString('de-DE')} €
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="rounded-2xl p-6 text-white shadow-lg" style={{ backgroundColor: '#51646f' }}>
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#ffbd59' }}>
-                          <span className="text-2xl" style={{ color: '#51646f' }}>📊</span>
+                  {/* Fortschritt Card */}
+                  <div className="group relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="relative bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 backdrop-blur-lg rounded-2xl border border-purple-500/30 p-6 shadow-xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-2xl text-white drop-shadow-lg">📊</span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium" style={{ color: '#ffbd59' }}>Fortschritt</p>
-                        <p className="text-3xl font-bold" style={{ color: '#ffbd59' }}>
-                          {summary?.summary?.completion_percentage ?? 0}%
-                        </p>
+                        <div className="ml-4">
+                          <p className="text-sm font-medium text-purple-300">Fortschritt</p>
+                          <p className="text-3xl font-bold text-white">
+                            {summary?.summary?.completion_percentage ?? 0}%
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Summary Chart */}
+                {/* Summary Chart mit Glassmorphism */}
                 {summary.phases?.phases && (
-                  <div className="rounded-2xl border p-6 shadow-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', borderColor: '#ffbd59' }}>
-                    <h3 className="text-xl font-bold mb-6" style={{ color: '#ffbd59' }}>Kosten nach Bauphasen</h3>
-                    <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
-                      <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                        <Doughnut data={getPhasesChartData()} options={chartOptions} />
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 rounded-2xl blur-lg"></div>
+                    <div className="relative bg-gradient-to-br from-[#1a1a2e]/80 to-[#16213e]/80 backdrop-blur-lg rounded-2xl border border-[#ffbd59]/30 p-6 shadow-xl">
+                      <h3 className="text-xl font-bold mb-6 bg-gradient-to-r from-white via-[#ffbd59] to-white bg-clip-text text-transparent">
+                        Kosten nach Bauphasen
+                      </h3>
+                      <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
+                        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                          <Doughnut data={getPhasesChartData()} options={chartOptions} />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -781,44 +825,50 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
           {/* Timeline Chart */}
           <div className="w-full flex-shrink-0 px-2">
             <div className="space-y-6">
-              {/* Time Period Controls */}
-              <div className="rounded-2xl border p-6 shadow-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', borderColor: '#ffbd59' }}>
-                <div className="flex flex-wrap gap-4 items-center">
-                  <div>
-                    <label className="block text-sm font-semibold mb-2" style={{ color: '#ffbd59' }}>Zeitraum</label>
-                    <select
-                      value={timePeriod}
-                      onChange={(e) => setTimePeriod(e.target.value as 'monthly' | 'weekly' | 'quarterly')}
-                      className="rounded-xl px-4 py-2 text-sm focus:ring-2 focus:border-transparent"
-                      style={{ backgroundColor: '#ffbd59', color: '#51646f', borderColor: '#ffbd59' }}
-                    >
-                      <option value="monthly">Monatlich</option>
-                      <option value="weekly">Wöchentlich</option>
-                      <option value="quarterly">Vierteljährlich</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-2" style={{ color: '#ffbd59' }}>Monate</label>
-                    <select
-                      value={months}
-                      onChange={(e) => setMonths(Number(e.target.value))}
-                      className="rounded-xl px-4 py-2 text-sm focus:ring-2 focus:border-transparent"
-                      style={{ backgroundColor: '#ffbd59', color: '#51646f', borderColor: '#ffbd59' }}
-                    >
-                      <option value={6}>6 Monate</option>
-                      <option value={12}>12 Monate</option>
-                      <option value={24}>24 Monate</option>
-                    </select>
+              {/* Time Period Controls mit Glassmorphism */}
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 rounded-2xl blur-lg"></div>
+                <div className="relative bg-gradient-to-br from-[#1a1a2e]/80 to-[#16213e]/80 backdrop-blur-lg rounded-2xl border border-[#ffbd59]/30 p-6 shadow-xl">
+                  <div className="flex flex-wrap gap-4 items-center">
+                    <div>
+                      <label className="block text-sm font-semibold mb-2 text-[#ffbd59]">Zeitraum</label>
+                      <select
+                        value={timePeriod}
+                        onChange={(e) => setTimePeriod(e.target.value as 'monthly' | 'weekly' | 'quarterly')}
+                        className="rounded-xl px-4 py-2 text-sm bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] border border-[#ffbd59] focus:ring-2 focus:border-transparent transition-all duration-200"
+                      >
+                        <option value="monthly">Monatlich</option>
+                        <option value="weekly">Wöchentlich</option>
+                        <option value="quarterly">Vierteljährlich</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-2 text-[#ffbd59]">Monate</label>
+                      <select
+                        value={months}
+                        onChange={(e) => setMonths(Number(e.target.value))}
+                        className="rounded-xl px-4 py-2 text-sm bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] border border-[#ffbd59] focus:ring-2 focus:border-transparent transition-all duration-200"
+                      >
+                        <option value={6}>6 Monate</option>
+                        <option value={12}>12 Monate</option>
+                        <option value={24}>24 Monate</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Timeline Chart */}
-              <div className="rounded-2xl border p-6 shadow-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', borderColor: '#ffbd59' }}>
-                <h3 className="text-xl font-bold mb-6" style={{ color: '#ffbd59' }}>Kostenentwicklung über Zeit</h3>
-                <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
-                  <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                    <Line data={getCostsOverTimeChartData()} options={chartOptions} />
+              {/* Timeline Chart mit Glassmorphism */}
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 rounded-2xl blur-lg"></div>
+                <div className="relative bg-gradient-to-br from-[#1a1a2e]/80 to-[#16213e]/80 backdrop-blur-lg rounded-2xl border border-[#ffbd59]/30 p-6 shadow-xl">
+                  <h3 className="text-xl font-bold mb-6 bg-gradient-to-r from-white via-[#ffbd59] to-white bg-clip-text text-transparent">
+                    Kostenentwicklung über Zeit
+                  </h3>
+                  <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
+                    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                      <Line data={getCostsOverTimeChartData()} options={chartOptions} />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -827,11 +877,16 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
 
           {/* Phases Chart */}
           <div className="w-full flex-shrink-0 px-2">
-            <div className="rounded-2xl border p-6 shadow-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', borderColor: '#ffbd59' }}>
-              <h3 className="text-xl font-bold mb-6" style={{ color: '#ffbd59' }}>Kostenverteilung nach Bauphasen</h3>
-              <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
-                <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                  <Bar data={getPhasesChartData()} options={chartOptions} />
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 rounded-2xl blur-lg"></div>
+              <div className="relative bg-gradient-to-br from-[#1a1a2e]/80 to-[#16213e]/80 backdrop-blur-lg rounded-2xl border border-[#ffbd59]/30 p-6 shadow-xl">
+                <h3 className="text-xl font-bold mb-6 bg-gradient-to-r from-white via-[#ffbd59] to-white bg-clip-text text-transparent">
+                  Kostenverteilung nach Bauphasen
+                </h3>
+                <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
+                  <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                    <Bar data={getPhasesChartData()} options={chartOptions} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -839,11 +894,16 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
 
           {/* Categories Chart */}
           <div className="w-full flex-shrink-0 px-2">
-            <div className="rounded-2xl border p-6 shadow-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', borderColor: '#ffbd59' }}>
-              <h3 className="text-xl font-bold mb-6" style={{ color: '#ffbd59' }}>Kostenverteilung nach Kategorien</h3>
-              <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
-                <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                  <Pie data={getCategoriesChartData()} options={chartOptions} />
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 rounded-2xl blur-lg"></div>
+              <div className="relative bg-gradient-to-br from-[#1a1a2e]/80 to-[#16213e]/80 backdrop-blur-lg rounded-2xl border border-[#ffbd59]/30 p-6 shadow-xl">
+                <h3 className="text-xl font-bold mb-6 bg-gradient-to-r from-white via-[#ffbd59] to-white bg-clip-text text-transparent">
+                  Kostenverteilung nach Kategorien
+                </h3>
+                <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
+                  <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                    <Pie data={getCategoriesChartData()} options={chartOptions} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -851,11 +911,16 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
 
           {/* Milestones Chart */}
           <div className="w-full flex-shrink-0 px-2">
-            <div className="rounded-2xl border p-6 shadow-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', borderColor: '#ffbd59' }}>
-              <h3 className="text-xl font-bold mb-6" style={{ color: '#ffbd59' }}>Kostenverteilung nach Gewerken</h3>
-              <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
-                <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                  <Bar data={getMilestonesChartData()} options={chartOptions} />
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 rounded-2xl blur-lg"></div>
+              <div className="relative bg-gradient-to-br from-[#1a1a2e]/80 to-[#16213e]/80 backdrop-blur-lg rounded-2xl border border-[#ffbd59]/30 p-6 shadow-xl">
+                <h3 className="text-xl font-bold mb-6 bg-gradient-to-r from-white via-[#ffbd59] to-white bg-clip-text text-transparent">
+                  Kostenverteilung nach Gewerken
+                </h3>
+                <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
+                  <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                    <Bar data={getMilestonesChartData()} options={chartOptions} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -863,11 +928,16 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
 
           {/* Status Chart */}
           <div className="w-full flex-shrink-0 px-2">
-            <div className="rounded-2xl border p-6 shadow-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', borderColor: '#ffbd59' }}>
-              <h3 className="text-xl font-bold mb-6" style={{ color: '#ffbd59' }}>Kostenverteilung nach Status</h3>
-              <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
-                <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                  <Doughnut data={getStatusChartData()} options={chartOptions} />
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/10 to-[#ffa726]/10 rounded-2xl blur-lg"></div>
+              <div className="relative bg-gradient-to-br from-[#1a1a2e]/80 to-[#16213e]/80 backdrop-blur-lg rounded-2xl border border-[#ffbd59]/30 p-6 shadow-xl">
+                <h3 className="text-xl font-bold mb-6 bg-gradient-to-r from-white via-[#ffbd59] to-white bg-clip-text text-transparent">
+                  Kostenverteilung nach Status
+                </h3>
+                <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
+                  <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                    <Doughnut data={getStatusChartData()} options={chartOptions} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -876,17 +946,21 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
         </div>
       </div>
 
-      {/* Swipe Instructions */}
-      <div className="mt-8 text-center">
-        <div className="inline-flex items-center space-x-2 rounded-full px-6 py-3" style={{ backgroundColor: '#ffbd59' }}>
-          <span style={{ color: '#51646f' }}>💡</span>
-          <p className="text-sm font-medium" style={{ color: '#51646f' }}>
-            Swipe nach links/rechts oder nutzen Sie die Pfeiltasten zum Navigieren
-          </p>
+          {/* Swipe Instructions mit Glow-Effekt */}
+          <div className="mt-8 text-center">
+            <div className="relative inline-block">
+              <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/20 to-[#ffa726]/20 rounded-full blur-lg"></div>
+              <div className="relative inline-flex items-center space-x-2 rounded-full px-6 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] shadow-lg">
+                <span className="text-[#2c3539] drop-shadow-lg">💡</span>
+                <p className="text-sm font-medium text-[#2c3539]">
+                  Swipe nach links/rechts oder nutzen Sie die Pfeiltasten zum Navigieren
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
 export default FinanceAnalytics; 

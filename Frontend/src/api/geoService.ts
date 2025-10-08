@@ -80,6 +80,11 @@ export interface TradeSearchResult {
   contractor?: string;
   // Besichtigungssystem
   requires_inspection?: boolean;
+  // Benachrichtigungssystem
+  has_unread_messages_bautraeger?: boolean;
+  has_unread_messages_dienstleister?: boolean;
+  // Legacy: Behalten für Rückwärtskompatibilität
+  has_unread_messages?: boolean;
   // Projekt-Informationen
   project_id: number;
   project_name: string;

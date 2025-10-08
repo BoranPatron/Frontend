@@ -156,7 +156,7 @@ export default function TradeQuoteDetailsModal({
             <div className="bg-white/5 rounded-xl p-6 border border-white/10">
               <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <Building size={20} className="text-[#ffbd59]" />
-                Gewerk-Details
+                Ausschreibungsdetails
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

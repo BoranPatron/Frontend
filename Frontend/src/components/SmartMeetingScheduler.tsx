@@ -310,7 +310,7 @@ export default function SmartMeetingScheduler({
           🧠 Smart Meeting Scheduler
         </h3>
         <p className="text-gray-300 text-sm">
-          KI-gestützte Terminplanung mit automatischer Verfügbarkeitsprüfung
+          Terminplanung mit automatischer Verfügbarkeitsprüfung
         </p>
       </div>
 

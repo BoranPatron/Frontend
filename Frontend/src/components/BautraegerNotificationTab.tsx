@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Calendar, 
   Clock, 
@@ -60,7 +60,7 @@ interface BautraegerNotificationTabProps {
 
 interface BautraegerNotificationData {
   id: string;
-  type: 'appointment' | 'quote_submitted' | 'quote_update' | 'completion' | 'defects_resolved' | 'invoice_received';
+  type: 'appointment' | 'quote_submitted' | 'quote_revised' | 'quote_update' | 'completion' | 'defects_resolved' | 'invoice_received';
   title: string;
   message: string;
   timestamp: string;
@@ -85,9 +85,27 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
   const [notifications, setNotifications] = useState<BautraegerNotificationData[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<BautraegerNotificationData | null>(null);
+  const notificationTabRef = useRef<HTMLDivElement>(null);
 
   // Debug: Komponente wird geladen
   console.log('🚨🚨🚨 BautraegerNotificationTab GELADEN für User:', userId);
+
+  // Click-Outside-Handler für automatisches Einklappen
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isExpanded && notificationTabRef.current && !notificationTabRef.current.contains(event.target as Node)) {
+        setIsExpanded(false);
+      }
+    };
+
+    if (isExpanded) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isExpanded]);
 
   useEffect(() => {
     loadBautraegerNotifications();
@@ -207,12 +225,36 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
       // Lade Backend-Benachrichtigungen (Hauptquelle)
       try {
         console.log('🔔 BautraegerNotificationTab: Rufe /notifications/ API auf...');
+        
+        // Erweiterte Fehlerbehandlung für 500-Fehler
         const response = await api.get('/notifications/', {
           params: {
             limit: 20,
             unacknowledged_only: true
           }
+        }).catch(async (error) => {
+          console.error('❌ BautraegerNotificationTab: API-Fehler:', error);
+          
+          // Bei 500-Fehler: Versuche mit reduzierten Parametern
+          if (error.response?.status === 500) {
+            console.log('🔄 BautraegerNotificationTab: Versuche mit reduzierten Parametern...');
+            try {
+              const fallbackResponse = await api.get('/notifications/', {
+                params: {
+                  limit: 10,
+                  unacknowledged_only: false
+                }
+              });
+              console.log('✅ BautraegerNotificationTab: Fallback erfolgreich');
+              return fallbackResponse;
+            } catch (fallbackError) {
+              console.error('❌ BautraegerNotificationTab: Fallback fehlgeschlagen:', fallbackError);
+              throw error; // Wirf den ursprünglichen Fehler
+            }
+          }
+          throw error;
         });
+        
         console.log('🔔 BautraegerNotificationTab: API Response erhalten:', response);
         const quoteNotifications: Notification[] = response.data;
         
@@ -265,6 +307,19 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
               notification: notification
             });
             console.log('✅ BautraegerNotificationTab: Quote-Benachrichtigung hinzugefügt');
+          } else if (notification.type === 'quote_revised') {
+            notifications.push({
+              id: `quote_revised_${notification.id}`,
+              type: 'quote_revised',
+              title: notification.title,
+              message: notification.message,
+              timestamp: notification.created_at,
+              isHandled: notification.is_acknowledged,
+              isRead: notification.is_read,
+              priority: notification.priority as 'normal' | 'high' | 'urgent',
+              notification: notification
+            });
+            console.log('✅ BautraegerNotificationTab: Quote-Revised-Benachrichtigung hinzugefügt');
           } else if (notification.type === 'completion') {
             notifications.push({
               id: `completion_${notification.id}`,
@@ -289,6 +344,21 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
               priority: notification.priority as 'normal' | 'high' | 'urgent',
               notification: notification
             });
+          } else if (notification.type === 'appointment_invitation') {
+            notifications.push({
+              id: `appointment_response_${notification.id}`,
+              type: 'appointment',
+              title: notification.title,
+              message: notification.message,
+              timestamp: notification.created_at,
+              isHandled: notification.is_acknowledged,
+              isRead: notification.is_read,
+              priority: notification.priority as 'normal' | 'high' | 'urgent',
+              notification: notification,
+              appointmentType: notification.metadata?.service_provider_response === 'accepted' ? 'confirmation' :
+                             notification.metadata?.service_provider_response === 'rejected_with_suggestion' ? 'reschedule' : 'rejection'
+            });
+            console.log('✅ BautraegerNotificationTab: Appointment-Invitation-Benachrichtigung hinzugefügt');
           }
         });
       } catch (error) {
@@ -299,8 +369,15 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
           data: error.response?.data
         });
         
-        // Fahre trotz Fehler fort, um neue Angebote zu prüfen
+        // Bei API-Fehlern: Fahre trotzdem fort mit lokalen Daten
         console.log('🔄 BautraegerNotificationTab: Fahre trotz API-Fehler fort...');
+        
+        // Zeige Benutzer-freundliche Fehlermeldung
+        if (error.response?.status === 500) {
+          console.warn('⚠️ BautraegerNotificationTab: Backend-Server-Fehler. Verwende Fallback-Modus.');
+          // Optional: Zeige Toast-Nachricht für Benutzer
+          // toast.error('Benachrichtigungen können derzeit nicht geladen werden. Bitte versuchen Sie es später erneut.');
+        }
       }
       
       // 2. Lade Termin-Benachrichtigungen (bestehende Logik)
@@ -339,13 +416,19 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
               const hasHandled = localStorage.getItem(handledKey);
               const isPermanentlyHandled = hasEmailSent || hasHandled;
               
+              // If notification is permanently handled, don't show it at all
+              if (isPermanentlyHandled) {
+                console.log(`🔕 Skipping Bauträger notification for appointment ${appointment.id} - already handled`);
+                return; // Skip this notification
+              }
+              
               notifications.push({
                 id: `appointment_${appointment.id}_${response.id}`,
                 type: 'appointment',
                 title: `Terminantwort: ${appointment.title}`,
                 message: `${response.service_provider_name} hat ${appointmentType === 'confirmation' ? 'zugesagt' : appointmentType === 'reschedule' ? 'einen anderen Termin vorgeschlagen' : 'abgesagt'}`,
                 timestamp: response.created_at || appointment.created_at,
-                isHandled: Boolean(isPermanentlyHandled), // Prüfe permanente Marker
+                isHandled: false, // Only show unhandled notifications
                 isRead: false,
                 appointment,
                 response,
@@ -411,18 +494,13 @@ Ihr BuildWise Team
     
     // Setze lokalen Status auf behandelt
     const notificationIndex = notifications.indexOf(notification);
-    handleMarkAsHandled(notificationIndex);
+    if (notificationIndex !== -1) {
+      handleMarkAsHandled(notificationIndex);
+    }
     };
 
   const handleMarkAsHandled = (notificationIndex: number) => {
     const notification = notifications[notificationIndex];
-    
-    setNotifications(prev => 
-      prev.map((n, idx) => 
-        idx === notificationIndex ? { ...n, isHandled: true } : n
-      )
-    );
-    setSelectedNotification(null);
     
     // Setze permanenten Marker für behandelte Benachrichtigung
     if (notification && notification.appointment) {
@@ -433,7 +511,15 @@ Ihr BuildWise Team
         handledAt: new Date().toISOString(),
         action: 'marked_as_handled'
       }));
+      
+      console.log(`✅ Bauträger notification for appointment ${notification.appointment.id} marked as handled`);
     }
+    
+    // Remove the notification from the list immediately
+    setNotifications(prev => prev.filter((n, idx) => idx !== notificationIndex));
+    
+    // Close modal
+    setSelectedNotification(null);
     
     if (onResponseHandled) {
       onResponseHandled();
@@ -442,11 +528,6 @@ Ihr BuildWise Team
 
   const handleMarkAllAsRead = async () => {
     try {
-      // Markiere alle Benachrichtigungen als behandelt
-      setNotifications(prev => 
-        prev.map(n => ({ ...n, isHandled: true, isRead: true }))
-      );
-      
       // Setze permanente Marker für alle Benachrichtigungen
       notifications.forEach(notification => {
         if (notification.type === 'appointment' && notification.appointment) {
@@ -469,8 +550,8 @@ Ihr BuildWise Team
           }));
         }
         
-        if ((notification.type === 'quote_submitted' || notification.type === 'completion' || notification.type === 'defects_resolved' || notification.type === 'invoice_received') && notification.notification) {
-          // Für Angebots-, Fertigstellungs-, Mängelbehebungs- und Rechnungsbenachrichtigungen - markiere als acknowledged
+        if ((notification.type === 'quote_submitted' || notification.type === 'quote_revised' || notification.type === 'completion' || notification.type === 'defects_resolved' || notification.type === 'invoice_received') && notification.notification) {
+          // Für Angebots-, Überarbeitungs-, Fertigstellungs-, Mängelbehebungs- und Rechnungsbenachrichtigungen - markiere als acknowledged
           api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
             console.error('Fehler beim Bestätigen der Benachrichtigung:', error);
           });
@@ -488,13 +569,13 @@ Ihr BuildWise Team
         }
       });
       
+      // Remove all notifications from the list immediately
+      setNotifications([]);
+      
       // Schließe Modal falls offen
       setSelectedNotification(null);
       
-      // Lade Benachrichtigungen neu
-      setTimeout(() => {
-        loadBautraegerNotifications();
-      }, 500);
+      console.log(`✅ All Bauträger notifications marked as handled and removed`);
       
       if (onResponseHandled) {
         onResponseHandled();
@@ -574,9 +655,12 @@ Ihr BuildWise Team
   return (
     <>
       {/* Bauträger Notification Tab - rechts am Bildschirmrand */}
-      <div className={`fixed right-0 top-1/2 -mt-20 transform -translate-y-1/2 z-[9999] transition-all duration-300 ${
-        isExpanded ? 'translate-x-0' : 'translate-x-full'
-      }`}>
+      <div 
+        ref={notificationTabRef}
+        className={`fixed right-0 top-1/2 -mt-20 transform -translate-y-1/2 z-[9999] transition-all duration-300 ${
+          isExpanded ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
         
         {/* Tab Handle - Der "Griff" der Lasche (links) */}
         <div 
@@ -694,8 +778,8 @@ Ihr BuildWise Team
                       });
                     }
                   }
-                  // Für quote_submitted: Öffne direkt die Ausschreibung
-                  else if (notification.type === 'quote_submitted' && notification.notification?.related_milestone_id) {
+                  // Für quote_submitted oder quote_revised: Öffne direkt die Ausschreibung
+                  else if ((notification.type === 'quote_submitted' || notification.type === 'quote_revised') && notification.notification?.related_milestone_id) {
                     console.log('📋 BautraegerNotificationTab: Öffne Ausschreibung für Milestone:', notification.notification.related_milestone_id);
                     
                     // Event für Dashboard auslösen, um TradeDetailsModal zu öffnen
@@ -787,11 +871,21 @@ Ihr BuildWise Team
                     )}
                     
                     {/* Angebot-spezifische Informationen - Design wie Dienstleister-Benachrichtigung */}
-                    {notification.type === 'quote_submitted' && notification.notification?.metadata && (
-                      <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    {(notification.type === 'quote_submitted' || notification.type === 'quote_revised') && notification.notification?.metadata && (
+                      <div className={`mt-3 p-3 rounded-lg border ${
+                        notification.type === 'quote_revised' 
+                          ? 'bg-purple-50 border-purple-200' 
+                          : 'bg-blue-50 border-blue-200'
+                      }`}>
                         <div className="mb-2">
-                          <div className="text-xs text-gray-600 font-medium">
-                            📋 {notification.notification.metadata.quote_title || 'Angebot'}
+                          <div className="text-xs text-gray-600 font-medium flex items-center gap-1">
+                            {notification.type === 'quote_revised' ? '✏️' : '📋'} 
+                            {notification.notification.metadata.quote_title || 'Angebot'}
+                            {notification.type === 'quote_revised' && (
+                              <span className="ml-2 px-2 py-0.5 bg-purple-200 text-purple-700 rounded-full text-xs font-bold">
+                                ÜBERARBEITET
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs text-gray-500">
                             🏗️ {notification.notification.metadata.project_name || 'Projekt'}
@@ -801,7 +895,9 @@ Ihr BuildWise Team
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           <div>
                             <span className="text-gray-500">Angebotssumme:</span>
-                            <div className="font-semibold text-blue-600">
+                            <div className={`font-semibold ${
+                              notification.type === 'quote_revised' ? 'text-purple-600' : 'text-blue-600'
+                            }`}>
                               {new Intl.NumberFormat('de-DE', { 
                                 style: 'currency', 
                                 currency: notification.notification.metadata.quote_currency || 'CHF' 
@@ -840,8 +936,14 @@ Ihr BuildWise Team
                           </div>
                         </div>
                         
-                        <div className="mt-3 p-2 bg-gradient-to-r from-blue-100 to-indigo-100 rounded border border-blue-300">
-                          <div className="flex items-center justify-center gap-2 text-xs text-blue-700 font-medium">
+                        <div className={`mt-3 p-2 rounded border ${
+                          notification.type === 'quote_revised'
+                            ? 'bg-gradient-to-r from-purple-100 to-indigo-100 border-purple-300'
+                            : 'bg-gradient-to-r from-blue-100 to-indigo-100 border-blue-300'
+                        }`}>
+                          <div className={`flex items-center justify-center gap-2 text-xs font-medium ${
+                            notification.type === 'quote_revised' ? 'text-purple-700' : 'text-blue-700'
+                          }`}>
                             <FileText size={14} />
                             <span>👆 Klicken Sie hier, um die Ausschreibung zu öffnen</span>
                           </div>
@@ -853,6 +955,7 @@ Ihr BuildWise Team
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         notification.type === 'invoice_received' ? 'bg-green-100 text-green-800' :
                         notification.type === 'quote_submitted' ? 'bg-blue-100 text-blue-800' :
+                        notification.type === 'quote_revised' ? 'bg-purple-100 text-purple-800' :
                         notification.type === 'completion' ? 'bg-green-100 text-green-800' :
                         notification.type === 'defects_resolved' ? 'bg-orange-100 text-orange-800' :
                         notification.appointmentType === 'confirmation' ? 'bg-green-100 text-green-800' :
@@ -862,6 +965,7 @@ Ihr BuildWise Team
                       }`}>
                         {notification.type === 'invoice_received' && '🧾 Neue Rechnung'}
                         {notification.type === 'quote_submitted' && '📋 Neues Angebot'}
+                        {notification.type === 'quote_revised' && '✏️ Überarbeitetes Angebot'}
                         {notification.type === 'completion' && '✅ Fertiggestellt'}
                         {notification.type === 'defects_resolved' && '🔧 Mängel behoben'}
                         {notification.appointmentType === 'confirmation' && '✅ Bestätigt'}
@@ -873,7 +977,8 @@ Ihr BuildWise Team
                         <div className="animate-pulse">
                           <AlertCircle size={16} className={
                             notification.type === 'invoice_received' ? 'text-green-500' :
-                            notification.type === 'quote_submitted' ? 'text-blue-500' : 
+                            notification.type === 'quote_submitted' ? 'text-blue-500' :
+                            notification.type === 'quote_revised' ? 'text-purple-500' : 
                             notification.type === 'completion' ? 'text-green-500' : 
                             notification.type === 'defects_resolved' ? 'text-orange-500' : 'text-green-500'
                           } />
@@ -922,9 +1027,18 @@ Ihr BuildWise Team
             <div className="p-6">
               
               {/* Quote Details */}
-              {selectedNotification.type === 'quote_submitted' && selectedNotification.notification && (
-                <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                  <h4 className="font-medium text-gray-900 mb-3">{selectedNotification.title}</h4>
+              {(selectedNotification.type === 'quote_submitted' || selectedNotification.type === 'quote_revised') && selectedNotification.notification && (
+                <div className={`rounded-lg p-4 mb-6 ${
+                  selectedNotification.type === 'quote_revised' ? 'bg-purple-50' : 'bg-blue-50'
+                }`}>
+                  <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                    {selectedNotification.title}
+                    {selectedNotification.type === 'quote_revised' && (
+                      <span className="px-2 py-0.5 bg-purple-200 text-purple-700 rounded-full text-xs font-bold">
+                        ÜBERARBEITET
+                      </span>
+                    )}
+                  </h4>
                   <p className="text-sm text-gray-700 mb-3">{selectedNotification.message}</p>
                   
                   <div className="space-y-2 text-sm text-gray-600">
@@ -971,9 +1085,13 @@ Ihr BuildWise Team
                           loadBautraegerNotifications();
                         }
                       }}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                      className={`text-white px-4 py-2 rounded-lg transition-colors text-sm ${
+                        selectedNotification.type === 'quote_revised'
+                          ? 'bg-purple-600 hover:bg-purple-700'
+                          : 'bg-blue-600 hover:bg-blue-700'
+                      }`}
                     >
-                      📋 Angebot ansehen
+                      {selectedNotification.type === 'quote_revised' ? '✏️ Überarbeitetes Angebot ansehen' : '📋 Angebot ansehen'}
                     </button>
                     <button 
                       onClick={async () => {

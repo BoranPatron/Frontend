@@ -1,6 +1,19 @@
+/* Mobile Dashboard Optimierungen - @import muss vor allen anderen CSS-Regeln stehen */
+@import './styles/mobile-dashboard-optimized.css';
+@import './styles/mobile-documents.css';
+@import './styles/grid-optimizations.css';
+@import './styles/notification-animations.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Direkte Mail-Animation für garantierte Funktionalität */
+@keyframes mail-flash {
+  0% { opacity: 1; }
+  50% { opacity: 0.1; }
+  100% { opacity: 1; }
+}
 
 /* Leaflet Karten-Styling */
 .leaflet-container {

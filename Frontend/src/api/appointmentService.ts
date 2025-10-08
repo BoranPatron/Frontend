@@ -170,6 +170,49 @@ export const appointmentService = {
   // Service Provider Antwort auf Einladung
   async respondToAppointment(data: AppointmentResponseRequest): Promise<any> {
     const response = await api.post(`/appointments/${data.appointment_id}/respond`, data);
+    
+    // Erstelle automatisch Benachrichtigung für Bauträger
+    try {
+      // Hole Termindetails für Benachrichtigung
+      const appointmentDetails = await this.getAppointment(data.appointment_id);
+      
+      const statusText = data.status === 'accepted' ? 'zugesagt' : 
+                        data.status === 'rejected_with_suggestion' ? 'einen Alternativtermin vorgeschlagen' : 'abgelehnt';
+      
+      const priority = data.status === 'accepted' ? 'high' : 'medium';
+      
+      const notificationData = {
+        type: 'appointment_invitation',
+        title: `Terminantwort: ${appointmentDetails.title}`,
+        message: `Ein Dienstleister hat dem Besichtigungstermin "${appointmentDetails.title}" ${statusText}.`,
+        description: `Termin: ${appointmentDetails.title}\nDatum: ${new Date(appointmentDetails.scheduled_date).toLocaleDateString('de-DE')}\nUhrzeit: ${new Date(appointmentDetails.scheduled_date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}${data.message ? `\nNachricht: ${data.message}` : ''}`,
+        priority: priority,
+        requires_action: true,
+        action_type: data.status === 'accepted' ? 'appointment_confirmation' : 
+                   data.status === 'rejected_with_suggestion' ? 'appointment_reschedule' : 'appointment_rejection',
+        project_id: appointmentDetails.project_id,
+        milestone_id: appointmentDetails.milestone_id,
+        metadata: {
+          appointment_id: appointmentDetails.id,
+          appointment_title: appointmentDetails.title,
+          appointment_date: appointmentDetails.scheduled_date,
+          appointment_location: appointmentDetails.location,
+          service_provider_response: data.status,
+          response_message: data.message,
+          suggested_date: data.suggested_date,
+          response_timestamp: new Date().toISOString()
+        }
+      };
+      
+      // Sende Benachrichtigung an Backend
+      await api.post('/notifications', notificationData);
+      console.log('✅ Benachrichtigung für Bauträger erstellt');
+      
+    } catch (notificationError) {
+      console.error('❌ Fehler beim Erstellen der Benachrichtigung:', notificationError);
+      // Fehler bei Benachrichtigung soll den Hauptprozess nicht stoppen
+    }
+    
     return response.data;
   },
 

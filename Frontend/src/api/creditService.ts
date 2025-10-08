@@ -81,3 +81,13 @@ export const confirmPurchase = async (purchaseId: number, paymentDetails: any): 
     throw error;
   }
 };
+
+export const processDailyLoginDeduction = async (): Promise<any> => {
+  try {
+    const response = await api.post('/credits/daily-login-deduction');
+    return response.data;
+  } catch (error) {
+    console.error('Fehler beim täglichen Credit-Abzug:', error);
+    throw error;
+  }
+};

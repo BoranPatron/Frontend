@@ -18,7 +18,6 @@ import ProjectAnalytics from './pages/ProjectAnalytics';
 import Tasks from './pages/Tasks';
 import TasksPage from './pages/TasksPage';
 import Documents from './pages/Documents';
-import Finance from './pages/Finance';
 import Quotes from './pages/Quotes';
 import Visualize from './pages/Visualize';
 import Messages from './pages/Messages';
@@ -370,11 +369,14 @@ function AppContent() {
       {/* Credit-Notifications für Bauträger */}
       <CreditNotification />
 
-      {/* Radial Menu: Für Bauträger auf allen Seiten außer Login sichtbar */}
+      {/* Radial Menu: Für Bauträger und Dienstleister auf allen Seiten außer Login sichtbar */}
       {user && location.pathname !== '/login' && (
-        (user.user_role === 'BAUTRAEGER' || user.user_role === 'bautraeger') && (
+        ((user.user_role === 'BAUTRAEGER' || user.user_role === 'bautraeger') && (
           <RadialMenuAdvanced enableGooeyEffect={false} showTooltips enableSecondRing />
-        )
+        )) ||
+        ((user.user_role === 'DIENSTLEISTER' || user.user_role === 'dienstleister') && (
+          <RadialMenuAdvanced enableGooeyEffect={false} showTooltips enableSecondRing={false} />
+        ))
       )}
       
       {/* Notification Tab für Terminanfragen/antworten - NUR für Dienstleister */}
@@ -448,11 +450,6 @@ function AppContent() {
         <Route path="/documents" element={
           <ProtectedRoute>
             <Documents />
-          </ProtectedRoute>
-        } />
-        <Route path="/finance" element={
-          <ProtectedRoute>
-            <Finance />
           </ProtectedRoute>
         } />
         {/* Deaktiviert: Quotes jetzt im Dashboard unter Gewerke integriert */}

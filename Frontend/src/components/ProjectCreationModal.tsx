@@ -109,6 +109,7 @@ const DOCUMENT_CATEGORIES = {
     icon: FolderOpen,
     color: 'purple',
     subcategories: [
+      'Fotos',
       'Baufortschrittsfotos',
       'Mängeldokumentation',
       'Bestandsdokumentation',
@@ -632,11 +633,47 @@ export default function ProjectCreationModal({ isOpen, onClose, onSubmit }: Proj
                         onChange={handleFormChange}
                         className="w-full px-4 py-3 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59] text-white"
                       />
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const today = new Date();
+                            const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, today.getDate());
+                            setFormData(prev => ({ ...prev, planned_start_date: nextMonth.toISOString().split('T')[0] }));
+                          }}
+                          className="px-2 py-1 text-xs bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] rounded border border-[#ffbd59]/30 transition-colors"
+                        >
+                          +1M
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const today = new Date();
+                            const next3Months = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate());
+                            setFormData(prev => ({ ...prev, planned_start_date: next3Months.toISOString().split('T')[0] }));
+                          }}
+                          className="px-2 py-1 text-xs bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] rounded border border-[#ffbd59]/30 transition-colors"
+                        >
+                          +3M
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const today = new Date();
+                            const next6Months = new Date(today.getFullYear(), today.getMonth() + 6, today.getDate());
+                            setFormData(prev => ({ ...prev, planned_start_date: next6Months.toISOString().split('T')[0] }));
+                          }}
+                          className="px-2 py-1 text-xs bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] rounded border border-[#ffbd59]/30 transition-colors"
+                        >
+                          +6M
+                        </button>
+                      </div>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-200 mb-2">
-                        Geplante Fertigstellung
+                        <span className="hidden sm:inline">Voraussichtliches Enddatum</span>
+                        <span className="sm:hidden">Vrsl. Enddatum</span>
                       </label>
                       <input
                         type="date"
@@ -645,6 +682,52 @@ export default function ProjectCreationModal({ isOpen, onClose, onSubmit }: Proj
                         onChange={handleFormChange}
                         className="w-full px-4 py-3 bg-[#1a1a2e]/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-[#ffbd59] text-white"
                       />
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const today = new Date();
+                            const next6Months = new Date(today.getFullYear(), today.getMonth() + 6, today.getDate());
+                            setFormData(prev => ({ ...prev, planned_end_date: next6Months.toISOString().split('T')[0] }));
+                          }}
+                          className="px-2 py-1 text-xs bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] rounded border border-[#ffbd59]/30 transition-colors"
+                        >
+                          +6M
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const today = new Date();
+                            const nextYear = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
+                            setFormData(prev => ({ ...prev, planned_end_date: nextYear.toISOString().split('T')[0] }));
+                          }}
+                          className="px-2 py-1 text-xs bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] rounded border border-[#ffbd59]/30 transition-colors"
+                        >
+                          +1J
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const today = new Date();
+                            const next18Months = new Date(today.getFullYear(), today.getMonth() + 18, today.getDate());
+                            setFormData(prev => ({ ...prev, planned_end_date: next18Months.toISOString().split('T')[0] }));
+                          }}
+                          className="px-2 py-1 text-xs bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] rounded border border-[#ffbd59]/30 transition-colors"
+                        >
+                          +18M
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const today = new Date();
+                            const next2Years = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate());
+                            setFormData(prev => ({ ...prev, planned_end_date: next2Years.toISOString().split('T')[0] }));
+                          }}
+                          className="px-2 py-1 text-xs bg-[#ffbd59]/20 hover:bg-[#ffbd59]/30 text-[#ffbd59] rounded border border-[#ffbd59]/30 transition-colors"
+                        >
+                          +2J
+                        </button>
+                      </div>
                     </div>
 
                     <div>
@@ -835,7 +918,7 @@ export default function ProjectCreationModal({ isOpen, onClose, onSubmit }: Proj
                   </div>
                   
                   <p className="text-gray-300 mb-4">
-                    Unsere KI hat Ihre Dokumente analysiert und automatische Kategorisierungsvorschläge erstellt:
+                    Automatische Kategorisierungsvorschläge erstellt:
                   </p>
                   
                   <div className="space-y-3">
@@ -863,46 +946,21 @@ export default function ProjectCreationModal({ isOpen, onClose, onSubmit }: Proj
                           <div className="flex items-center gap-2">
                             <Target className="w-4 h-4 text-green-400" />
                             <span className="text-green-400 text-sm">
-                              Vorschlag: <strong>{DOCUMENT_CATEGORIES[file.suggestedCategory as keyof typeof DOCUMENT_CATEGORIES]?.name}</strong>
+                              <strong>{DOCUMENT_CATEGORIES[file.suggestedCategory as keyof typeof DOCUMENT_CATEGORIES]?.name}</strong>
                               {file.suggestedSubcategory && ` > ${file.suggestedSubcategory}`}
                             </span>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <AlertTriangle className="w-4 h-4 text-yellow-400" />
-                            <span className="text-yellow-400 text-sm">
-                              Keine automatische Erkennung möglich - bitte manuell kategorisieren
+                            <AlertTriangle className="w-4 h-4 text-gray-400" />
+                            <span className="text-gray-400 text-sm">
+                              Bitte manuell kategorisieren
                             </span>
                           </div>
                         )}
                       </div>
                     ))}
                   </div>
-                  
-                  {/* Auto-Accept Button */}
-                  {categorizingFiles.some(f => f.autoDetected && f.suggestedCategory && f.suggestedSubcategory) && (
-                    <div className="mt-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-5 h-5 text-green-400" />
-                          <span className="text-green-400 font-medium">
-                            Alle Vorschläge automatisch übernehmen?
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleAutoAcceptSuggestions}
-                          className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                          Ja, übernehmen
-                        </button>
-                      </div>
-                      <p className="text-gray-400 text-sm mt-2">
-                        Die KI-Vorschläge werden automatisch angewendet. Sie können diese später noch ändern.
-                      </p>
-                    </div>
-                  )}
                 </div>
 
                 <div className="mb-4">
@@ -919,19 +977,12 @@ export default function ProjectCreationModal({ isOpen, onClose, onSubmit }: Proj
                     const hasAutoDetected = categorizingFiles.some(f => f.suggestedCategory === key);
                     
                     return (
-                      <div key={key} className={`rounded-xl p-4 border transition-all ${
-                        hasAutoDetected 
-                          ? 'bg-[#ffbd59]/10 border-[#ffbd59]/50 shadow-lg shadow-[#ffbd59]/10' 
-                          : 'bg-[#1a1a2e]/30 border-gray-600/30'
-                      }`}>
+                      <div key={key} className="rounded-xl p-4 border bg-[#1a1a2e]/30 border-gray-600/30">
                         <div className="flex items-center mb-3">
-                          <Icon className={`w-6 h-6 mr-3 ${hasAutoDetected ? 'text-[#ffbd59]' : 'text-gray-400'}`} />
-                          <h4 className={`font-semibold ${hasAutoDetected ? 'text-white' : 'text-gray-300'}`}>
+                          <Icon className="w-6 h-6 mr-3 text-gray-400" />
+                          <h4 className="font-semibold text-gray-300">
                             {category.name}
                           </h4>
-                          {hasAutoDetected && (
-                            <Sparkles className="w-4 h-4 ml-2 text-[#ffbd59]" />
-                          )}
                         </div>
                         
                         <div className="space-y-2">
@@ -945,17 +996,10 @@ export default function ProjectCreationModal({ isOpen, onClose, onSubmit }: Proj
                                 key={subcategory}
                                 type="button"
                                 onClick={() => handleCategoryAssignment(key, subcategory, 'other')}
-                                className={`w-full text-left px-3 py-2 rounded-lg transition-colors text-sm ${
-                                  isSuggested
-                                    ? 'bg-[#ffbd59]/20 text-[#ffbd59] border border-[#ffbd59]/30 font-medium'
-                                    : 'text-gray-300 hover:text-white hover:bg-[#ffbd59]/10'
-                                }`}
+                                className="w-full text-left px-3 py-2 rounded-lg transition-colors text-sm text-gray-300 hover:text-white hover:bg-[#ffbd59]/10"
                               >
                                 <div className="flex items-center justify-between">
                                   <span>{subcategory}</span>
-                                  {isSuggested && (
-                                    <Target className="w-3 h-3" />
-                                  )}
                                 </div>
                               </button>
                             );

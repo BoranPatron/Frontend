@@ -1,126 +1,142 @@
-import React, { useState, useEffect } from 'react';
-import { getCreditBalance, CreditBalance } from '../api/creditService';
-import { useAuth } from '../context/AuthContext';
+import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Coins, TrendingDown, AlertTriangle, Zap, Sparkles, X } from 'lucide-react';
 
 interface CreditNotificationProps {
-  onClose?: () => void;
+  creditsChanged: number;
+  newBalance: number;
+  onClose: () => void;
 }
 
-export default function CreditNotification({ onClose }: CreditNotificationProps) {
-  const { user, isInitialized, isAuthenticated } = useAuth();
-  const [balance, setBalance] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [showNotification, setShowNotification] = useState(false);
+export default function CreditNotification({ 
+  creditsChanged, 
+  newBalance, 
+  onClose 
+}: CreditNotificationProps) {
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // Lade Credits erst, wenn AuthContext initialisiert und User authentifiziert ist
-    if (isInitialized && isAuthenticated() && user) {
-      loadCreditBalance();
-    } else if (isInitialized && !isAuthenticated()) {
-      setLoading(false);
-    }
-  }, [isInitialized, user]);
+    const timer = setTimeout(() => {
+      setIsVisible(false);
+      setTimeout(onClose, 300); // Warte auf Exit-Animation
+    }, 4000);
 
-  const loadCreditBalance = async () => {
-    try {
-      setLoading(true);
-      const balanceData = await getCreditBalance();
-      setBalance(balanceData);
-      
-      // Zeige Benachrichtigung nur bei niedrigen Credits oder abgelaufenem Pro-Status
-      if (balanceData.low_credit_warning) {
-        setShowNotification(true);
-      }
-    } catch (err) {
-      console.error('Fehler beim Laden der Credit-Daten:', err);
-      // Fehler beim Credit-Laden sollte nicht die gesamte App blockieren
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => clearTimeout(timer);
+  }, [onClose]);
 
-  const handleClose = () => {
-    setShowNotification(false);
-    onClose?.();
-  };
-
-  const handleBuyCredits = () => {
-    // Navigiere zur Credits-Seite
-    window.location.href = '/credits';
-  };
-
-  if (loading || !balance || !showNotification) {
-    return null;
-  }
-
-  const getNotificationType = () => {
-    if (!balance.is_pro_active && balance.remaining_pro_days === 0) {
-      return {
-        type: 'error',
-        title: 'Pro-Status abgelaufen',
-        message: 'Ihr Pro-Status ist abgelaufen. Kaufen Sie Credits oder führen Sie Aktivitäten aus, um Ihren Status zu erneuern.',
-        icon: '🔒',
-        color: 'bg-gradient-to-r from-red-600 to-red-700',
-        buttonText: 'Credits kaufen'
-      };
-    }
-    
-    if (balance.low_credit_warning) {
-      return {
-        type: 'warning',
-        title: 'Niedrige Credits',
-        message: `Sie haben nur noch ${balance.credits} Credits. Kaufen Sie Credits oder führen Sie Aktivitäten aus, um Credits zu verdienen.`,
-        icon: '⚠️',
-        color: 'bg-gradient-to-r from-yellow-600 to-yellow-700',
-        buttonText: 'Credits kaufen'
-      };
-    }
-
-    return null;
-  };
-
-  const notification = getNotificationType();
-  if (!notification) return null;
+  const isDeduction = creditsChanged < 0;
+  const isLowCredits = newBalance < 10;
 
   return (
-    <div className="fixed top-4 right-4 z-50 max-w-sm">
-      <div className={`${notification.color} text-white rounded-lg shadow-lg p-4 border border-white/20`}>
-        <div className="flex items-start">
-          <div className="flex-shrink-0">
-            <span className="text-2xl">{notification.icon}</span>
-          </div>
-          <div className="ml-3 flex-1">
-            <h3 className="text-sm font-medium">
-              {notification.title}
-            </h3>
-            <p className="text-sm mt-1 opacity-90">
-              {notification.message}
-            </p>
-            <div className="mt-3 flex space-x-2">
-              <button
-                onClick={handleBuyCredits}
-                className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          initial={{ opacity: 0, y: -50, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -50, scale: 0.9 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          className="fixed top-4 right-4 z-50 max-w-sm"
+        >
+          <div className={`
+            relative p-4 rounded-xl shadow-2xl border backdrop-blur-lg
+            ${isDeduction 
+              ? 'bg-gradient-to-r from-red-500/20 to-orange-500/20 border-red-500/30' 
+              : 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-500/30'
+            }
+          `}>
+            {/* Glow-Effekt */}
+            <div className={`
+              absolute inset-0 rounded-xl blur-sm -z-10
+              ${isDeduction 
+                ? 'bg-gradient-to-r from-red-500/30 to-orange-500/30' 
+                : 'bg-gradient-to-r from-green-500/30 to-emerald-500/30'
+              }
+            `} />
+
+            {/* Close Button */}
+            <button
+              onClick={() => {
+                setIsVisible(false);
+                setTimeout(onClose, 300);
+              }}
+              className="absolute top-2 right-2 text-gray-400 hover:text-white transition-colors"
+            >
+              <X size={16} />
+            </button>
+
+            {/* Content */}
+            <div className="flex items-center gap-3">
+              {/* Icon */}
+              <motion.div
+                animate={{ 
+                  scale: [1, 1.2, 1],
+                  rotate: isDeduction ? [0, -5, 5, 0] : [0, 5, -5, 0]
+                }}
+                transition={{ duration: 0.6, ease: "easeInOut" }}
+                className={`
+                  p-2 rounded-lg
+                  ${isDeduction 
+                    ? 'bg-red-500/20 text-red-400' 
+                    : 'bg-green-500/20 text-green-400'
+                  }
+                `}
               >
-                {notification.buttonText}
-              </button>
-              <button
-                onClick={handleClose}
-                className="text-white/70 hover:text-white px-3 py-1 rounded text-sm transition-colors"
-              >
-                Schließen
-              </button>
+                {isDeduction ? (
+                  <TrendingDown size={20} />
+                ) : (
+                  <Coins size={20} />
+                )}
+              </motion.div>
+
+              {/* Text */}
+              <div className="flex-1">
+                <h4 className={`
+                  font-semibold text-sm
+                  ${isDeduction ? 'text-red-300' : 'text-green-300'}
+                `}>
+                  {isDeduction ? 'Täglicher Credit-Abzug' : 'Credits erhalten'}
+                </h4>
+                <p className="text-gray-300 text-xs mt-1">
+                  {isDeduction ? (
+                    <>
+                      <span className="text-red-400 font-bold">{Math.abs(creditsChanged)}</span> Credit{Math.abs(creditsChanged) !== 1 ? 's' : ''} abgezogen
+                      <br />
+                      <span className="text-white font-bold">{newBalance}</span> Credits verbleibend
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-green-400 font-bold">+{creditsChanged}</span> Credits erhalten
+                      <br />
+                      <span className="text-white font-bold">{newBalance}</span> Credits gesamt
+                    </>
+                  )}
+                </p>
+                
+                {isLowCredits && (
+                  <p className="text-amber-400 text-xs mt-2 flex items-center gap-1">
+                    <AlertTriangle size={12} />
+                    Credits fast aufgebraucht!
+                  </p>
+                )}
+              </div>
+
+              {/* Sparkle-Effekt */}
+              <AnimatePresence>
+                {!isDeduction && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0 }}
+                    transition={{ duration: 0.3, delay: 0.2 }}
+                  >
+                    <Sparkles className="w-5 h-5 text-green-400" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
-          <button
-            onClick={handleClose}
-            className="ml-2 text-white/70 hover:text-white transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
-}; 
+}

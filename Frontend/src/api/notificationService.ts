@@ -2,24 +2,25 @@ import api from './api';
 
 export interface NotificationData {
   id?: number;
-  type: 'completion_request' | 'appointment_invitation' | 'task_assignment' | 'general' | 
-        'resource_preselection' | 'resource_invitation' | 'resource_offer_requested' | 'resource_allocated' |
-        'resource_allocated' | 'tender_invitation';
+  recipient_id: number;
+  type: 'quote_submitted' | 'quote_accepted' | 'quote_rejected' | 'quote_revised' | 
+        'appointment_request' | 'appointment_confirmed' | 'milestone_completed' | 
+        'defects_resolved' | 'acceptance_with_defects' | 'invoice_submitted' | 
+        'payment_received' | 'document_uploaded' | 'project_status_changed' | 
+        'system_announcement' | 'resource_allocated' | 'tender_invitation';
   title: string;
   message: string;
-  description?: string;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  requires_action?: boolean;
-  action_type?: string;
-  project_id?: number;
-  milestone_id?: number;
-  trade_id?: number;
-  user_id?: number;
-  resource_id?: number;
-  allocation_id?: number;
-  metadata?: Record<string, any>;
-  read_at?: string;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  data?: string; // JSON-String für zusätzliche Daten
+  related_quote_id?: number;
+  related_project_id?: number;
+  related_milestone_id?: number;
+  related_appointment_id?: number;
+  is_read?: boolean;
+  is_acknowledged?: boolean;
   created_at?: string;
+  read_at?: string;
+  acknowledged_at?: string;
 }
 
 export interface EmailNotificationData {
@@ -124,19 +125,16 @@ export const notificationService = {
     project_name: string;
     service_provider: string;
     service_provider_id: number;
+    recipient_id: number;
   }): Promise<NotificationData> {
     const notificationData: NotificationData = {
-      type: 'completion_request',
+      recipient_id: data.recipient_id,
+      type: 'milestone_completed',
       title: `Fertigstellungsmeldung: ${data.trade_title}`,
       message: `Der Dienstleister hat das Gewerk "${data.trade_title}" als fertiggestellt markiert und bittet um Abnahme.`,
-      description: `Projekt: ${data.project_name}\nGewerk: ${data.trade_title}\nDienstleister: ${data.service_provider}`,
       priority: 'high',
-      requires_action: true,
-      action_type: 'acceptance_review',
-      project_id: data.project_id,
-      milestone_id: data.trade_id,
-      trade_id: data.trade_id,
-      metadata: {
+      data: JSON.stringify({
+        description: `Projekt: ${data.project_name}\nGewerk: ${data.trade_title}\nDienstleister: ${data.service_provider}`,
         trade_title: data.trade_title,
         project_name: data.project_name,
         service_provider: data.service_provider,
@@ -148,7 +146,9 @@ export const notificationService = {
           'start_acceptance',
           'send_email'
         ]
-      }
+      }),
+      related_project_id: data.project_id,
+      related_milestone_id: data.trade_id
     };
 
     return this.createNotification(notificationData);
@@ -216,31 +216,30 @@ export const notificationService = {
     trade_title: string;
     bautraeger_name: string;
     service_provider_id: number;
+    recipient_id: number;
   }): Promise<NotificationData> {
     const notificationData: NotificationData = {
-      type: 'resource_preselection',
+      recipient_id: data.recipient_id,
+      type: 'resource_allocated',
       title: `Ressourcen-Vorauswahl für ${data.trade_title}`,
       message: `Sie wurden für die Ausschreibung "${data.trade_title}" im Projekt "${data.project_name}" vorausgewählt.`,
-      description: `Bauträger: ${data.bautraeger_name}\nProjekt: ${data.project_name}\nAusschreibung: ${data.trade_title}`,
       priority: 'high',
-      requires_action: true,
-      action_type: 'create_offer',
-      project_id: data.trade_id,
-      trade_id: data.trade_id,
-      resource_id: data.resource_id,
-      allocation_id: data.allocation_id,
-      user_id: data.service_provider_id,
-      metadata: {
+      data: JSON.stringify({
+        description: `Bauträger: ${data.bautraeger_name}\nProjekt: ${data.project_name}\nAusschreibung: ${data.trade_title}`,
         trade_title: data.trade_title,
         project_name: data.project_name,
         bautraeger_name: data.bautraeger_name,
         preselection_date: new Date().toISOString(),
+        resource_id: data.resource_id,
+        allocation_id: data.allocation_id,
         actions_available: [
           'view_trade_details',
           'create_offer', 
           'decline_invitation'
         ]
-      }
+      }),
+      related_project_id: data.trade_id,
+      related_milestone_id: data.trade_id
     };
 
     return this.createNotification(notificationData);
@@ -403,25 +402,24 @@ export const notificationService = {
 export const createCompletionNotificationData = (
   trade: any, 
   project: any, 
-  serviceProvider: any
+  serviceProvider: any,
+  recipientId: number
 ): NotificationData => ({
-  type: 'completion_request',
+  recipient_id: recipientId,
+  type: 'milestone_completed',
   title: `Fertigstellungsmeldung: ${trade.title}`,
   message: `Der Dienstleister hat das Gewerk "${trade.title}" als fertiggestellt markiert und bittet um Abnahme.`,
-  description: `Projekt: ${project.name}\nGewerk: ${trade.title}\nDienstleister: ${serviceProvider.name}`,
   priority: 'high',
-  requires_action: true,
-  action_type: 'acceptance_review',
-  project_id: project.id,
-  milestone_id: trade.id,
-  trade_id: trade.id,
-  metadata: {
+  data: JSON.stringify({
+    description: `Projekt: ${project.name}\nGewerk: ${trade.title}\nDienstleister: ${serviceProvider.name}`,
     trade_title: trade.title,
     project_name: project.name,
     service_provider: serviceProvider.name,
     completion_date: new Date().toISOString(),
     service_provider_id: serviceProvider.id
-  }
+  }),
+  related_project_id: project.id,
+  related_milestone_id: trade.id
 });
 
 export const getNotificationPriorityColor = (priority: string): string => {
@@ -436,9 +434,15 @@ export const getNotificationPriorityColor = (priority: string): string => {
 
 export const getNotificationTypeIcon = (type: string) => {
   switch (type) {
-    case 'completion_request': return '✅';
-    case 'appointment_invitation': return '📅';
-    case 'task_assignment': return '📋';
+    case 'milestone_completed': return '✅';
+    case 'appointment_request': return '📅';
+    case 'appointment_confirmed': return '📅';
+    case 'invoice_submitted': return '🧾';
+    case 'quote_submitted': return '💰';
+    case 'quote_accepted': return '✅';
+    case 'quote_rejected': return '❌';
+    case 'resource_allocated': return '👥';
+    case 'tender_invitation': return '📋';
     default: return '📢';
   }
 };

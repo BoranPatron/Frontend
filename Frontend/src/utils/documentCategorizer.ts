@@ -114,10 +114,12 @@ export const DOCUMENT_CATEGORIES: DocumentCategory[] = [
       /dokumentation/i,
       /bestand/i,
       /aufmaß/i,
-      /fortschritt/i
+      /fortschritt/i,
+      /img/i,
+      /image/i
     ],
     fileExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.mp4', '.mov', '.avi', '.pdf'],
-    keywords: ['foto', 'bild', 'video', 'baustelle', 'bericht', 'dokumentation', 'bestand'],
+    keywords: ['foto', 'bild', 'video', 'baustelle', 'bericht', 'dokumentation', 'bestand', 'img', 'image'],
     priority: 6
   },
   {
@@ -223,6 +225,18 @@ export class DocumentCategorizer {
     const normalizedFileName = fileName.toLowerCase();
     const normalizedExtension = fileExtension.toLowerCase();
     
+    // Spezielle Behandlung für Bilddateien (PNG, JPG) und Dateien mit "IMG" im Namen
+    const isImageFile = ['.png', '.jpg', '.jpeg'].includes(normalizedExtension);
+    const hasImgInName = normalizedFileName.includes('img') || normalizedFileName.includes('image');
+    
+    if (isImageFile || hasImgInName) {
+      // Finde die Dokumentation-Kategorie
+      const documentationCategory = DOCUMENT_CATEGORIES.find(cat => cat.id === 'documentation');
+      if (documentationCategory) {
+        return documentationCategory;
+      }
+    }
+    
     let bestMatch: { category: DocumentCategory; score: number } | null = null;
     
     for (const category of DOCUMENT_CATEGORIES) {
@@ -271,6 +285,14 @@ export class DocumentCategorizer {
    */
   static suggestSubcategory(category: DocumentCategory, fileName: string): string | null {
     const normalizedFileName = fileName.toLowerCase();
+    
+    // Spezielle Behandlung für Bilddateien (PNG, JPG) und Dateien mit "IMG" im Namen
+    const isImageFile = fileName.toLowerCase().match(/\.(png|jpg|jpeg)$/);
+    const hasImgInName = normalizedFileName.includes('img') || normalizedFileName.includes('image');
+    
+    if (category.id === 'documentation' && (isImageFile || hasImgInName)) {
+      return 'Fotos';
+    }
     
     // Spezifische Subkategorie-Zuordnungen
     const subcategoryMappings: Record<string, Record<string, string[]>> = {
@@ -332,6 +354,7 @@ export class DocumentCategorizer {
         'Arbeitsanweisungen': ['arbeitsanweisung', 'instruction', 'anleitung', 'verfahren']
       },
       'documentation': {
+        'Fotos': ['img', 'image', 'foto', 'photo', 'bild'],
         'Baufortschrittsfotos': ['fortschritt', 'foto', 'bild', 'baustelle', 'progress'],
         'Mängeldokumentation': ['mängel', 'defekt', 'fehler', 'beanstandung'],
         'Bestandsdokumentation': ['bestand', 'aufmaß', 'inventar', 'erfassung'],

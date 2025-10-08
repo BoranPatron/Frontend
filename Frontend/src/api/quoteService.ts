@@ -43,7 +43,7 @@ export async function getQuote(id: number) {
   return response.data;
 }
 
-interface QuoteData {
+export interface QuoteData {
   title: string;
   description: string;
   project_id: number;
@@ -77,6 +77,11 @@ interface QuoteData {
   risk_assessment?: string;
   contingency_plan?: string;
   additional_notes?: string;
+  // Revisions-Felder für überarbeitete Angebote
+  revised_after_inspection?: boolean;
+  revision_count?: number;
+  last_revised_at?: string;
+  is_revised_quote?: boolean;
 }
 
 export async function createQuote(data: QuoteData) {
@@ -140,4 +145,30 @@ export async function createQuoteWithPdf(formData: FormData) {
     }
   });
   return response.data;
-} 
+}
+
+export async function reviseQuoteAfterInspection(quoteId: number, data: Partial<QuoteData>) {
+  // Überarbeitet ein bestehendes Angebot nach Besichtigung
+  const response = await api.put(`/quotes/${quoteId}/revise-after-inspection`, data);
+  return response.data;
+}
+
+// Export als Objekt für konsistente Nutzung
+export const quoteService = {
+  getQuotes,
+  getQuotesForMilestone,
+  createMockQuotesForMilestone,
+  getQuote,
+  createQuote,
+  updateQuote,
+  deleteQuote,
+  submitQuote,
+  acceptQuote,
+  rejectQuote,
+  resetQuote,
+  withdrawQuote,
+  analyzeQuote,
+  getQuoteStatistics,
+  createQuoteWithPdf,
+  reviseQuoteAfterInspection
+}; 

@@ -15,6 +15,7 @@ export interface DocumentSearchParams {
   offset?: number;
   service_provider_documents?: boolean;
   milestone_id?: number;
+  quote_status_filter?: 'accepted' | 'own' | 'all'; // Neu: Filter für Quote-Status
 }
 
 export interface Milestone {
@@ -52,8 +53,20 @@ export async function getDocuments(project_id: number, params?: Partial<Document
     
     // Für Dienstleister-Dokumente: Verwende speziellen Endpunkt
     if (params?.service_provider_documents) {
-      // Vereinfachter Endpoint ohne Parameter
-      const res = await api.get('/documents/service-provider');
+      // Verwende speziellen Service-Provider-Endpunkt
+      console.log('🔍 Service Provider Request:', {
+        url: '/documents/sp/documents',
+        params: {},
+        originalParams: params
+      });
+      
+      const res = await api.get('/documents/sp/documents');
+      console.log('🔍 Service Provider Response:', {
+        status: res.status,
+        dataLength: res.data?.length || 0,
+        data: res.data,
+        headers: res.headers
+      });
       return res.data;
     }
     
@@ -64,8 +77,22 @@ export async function getDocuments(project_id: number, params?: Partial<Document
     console.error('Error details:', {
       status: error.response?.status,
       data: error.response?.data,
-      message: error.message
+      message: error.message,
+      url: error.config?.url,
+      method: error.config?.method
     });
+    
+    // Detaillierte Fehlerbehandlung für 422-Fehler
+    if (error.response?.status === 422) {
+      const details = error.response?.data?.detail;
+      if (Array.isArray(details) && details.length > 0) {
+        console.error('Validation errors:', details);
+        throw new Error(`Validierungsfehler: ${details.map(d => d.msg || d).join(', ')}`);
+      } else if (typeof details === 'string') {
+        throw new Error(`Validierungsfehler: ${details}`);
+      }
+    }
+    
     throw new Error(error.response?.data?.detail || error.message || 'Fehler beim Laden der Dokumente');
   }
 }
@@ -106,14 +133,20 @@ export async function updateDocumentStatus(documentId: number, newStatus: string
   }
 }
 
-export async function getCategoryStatistics(project_id?: number, service_provider_documents?: boolean): Promise<CategoryStats> {
+export async function getCategoryStatistics(project_id?: number, service_provider_documents?: boolean, quote_status_filter?: 'accepted' | 'own' | 'all'): Promise<CategoryStats> {
   try {
     const params = project_id ? { project_id } : {};
     
     // Für Dienstleister-Dokumente: Verwende speziellen Endpunkt
     if (service_provider_documents) {
-      // Vereinfachter Endpoint ohne Parameter
-      const res = await api.get('/documents/categories/stats/service-provider');
+      // Verwende speziellen Service-Provider-Endpunkt
+      console.log('🔍 Service Provider Stats Request:', {
+        url: '/documents/sp/stats',
+        params: {},
+        originalParams: { project_id, service_provider_documents, quote_status_filter }
+      });
+      
+      const res = await api.get('/documents/sp/stats');
       return res.data;
     }
     
@@ -168,6 +201,26 @@ export async function getDocument(id: number) {
   }
 }
 
+export async function deleteDocumentForServiceProvider(documentId: number) {
+  try {
+    console.log(`🗑️ Deleting document ${documentId} for service provider...`);
+    
+    const res = await api.delete(`/documents/sp/documents/${documentId}`);
+    
+    console.log('✅ Document deleted successfully:', res.data);
+    return res.data;
+  } catch (error: any) {
+    console.error('❌ Error deleting document:', error);
+    console.error('Error details:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    
+    throw new Error(error.response?.data?.detail || error.message || 'Fehler beim Löschen des Dokuments');
+  }
+}
+
 export async function uploadDocument(formData: FormData) {
   try {
     // Validiere erforderliche Felder
@@ -179,9 +232,6 @@ export async function uploadDocument(formData: FormData) {
       throw new Error('Dokumententitel ist erforderlich');
     }
     
-    if (!project_id) {
-      throw new Error('Projekt-ID ist erforderlich');
-    }
     
     if (!file || (file instanceof File && file.size === 0)) {
       throw new Error('Datei ist erforderlich');
