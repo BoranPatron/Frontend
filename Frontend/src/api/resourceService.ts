@@ -69,6 +69,16 @@ export interface Resource {
   provider_bio?: string;
   provider_region?: string;
   provider_languages?: string;
+  
+  // Bewertungen
+  overall_rating?: number;
+  rating_count?: number;
+  
+  // Detaillierte Bewertungskategorien
+  avg_quality_rating?: number;
+  avg_timeliness_rating?: number;
+  avg_communication_rating?: number;
+  avg_value_rating?: number;
 }
 
 export interface ResourceAllocation {

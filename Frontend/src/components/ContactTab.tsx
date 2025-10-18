@@ -225,15 +225,14 @@ export default function ContactTab({ userRole, userId }: ContactTabProps) {
       {/* Contact Tab - Fixed Position */}
       <div 
         ref={contactTabRef}
-        className={`fixed right-0 top-1/2 -mt-6 transform -translate-y-1/2 z-[9998] transition-all duration-300 ${
+        className={`fixed right-0 top-0 transform z-[9997] transition-all duration-300 h-screen ${
           isExpanded ? 'translate-x-0' : 'translate-x-full'
         }`}
-        style={{ top: 'calc(50% + 200px)' }} // Positioniert weiter unterhalb der NotificationTab
       >
         
         {/* Tab Handle - Der "Griff" der Lasche (links) */}
         <div 
-          className={`absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-full cursor-pointer transition-all duration-300 ${
+          className={`absolute left-0 top-2/3 transform -translate-y-1/2 -translate-x-full cursor-pointer transition-all duration-300 ${
             hasContacts 
               ? 'bg-gradient-to-r from-green-500/80 to-emerald-500/80 shadow-lg shadow-green-500/50' 
               : 'bg-gradient-to-r from-green-500/60 to-emerald-500/60'
@@ -270,7 +269,7 @@ export default function ContactTab({ userRole, userId }: ContactTabProps) {
         </div>
 
         {/* Contact Panel */}
-        <div className="bg-gradient-to-br from-[#1a1a2e]/95 to-[#2c3539]/95 backdrop-blur-xl shadow-[0_0_60px_rgba(255,189,89,0.15)] rounded-l-xl w-96 h-screen overflow-hidden border-l-4 border-[#ffbd59]/50">
+        <div className="bg-gradient-to-br from-[#1a1a2e]/95 to-[#2c3539]/95 backdrop-blur-xl shadow-[0_0_60px_rgba(255,189,89,0.15)] w-96 h-full overflow-hidden border-l-4 border-[#ffbd59]/50 flex flex-col">
           
           {/* Header */}
           <div className="relative bg-gradient-to-r from-[#3d4952]/95 to-[#51646f]/95 backdrop-blur-lg text-white p-4">
@@ -369,7 +368,7 @@ export default function ContactTab({ userRole, userId }: ContactTabProps) {
           </div>
 
           {/* Contacts List */}
-          <div className="h-[calc(100vh-200px)] overflow-y-auto bg-gradient-to-br from-[#1a1a2e]/30 to-[#2c3539]/30">
+          <div className="flex-1 overflow-y-auto bg-gradient-to-br from-[#1a1a2e]/30 to-[#2c3539]/30">
             {loading ? (
               <div className="text-center py-8 text-gray-300">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#ffbd59] mx-auto mb-2 shadow-[0_0_20px_rgba(255,189,89,0.3)]"></div>

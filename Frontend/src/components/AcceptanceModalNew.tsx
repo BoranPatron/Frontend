@@ -292,6 +292,37 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
     }
   };
 
+  const handleFinalAcceptance = async () => {
+    const data: AcceptanceData = {
+      accepted: true, // Immer true für finale Abnahme
+      acceptanceNotes,
+      contractorNotes,
+      qualityRating: 0, // Keine Bewertung bei finaler Abnahme ohne Mängel
+      timelinessRating: 0, // Keine Bewertung bei finaler Abnahme ohne Mängel
+      overallRating: 0, // Keine Bewertung bei finaler Abnahme ohne Mängel
+      photos,
+      defects,
+      reviewDate: undefined, // Kein Wiedervorlage-Datum bei finaler Abnahme
+      reviewNotes: undefined, // Keine Wiedervorlage-Notizen bei finaler Abnahme
+      checklist
+    };
+
+    onComplete(data);
+
+    // Direkt nach finaler Abnahme: Bewertungsdialog anstoßen
+    if (typeof onRequestServiceProviderRating === 'function') {
+      const providerId = trade?.service_provider_id || trade?.accepted_by || null;
+      if (providerId) {
+        onRequestServiceProviderRating({
+          serviceProviderId: providerId,
+          projectId: trade?.project_id,
+          milestoneId: trade?.id,
+          quoteId: trade?.accepted_quote_id || undefined
+        });
+      }
+    }
+  };
+
   const handleComplete = async () => {
     const data: AcceptanceData = {
       accepted: accepted || false,
@@ -466,14 +497,22 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
           return false;
         }
         
+        // Bauträger kann immer weiter ohne Mängel - Weiter Button ist immer aktiv
+        return true;
+      case 3: 
         if (hasIssues) {
           // Bei Abnahme unter Vorbehalt: Wiedervorlage-Datum erforderlich
           return reviewDate.trim() !== '';
+        } else if (defects.length === 0 && checklistComplete) {
+          // Bei vollständiger Abnahme ohne Mängel: Immer möglich (Button führt direkt handleComplete aus)
+          return true;
+        } else if (defects.length === 0 && !checklistComplete) {
+          // Bei Abnahme ohne Mängel aber unvollständiger Checkliste: Entscheidung erforderlich
+          return accepted !== null;
         } else {
-          // Bei vollständiger Abnahme: Gesamtbewertung erforderlich
-          return overallRating > 0;
+          // Fallback
+          return accepted !== null;
         }
-      case 3: return accepted !== null; // Entscheidung ist erforderlich
       default: return false;
     }
   };
@@ -488,10 +527,9 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
               Abnahme: {trade?.title || 'Gewerk'}
             </h2>
             <p className="text-gray-400 text-sm mt-1">
-              Schritt {step} von {hasIssues ? 2 : 3}: {
+              Schritt {step} von 3: {
                 step === 1 ? 'Vor-Ort Prüfung' : 
-                step === 2 && hasIssues ? 'Abnahme unter Vorbehalt' :
-                step === 2 ? 'Bewertung & Entscheidung' :
+                step === 2 ? 'Mängelerhebung' :
                 'Abnahme-Entscheidung'
               }
             </p>
@@ -514,7 +552,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                   Vor-Ort Prüfung - Checkliste
                 </h3>
                 <p className="text-blue-200 text-sm mb-4">
-                  Prüfen Sie vor Ort alle Aspekte der Arbeiten. Diese Checkliste hilft bei einer systematischen Bewertung.
+                  Prüfe vor Ort alle Aspekte der Arbeiten. Diese Checkliste hilft bei einer systematischen Bewertung.
                 </p>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -563,23 +601,23 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                 
                 <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
                   <p className="text-yellow-200 text-sm">
-                    <strong>Hinweis:</strong> Dokumentieren Sie eventuelle Mängel im nächsten Schritt, auch wenn einzelne Punkte noch nicht erfüllt sind.
+                    <strong>Hinweis:</strong> Dokumentiere eventuelle Mängel im nächsten Schritt, auch wenn einzelne Punkte noch nicht erfüllt sind.
                   </p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Schritt 2: Mängel dokumentieren */}
+          {/* Schritt 2: Mängelerhebung */}
           {step === 2 && (
             <div className="space-y-6">
               <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
                 <h3 className="text-orange-300 font-semibold mb-4 flex items-center gap-2">
                   <AlertTriangle size={20} />
-                  Mängel dokumentieren
+                  Mängelerhebung
                 </h3>
                 <p className="text-orange-200 text-sm mb-4">
-                  Dokumentieren Sie alle festgestellten Mängel detailliert. Jeder Mangel sollte präzise beschrieben werden.
+                  Dokumentiere alle festgestellten Mängel detailliert. Falls keine Mängel vorhanden sind, kannst du direkt zum nächsten Schritt.
                 </p>
                 
                 {/* Wichtiger Hinweis */}
@@ -593,8 +631,8 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                         Wichtig: Mangel speichern nicht vergessen!
                       </p>
                       <p className="text-blue-200 text-xs">
-                        Klicken Sie nach dem Ausfüllen der Felder unbedingt auf <span className="font-semibold text-blue-300">"+ Mangel hinzufügen"</span>, 
-                        damit der Mangel gespeichert wird. Andernfalls gehen Ihre Eingaben beim Weiterklicken verloren.
+                        Klicke nach dem Ausfüllen der Felder unbedingt auf <span className="font-semibold text-blue-300">"+ Mangel hinzufügen"</span>, 
+                        damit der Mangel gespeichert wird. Andernfalls gehen deine Eingaben beim Weiterklicken verloren.
                       </p>
                     </div>
                   </div>
@@ -719,7 +757,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                       </button>
                     </div>
                     <p className="text-gray-400 text-xs">
-                      Tipp: Klicken Sie auf <Edit3 size={12} className="inline" /> um Fotos zu markieren und Mängel zu kennzeichnen.
+                      Tipp: Klicke auf <Edit3 size={12} className="inline" /> um Fotos zu markieren und Mängel zu kennzeichnen.
                     </p>
                   </div>
 
@@ -810,14 +848,33 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                     </div>
                   </div>
                 )}
+                
+                {/* Hinweis für den Fall ohne Mängel */}
+                {defects.length === 0 && (
+                  <div className="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <CheckCircle size={14} className="text-white" />
+                      </div>
+                      <div>
+                        <p className="text-green-300 font-medium text-sm mb-1">
+                          Keine Mängel festgestellt
+                        </p>
+                        <p className="text-green-200 text-xs">
+                          Falls keine Mängel vorhanden sind, kannst du direkt zum nächsten Schritt "Abnahme-Entscheidung" weitergehen.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
 
 
-          {/* Schritt 2: Abnahme unter Vorbehalt (wenn Mängel/unvollständige Checkliste) */}
-          {step === 2 && hasIssues && (
+          {/* Schritt 3: Abnahme unter Vorbehalt (wenn Mängel/unvollständige Checkliste) */}
+          {step === 3 && hasIssues && (
             <div className="space-y-6">
               <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
                 <h3 className="text-orange-300 font-semibold mb-4 flex items-center gap-2">
@@ -873,7 +930,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                     <textarea
                       value={reviewNotes}
                       onChange={(e) => setReviewNotes(e.target.value)}
-                      placeholder="Beschreiben Sie, was bis zur Wiedervorlage erledigt werden muss..."
+                      placeholder="Beschreibe, was bis zur Wiedervorlage erledigt werden muss..."
                       className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
                       rows={4}
                     />
@@ -886,7 +943,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                     <textarea
                       value={acceptanceNotes}
                       onChange={(e) => setAcceptanceNotes(e.target.value)}
-                      placeholder="Beschreiben Sie den aktuellen Zustand der Arbeiten..."
+                      placeholder="Beschreibe den aktuellen Zustand der Arbeiten..."
                       className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
                       rows={3}
                     />
@@ -900,7 +957,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                     Allgemeine Abnahme-Fotos
                   </h4>
                   <p className="text-orange-200 text-sm mb-4">
-                    Dokumentieren Sie den Gesamtzustand der Arbeiten mit Fotos.
+                    Dokumentiere den Gesamtzustand der Arbeiten mit Fotos.
                   </p>
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
@@ -944,7 +1001,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                     </button>
                   </div>
                   <p className="text-gray-400 text-xs">
-                    Tipp: Klicken Sie auf <Edit3 size={12} className="inline" /> um Fotos zu markieren.
+                    Tipp: Klicke auf <Edit3 size={12} className="inline" /> um Fotos zu markieren.
                   </p>
                 </div>
 
@@ -971,7 +1028,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                       <div>
                         <h4 className="text-red-300 font-semibold mb-2">Warnung: Finale Abnahme trotz Mängeln</h4>
                         <p className="text-red-200 text-sm mb-3">
-                          Sie sind dabei, das Gewerk final abzunehmen, obwohl {defects.length > 0 ? `${defects.length} Mängel dokumentiert` : 'die Checkliste unvollständig'} ist. 
+                          Du bist dabei, das Gewerk final abzunehmen, obwohl {defects.length > 0 ? `${defects.length} Mängel dokumentiert` : 'die Checkliste unvollständig'} ist. 
                           Dies bedeutet:
                         </p>
                         <ul className="text-red-200 text-sm space-y-1 mb-4 ml-4">
@@ -1006,56 +1063,62 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
           )}
 
 
-          {/* Schritt 3: Bewertung & Abnahme-Entscheidung (nur bei vollständiger Abnahme ohne Mängel) */}
-          {step === 3 && !hasIssues && (
+          {/* Schritt 3: Abnahme-Entscheidung (wenn keine Mängel dokumentiert, aber Checkliste unvollständig) */}
+          {step === 3 && !hasIssues && defects.length === 0 && !checklistComplete && (
             <div className="space-y-6">
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
                 <h3 className="text-blue-300 font-semibold mb-4 flex items-center gap-2">
                   <CheckCircle size={20} />
-                  Bewertung & Abnahme-Entscheidung
+                  Abnahme-Entscheidung
                 </h3>
                 <p className="text-blue-200 text-sm mb-6">
-                  Da alle Arbeiten zufriedenstellend abgeschlossen sind, können Sie nun den Dienstleister bewerten und die finale Entscheidung zur Abnahme treffen.
+                  Es wurden keine Mängel dokumentiert. Du kannst nun die finale Entscheidung zur Abnahme treffen.
                 </p>
 
-                {/* Bewertung */}
-                <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4 mb-6">
-                  <h4 className="text-purple-300 font-semibold mb-4 flex items-center gap-2">
-                    <Star size={18} />
-                    Bewertung der Arbeiten
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
-                    {renderStarRating(qualityRating, setQualityRating, 'Qualität der Arbeiten')}
-                    {renderStarRating(timelinessRating, setTimelinessRating, 'Termintreue')}
-                    {renderStarRating(overallRating, setOverallRating, 'Gesamtbewertung *')}
+                {/* Status-Übersicht */}
+                <div className="bg-white/5 rounded-lg p-4 mb-6">
+                  <h4 className="text-white font-medium mb-3">Status-Übersicht</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Checkliste vollständig:</span>
+                      <span className={checklistComplete ? 'text-green-400' : 'text-orange-400'}>
+                        {checklistComplete ? '✅ Ja' : '⚠️ Teilweise'} ({Object.values(checklist).filter(Boolean).length}/6)
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Mängel dokumentiert:</span>
+                      <span className="text-green-400">
+                        ✅ Keine Mängel
+                      </span>
+                    </div>
                   </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Allgemeine Notizen zur Abnahme
-                      </label>
-                      <textarea
-                        value={acceptanceNotes}
-                        onChange={(e) => setAcceptanceNotes(e.target.value)}
-                        placeholder="Beschreiben Sie den Zustand der Arbeiten..."
-                        className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        rows={3}
-                      />
-                    </div>
+                </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Ihre privaten Notizen
-                      </label>
-                      <textarea
-                        value={contractorNotes}
-                        onChange={(e) => setContractorNotes(e.target.value)}
-                        placeholder="Private Notizen, die nur Sie sehen..."
-                        className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        rows={2}
-                      />
-                    </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Allgemeine Notizen zur Abnahme
+                    </label>
+                    <textarea
+                      value={acceptanceNotes}
+                      onChange={(e) => setAcceptanceNotes(e.target.value)}
+                      placeholder="Beschreibe den Zustand der Arbeiten..."
+                      className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Ihre privaten Notizen
+                    </label>
+                    <textarea
+                      value={contractorNotes}
+                      onChange={(e) => setContractorNotes(e.target.value)}
+                      placeholder="Private Notizen, die nur du siehst..."
+                      className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows={2}
+                    />
                   </div>
                 </div>
 
@@ -1071,7 +1134,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                     <CheckCircle size={32} className="mx-auto mb-3" />
                     <div className="font-medium text-lg mb-2">Abnehmen</div>
                     <div className="text-sm opacity-75">
-                      Arbeiten sind vollständig und zufriedenstellend ausgeführt
+                      Arbeiten sind zufriedenstellend ausgeführt
                     </div>
                   </button>
                   <button
@@ -1085,7 +1148,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                     <AlertTriangle size={32} className="mx-auto mb-3" />
                     <div className="font-medium text-lg mb-2">Unter Vorbehalt</div>
                     <div className="text-sm opacity-75">
-                      Mängel vorhanden, Nachbesserung erforderlich
+                      Checkliste unvollständig, Nachbesserung erforderlich
                     </div>
                   </button>
                 </div>
@@ -1093,7 +1156,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                 {/* Zusammenfassung */}
                 <div className="bg-white/5 rounded-lg p-4">
                   <h4 className="text-white font-medium mb-3">Zusammenfassung</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                     <div>
                       <span className="text-gray-400">Checkliste:</span>
                       <div className="text-white">
@@ -1102,15 +1165,115 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                     </div>
                     <div>
                       <span className="text-gray-400">Mängel:</span>
-                      <div className="text-white">{defects.length} dokumentiert</div>
+                      <div className="text-white">Keine dokumentiert</div>
                     </div>
                     <div>
                       <span className="text-gray-400">Fotos:</span>
                       <div className="text-white">{photos.length} aufgenommen</div>
                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+
+          {/* Schritt 3: Finale Abnahme (nur wenn keine Mängel dokumentiert und Checkliste vollständig) */}
+          {step === 3 && !hasIssues && defects.length === 0 && checklistComplete && (
+            <div className="space-y-6">
+              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                <h3 className="text-green-300 font-semibold mb-4 flex items-center gap-2">
+                  <CheckCircle size={20} />
+                  Finale Abnahme
+                </h3>
+                <p className="text-green-200 text-sm mb-6">
+                  Alle Arbeiten sind vollständig und zufriedenstellend abgeschlossen. Das Gewerk kann final abgenommen werden.
+                </p>
+
+                {/* Status-Übersicht */}
+                <div className="bg-white/5 rounded-lg p-4 mb-6">
+                  <h4 className="text-white font-medium mb-3">Abnahme-Status</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Checkliste vollständig:</span>
+                      <span className="text-green-400">
+                        ✅ Ja ({Object.values(checklist).filter(Boolean).length}/6)
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Mängel dokumentiert:</span>
+                      <span className="text-green-400">
+                        ✅ Keine Mängel
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Status:</span>
+                      <span className="text-green-400 font-medium">
+                        ✅ Bereit für finale Abnahme
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Allgemeine Notizen zur Abnahme
+                    </label>
+                    <textarea
+                      value={acceptanceNotes}
+                      onChange={(e) => setAcceptanceNotes(e.target.value)}
+                      placeholder="Beschreibe den Zustand der Arbeiten..."
+                      className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Deine privaten Notizen
+                    </label>
+                    <textarea
+                      value={contractorNotes}
+                      onChange={(e) => setContractorNotes(e.target.value)}
+                      placeholder="Private Notizen, die nur du siehst..."
+                      className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      rows={2}
+                    />
+                  </div>
+                </div>
+
+                {/* Finale Abnahme Button */}
+                <div className="mt-6 text-center">
+                  <button
+                    onClick={handleFinalAcceptance}
+                    className="flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold text-lg rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-lg shadow-green-500/30"
+                  >
+                    <CheckCircle size={24} />
+                    Finale Abnahme durchführen
+                  </button>
+                  <p className="text-green-200 text-sm mt-3">
+                    Mit der finalen Abnahme wird das Gewerk als vollständig abgeschlossen markiert.
+                  </p>
+                </div>
+
+                {/* Zusammenfassung */}
+                <div className="bg-white/5 rounded-lg p-4 mt-6">
+                  <h4 className="text-white font-medium mb-3">Zusammenfassung</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                     <div>
-                      <span className="text-gray-400">Bewertung:</span>
-                      <div className="text-white">{overallRating}/5 Sterne</div>
+                      <span className="text-gray-400">Checkliste:</span>
+                      <div className="text-white">
+                        {Object.values(checklist).filter(Boolean).length}/6 erfüllt
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Mängel:</span>
+                      <div className="text-white">Keine dokumentiert</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Fotos:</span>
+                      <div className="text-white">{photos.length} aufgenommen</div>
                     </div>
                   </div>
                 </div>
@@ -1138,8 +1301,8 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
               </button>
             )}
             
-            {/* Bei Mängeln/unvollständiger Checkliste: Abnahme unter Vorbehalt nach Schritt 2 */}
-            {hasIssues && step === 2 ? (
+            {/* Bei Mängeln/unvollständiger Checkliste: Abnahme unter Vorbehalt nach Schritt 3 */}
+            {hasIssues && step === 3 ? (
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowFinalAcceptanceWarning(true)}
@@ -1160,7 +1323,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                   {loading ? 'Speichere...' : 'Abnahme unter Vorbehalt'}
                 </button>
               </div>
-            ) : step < (hasIssues ? 2 : 3) ? (
+            ) : step < 3 ? (
               <div className="flex flex-col items-end gap-2">
                 <button
                   onClick={() => setStep(step + 1)}
@@ -1175,7 +1338,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
                   <div className="flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg">
                     <AlertTriangle size={14} className="text-red-400 flex-shrink-0" />
                     <p className="text-red-300 text-xs">
-                      Sie haben nicht gespeicherte Mangel-Daten. Klicken Sie auf <span className="font-semibold">"+ Mangel hinzufügen"</span> um fortzufahren.
+                      Du hast nicht gespeicherte Mangel-Daten. Klicke auf <span className="font-semibold">"+ Mangel hinzufügen"</span> um fortzufahren.
                     </p>
                   </div>
                 )}

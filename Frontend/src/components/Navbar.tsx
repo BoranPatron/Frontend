@@ -57,6 +57,7 @@ import CreditIndicator from './CreditIndicator';
 import CreditDisplay from './CreditDisplay';
 import NavbarCalendar from './NavbarCalendar';
 import ContactTab from './ContactTab';
+import CreditDeductionAnimation from './CreditDeductionAnimation';
 import { appointmentService } from '../api/appointmentService';
 import logo from '../logo_trans_big.png';
 
@@ -242,6 +243,9 @@ export default function Navbar() {
   const [appointmentCount, setAppointmentCount] = useState(0);
   const [nextAppointment, setNextAppointment] = useState<any>(null);
   
+  // Credit deduction animation state
+  const [showCreditDeductionAnimation, setShowCreditDeductionAnimation] = useState(false);
+  
   // Projekt-Erstellung State
   const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
@@ -381,6 +385,20 @@ export default function Navbar() {
       window.removeEventListener('appointmentAccepted', handleAppointmentUpdate);
       window.removeEventListener('appointmentRejected', handleAppointmentUpdate);
       window.removeEventListener('appointmentCreated', handleAppointmentCreated);
+    };
+  }, []);
+
+  // Event-Listener für Credit-Deduktion-Animation
+  useEffect(() => {
+    const handleCreditDeduction = () => {
+      console.log('💰 Credit deduction event received, showing animation...');
+      setShowCreditDeductionAnimation(true);
+    };
+
+    window.addEventListener('creditDeduction', handleCreditDeduction);
+    
+    return () => {
+      window.removeEventListener('creditDeduction', handleCreditDeduction);
     };
   }, []);
 
@@ -960,23 +978,20 @@ export default function Navbar() {
                 <span className="max-w-[220px] truncate">{currentProjectName}</span>
               </Link>
             )}
-            {/* Pro-Button für Bauträger */}
+            {/* Pro-Button für Bauträger - DEAKTIVIERT */}
             {!isServiceProvider() && user?.user_role === 'bautraeger' && (
               <div className="hidden md:block">
                 {user?.subscription_plan === 'pro' && user?.subscription_status === 'active' ? (
-                  // Pro-Badge für aktive Pro-User
-                  <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] rounded-full">
+                  // Pro-Badge für aktive Pro-User - NICHT KLICKBAR
+                  <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] rounded-full cursor-default opacity-75">
                     <span className="text-[#2c3539] font-semibold text-sm">💎 Pro</span>
                   </div>
                 ) : (
-                  // Pro-Upgrade-Button für Basis-User
-                  <button
-                    onClick={() => {/* TODO: Open UpgradeModal */}}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] hover:from-[#ffa726] hover:to-[#ff9800] text-[#2c3539] rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
-                  >
+                  // Pro-Upgrade-Button für Basis-User - NICHT KLICKBAR
+                  <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-gray-400 rounded-lg font-semibold cursor-not-allowed opacity-60">
                     <span className="text-lg">💎</span>
                     <span>Pro</span>
-                  </button>
+                  </div>
                 )}
               </div>
             )}
@@ -987,6 +1002,20 @@ export default function Navbar() {
             {!isServiceProvider() && user?.user_role === 'BAUTRAEGER' && (
               <div className="hidden md:block" data-tour-id="navbar-credits">
                 <CreditDisplay />
+                
+                {/* Test Button für Credit-Deduktion-Animation (nur in Development) */}
+                {process.env.NODE_ENV === 'development' && (
+                  <button
+                    onClick={() => {
+                      console.log('🧪 Test: Triggering credit deduction animation...');
+                      window.dispatchEvent(new CustomEvent('creditDeduction'));
+                    }}
+                    className="ml-2 px-2 py-1 text-xs bg-red-500/20 text-red-400 border border-red-500/30 rounded hover:bg-red-500/30 transition-colors"
+                    title="Test Credit Deduction Animation"
+                  >
+                    Test Animation
+                  </button>
+                )}
               </div>
             )}
 
@@ -1170,6 +1199,12 @@ export default function Navbar() {
       <ContactTab
         userRole={user?.user_role as 'BAUTRAEGER' | 'DIENSTLEISTER'}
         userId={user?.id || 0}
+      />
+
+      {/* Credit Deduction Animation */}
+      <CreditDeductionAnimation
+        isVisible={showCreditDeductionAnimation}
+        onComplete={() => setShowCreditDeductionAnimation(false)}
       />
 
 

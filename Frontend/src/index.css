@@ -1,6 +1,7 @@
 /* Mobile Dashboard Optimierungen - @import muss vor allen anderen CSS-Regeln stehen */
 @import './styles/mobile-dashboard-optimized.css';
 @import './styles/mobile-documents.css';
+@import './styles/mobile-modals.css';
 @import './styles/grid-optimizations.css';
 @import './styles/notification-animations.css';
 
@@ -13,6 +14,40 @@
   0% { opacity: 1; }
   50% { opacity: 0.1; }
   100% { opacity: 1; }
+}
+
+/* Mobile Bottom Sheet Animation */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Touch-friendly scale animation */
+@keyframes touchScale {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.98);
+  }
+}
+
+.touch-manipulation {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 /* Leaflet Karten-Styling */

@@ -60,7 +60,7 @@ interface BautraegerNotificationTabProps {
 
 interface BautraegerNotificationData {
   id: string;
-  type: 'appointment' | 'quote_submitted' | 'quote_revised' | 'quote_update' | 'completion' | 'defects_resolved' | 'invoice_received';
+  type: 'appointment' | 'quote_submitted' | 'quote_revised' | 'quote_update' | 'milestone_completed' | 'defects_resolved' | 'invoice_received';
   title: string;
   message: string;
   timestamp: string;
@@ -142,7 +142,11 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
     
     // Event-Listener für neue Angebot-Benachrichtigungen
     const handleQuoteSubmittedForBautraeger = (event: CustomEvent) => {
-      console.log('📢 BautraegerNotificationTab: Quote submitted event empfangen:', event.detail);
+      console.log('📢 BautraegerNotificationTab: EVENT EMPFANGEN!');
+      console.log('📢 BautraegerNotificationTab: Event-Type:', event.type);
+      console.log('📢 BautraegerNotificationTab: Event-Detail:', event.detail);
+      console.log('📢 BautraegerNotificationTab: Trade:', event.detail?.trade);
+      console.log('📢 BautraegerNotificationTab: Quote:', event.detail?.quote);
       
       if (event.detail.trade && event.detail.quote) {
         const { trade, quote } = event.detail;
@@ -220,6 +224,52 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
     try {
       let notifications: BautraegerNotificationData[] = [];
       
+      // 1. Lade localStorage-Benachrichtigungen (für sofortige Anzeige)
+      try {
+        const pendingNotifications = JSON.parse(localStorage.getItem('pendingBautraegerNotifications') || '[]');
+        console.log('🔔 BautraegerNotificationTab: localStorage-Benachrichtigungen gefunden:', pendingNotifications.length);
+        
+        pendingNotifications.forEach((pendingNotif: any) => {
+          const notification: BautraegerNotificationData = {
+            id: pendingNotif.id,
+            type: 'quote_submitted',
+            title: pendingNotif.title,
+            message: pendingNotif.message,
+            timestamp: pendingNotif.timestamp,
+            isHandled: false,
+            isRead: false,
+            priority: 'high',
+            notification: {
+              id: Date.now() + Math.random(),
+              recipient_id: userId,
+              type: 'quote_submitted',
+              priority: 'high',
+              title: pendingNotif.title,
+              message: pendingNotif.message,
+              data: null,
+              is_read: false,
+              is_acknowledged: false,
+              created_at: pendingNotif.timestamp,
+              related_milestone_id: pendingNotif.tradeId,
+              related_project_id: pendingNotif.projectId,
+              related_quote_id: pendingNotif.quoteId,
+              metadata: {
+                quote_amount: pendingNotif.quoteAmount,
+                quote_currency: pendingNotif.quoteCurrency
+              }
+            } as any
+          };
+          
+          notifications.push(notification);
+        });
+        
+        // Lösche verarbeitete localStorage-Benachrichtigungen
+        localStorage.removeItem('pendingBautraegerNotifications');
+        console.log('🔔 BautraegerNotificationTab: localStorage-Benachrichtigungen verarbeitet und gelöscht');
+      } catch (error) {
+        console.error('❌ BautraegerNotificationTab: Fehler beim Laden der localStorage-Benachrichtigungen:', error);
+      }
+      
       console.log('🔔 BautraegerNotificationTab: Lade Benachrichtigungen für User:', userId);
       
       // Lade Backend-Benachrichtigungen (Hauptquelle)
@@ -277,10 +327,14 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
           }
           
           // Verarbeite Rechnungs-Benachrichtigungen
-          if (notification.metadata?.invoice_id) {
+          if (notification.type === 'invoice_submitted') {
+            console.log('🔔 BautraegerNotificationTab: Verarbeite invoice_submitted Benachrichtigung');
+            const data = notification.data ? JSON.parse(notification.data) : {};
+            console.log('🔔 BautraegerNotificationTab: Invoice Data:', data);
+            
             notifications.push({
               id: `invoice_${notification.id}`,
-              type: 'invoice_received',
+              type: 'invoice_submitted',
               title: notification.title,
               message: notification.message,
               timestamp: notification.created_at,
@@ -288,12 +342,18 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
               isRead: notification.is_read,
               priority: notification.priority as any,
               notification: notification,
-              invoiceId: notification.metadata.invoice_id,
-              invoiceNumber: notification.metadata.invoice_number,
-              invoiceAmount: notification.metadata.total_amount,
+              invoiceId: data.invoice_id,
+              invoiceNumber: data.invoice_number,
+              invoiceAmount: data.total_amount,
               milestoneId: notification.related_milestone_id,
-              milestoneTitle: notification.metadata.milestone_title
+              milestoneTitle: data.milestone_title,
+              serviceProviderName: data.service_provider_name,
+              projectName: data.project_name,
+              currency: data.currency,
+              directLink: data.direct_link,
+              showAcceptanceTab: data.showAcceptanceTab
             });
+            console.log('✅ BautraegerNotificationTab: Invoice-Benachrichtigung hinzugefügt');
           } else if (notification.type === 'quote_submitted') {
             notifications.push({
               id: `quote_${notification.id}`,
@@ -344,7 +404,31 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
               priority: notification.priority as 'normal' | 'high' | 'urgent',
               notification: notification
             });
-          } else if (notification.type === 'appointment_invitation') {
+          } else if (notification.type === 'appointment_invitation' || notification.type === 'appointment_response') {
+            // Parse data für Appointment-Typ
+            let appointmentData = {};
+            try {
+              appointmentData = notification.data ? JSON.parse(notification.data) : {};
+            } catch (e) {
+              console.error('Fehler beim Parsen von Appointment-Data:', e);
+            }
+            
+            // Bestimme Appointment-Typ basierend auf response_status
+            let appointmentType = 'confirmation';
+            if (appointmentData.response_status === 'accepted') {
+              appointmentType = 'confirmation';
+            } else if (appointmentData.response_status === 'rejected_with_suggestion') {
+              appointmentType = 'reschedule';
+            } else if (appointmentData.response_status === 'rejected') {
+              appointmentType = 'rejection';
+            } else if (notification.metadata?.service_provider_response === 'accepted') {
+              appointmentType = 'confirmation';
+            } else if (notification.metadata?.service_provider_response === 'rejected_with_suggestion') {
+              appointmentType = 'reschedule';
+            } else if (notification.metadata?.service_provider_response === 'rejected') {
+              appointmentType = 'rejection';
+            }
+            
             notifications.push({
               id: `appointment_response_${notification.id}`,
               type: 'appointment',
@@ -355,10 +439,24 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
               isRead: notification.is_read,
               priority: notification.priority as 'normal' | 'high' | 'urgent',
               notification: notification,
-              appointmentType: notification.metadata?.service_provider_response === 'accepted' ? 'confirmation' :
-                             notification.metadata?.service_provider_response === 'rejected_with_suggestion' ? 'reschedule' : 'rejection'
+              appointmentType: appointmentType
             });
-            console.log('✅ BautraegerNotificationTab: Appointment-Invitation-Benachrichtigung hinzugefügt');
+            console.log('✅ BautraegerNotificationTab: Appointment-Response-Benachrichtigung hinzugefügt:', appointmentType);
+          } else if (notification.type === 'milestone_completed') {
+            notifications.push({
+              id: `milestone_completed_${notification.id}`,
+              type: 'milestone_completed',
+              title: notification.title,
+              message: notification.message,
+              timestamp: notification.created_at,
+              isHandled: notification.is_acknowledged,
+              isRead: notification.is_read,
+              priority: notification.priority as 'normal' | 'high' | 'urgent',
+              notification: notification,
+              milestoneId: notification.related_milestone_id,
+              milestoneTitle: notification.metadata?.milestone_title
+            });
+            console.log('✅ BautraegerNotificationTab: Milestone-Completed-Benachrichtigung hinzugefügt');
           }
         });
       } catch (error) {
@@ -455,22 +553,45 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
   };
 
   const generateEmailToServiceProvider = (notification: BautraegerNotificationData) => {
-    const { appointment, response } = notification;
+    // Parse data aus notification falls appointment/response nicht vorhanden
+    let appointmentData: any = {};
+    let responseData: any = {};
     
-    const subject = encodeURIComponent(`Besichtigung bestätigt: ${appointment.title}`);
+    if (notification.notification?.data) {
+      try {
+        const parsedData = JSON.parse(notification.notification.data);
+        appointmentData = parsedData;
+        responseData = parsedData;
+      } catch (e) {
+        console.error('Fehler beim Parsen von notification data:', e);
+      }
+    }
+    
+    const appointment = notification.appointment || appointmentData;
+    const response = notification.response || responseData;
+    
+    const appointmentTitle = appointment.appointment_title || appointment.title || 'Besichtigungstermin';
+    const scheduledDate = appointment.scheduled_date;
+    const location = appointment.location || 'Wird noch bekannt gegeben';
+    const durationMinutes = appointment.duration_minutes || 60;
+    const responseStatus = response.response_status || response.status || 'accepted';
+    const responseMessage = response.response_message || response.message || '';
+    const serviceProviderName = response.service_provider_name || 'Dienstleister';
+    
+    const subject = encodeURIComponent(`Besichtigung bestätigt: ${appointmentTitle}`);
     const body = encodeURIComponent(`
 Hallo,
 
-vielen Dank für Ihre ${response.status === 'accepted' ? 'Zusage' : 'Antwort'} zur Besichtigung!
+vielen Dank für Ihre ${responseStatus === 'accepted' ? 'Zusage' : 'Antwort'} zur Besichtigung!
 
 Termin-Details:
-- Titel: ${appointment.title}
-- Datum: ${new Date(appointment.scheduled_date).toLocaleDateString('de-DE')}
-- Uhrzeit: ${new Date(appointment.scheduled_date).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-- Ort: ${appointment.location || 'Wird noch bekannt gegeben'}
-- Dauer: ${appointment.duration_minutes} Minuten
+- Titel: ${appointmentTitle}
+- Datum: ${scheduledDate ? new Date(scheduledDate).toLocaleDateString('de-DE') : 'TBD'}
+- Uhrzeit: ${scheduledDate ? new Date(scheduledDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : 'TBD'}
+- Ort: ${location}
+- Dauer: ${durationMinutes} Minuten
 
-${response.message ? `Ihre Nachricht: "${response.message}"` : ''}
+${responseMessage ? `Ihre Nachricht: "${responseMessage}"` : ''}
 
 Bei Fragen können Sie mich gerne kontaktieren.
 
@@ -479,40 +600,58 @@ Ihr BuildWise Team
     `);
 
     // Öffne E-Mail-Client mit vorgefertigter E-Mail
-    const serviceProviderEmail = response.service_provider?.email || `service-provider-${response.service_provider_id}@demo.com`;
+    const serviceProviderEmail = response.service_provider?.email || `${serviceProviderName.toLowerCase().replace(/\s+/g, '')}@demo.com`;
     const mailtoLink = `mailto:${serviceProviderEmail}?subject=${subject}&body=${body}`;
     window.open(mailtoLink, '_blank');
     
     // Setze permanenten Marker für behandelte Benachrichtigung
-    const permanentHandledKey = `bautraeger_email_sent_${appointment.id}_${userId}`;
-    localStorage.setItem(permanentHandledKey, JSON.stringify({
-      appointmentId: appointment.id,
-      userId: userId,
-      emailSentAt: new Date().toISOString(),
-      action: 'email_sent'
-    }));
+    const appointmentId = appointment.appointment_id || appointment.id || notification.notification?.related_appointment_id;
+    if (appointmentId) {
+      const permanentHandledKey = `bautraeger_email_sent_${appointmentId}_${userId}`;
+      localStorage.setItem(permanentHandledKey, JSON.stringify({
+        appointmentId: appointmentId,
+        userId: userId,
+        emailSentAt: new Date().toISOString(),
+        action: 'email_sent'
+      }));
+    }
     
     // Setze lokalen Status auf behandelt
     const notificationIndex = notifications.indexOf(notification);
     if (notificationIndex !== -1) {
       handleMarkAsHandled(notificationIndex);
     }
-    };
+  };
 
   const handleMarkAsHandled = (notificationIndex: number) => {
     const notification = notifications[notificationIndex];
     
     // Setze permanenten Marker für behandelte Benachrichtigung
-    if (notification && notification.appointment) {
-      const permanentHandledKey = `bautraeger_handled_${notification.appointment.id}_${userId}`;
-      localStorage.setItem(permanentHandledKey, JSON.stringify({
-        appointmentId: notification.appointment.id,
-        userId: userId,
-        handledAt: new Date().toISOString(),
-        action: 'marked_as_handled'
-      }));
+    if (notification && notification.type === 'appointment') {
+      // Parse appointment data
+      let appointmentData: any = {};
+      if (notification.notification?.data) {
+        try {
+          appointmentData = JSON.parse(notification.notification.data);
+        } catch (e) {
+          console.error('Fehler beim Parsen von notification data:', e);
+        }
+      }
       
-      console.log(`✅ Bauträger notification for appointment ${notification.appointment.id} marked as handled`);
+      const appointment = notification.appointment || appointmentData;
+      const appointmentId = appointment.appointment_id || appointment.id || notification.notification?.related_appointment_id;
+      
+      if (appointmentId) {
+        const permanentHandledKey = `bautraeger_handled_${appointmentId}_${userId}`;
+        localStorage.setItem(permanentHandledKey, JSON.stringify({
+          appointmentId: appointmentId,
+          userId: userId,
+          handledAt: new Date().toISOString(),
+          action: 'marked_as_handled'
+        }));
+        
+        console.log(`✅ Bauträger notification for appointment ${appointmentId} marked as handled`);
+      }
     }
     
     // Remove the notification from the list immediately
@@ -550,7 +689,7 @@ Ihr BuildWise Team
           }));
         }
         
-        if ((notification.type === 'quote_submitted' || notification.type === 'quote_revised' || notification.type === 'completion' || notification.type === 'defects_resolved' || notification.type === 'invoice_received') && notification.notification) {
+        if ((notification.type === 'quote_submitted' || notification.type === 'quote_revised' || notification.type === 'completion' || notification.type === 'milestone_completed' || notification.type === 'defects_resolved' || notification.type === 'invoice_received' || notification.type === 'invoice_submitted') && notification.notification) {
           // Für Angebots-, Überarbeitungs-, Fertigstellungs-, Mängelbehebungs- und Rechnungsbenachrichtigungen - markiere als acknowledged
           api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
             console.error('Fehler beim Bestätigen der Benachrichtigung:', error);
@@ -558,7 +697,7 @@ Ihr BuildWise Team
         }
         
         // Speziell für Rechnungsbenachrichtigungen
-        if (notification.type === 'invoice_received') {
+        if (notification.type === 'invoice_received' || notification.type === 'invoice_submitted') {
           const invoiceHandledKey = `invoice_handled_${notification.invoiceId}_${userId}`;
           localStorage.setItem(invoiceHandledKey, JSON.stringify({
             invoiceId: notification.invoiceId,
@@ -750,6 +889,37 @@ Ihr BuildWise Team
                   notification.isRead ? 'opacity-60 bg-gray-50' : ''
                 }`}
                 onClick={() => {
+                  // Für invoice_submitted: Öffne SimpleCostEstimateModal mit Abnahme-Tab
+                  if (notification.type === 'invoice_submitted' && notification.milestoneId) {
+                    console.log('🧾 BautraegerNotificationTab: Öffne Rechnung für Milestone:', notification.milestoneId);
+                    
+                    // Event für Dashboard auslösen, um SimpleCostEstimateModal mit Abnahme-Tab zu öffnen
+                    window.dispatchEvent(new CustomEvent('openSimpleCostEstimateModal', {
+                      detail: {
+                        tradeId: notification.milestoneId,
+                        showAcceptanceTab: true,
+                        source: 'bautraeger_notification_invoice_submitted'
+                      }
+                    }));
+                    
+                    // Schließe Benachrichtigungs-Panel
+                    setIsExpanded(false);
+                    
+                    // Markiere als gelesen
+                    setNotifications(prev => 
+                      prev.map(n => n.id === notification.id ? { ...n, isHandled: true, isRead: true } : n)
+                    );
+                    
+                    // Markiere Backend-Benachrichtigung als gelesen
+                    if (notification.notification) {
+                      api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
+                        console.error('Fehler beim Bestätigen der Rechnungs-Benachrichtigung:', error);
+                      });
+                    }
+                    
+                    return;
+                  }
+                  
                   // Für invoice_received: Öffne direkt die Rechnung
                   if (notification.type === 'invoice_received' && notification.milestoneId) {
                     console.log('🧾 BautraegerNotificationTab: Öffne Rechnung für Milestone:', notification.milestoneId);
@@ -797,6 +967,87 @@ Ihr BuildWise Team
                     setNotifications(prev => 
                       prev.map(n => n.id === notification.id ? { ...n, isHandled: true } : n)
                     );
+                  }
+                  // Für milestone_completed: Öffne SimpleCostEstimateModal für Abnahme
+                  else if (notification.type === 'milestone_completed' && notification.notification?.related_milestone_id) {
+                    console.log('✅ BautraegerNotificationTab: Öffne SimpleCostEstimateModal für Abnahme:', notification.notification.related_milestone_id);
+                    
+                    // Event für Dashboard auslösen, um SimpleCostEstimateModal zu öffnen
+                    window.dispatchEvent(new CustomEvent('openSimpleCostEstimateModal', {
+                      detail: {
+                        tradeId: notification.notification.related_milestone_id,
+                        source: 'milestone_completed_notification'
+                      }
+                    }));
+                    
+                    // Schließe Benachrichtigungs-Panel
+                    setIsExpanded(false);
+                    
+                    // Markiere als behandelt
+                    setNotifications(prev => 
+                      prev.map(n => n.id === notification.id ? { ...n, isHandled: true, isRead: true } : n)
+                    );
+                    
+                    // Markiere Backend-Benachrichtigung als quittiert
+                    if (notification.notification?.id) {
+                      api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
+                        console.error('Fehler beim Bestätigen der Milestone-Completed-Benachrichtigung:', error);
+                      });
+                    }
+                  }
+                  // Für completion: Öffne SimpleCostEstimateModal für Abnahme
+                  else if (notification.type === 'completion' && notification.notification?.related_milestone_id) {
+                    console.log('✅ BautraegerNotificationTab: Öffne SimpleCostEstimateModal für Abnahme:', notification.notification.related_milestone_id);
+                    
+                    // Event für Dashboard auslösen, um SimpleCostEstimateModal zu öffnen
+                    window.dispatchEvent(new CustomEvent('openSimpleCostEstimateModal', {
+                      detail: {
+                        tradeId: notification.notification.related_milestone_id,
+                        source: 'completion_notification_list'
+                      }
+                    }));
+                    
+                    // Schließe Benachrichtigungs-Panel
+                    setIsExpanded(false);
+                    
+                    // Markiere als behandelt
+                    setNotifications(prev => 
+                      prev.map(n => n.id === notification.id ? { ...n, isHandled: true, isRead: true } : n)
+                    );
+                    
+                    // Markiere Backend-Benachrichtigung als quittiert
+                    if (notification.notification?.id) {
+                      api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
+                        console.error('Fehler beim Bestätigen der Completion-Benachrichtigung:', error);
+                      });
+                    }
+                  }
+                  // Für defects_resolved: Öffne direkt die Ausschreibung für finale Abnahme
+                  else if (notification.type === 'defects_resolved' && notification.notification?.related_milestone_id) {
+                    console.log('🔧 BautraegerNotificationTab: Öffne SimpleCostEstimateModal für finale Abnahme:', notification.notification.related_milestone_id);
+                    
+                    // Event für Dashboard auslösen, um SimpleCostEstimateModal zu öffnen
+                    window.dispatchEvent(new CustomEvent('openSimpleCostEstimateModal', {
+                      detail: {
+                        tradeId: notification.notification.related_milestone_id,
+                        source: 'defects_resolved_notification_list'
+                      }
+                    }));
+                    
+                    // Schließe Benachrichtigungs-Panel
+                    setIsExpanded(false);
+                    
+                    // Markiere als behandelt
+                    setNotifications(prev => 
+                      prev.map(n => n.id === notification.id ? { ...n, isHandled: true, isRead: true } : n)
+                    );
+                    
+                    // Markiere Backend-Benachrichtigung als quittiert
+                    if (notification.notification?.id) {
+                      api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
+                        console.error('Fehler beim Bestätigen der Defects-Resolved-Benachrichtigung:', error);
+                      });
+                    }
                   } else {
                     // Für andere Benachrichtigungen: Öffne Modal
                     setSelectedNotification(notification);
@@ -870,6 +1121,76 @@ Ihr BuildWise Team
                       </div>
                     )}
                     
+                    {/* Fertigstellungs-spezifische Informationen */}
+                    {(notification.type === 'milestone_completed' || notification.type === 'completion') && (
+                      <div className="mt-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                        <div className="mb-2">
+                          <div className="text-xs text-gray-600 font-medium flex items-center gap-1">
+                            ✅ Fertigstellung beantragt
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            🏗️ {notification.notification?.metadata?.project_name || 'Projekt'}
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3 p-2 bg-gradient-to-r from-orange-100 to-yellow-100 rounded border border-orange-300">
+                          <div className="flex items-center justify-center gap-2 text-xs text-orange-700 font-medium">
+                            <CheckCircle size={14} />
+                            <span>👆 Klicken Sie hier, um die Abnahme durchzuführen</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Rechnungs-spezifische Informationen */}
+                    {notification.type === 'invoice_submitted' && (
+                      <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                        <div className="mb-2">
+                          <div className="text-xs text-gray-600 font-medium flex items-center gap-1">
+                            <FileText size={14} />
+                            {notification.milestoneTitle || 'Gewerk'}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            🏗️ {notification.projectName || 'Projekt'}
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-gray-500">Dienstleister:</span>
+                            <div className="font-semibold text-green-600">
+                              {notification.serviceProviderName || 'Unbekannt'}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Rechnungsnummer:</span>
+                            <div className="font-semibold text-green-600">
+                              {notification.invoiceNumber || 'N/A'}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Betrag:</span>
+                            <div className="font-semibold text-green-600">
+                              {notification.invoiceAmount ? `${notification.invoiceAmount} ${notification.currency || 'CHF'}` : 'N/A'}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Status:</span>
+                            <div className="font-semibold text-green-600">
+                              Eingereicht
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3 p-2 bg-gradient-to-r from-green-100 to-emerald-100 rounded border border-green-300">
+                          <div className="flex items-center justify-center gap-2 text-xs text-green-700 font-medium">
+                            <FileText size={14} />
+                            <span>👆 Klicken Sie hier, um die Rechnung zu prüfen und zu bezahlen</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Angebot-spezifische Informationen - Design wie Dienstleister-Benachrichtigung */}
                     {(notification.type === 'quote_submitted' || notification.type === 'quote_revised') && notification.notification?.metadata && (
                       <div className={`mt-3 p-3 rounded-lg border ${
@@ -953,20 +1274,24 @@ Ihr BuildWise Team
 
                     <div className="flex items-center justify-between">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        notification.type === 'invoice_submitted' ? 'bg-green-100 text-green-800' :
                         notification.type === 'invoice_received' ? 'bg-green-100 text-green-800' :
                         notification.type === 'quote_submitted' ? 'bg-blue-100 text-blue-800' :
                         notification.type === 'quote_revised' ? 'bg-purple-100 text-purple-800' :
-                        notification.type === 'completion' ? 'bg-green-100 text-green-800' :
+                        notification.type === 'completion' ? 'bg-orange-100 text-orange-800' :
+                        notification.type === 'milestone_completed' ? 'bg-orange-100 text-orange-800' :
                         notification.type === 'defects_resolved' ? 'bg-orange-100 text-orange-800' :
                         notification.appointmentType === 'confirmation' ? 'bg-green-100 text-green-800' :
                         notification.appointmentType === 'reschedule' ? 'bg-yellow-100 text-yellow-800' :
                         notification.appointmentType === 'rejection' ? 'bg-red-100 text-red-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
+                        {notification.type === 'invoice_submitted' && '🧾 Rechnung eingereicht'}
                         {notification.type === 'invoice_received' && '🧾 Neue Rechnung'}
                         {notification.type === 'quote_submitted' && '📋 Neues Angebot'}
                         {notification.type === 'quote_revised' && '✏️ Überarbeitetes Angebot'}
-                        {notification.type === 'completion' && '✅ Fertiggestellt'}
+                        {notification.type === 'completion' && '✅ Ausschreibung fertiggestellt'}
+                        {notification.type === 'milestone_completed' && '✅ Ausschreibung fertiggestellt'}
                         {notification.type === 'defects_resolved' && '🔧 Mängel behoben'}
                         {notification.appointmentType === 'confirmation' && '✅ Bestätigt'}
                         {notification.appointmentType === 'reschedule' && '📅 Neuer Vorschlag'}
@@ -979,7 +1304,8 @@ Ihr BuildWise Team
                             notification.type === 'invoice_received' ? 'text-green-500' :
                             notification.type === 'quote_submitted' ? 'text-blue-500' :
                             notification.type === 'quote_revised' ? 'text-purple-500' : 
-                            notification.type === 'completion' ? 'text-green-500' : 
+                            notification.type === 'completion' ? 'text-orange-500' : 
+                            notification.type === 'milestone_completed' ? 'text-orange-500' : 
                             notification.type === 'defects_resolved' ? 'text-orange-500' : 'text-green-500'
                           } />
                         </div>
@@ -1003,7 +1329,9 @@ Ihr BuildWise Team
               selectedNotification.type === 'quote_submitted' 
                 ? 'bg-gradient-to-r from-blue-600 to-indigo-600' 
                 : selectedNotification.type === 'completion'
-                ? 'bg-gradient-to-r from-green-600 to-emerald-600'
+                ? 'bg-gradient-to-r from-orange-600 to-amber-600'
+                : selectedNotification.type === 'milestone_completed'
+                ? 'bg-gradient-to-r from-orange-600 to-amber-600'
                 : selectedNotification.type === 'defects_resolved'
                 ? 'bg-gradient-to-r from-orange-600 to-amber-600'
                 : 'bg-gradient-to-r from-green-600 to-blue-600'
@@ -1011,7 +1339,8 @@ Ihr BuildWise Team
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">
                   {selectedNotification.type === 'quote_submitted' ? 'Neues Angebot' : 
-                   selectedNotification.type === 'completion' ? 'Fertigstellung' : 
+                   selectedNotification.type === 'completion' ? 'Ausschreibung fertiggestellt' : 
+                   selectedNotification.type === 'milestone_completed' ? 'Ausschreibung fertiggestellt' : 
                    selectedNotification.type === 'defects_resolved' ? 'Mängelbehebung' : 'Terminantwort Details'}
                 </h3>
                 <button 
@@ -1110,8 +1439,8 @@ Ihr BuildWise Team
               )}
 
               {/* Completion Details */}
-              {selectedNotification.type === 'completion' && selectedNotification.notification && (
-                <div className="bg-green-50 rounded-lg p-4 mb-6">
+              {(selectedNotification.type === 'completion' || selectedNotification.type === 'milestone_completed') && selectedNotification.notification && (
+                <div className="bg-orange-50 rounded-lg p-4 mb-6">
                   <h4 className="font-medium text-gray-900 mb-3">{selectedNotification.title}</h4>
                   <p className="text-sm text-gray-700 mb-3">{selectedNotification.message}</p>
                   
@@ -1144,12 +1473,29 @@ Ihr BuildWise Team
                     <button 
                       onClick={async () => {
                         if (selectedNotification.notification) {
+                          // Öffne SimpleCostEstimateModal für Abnahme
+                          const milestoneId = selectedNotification.notification.related_milestone_id;
+                          if (milestoneId) {
+                            console.log('✅ Öffne SimpleCostEstimateModal für Abnahme:', milestoneId);
+                            
+                            // Event für Dashboard auslösen, um SimpleCostEstimateModal zu öffnen
+                            window.dispatchEvent(new CustomEvent('openSimpleCostEstimateModal', {
+                              detail: {
+                                tradeId: milestoneId,
+                                source: 'completion_notification_modal'
+                              }
+                            }));
+                          }
+                          
+                          // Markiere Benachrichtigung als quittiert
                           await api.patch(`/notifications/${selectedNotification.notification.id}/acknowledge`);
+                          
+                          // Schließe Modal und aktualisiere Liste
                           setSelectedNotification(null);
                           loadBautraegerNotifications();
                         }
                       }}
-                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
+                      className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors text-sm"
                     >
                       Zur Abnahme
                     </button>
@@ -1212,94 +1558,144 @@ Ihr BuildWise Team
                     </ul>
                   </div>
                   
-                  <div className="mt-4 flex gap-2">
-                    <button 
-                      onClick={async () => {
-                        if (selectedNotification.notification) {
-                          await api.patch(`/notifications/${selectedNotification.notification.id}/acknowledge`);
-                          setSelectedNotification(null);
-                          loadBautraegerNotifications();
-                        }
-                      }}
-                      className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors text-sm"
-                    >
-                      Zur finalen Abnahme
-                    </button>
-                    <button 
-                      onClick={async () => {
-                        if (selectedNotification.notification) {
-                          await api.patch(`/notifications/${selectedNotification.notification.id}/acknowledge`);
-                          setSelectedNotification(null);
-                          loadBautraegerNotifications();
-                        }
-                      }}
-                      className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors text-sm"
-                    >
-                      Quittieren
-                    </button>
+                  <div className="mt-4 p-3 bg-gradient-to-r from-orange-100 to-yellow-100 rounded-lg border border-orange-300 cursor-pointer hover:from-orange-200 hover:to-yellow-200 transition-all duration-200"
+                       onClick={async () => {
+                         if (selectedNotification.notification) {
+                           // Öffne die Ausschreibung für finale Abnahme
+                           const milestoneId = selectedNotification.notification.related_milestone_id;
+                           if (milestoneId) {
+                             console.log('🔧 Öffne SimpleCostEstimateModal für finale Abnahme:', milestoneId);
+                             
+                             // Event für Dashboard auslösen, um SimpleCostEstimateModal zu öffnen
+                             window.dispatchEvent(new CustomEvent('openSimpleCostEstimateModal', {
+                               detail: {
+                                 tradeId: milestoneId,
+                                 source: 'defects_resolved_notification'
+                               }
+                             }));
+                           }
+                           
+                           // Markiere Benachrichtigung als quittiert
+                           await api.patch(`/notifications/${selectedNotification.notification.id}/acknowledge`);
+                           
+                           // Schließe Modal und aktualisiere Liste
+                           setSelectedNotification(null);
+                           loadBautraegerNotifications();
+                         }
+                       }}>
+                    <div className="flex items-center justify-center gap-2 text-sm text-orange-700 font-medium">
+                      <CheckCircle size={16} />
+                      <span>👆 Klicken Sie hier, um die Ausschreibung für die finale Abnahme zu öffnen</span>
+                    </div>
                   </div>
                 </div>
               )}
               
               {/* Appointment Details */}
-              {selectedNotification.type === 'appointment' && selectedNotification.appointment && (
-                <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                  <h4 className="font-medium text-gray-900 mb-3">{selectedNotification.appointment.title}</h4>
-                
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={16} />
-                    {formatDate(selectedNotification.appointment.scheduled_date)} um {formatTime(selectedNotification.appointment.scheduled_date)}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock size={16} />
-                    {selectedNotification.appointment.duration_minutes} Minuten
-                  </div>
-                  {selectedNotification.appointment.location && (
-                    <div className="flex items-center gap-2">
-                      <MapPin size={16} />
-                      {selectedNotification.appointment.location}
-                    </div>
-                  )}
-                </div>
-                </div>
-              )}
+              {selectedNotification.type === 'appointment' && (
+                <>
+                  {/* Termin-Details aus appointment oder notification.data */}
+                  {(() => {
+                    // Parse appointment data from notification.data if available
+                    let appointmentData: any = {};
+                    if (selectedNotification.notification?.data) {
+                      try {
+                        appointmentData = JSON.parse(selectedNotification.notification.data);
+                      } catch (e) {
+                        console.error('Fehler beim Parsen von appointment data:', e);
+                      }
+                    }
+                    
+                    // Verwende entweder appointment-Objekt oder geparste data
+                    const appointment = selectedNotification.appointment || appointmentData;
+                    const appointmentTitle = appointment.appointment_title || appointment.title || 'Besichtigungstermin';
+                    const scheduledDate = appointment.scheduled_date;
+                    const location = appointment.location || '';
+                    const durationMinutes = appointment.duration_minutes || 60;
+                    
+                    return (
+                      <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                        <h4 className="font-medium text-gray-900 mb-3">{appointmentTitle}</h4>
+                      
+                        <div className="space-y-2 text-sm text-gray-600">
+                          {scheduledDate && (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <Calendar size={16} />
+                                {formatDate(scheduledDate)} um {formatTime(scheduledDate)}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Clock size={16} />
+                                {durationMinutes} Minuten
+                              </div>
+                            </>
+                          )}
+                          {location && (
+                            <div className="flex items-center gap-2">
+                              <MapPin size={16} />
+                              {location}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
-              {/* Service Provider Response */}
-              {selectedNotification.type === 'appointment' && selectedNotification.response && (
-                <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                  <h5 className="font-medium text-gray-900 mb-2">Antwort des Dienstleisters</h5>
-                  
-                  <div className="flex items-center gap-2 mb-2">
-                    <User size={16} className="text-blue-600" />
-                    <span className="text-sm text-gray-700">{selectedNotification.response.service_provider_name || `Dienstleister #${selectedNotification.response.service_provider_id}`}</span>
-                  </div>
-                  
-                  <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium mb-3 ${
-                    selectedNotification.appointmentType === 'confirmation' ? 'bg-green-100 text-green-800' :
-                    selectedNotification.appointmentType === 'reschedule' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {selectedNotification.appointmentType === 'confirmation' && '✅ Termin bestätigt'}
-                  {selectedNotification.appointmentType === 'reschedule' && '📅 Alternativtermin vorgeschlagen'}
-                  {selectedNotification.appointmentType === 'rejection' && '❌ Termin abgelehnt'}
-                </div>
+                  {/* Service Provider Response - aus response oder notification.data */}
+                  {(() => {
+                    // Parse response data
+                    let responseData: any = {};
+                    if (selectedNotification.notification?.data) {
+                      try {
+                        responseData = JSON.parse(selectedNotification.notification.data);
+                      } catch (e) {
+                        console.error('Fehler beim Parsen von response data:', e);
+                      }
+                    }
+                    
+                    // Verwende entweder response-Objekt oder geparste data
+                    const response = selectedNotification.response || responseData;
+                    const serviceProviderName = response.service_provider_name || responseData.service_provider_name || 'Dienstleister';
+                    const responseMessage = response.message || response.response_message || responseData.response_message || '';
+                    const suggestedDate = response.suggested_date || responseData.suggested_date;
+                    
+                    return (
+                      <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                        <h5 className="font-medium text-gray-900 mb-2">Antwort des Dienstleisters</h5>
+                        
+                        <div className="flex items-center gap-2 mb-2">
+                          <User size={16} className="text-blue-600" />
+                          <span className="text-sm text-gray-700">{serviceProviderName}</span>
+                        </div>
+                        
+                        <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium mb-3 ${
+                          selectedNotification.appointmentType === 'confirmation' ? 'bg-green-100 text-green-800' :
+                          selectedNotification.appointmentType === 'reschedule' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {selectedNotification.appointmentType === 'confirmation' && '✅ Termin bestätigt'}
+                          {selectedNotification.appointmentType === 'reschedule' && '📅 Alternativtermin vorgeschlagen'}
+                          {selectedNotification.appointmentType === 'rejection' && '❌ Termin abgelehnt'}
+                        </div>
 
-                {selectedNotification.response.message && (
-                  <div className="bg-white rounded p-3 text-sm text-gray-700 italic">
-                    "{selectedNotification.response.message}"
-                  </div>
-                )}
+                        {responseMessage && (
+                          <div className="bg-white rounded p-3 text-sm text-gray-700 italic">
+                            "{responseMessage}"
+                          </div>
+                        )}
 
-                {selectedNotification.response.suggested_date && (
-                  <div className="mt-3 p-3 bg-yellow-100 rounded">
-                    <p className="text-sm font-medium text-yellow-800">Vorgeschlagener Alternativtermin:</p>
-                    <p className="text-sm text-yellow-700">
-                      {formatDate(selectedNotification.response.suggested_date)} um {formatTime(selectedNotification.response.suggested_date)}
-                    </p>
-                  </div>
-                )}
-                </div>
+                        {suggestedDate && (
+                          <div className="mt-3 p-3 bg-yellow-100 rounded">
+                            <p className="text-sm font-medium text-yellow-800">Vorgeschlagener Alternativtermin:</p>
+                            <p className="text-sm text-yellow-700">
+                              {formatDate(suggestedDate)} um {formatTime(suggestedDate)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </>
               )}
 
               {/* Action Buttons */}

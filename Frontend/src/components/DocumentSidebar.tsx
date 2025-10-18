@@ -188,9 +188,10 @@ const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ onDocumentClick }) =>
       {/* Tab/Toggle Button */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed right-0 top-1/2 -mt-4 -translate-y-1/2 z-40 transition-all duration-300 ${
+        className={`fixed right-0 z-40 transition-all duration-300 ${
           isOpen ? 'right-[420px]' : 'right-0'
         }`}
+        style={{ top: 'calc(50% + 20px)' }}
         whileHover={{ scale: 1.05, x: isOpen ? 0 : -5 }}
         whileTap={{ scale: 0.95 }}
       >

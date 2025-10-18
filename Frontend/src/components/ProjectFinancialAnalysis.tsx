@@ -67,11 +67,15 @@ export default function ProjectFinancialAnalysis({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedChart, setSelectedChart] = useState<'categories' | 'timeline' | 'breakdown' | 'analysis'>('categories');
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const loadFinancialData = async () => {
+  const loadFinancialData = async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
       setLoading(true);
-      try {
+    }
+    try {
         const token = localStorage.getItem('token');
         if (!token) {
           throw new Error('Kein Authentifizierungstoken gefunden');
@@ -129,9 +133,11 @@ export default function ProjectFinancialAnalysis({
         console.error('Error loading financial data:', err);
       } finally {
         setLoading(false);
+        setRefreshing(false);
       }
     };
 
+  useEffect(() => {
     if (projectId) {
       loadFinancialData();
     }
@@ -734,6 +740,18 @@ export default function ProjectFinancialAnalysis({
               <p className="text-gray-300 text-xs md:text-sm mt-1 truncate">
                 Projekt: <span className="text-[#ffbd59] font-semibold">{projectName}</span>
               </p>
+            </div>
+            
+            {/* Refresh Button */}
+            <div className="flex items-center">
+              <button
+                onClick={() => loadFinancialData(true)}
+                disabled={refreshing}
+                className="group relative overflow-hidden bg-gradient-to-r from-[#ffbd59]/20 to-[#ffa726]/20 hover:from-[#ffbd59]/30 hover:to-[#ffa726]/30 backdrop-blur-sm border border-[#ffbd59]/40 hover:border-[#ffbd59]/60 rounded-xl p-2 md:p-3 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-[#ffbd59]/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <RefreshCw className={`w-4 h-4 md:w-5 md:h-5 text-[#ffbd59] group-hover:text-white transition-colors duration-300 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
             </div>
           </div>
         </div>

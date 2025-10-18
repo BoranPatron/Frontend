@@ -7,7 +7,6 @@ import CacheDebugPanel from './components/CacheDebugPanel';
 import './utils/serviceWorkerManager'; // Service Worker initialisieren
 import './styles/grid-optimizations.css'; // Grid-Optimierungen für dynamische Kachel-Größen
 import Navbar from './components/Navbar';
-import CreditNotification from './components/CreditNotification';
 import WelcomeCreditNotification from './components/WelcomeCreditNotification';
 import Dashboard from './pages/Dashboard';
 import ServiceProviderDashboard from './pages/ServiceProviderDashboard';
@@ -365,9 +364,6 @@ function AppContent() {
     <>
       {/* Navbar wird durch NavbarWrapper gesteuert */}
       <NavbarWrapper />
-      
-      {/* Credit-Notifications für Bauträger */}
-      <CreditNotification />
 
       {/* Radial Menu: Für Bauträger und Dienstleister auf allen Seiten außer Login sichtbar */}
       {user && location.pathname !== '/login' && (

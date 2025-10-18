@@ -27,6 +27,8 @@ import { appointmentService } from '../api/appointmentService';
 import { RadialMenu } from '../components/RadialMenu';
 import { RadialMenuAdvanced } from '../components/RadialMenuAdvanced';
 import KanbanBoard from '../components/KanbanBoard';
+import TaskCreationModal from '../components/TaskCreationModal';
+import { CreditAnimationProvider, useCreditAdditionAnimation } from '../context/CreditAnimationContext';
 import { 
   Users, 
   Upload, 
@@ -239,7 +241,9 @@ interface Project {
   construction_phase?: string;
 }
 
-export default function Dashboard() {
+// Dashboard-Komponente mit Credit-Animation
+function DashboardWithCreditAnimation() {
+  const { acceptQuoteWithAnimation } = useCreditAdditionAnimation();
   const navigate = useNavigate();
   const location = useLocation();
   const { isInitialized, isAuthenticated, userRole, user, isServiceProvider } = useAuth();
@@ -479,6 +483,76 @@ export default function Dashboard() {
     };
   }, [selectedProject, projects]);
 
+  // Event-Listener für SimpleCostEstimateModal öffnen (von Benachrichtigungen)
+  useEffect(() => {
+    const handleOpenSimpleCostEstimateModal = async (event: CustomEvent) => {
+      console.log('🔧 Dashboard: Event empfangen - SimpleCostEstimateModal öffnen für Trade:', event.detail.tradeId);
+      const tradeId = event.detail.tradeId;
+      
+      try {
+        // Lade das spezifische Milestone direkt von der API
+        const milestone = await getMilestones(selectedProject?.id || 0);
+        const trade = milestone.find((m: any) => m.id === tradeId);
+        
+        if (trade) {
+          console.log('✅ Dashboard: Trade gefunden, öffne SimpleCostEstimateModal:', trade);
+          setSelectedTradeForSimpleCostEstimate(trade);
+          setShowSimpleCostEstimateModal(true);
+        } else {
+          console.error('❌ Dashboard: Trade nicht gefunden:', tradeId);
+          alert('Ausschreibung nicht gefunden. Bitte versuchen Sie es erneut.');
+        }
+      } catch (error) {
+        console.error('❌ Dashboard: Fehler beim Laden der Milestones:', error);
+        alert('Fehler beim Laden der Ausschreibung. Bitte versuchen Sie es erneut.');
+      }
+    };
+
+    window.addEventListener('openSimpleCostEstimateModal', handleOpenSimpleCostEstimateModal as any);
+    
+    return () => {
+      window.removeEventListener('openSimpleCostEstimateModal', handleOpenSimpleCostEstimateModal as any);
+    };
+  }, [selectedProject, projects]);
+
+  // Event-Listener für To-Do-Scrolling (vom Radial Menu)
+  useEffect(() => {
+    const handleScrollToTodo = () => {
+      console.log('📋 Dashboard: Event empfangen - Öffne Task Creation Modal');
+      setShowTaskCreationModal(true);
+    };
+
+    window.addEventListener('scrollToTodo', handleScrollToTodo as any);
+    
+    return () => {
+      window.removeEventListener('scrollToTodo', handleScrollToTodo as any);
+    };
+  }, []);
+
+  // Event-Listener für TradeCreationForm öffnen (vom Radial Menu)
+  useEffect(() => {
+    const handleOpenTradeCreationForm = (event: CustomEvent) => {
+      const { projectId } = event.detail;
+      
+      // Set project if specified
+      if (projectId && projects.length > 0) {
+        const idx = projects.findIndex(p => p.id === projectId);
+        if (idx >= 0) {
+          setSelectedProjectIndex(idx);
+        }
+      }
+      
+      // Open trade creation form
+      setShowTradeCreationForm(true);
+    };
+
+    window.addEventListener('openTradeCreationForm', handleOpenTradeCreationForm as any);
+    
+    return () => {
+      window.removeEventListener('openTradeCreationForm', handleOpenTradeCreationForm as any);
+    };
+  }, [projects, setSelectedProjectIndex]);
+
   // Swipe-Handler für Projekt-Navigation
   const handleSwipe = (direction: 'left' | 'right') => {
     if (isTransitioning || projects.length === 0) return;
@@ -508,18 +582,20 @@ export default function Dashboard() {
     const params = new URLSearchParams(location.search);
     const create = params.get('create');
     const projectParam = params.get('project');
+    
     if (create === 'trade') {
       if (projectParam && projects.length > 0) {
         const idx = projects.findIndex(p => String(p.id) === String(projectParam));
         if (idx >= 0) setSelectedProjectIndex(idx);
       }
-      if (selectedProject) {
-        setShowTradeCreationForm(true);
-        // Nur 'create' entfernen, 'project' beibehalten
-        const newParams = new URLSearchParams(location.search);
-        newParams.delete('create');
-        navigate({ pathname: location.pathname, search: newParams.toString() ? `?${newParams.toString()}` : '' }, { replace: true });
-      }
+      
+      // Always open trade creation form when create=trade parameter is present
+      setShowTradeCreationForm(true);
+      
+      // Nur 'create' entfernen, 'project' beibehalten
+      const newParams = new URLSearchParams(location.search);
+      newParams.delete('create');
+      navigate({ pathname: location.pathname, search: newParams.toString() ? `?${newParams.toString()}` : '' }, { replace: true });
     }
   }, [location.search, projects.length, selectedProject?.id, setSelectedProjectIndex]);
 
@@ -1255,8 +1331,11 @@ export default function Dashboard() {
   // Gewerk-Erstellung
   const [showTradeCreationForm, setShowTradeCreationForm] = useState(false);
   
-  // State für eingeklappte abgeschlossene Ausschreibungen (standardmäßig eingeklappt)
-  const [showCompletedTrades, setShowCompletedTrades] = useState(false);
+  // Task Creation Modal State
+  const [showTaskCreationModal, setShowTaskCreationModal] = useState(false);
+  
+  // State für eingeklappte abgeschlossene Ausschreibungen (standardmäßig aufgeklappt)
+  const [showCompletedTrades, setShowCompletedTrades] = useState(true);
   
   // Ref für To-Do Aufgaben Abschnitt
   const todoSectionRef = useRef<HTMLDivElement>(null);
@@ -1320,7 +1399,7 @@ export default function Dashboard() {
     const handleAccept = async (quoteId: number) => {
       try {
         // Angebot annehmen
-        await acceptQuote(quoteId);
+        await acceptQuoteWithAnimation(quoteId);
         
         // Finde das Gewerk zu dem das Angebot gehört
         const acceptedQuote = Object.values(allTradeQuotes)
@@ -1769,16 +1848,28 @@ export default function Dashboard() {
                   ? 'bg-white/5 border-gray-600/30 cursor-not-allowed opacity-50' 
                   : 'bg-white/10 border-[#ffbd59]/30 hover:border-[#ffbd59]/60 shadow-[#ffbd59]/20 hover:shadow-[#ffbd59]/40 hover:bg-white/15 cursor-pointer hover:scale-105'
               }`}
-              onClick={projects.length === 0 ? undefined : () => navigate('/quotes')}
-              title={projects.length === 0 ? "Erstellen Sie zuerst ein Projekt" : "Zu den Angeboten"}
+              onClick={projects.length === 0 ? undefined : () => {
+                const financialSection = document.querySelector('[data-section="financial-analysis"]');
+                if (financialSection) {
+                  financialSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
+              title={projects.length === 0 ? "Erstellen Sie zuerst ein Projekt" : "Zu den Finanzen scrollen"}
             >
               <div className="flex items-center justify-between mb-1 md:mb-2">
-                <MessageSquare size={16} className={`md:w-5 md:h-5 transition-transform duration-200 ${
-                  projects.length === 0 ? 'text-gray-500' : 'text-purple-400 group-hover:scale-110'
+                <DollarSign size={16} className={`md:w-5 md:h-5 transition-transform duration-200 ${
+                  projects.length === 0 ? 'text-gray-500' : 'text-green-400 group-hover:scale-110'
                 }`} />
-                  <span className="text-lg md:text-xl lg:text-2xl font-bold text-white">{projectStats.newQuotes}</span>
+                  <span className="text-lg md:text-xl lg:text-2xl font-bold text-white">
+                    {(() => {
+                      // Verwende die gleiche Berechnung wie in ProjectFinancialAnalysis
+                      if (!currentProject.budget) return 'N/A';
+                      const remainingBudget = currentProject.budget - currentProject.current_costs;
+                      return `${remainingBudget.toLocaleString('de-DE')} €`;
+                    })()}
+                  </span>
               </div>
-              <p className="text-xs md:text-sm text-gray-300">Neue Angebote</p>
+              <p className="text-xs md:text-sm text-gray-300">Finanzen</p>
             </div>
           </div>
         </div>
@@ -1803,7 +1894,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-3">
                   {projects.map((_, index) => (
                     <button
-                      key={index}
+                      key={`desktop-dot-${index}`}
                       onClick={() => setSelectedProjectIndex(index)}
                       className={`transition-all duration-300 ${
                         index === selectedProjectIndex
@@ -1828,7 +1919,7 @@ export default function Dashboard() {
                 <div className="flex items-center justify-center gap-3">
                   {projects.map((_, index) => (
                     <button
-                      key={index}
+                      key={`mobile-dot-${index}`}
                       onClick={() => setSelectedProjectIndex(index)}
                       className={`transition-all duration-300 ${
                         index === selectedProjectIndex
@@ -2233,9 +2324,9 @@ export default function Dashboard() {
                         onToggle={() => {}}
                         onTradeClick={handleTradeClick}
                         tradeAppointments={tradeAppointments}
-                        onAcceptQuote={async (quoteId: number) => {
+                        onAcceptQuote={async (quoteId: number, providerName?: string, isInspectionQuote?: boolean) => {
                           try {
-                            await acceptQuote(quoteId);
+                            await acceptQuoteWithAnimation(quoteId, providerName, isInspectionQuote);
                             const activeTrades = await loadAndFilterTrades(selectedProject.id);
                             setProjectTrades(activeTrades);
                             await loadQuotesForTrades(activeTrades);
@@ -2326,9 +2417,9 @@ export default function Dashboard() {
                         onToggle={() => {}}
                         onTradeClick={handleTradeClick}
                         tradeAppointments={tradeAppointments}
-                        onAcceptQuote={async (quoteId: number) => {
+                        onAcceptQuote={async (quoteId: number, providerName?: string, isInspectionQuote?: boolean) => {
                           try {
-                            await acceptQuote(quoteId);
+                            await acceptQuoteWithAnimation(quoteId, providerName, isInspectionQuote);
                             const activeTrades = await loadAndFilterTrades(selectedProject.id);
                             setProjectTrades(activeTrades);
                             await loadQuotesForTrades(activeTrades);
@@ -2370,47 +2461,41 @@ export default function Dashboard() {
               </div>
             </div>
             
-            {/* Dritter Bereich: Abgeschlossene Ausschreibungen - Immer in zweiter Reihe */}
+            {/* Dritter Bereich: Abgeschlossene Ausschreibungen - Elegante Timeline-Ansicht */}
             <div className="space-y-4 w-full h-auto min-h-fit md:col-span-2 md:mt-6 md:pt-6 md:border-t md:border-white/10">
-              {/* Header - immer sichtbar */}
+              {/* Header mit modernem Design */}
               <div className="flex items-center justify-between">
-                <h3 className="text-base md:text-lg font-semibold text-white flex items-center gap-2 md:gap-3">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                  <span className="hidden sm:inline">Abgeschlossene Ausschreibungen</span>
-                  <span className="sm:hidden">Abgeschlossen</span>
-                  <span className="text-xs md:text-sm text-gray-400 bg-white/10 px-2 py-1 rounded-full">
-                    {(() => {
-                      const completedTrades = projectTrades.filter(trade => {
-                        const quotes = allTradeQuotes[trade.id] || [];
-                        const hasAcceptedQuote = quotes.some(quote => quote.status === 'accepted');
-                        const isCompleted = (trade as any).completion_status === 'completed';
-                        return hasAcceptedQuote && isCompleted;
-                      });
-                      return completedTrades.length;
-                    })()}
-                  </span>
-                </h3>
-                <button
-                  onClick={() => setShowCompletedTrades(!showCompletedTrades)}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 hover:text-blue-200 rounded-lg transition-all duration-200 border border-blue-500/30 hover:border-blue-400/50"
-                  title={showCompletedTrades ? "Bereich einklappen" : "Bereich ausklappen"}
-                >
-                  {showCompletedTrades ? (
-                    <>
-                      <ChevronUp size={14} />
-                      <span className="text-xs font-medium hidden sm:inline">Einklappen</span>
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown size={14} />
-                      <span className="text-xs font-medium hidden sm:inline">Ausklappen</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="w-3 h-3 bg-gradient-to-r from-emerald-400 to-green-500 rounded-full animate-pulse"></div>
+                    <div className="absolute inset-0 w-3 h-3 bg-emerald-400/30 rounded-full animate-ping"></div>
+                  </div>
+                  <h3 className="text-base md:text-lg font-semibold text-white">
+                    <span className="hidden sm:inline">Abgeschlossene Ausschreibungen</span>
+                    <span className="sm:hidden">Abgeschlossen</span>
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs md:text-sm text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20">
+                      {(() => {
+                        const completedTrades = projectTrades.filter(trade => {
+                          const quotes = allTradeQuotes[trade.id] || [];
+                          const hasAcceptedQuote = quotes.some(quote => quote.status === 'accepted');
+                          const isCompleted = (trade as any).completion_status === 'completed';
+                          return hasAcceptedQuote && isCompleted;
+                        });
+                        return completedTrades.length;
+                      })()}
+                    </span>
+                    <div className="hidden sm:flex items-center gap-1 text-emerald-400/60 text-xs">
+                      <CheckCircle size={12} />
+                      <span>Erfolgreich abgeschlossen</span>
+                    </div>
+                  </div>
+                </div>
               </div>
               
-              {/* Eingeklappter Zustand - Kompakter Hinweis */}
-              {!showCompletedTrades && (() => {
+              {/* Moderne Timeline-Ansicht für abgeschlossene Ausschreibungen */}
+              {(() => {
                 const completedTrades = projectTrades.filter(trade => {
                   const quotes = allTradeQuotes[trade.id] || [];
                   const hasAcceptedQuote = quotes.some(quote => quote.status === 'accepted');
@@ -2418,103 +2503,182 @@ export default function Dashboard() {
                   return hasAcceptedQuote && isCompleted;
                 });
                 
-                if (completedTrades.length > 0) {
+                if (completedTrades.length === 0) {
                   return (
-                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-blue-300 text-sm">
-                          <CheckCircle size={16} />
-                          <span className="font-medium">{completedTrades.length} abgeschlossene Ausschreibung{completedTrades.length !== 1 ? 'en' : ''}</span>
+                    <div className="bg-gradient-to-r from-gray-500/5 to-gray-600/5 border border-gray-500/20 rounded-xl p-6 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-16 h-16 bg-gray-500/10 rounded-full flex items-center justify-center">
+                          <CheckCircle size={24} className="text-gray-400" />
                         </div>
-                        <span className="text-blue-400 text-xs hidden sm:inline">Klicken Sie auf "Ausklappen" um Details zu sehen</span>
-                        <span className="text-blue-400 text-xs sm:hidden">Tippen zum Ausklappen</span>
+                        <div>
+                          <p className="text-gray-300 text-sm font-medium">Noch keine Ausschreibungen abgeschlossen</p>
+                          <p className="text-gray-500 text-xs mt-1">Abgeschlossene Projekte erscheinen hier in einer übersichtlichen Timeline</p>
+                        </div>
                       </div>
                     </div>
                   );
                 }
+                
+                // Kompakte Timeline-Ansicht mit maximal 3 sichtbaren Einträgen
+                const visibleTrades = completedTrades.slice(0, 3);
+                const remainingCount = completedTrades.length - 3;
+                
                 return (
-                  <div className="bg-gray-500/10 border border-gray-500/20 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-gray-400 text-sm">
-                      <CheckCircle size={16} />
-                      <span>Noch keine Ausschreibungen abgeschlossen</span>
+                  <div className="space-y-3">
+                    {/* Timeline Container */}
+                    <div className="relative">
+                      {/* Timeline Line */}
+                      <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-emerald-400/50 to-emerald-600/30"></div>
+                      
+                      {/* Timeline Items */}
+                      <div className="space-y-4">
+                        {visibleTrades.map((trade, index) => {
+                          const quotes = allTradeQuotes[trade.id] || [];
+                          const acceptedQuote = quotes.find(quote => quote.status === 'accepted');
+                          const completionDate = (trade as any).completion_date || (trade as any).updated_at;
+                          
+                          return (
+                            <div 
+                              key={trade.id}
+                              className="group relative flex items-start gap-4 cursor-pointer"
+                              onClick={() => handleTradeClick(trade)}
+                            >
+                              {/* Timeline Dot */}
+                              <div className="relative z-10 flex-shrink-0">
+                                <div className="w-8 h-8 bg-gradient-to-r from-emerald-400 to-green-500 rounded-full flex items-center justify-center shadow-lg group-hover:shadow-emerald-400/25 transition-all duration-300">
+                                  <CheckCircle size={14} className="text-white" />
+                                </div>
+                                <div className="absolute inset-0 w-8 h-8 bg-emerald-400/20 rounded-full animate-ping group-hover:animate-none"></div>
+                              </div>
+                              
+                              {/* Content Card */}
+                              <div className="flex-1 min-w-0">
+                                <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 group-hover:bg-white/10 group-hover:border-emerald-400/30 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-emerald-400/10">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="text-white font-medium text-sm group-hover:text-emerald-100 transition-colors truncate">
+                                        {trade.title}
+                                      </h4>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        {acceptedQuote && (
+                                          <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                                            {acceptedQuote.company_name}
+                                          </span>
+                                        )}
+                                        {completionDate && (
+                                          <span className="text-xs text-gray-400">
+                                            {new Date(completionDate).toLocaleDateString('de-DE')}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {acceptedQuote && (
+                                        <div className="mt-2 flex items-center gap-2">
+                                          <span className="text-xs text-gray-400">Finaler Preis:</span>
+                                          <span className="text-sm font-semibold text-emerald-400">
+                                            {acceptedQuote.total_amount?.toLocaleString('de-DE')} €
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    {/* Hover Action Indicator */}
+                                    <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                      <div className="w-6 h-6 bg-emerald-400/20 rounded-full flex items-center justify-center">
+                                        <svg className="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
+                    
+                    {/* Show More Button für zusätzliche Einträge */}
+                    {remainingCount > 0 && (
+                      <div className="flex justify-center pt-2">
+                        <button
+                          onClick={() => setShowCompletedTrades(!showCompletedTrades)}
+                          className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-emerald-200 rounded-lg transition-all duration-200 border border-emerald-500/20 hover:border-emerald-400/40 group"
+                        >
+                          <span className="text-sm font-medium">
+                            {showCompletedTrades ? 'Weniger anzeigen' : `+${remainingCount} weitere anzeigen`}
+                          </span>
+                          {showCompletedTrades ? (
+                            <ChevronUp size={16} className="group-hover:scale-110 transition-transform" />
+                          ) : (
+                            <ChevronDown size={16} className="group-hover:scale-110 transition-transform" />
+                          )}
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* Erweiterte Ansicht (nur wenn showCompletedTrades true ist) */}
+                    {showCompletedTrades && remainingCount > 0 && (
+                      <div className="mt-4 pt-4 border-t border-white/10">
+                        <div className="space-y-3">
+                          {completedTrades.slice(3).map((trade, index) => {
+                            const quotes = allTradeQuotes[trade.id] || [];
+                            const acceptedQuote = quotes.find(quote => quote.status === 'accepted');
+                            const completionDate = (trade as any).completion_date || (trade as any).updated_at;
+                            
+                            return (
+                              <div 
+                                key={trade.id}
+                                className="group relative flex items-start gap-4 cursor-pointer"
+                                onClick={() => handleTradeClick(trade)}
+                              >
+                                {/* Timeline Dot */}
+                                <div className="relative z-10 flex-shrink-0">
+                                  <div className="w-6 h-6 bg-gradient-to-r from-emerald-400 to-green-500 rounded-full flex items-center justify-center shadow-lg group-hover:shadow-emerald-400/25 transition-all duration-300">
+                                    <CheckCircle size={10} className="text-white" />
+                                  </div>
+                                </div>
+                                
+                                {/* Content Card */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-3 group-hover:bg-white/10 group-hover:border-emerald-400/30 transition-all duration-300">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="flex-1 min-w-0">
+                                        <h4 className="text-white font-medium text-sm group-hover:text-emerald-100 transition-colors truncate">
+                                          {trade.title}
+                                        </h4>
+                                        <div className="flex items-center gap-2 mt-1">
+                                          {acceptedQuote && (
+                                            <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                              {acceptedQuote.company_name}
+                                            </span>
+                                          )}
+                                          {completionDate && (
+                                            <span className="text-xs text-gray-400">
+                                              {new Date(completionDate).toLocaleDateString('de-DE')}
+                                            </span>
+                                          )}
+                                        </div>
+                                        {acceptedQuote && (
+                                          <div className="mt-1">
+                                            <span className="text-xs font-semibold text-emerald-400">
+                                              {acceptedQuote.total_amount?.toLocaleString('de-DE')} €
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
-              
-              {/* Ausgeklappter Zustand - Vollständiger Inhalt */}
-              {showCompletedTrades && (
-                <div className="mobile-card bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 overflow-hidden relative h-auto min-h-fit">
-                  <div className="mobile-spacing p-4 md:p-6 space-y-3 relative z-10 h-auto min-h-fit">
-                    {(() => {
-                      const completedTrades = projectTrades.filter(trade => {
-                        const quotes = allTradeQuotes[trade.id] || [];
-                        const hasAcceptedQuote = quotes.some(quote => quote.status === 'accepted');
-                        const isCompleted = (trade as any).completion_status === 'completed';
-                        return hasAcceptedQuote && isCompleted;
-                      });
-                      
-                      if (completedTrades.length === 0) {
-                        return (
-                          <div className="text-center py-8">
-                            <CheckCircle size={48} className="text-blue-400 mx-auto mb-4" />
-                            <p className="text-gray-400 text-sm mb-4">Noch keine Ausschreibungen abgeschlossen</p>
-                            <p className="text-gray-500 text-xs">Abgeschlossene Ausschreibungen erscheinen hier.</p>
-                          </div>
-                        );
-                      }
-                      
-                      return (
-                        <TradesCard
-                          trades={completedTrades}
-                          projectId={selectedProject.id}
-                          isExpanded={true}
-                          onToggle={() => {}}
-                          onTradeClick={handleTradeClick}
-                          tradeAppointments={tradeAppointments}
-                          onAcceptQuote={async (quoteId: number) => {
-                            try {
-                              await acceptQuote(quoteId);
-                              const activeTrades = await loadAndFilterTrades(selectedProject.id);
-                              setProjectTrades(activeTrades);
-                              await loadQuotesForTrades(activeTrades);
-                              await loadAppointmentsForTrades(activeTrades);
-                              setSuccess('Angebot erfolgreich angenommen!');
-                              setTimeout(() => setSuccess(''), 3000);
-                            } catch (e: any) {
-                              console.error('❌ Fehler beim Annehmen:', e);
-                              setError('Fehler beim Annehmen des Angebots');
-                            }
-                          }}
-                          onRejectQuote={async (quoteId: number, reason: string) => {
-                            try {
-                              await rejectQuote(quoteId, reason);
-                              const activeTrades = await loadAndFilterTrades(selectedProject.id);
-                              setProjectTrades(activeTrades);
-                              await loadQuotesForTrades(activeTrades);
-                              await loadAppointmentsForTrades(activeTrades);
-                              setSuccess('Angebot erfolgreich abgelehnt!');
-                              setTimeout(() => setSuccess(''), 3000);
-                            } catch (e: any) {
-                              console.error('❌ Fehler beim Ablehnen:', e);
-                              setError('Fehler beim Ablehnen des Angebots');
-                            }
-                          }}
-                          onResetQuote={async (quoteId: number) => {
-                            try {
-                              await resetQuote(quoteId);
-                              const activeTrades = await loadAndFilterTrades(selectedProject.id);
-                              setProjectTrades(activeTrades);
-                            } catch (e) {
-                              console.error('❌ Fehler beim Zurücksetzen:', e);
-                            }
-                          }}
-                        />
-                      );
-                    })()}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -2565,9 +2729,9 @@ export default function Dashboard() {
               onCreateQuote={() => {}}
               existingQuotes={allTradeQuotes[selectedTradeForDetails.id] || []}
               onCreateInspection={handleCreateInspection}
-              onAcceptQuote={async (quoteId: number) => {
+              onAcceptQuote={async (quoteId: number, providerName?: string, isInspectionQuote?: boolean) => {
                 try {
-                  await acceptQuote(quoteId);
+                  await acceptQuoteWithAnimation(quoteId, providerName, isInspectionQuote);
                   // Gewerke neu laden nach Annahme
                   const activeTrades = await loadAndFilterTrades(selectedProject.id);
                   setProjectTrades(activeTrades);
@@ -2604,9 +2768,9 @@ export default function Dashboard() {
               trade={selectedTradeForSimpleCostEstimate}
               quotes={allTradeQuotes[selectedTradeForSimpleCostEstimate.id] || []}
               project={selectedProject}
-              onAcceptQuote={async (quoteId: number) => {
+              onAcceptQuote={async (quoteId: number, providerName?: string, isInspectionQuote?: boolean) => {
                 try {
-                  await acceptQuote(quoteId);
+                  await acceptQuoteWithAnimation(quoteId, providerName, isInspectionQuote);
                   const activeTrades = await loadAndFilterTrades(selectedProject.id);
                   setProjectTrades(activeTrades);
                   await loadQuotesForTrades(activeTrades);
@@ -2646,18 +2810,33 @@ export default function Dashboard() {
             />
           )}
           
+          {/* Task Creation Modal */}
+          <TaskCreationModal
+            isOpen={showTaskCreationModal}
+            onClose={() => setShowTaskCreationModal(false)}
+            onTaskCreated={() => {
+              setShowTaskCreationModal(false);
+              // Refresh project stats after task creation
+              if (selectedProject) {
+                refreshProjectStats(selectedProject);
+              }
+            }}
+          />
+          
           {/* Gewerk-Erstellung */}
-          {showTradeCreationForm && selectedProject && (
+          {showTradeCreationForm && (
             <TradeCreationForm
               isOpen={showTradeCreationForm}
               onClose={() => setShowTradeCreationForm(false)}
               onSubmit={async (tradeData: any) => {
                 setShowTradeCreationForm(false);
-                // Lade Gewerke neu nach Erstellung
-                const activeTrades = await loadAndFilterTrades(selectedProject.id);
-                setProjectTrades(activeTrades);
+                // Lade Gewerke neu nach Erstellung (nur wenn Projekt ausgewählt)
+                if (selectedProject) {
+                  const activeTrades = await loadAndFilterTrades(selectedProject.id);
+                  setProjectTrades(activeTrades);
+                }
               }}
-              projectId={selectedProject.id}
+              projectId={selectedProject?.id || 0}
             />
           )}
         </div>
@@ -3895,9 +4074,9 @@ export default function Dashboard() {
           projectTrades={projectTrades}
           allTradeQuotes={allTradeQuotes}
           onTradeClick={handleTradeClick}
-          onAcceptQuote={async (quoteId: number) => {
+          onAcceptQuote={async (quoteId: number, providerName?: string, isInspectionQuote?: boolean) => {
             try {
-              await acceptQuote(quoteId);
+              await acceptQuoteWithAnimation(quoteId, providerName, isInspectionQuote);
               const activeTrades = await loadAndFilterTrades(selectedProject.id);
               setProjectTrades(activeTrades);
               await loadQuotesForTrades(activeTrades);
@@ -3931,5 +4110,14 @@ export default function Dashboard() {
       )}
 
     </div>
+  );
+}
+
+// Hauptkomponente mit Credit-Animation Provider
+export default function Dashboard() {
+  return (
+    <CreditAnimationProvider>
+      <DashboardWithCreditAnimation />
+    </CreditAnimationProvider>
   );
 } 

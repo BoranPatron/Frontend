@@ -78,22 +78,19 @@ export default function CreditDisplay() {
         )}
       </AnimatePresence>
 
-      <motion.button
-        onClick={() => navigate('/credits')}
+      <motion.div
         className={`
-          relative flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 overflow-hidden
+          relative flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 overflow-hidden cursor-default opacity-75
           ${isNegative 
-            ? 'bg-red-500/20 border border-red-500/50 hover:bg-red-500/30' 
+            ? 'bg-red-500/20 border border-red-500/50' 
             : isLowCredits 
-            ? 'bg-amber-500/20 border border-amber-500/50 hover:bg-amber-500/30'
+            ? 'bg-amber-500/20 border border-amber-500/50'
             : creditBalance.is_pro_active
-            ? 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/50 hover:from-purple-500/30 hover:to-indigo-500/30'
-            : 'bg-gray-800/50 border border-gray-700 hover:bg-gray-800/70'
+            ? 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/50'
+            : 'bg-gray-800/50 border border-gray-700'
           }
           ${isAnimating ? 'shadow-lg shadow-[#ffbd59]/50' : ''}
         `}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
         animate={isAnimating ? { 
           boxShadow: [
             '0 0 0px rgba(255, 189, 89, 0)',
@@ -201,7 +198,7 @@ export default function CreditDisplay() {
             PRO
           </motion.span>
         )}
-      </motion.button>
+      </motion.div>
 
       {/* Tooltip */}
       <AnimatePresence>
@@ -263,10 +260,11 @@ export default function CreditDisplay() {
                 )}
               </div>
 
-              {/* CTA */}
+              {/* CTA - DEAKTIVIERT */}
               <button
-                onClick={() => navigate('/credits')}
-                className="w-full py-2 px-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-semibold rounded-lg hover:shadow-lg transform hover:scale-[1.02] transition-all duration-200"
+                onClick={() => {/* DEAKTIVIERT */}}
+                disabled={true}
+                className="w-full py-2 px-3 bg-gray-600 text-gray-400 text-sm font-semibold rounded-lg cursor-not-allowed opacity-60"
               >
                 Credits aufladen
               </button>

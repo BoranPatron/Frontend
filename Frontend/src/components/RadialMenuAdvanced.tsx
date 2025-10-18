@@ -114,28 +114,16 @@ export function RadialMenuAdvanced({
       return [
         {
           id: "create-resource",
-          label: "Ressource erstellen",
+          label: "Neue Ressource",
           icon: <Users size={28} />,
           onSelect: () => {
-            // Navigate to resource management or show modal
-            window.location.href = '/service-provider?showResourceModal=true';
+            // Navigate to service provider dashboard with resource modal
+            window.location.href = '/service-provider?showResourceManagement=true';
           },
           color: "#10B981",
-          description: "Neue Ressource hinzufügen",
+          description: "Neue Ressource erfassen",
           ring: 1,
           tourId: "radial-menu-create-resource"
-        },
-        {
-          id: "create-task",
-          label: "Neue Aufgabe",
-          icon: <CheckSquare size={28} />,
-          onSelect: () => {
-            navigate('/tasks?create=task');
-          },
-          color: "#3B82F6",
-          description: "Aufgabe hinzufügen",
-          ring: 1,
-          tourId: "radial-menu-create-task"
         }
       ];
     }
@@ -160,11 +148,11 @@ export function RadialMenuAdvanced({
         label: "Neue Ausschreibung",
         icon: <Hammer size={28} />,
         onSelect: () => {
-          if (projectId) {
-            navigate(`${window.location.pathname}?create=trade&project=${projectId}`);
-          } else {
-            navigate(`${window.location.pathname}?create=trade`);
-          }
+          // Dispatch event to open trade creation form on dashboard
+          const event = new CustomEvent('openTradeCreationForm', { 
+            detail: { projectId: projectId || null } 
+          });
+          window.dispatchEvent(event);
         },
         color: "#8B5CF6",
         description: "Ausschreibung erstellen",
@@ -202,14 +190,12 @@ export function RadialMenuAdvanced({
         label: "To-Do",
         icon: <CheckSquare size={24} />,
         onSelect: () => {
-          if (projectId) {
-            navigate(`/tasks?project=${projectId}`);
-          } else {
-            navigate('/tasks');
-          }
+          // Dispatch event to scroll to todo section on dashboard instead of navigating
+          const event = new CustomEvent('scrollToTodo');
+          window.dispatchEvent(event);
         },
         color: "#10B981",
-        description: "Aufgabenmanagement",
+        description: "Neue Aufgabe erstellen",
         ring: 2,
         tourId: "radial-menu-tasks",
         disabled: !hasProjects,
@@ -305,20 +291,15 @@ export function RadialMenuAdvanced({
           id: "tasks",
           label: "To-Do",
           icon: <CheckSquare size={24} />,
-          onSelect: () => navigate('/tasks'),
+          onSelect: () => {
+            // For service providers, also scroll to todo section instead of navigating
+            const event = new CustomEvent('scrollToTodo');
+            window.dispatchEvent(event);
+          },
           color: "#10B981",
-          description: "Aufgabenmanagement",
+          description: "Neue Aufgabe erstellen",
           ring: 2,
           tourId: "radial-menu-tasks"
-        },
-        {
-          id: "create-task",
-          label: "Neue Aufgabe",
-          icon: <ListPlus size={24} />,
-          onSelect: () => navigate('/tasks?create=task'),
-          color: "#10B981",
-          description: "Aufgabe hinzufügen",
-          ring: 2
         },
         {
           id: "upload-doc",
@@ -332,12 +313,32 @@ export function RadialMenuAdvanced({
         {
           id: "invoices",
           label: "Rechnungen",
-          icon: <CreditCard size={24} />,
+          icon: <CreditCard size={28} />,
           onSelect: () => navigate('/invoices'),
           color: "#F59E0B",
           description: "Rechnungsverwaltung",
-          ring: 2,
+          ring: 1, // Moved to primary ring for service providers
           tourId: "radial-menu-invoices"
+        },
+        {
+          id: "bidding",
+          label: "Ausschreibungen",
+          icon: <Hammer size={24} />,
+          onSelect: () => {
+            // Check if we're already on the service provider dashboard
+            if (window.location.pathname === '/service-provider') {
+              // Already on dashboard - just scroll to section
+              const event = new CustomEvent('scrollToBidding');
+              window.dispatchEvent(event);
+            } else {
+              // Navigate to dashboard first, then scroll
+              navigate('/service-provider?scrollToBidding=true');
+            }
+          },
+          color: "#8B5CF6",
+          description: "Ausschreibungen in Ihrer Nähe",
+          ring: 2, // Outer ring for service providers
+          tourId: "radial-menu-bidding"
         }
       ];
     }
@@ -446,9 +447,9 @@ export function RadialMenuAdvanced({
 
   // Calculate layout with multiple rings - screen-safe positioning with vertical primary layout
   const layout = useMemo(() => {
-    // Much smaller radii to ensure buttons stay within screen bounds
-    const primaryRadius = isMobile ? 80 : 100;  // Inner ring - very compact
-    const secondaryRadius = isMobile ? 140 : 180;  // Outer ring - compact
+    // Even larger radii for maximum spacing
+    const primaryRadius = isMobile ? 70 : 90;  // Inner ring - keep same
+    const secondaryRadius = isMobile ? 200 : 240;  // Outer ring - even larger
     
     return allItems.map((item, i) => {
       const isPrimaryRing = item.ring === 1;
@@ -459,13 +460,13 @@ export function RadialMenuAdvanced({
         const indexInPrimary = primaryItems.indexOf(item);
         const primaryCount = primaryItems.length;
         
-        // Position horizontally to the left of the FAB button - moved further left
+        // Primary buttons positioned to the left of FAB in a vertical line
         const fabSize = isMobile ? 56 : 72;
         const buttonSize = isMobile ? 52 : 64;
-        const spacing = isMobile ? 90 : 110; // Increased spacing to move further left
-        const baseOffset = -(fabSize/2 + buttonSize/2 + spacing); // Start further to the left of FAB
+        const spacing = isMobile ? 80 : 100; // Distance from FAB
+        const baseOffset = -(fabSize/2 + buttonSize/2 + spacing); // Position to the left of FAB
         
-        // Stack vertically but offset to the left
+        // Stack vertically
         const verticalSpacing = isMobile ? 60 : 70;
         const verticalOffset = -(verticalSpacing * (primaryCount - 1)) / 2;
         
@@ -484,16 +485,16 @@ export function RadialMenuAdvanced({
         const indexInRing = itemsInRing.indexOf(item);
         const countInRing = itemsInRing.length;
         
-        // Compact arc from -150 to -30 degrees (moved further left for safety)
-        const startAngle = -150;
-        const endAngle = -30;
+        // Quarter circle arrangement with left alignment - from -90° to -180° (left side)
+        const startAngle = -90;  // Start at top
+        const endAngle = -180;    // End at left side
         const span = endAngle - startAngle;
         
         const t = countInRing === 1 ? 0.5 : indexInRing / (countInRing - 1);
         const angle = (startAngle + t * span) * (Math.PI / 180);
         
-        // Offset the entire arc to the left
-        const leftOffset = isMobile ? -20 : -30;
+        // No left offset needed since we're already going left
+        const leftOffset = 0;
         
         return {
           x: Math.cos(angle) * radius + leftOffset,
@@ -788,22 +789,23 @@ export function RadialMenuAdvanced({
           {open && (
             <>
 
-              {/* Ring indicators for visual hierarchy - screen-safe with vertical primary */}
+              {/* Quarter circle indicators for left-aligned arrangement */}
               <motion.div
                 initial={{ opacity: 0, scale: 0 }}
                 animate={{ opacity: isMobile ? 0.1 : 0.15, scale: 1 }}
                 exit={{ opacity: 0, scale: 0 }}
                 className="absolute"
                 style={{
-                  width: isMobile ? 160 : 200,
-                  height: isMobile ? 160 : 200,
+                  width: isMobile ? 140 : 180,
+                  height: isMobile ? 140 : 180,
                   border: isMobile ? '1px dashed rgba(255, 189, 89, 0.3)' : '2px dashed rgba(255, 189, 89, 0.4)',
                   borderRadius: '50%',
                   top: '50%',
                   left: '50%',
                   transform: 'translate(-50%, -50%)',
                   pointerEvents: 'none',
-                  background: 'radial-gradient(circle, rgba(255, 189, 89, 0.05) 0%, transparent 70%)'
+                  background: 'radial-gradient(circle, rgba(255, 189, 89, 0.05) 0%, transparent 70%)',
+                  clipPath: 'polygon(50% 50%, 50% 0%, 0% 0%, 0% 50%)' // Quarter circle mask
                 }}
               />
               <motion.div
@@ -813,15 +815,16 @@ export function RadialMenuAdvanced({
                 transition={{ delay: 0.1 }}
                 className="absolute"
                 style={{
-                  width: isMobile ? 280 : 360,
-                  height: isMobile ? 280 : 360,
+                  width: isMobile ? 400 : 480,
+                  height: isMobile ? 400 : 480,
                   border: '1px dashed rgba(139, 92, 246, 0.2)',
                   borderRadius: '50%',
                   top: '50%',
                   left: '50%',
                   transform: 'translate(-50%, -50%)',
                   pointerEvents: 'none',
-                  background: 'radial-gradient(circle, rgba(139, 92, 246, 0.02) 0%, transparent 70%)'
+                  background: 'radial-gradient(circle, rgba(139, 92, 246, 0.02) 0%, transparent 70%)',
+                  clipPath: 'polygon(50% 50%, 50% 0%, 0% 0%, 0% 50%)' // Quarter circle mask
                 }}
               />
               

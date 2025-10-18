@@ -814,7 +814,7 @@ function CreateInspectionModal({ trade, onClose, onSuccess }: {
       <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-white/10">
           <h3 className="text-xl font-semibold text-white">Besichtigung planen</h3>
-          <p className="text-gray-400 mt-1">Gewerk: {trade.title}</p>
+          <p className="text-gray-400 mt-1">Ausschreibung: {trade.title}</p>
         </div>
         
         <form onSubmit={handleSubmit} className="p-6 space-y-4">

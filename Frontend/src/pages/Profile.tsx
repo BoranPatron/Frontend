@@ -217,27 +217,29 @@ export default function Profile() {
 
         {/* Tabs */}
         <div className="flex justify-center mb-8">
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-2 border border-white/20">
-            {[
-              { id: 'personal', label: 'Persönlich', icon: User },
-              { id: 'company', label: 'Unternehmen', icon: Building2 },
-              { id: 'settings', label: 'Einstellungen', icon: Shield }
-            ].map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setActiveTab(id as any)}
-                className={`
-                  flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300
-                  ${activeTab === id 
-                    ? 'bg-[#ffbd59] text-[#2c3539] shadow-lg' 
-                    : 'text-white hover:bg-white/10'
-                  }
-                `}
-              >
-                <Icon className="w-4 h-4" />
-                {label}
-              </button>
-            ))}
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-2 border border-white/20 shadow-2xl">
+            <div className="flex gap-2">
+              {[
+                { id: 'personal', label: 'Persönlich', icon: User },
+                { id: 'company', label: 'Unternehmen', icon: Building2 },
+                { id: 'settings', label: 'Einstellungen', icon: Shield }
+              ].map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id as any)}
+                  className={`
+                    flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform
+                    ${activeTab === id 
+                      ? 'bg-[#ffbd59] text-[#2c3539] shadow-lg shadow-[#ffbd59]/30 hover:shadow-xl hover:shadow-[#ffbd59]/40 hover:scale-105' 
+                      : 'text-white hover:bg-white/10 hover:scale-105'
+                    }
+                  `}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

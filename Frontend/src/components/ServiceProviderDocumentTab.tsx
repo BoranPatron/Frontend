@@ -406,10 +406,9 @@ export default function ServiceProviderDocumentTab({ userId }: ServiceProviderDo
       {/* Service Provider Document Tab - rechts am Bildschirmrand */}
       <div 
         ref={documentTabRef}
-        className={`fixed right-0 transform z-[9999] transition-all duration-300 ${
+        className={`fixed right-0 top-0 bottom-0 transform z-[9999] transition-all duration-300 ${
           isExpanded ? 'translate-x-0' : 'translate-x-full'
         }`}
-        style={{ top: 'calc(50% - 280px)' }}
       >
         
         {/* Tab Handle - Der "Griff" der Lasche (links) */}
@@ -442,7 +441,7 @@ export default function ServiceProviderDocumentTab({ userId }: ServiceProviderDo
         </div>
 
         {/* Document Panel */}
-        <div className="bg-white/10 backdrop-blur-xl shadow-2xl rounded-l-xl w-96 max-h-[80vh] overflow-hidden border-l-4 border-[#ffbd59] border border-white/20">
+        <div className="bg-gradient-to-br from-slate-900/95 to-gray-900/95 backdrop-blur-xl shadow-2xl w-96 h-full overflow-hidden border-l-4 border-[#ffbd59] border border-gray-700/50 flex flex-col">
           
           {/* Header */}
           <div className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white p-4">
@@ -471,7 +470,7 @@ export default function ServiceProviderDocumentTab({ userId }: ServiceProviderDo
           </div>
 
           {/* Search and Filter */}
-          <div className="p-4 bg-white/5 backdrop-blur-sm border-b border-white/10">
+          <div className="p-4 bg-slate-800/80 backdrop-blur-sm border-b border-gray-700/50">
             <div className="space-y-3">
               {/* Search */}
               <div className="relative">
@@ -481,7 +480,7 @@ export default function ServiceProviderDocumentTab({ userId }: ServiceProviderDo
                   placeholder="Dokumente durchsuchen..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent w-full pl-10 pr-4 text-sm"
+                  className="bg-slate-700/80 backdrop-blur-sm border border-gray-600/50 rounded-lg px-3 py-2 text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent w-full pl-10 pr-4 text-sm"
                 />
               </div>
 
@@ -489,7 +488,7 @@ export default function ServiceProviderDocumentTab({ userId }: ServiceProviderDo
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent w-full text-sm"
+                className="bg-slate-700/80 backdrop-blur-sm border border-gray-600/50 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent w-full text-sm"
               >
                 <option value="all" className="bg-gray-800 text-white">Alle Kategorien</option>
                 {Object.entries(DOCUMENT_CATEGORIES).map(([key, category]) => (
@@ -505,7 +504,7 @@ export default function ServiceProviderDocumentTab({ userId }: ServiceProviderDo
                   setSortBy(field as 'created_at' | 'title' | 'file_size' | 'accessed_at');
                   setSortOrder(order as 'asc' | 'desc');
                 }}
-                className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent w-full text-sm"
+                className="bg-slate-700/80 backdrop-blur-sm border border-gray-600/50 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent w-full text-sm"
               >
                 <option value="created_at-desc" className="bg-gray-800 text-white">Neueste zuerst</option>
                 <option value="created_at-asc" className="bg-gray-800 text-white">Älteste zuerst</option>
@@ -518,7 +517,7 @@ export default function ServiceProviderDocumentTab({ userId }: ServiceProviderDo
           </div>
 
           {/* Documents List */}
-          <div className="max-h-96 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="p-4 text-center">
                 <RefreshCw className="w-6 h-6 text-[#ffbd59] animate-spin mx-auto mb-2" />
@@ -548,7 +547,7 @@ export default function ServiceProviderDocumentTab({ userId }: ServiceProviderDo
                   return (
                     <div
                       key={doc.id}
-                      className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-3 hover:border-[#ffbd59]/50 hover:bg-white/15 transition-all duration-300 group cursor-pointer hover:shadow-lg hover:shadow-[#ffbd59]/20"
+                      className="bg-slate-800/90 backdrop-blur-sm rounded-lg border border-gray-600/50 p-3 hover:border-[#ffbd59]/50 hover:bg-slate-700/90 transition-all duration-300 group cursor-pointer hover:shadow-lg hover:shadow-[#ffbd59]/20"
                       onClick={() => handleViewDocument(doc)}
                     >
                       <div className="flex items-start gap-3">
@@ -560,20 +559,20 @@ export default function ServiceProviderDocumentTab({ userId }: ServiceProviderDo
                         {/* Content */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium text-white text-sm truncate hover:text-[#ffbd59] transition-colors">{doc.title}</h4>
+                            <h4 className="font-medium text-gray-100 text-sm truncate hover:text-[#ffbd59] transition-colors">{doc.title}</h4>
                             {doc.is_favorite && (
                               <Star className="w-3 h-3 text-yellow-400 fill-current flex-shrink-0" />
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
+                          <div className="flex items-center gap-2 text-xs text-gray-300 mb-2">
                             <span>{formatFileSize(doc.file_size)}</span>
                             <span>•</span>
                             <span>{new Date(doc.created_at).toLocaleDateString('de-DE')}</span>
                           </div>
                           {doc.subcategory && (
-                            <div className="text-xs text-gray-500 mb-2">{doc.subcategory}</div>
+                            <div className="text-xs text-gray-400 mb-2">{doc.subcategory}</div>
                           )}
-                          <div className="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <div className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                              Klicken zum Öffnen
                           </div>
                         </div>
@@ -624,7 +623,7 @@ export default function ServiceProviderDocumentTab({ userId }: ServiceProviderDo
           </div>
 
           {/* Footer Stats */}
-          <div className="p-4 bg-white/5 backdrop-blur-sm border-t border-white/10">
+          <div className="p-4 bg-slate-800/80 backdrop-blur-sm border-t border-gray-700/50">
             <div className="flex items-center justify-between text-sm text-gray-400">
               <span>{filteredDocuments.length} von {documents.length} Dokumenten</span>
               <span>{favoriteCount} Favoriten</span>

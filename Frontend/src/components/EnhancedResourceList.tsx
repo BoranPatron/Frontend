@@ -182,7 +182,7 @@ const EnhancedResourceList: React.FC<EnhancedResourceListProps> = ({
           <div>
             <h3 className="text-blue-300 font-medium mb-1">Ressourcen intelligent verwalten</h3>
             <p className="text-blue-200 text-sm leading-relaxed">
-              Teilen Sie Ihre verfügbaren Mitarbeiter und Kapazitäten mit Bauträgern. Diese können Ihre Ressourcen für Projekte vormerken und Sie zu Angeboten einladen.
+              Teile deine verfügbaren Mitarbeiter und Kapazitäten mit Bauträgern. Diese können deine Ressourcen für Projekte vormerken und dich zu Angeboten einladen.
             </p>
             <div className="mt-2 text-red-300 text-sm flex items-center gap-1">
               <AlertCircle className="w-4 h-4" />

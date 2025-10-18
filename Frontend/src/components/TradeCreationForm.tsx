@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import ResourceSelectionPanel from './ResourceSelectionPanel';
 import ResourceGeoSearch from './ResourceGeoSearch';
+import StarRating from './StarRating';
 import { Resource, ResourceAllocation } from '../api/resourceService';
 import { TRADE_CATEGORIES } from '../constants/tradeCategories';
 
@@ -167,6 +168,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
     category: '',
     priority: 'medium',
     planned_date: '',
+    submission_deadline: '', // Angebotsfrist (optional)
     notes: '',
     requires_inspection: false
   });
@@ -648,6 +650,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
         category: formData.category,
         priority: formData.priority,
         planned_date: formData.planned_date,
+        submission_deadline: formData.submission_deadline || null, // Angebotsfrist (optional)
         notes: formData.notes,
         project_id: projectId,
         status: 'cost_estimate',
@@ -719,6 +722,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
       category: '',
       priority: 'medium',
       planned_date: '',
+      submission_deadline: '',
       notes: '',
       requires_inspection: false
     });
@@ -929,6 +933,24 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                                     📍 Kein Standort
                                   </span>
                                 )}
+                                {/* Sterne-Bewertung */}
+                                {resource.overall_rating && resource.overall_rating > 0 && (
+                                  <div className="flex items-center space-x-1">
+                                    <StarRating 
+                                      rating={resource.overall_rating} 
+                                      size="sm" 
+                                      showCount={true} 
+                                      count={resource.rating_count || 0}
+                                      detailedRatings={{
+                                        quality: resource.avg_quality_rating,
+                                        timeliness: resource.avg_timeliness_rating,
+                                        communication: resource.avg_communication_rating,
+                                        value: resource.avg_value_rating
+                                      }}
+                                      className="bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/30 backdrop-blur-sm shadow-sm shadow-yellow-500/20"
+                                    />
+                                  </div>
+                                )}
                               </div>
                               
                               {/* Kompakte Info-Zeile */}
@@ -996,6 +1018,31 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                                 </div>
                               )}
                             </div>
+
+                            {/* Bewertung - Prominent angezeigt */}
+                            {resource.overall_rating && resource.overall_rating > 0 && (
+                              <div className="mt-3 pt-3 border-t border-gray-600">
+                                <div className="text-xs font-medium text-gray-400 mb-2">⭐ Bewertung</div>
+                                <div className="flex items-center justify-between">
+                                  <StarRating 
+                                    rating={resource.overall_rating} 
+                                    size="md" 
+                                    showCount={true} 
+                                    count={resource.rating_count || 0}
+                                    detailedRatings={{
+                                      quality: resource.avg_quality_rating,
+                                      timeliness: resource.avg_timeliness_rating,
+                                      communication: resource.avg_communication_rating,
+                                      value: resource.avg_value_rating
+                                    }}
+                                    className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 px-3 py-2 rounded-lg border border-yellow-500/40 backdrop-blur-sm shadow-lg shadow-yellow-500/20"
+                                  />
+                                  <div className="text-xs text-gray-300">
+                                    {resource.rating_count === 1 ? '1 Bewertung' : `${resource.rating_count || 0} Bewertungen`}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
 
                             {/* Kontakt-Informationen */}
                             {(resource.provider_company_name || resource.provider_email || resource.provider_phone || resource.provider_company_address || resource.provider_company_phone || resource.provider_company_website) && (
@@ -1092,7 +1139,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                                       <div className="text-gray-400 mb-1">Fähigkeiten:</div>
                                       <div className="flex flex-wrap gap-1">
                                         {resource.skills.map((skill, index) => (
-                                          <span key={index} className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs">
+                                          <span key={`skill-${resource.id}-${index}`} className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs">
                                             {skill}
                                           </span>
                                         ))}
@@ -1104,7 +1151,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                                       <div className="text-gray-400 mb-1">Ausrüstung:</div>
                                       <div className="flex flex-wrap gap-1">
                                         {resource.equipment.map((equipment, index) => (
-                                          <span key={index} className="px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs">
+                                          <span key={`equipment-${resource.id}-${index}`} className="px-2 py-1 bg-green-500/20 text-green-300 rounded text-xs">
                                             {equipment}
                                           </span>
                                         ))}
@@ -1447,6 +1494,39 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
                   {errors.planned_date && (
                     <p className="text-red-300 text-sm mt-1">{errors.planned_date}</p>
                   )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-200 mb-2">
+                    Angebotsfrist (optional)
+                  </label>
+                  <input
+                    type="date"
+                    name="submission_deadline"
+                    value={formData.submission_deadline}
+                    onChange={handleInputChange}
+                    className="w-full bg-white/10 backdrop-blur-sm border rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#ffbd59]/50 focus:border-[#ffbd59]/50 border-white/20 hover:border-white/30 transition-all duration-300 shadow-lg focus:shadow-xl focus:shadow-[#ffbd59]/20"
+                    placeholder="Angebotsfrist festlegen..."
+                  />
+                  
+                  {/* Hilfetext für Angebotsfrist */}
+                  <div className="mt-2 p-3 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-400/30 rounded-lg backdrop-blur-sm shadow-lg shadow-blue-500/10">
+                    <div className="flex items-start space-x-2">
+                      <div className="p-1 bg-blue-500/20 rounded-lg">
+                        <Info className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                      </div>
+                      <div className="text-sm text-blue-200">
+                        <div className="font-medium text-blue-100 mb-1">Angebotsfrist - Best Practices</div>
+                        <div className="text-xs text-gray-300 space-y-1">
+                          <p>• <strong>Empfohlen:</strong> Mindestens 2-4 Wochen für komplexe Gewerke</p>
+                          <p>• <strong>Einfache Gewerke:</strong> 1-2 Wochen ausreichend</p>
+                          <p>• <strong>Dringende Aufträge:</strong> Mindestens 1 Woche</p>
+                          <p>• <strong>Rechtlich:</strong> VOB/VOL Mindestfristen beachten</p>
+                          <p>• <strong>Besichtigung:</strong> Zusätzliche Zeit für Vor-Ort-Termine einplanen</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div>

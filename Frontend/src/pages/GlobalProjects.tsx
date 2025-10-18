@@ -809,11 +809,11 @@ export default function GlobalProjects() {
                   }`}
                 >
                   {/* Enhanced Glassmorphism overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-white/8 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-white/8 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" style={{ zIndex: 1 }}></div>
                   {/* Enhanced animated glow effect */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#ffbd59]/15 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 animate-pulse"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#ffbd59]/15 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 animate-pulse" style={{ zIndex: 1 }}></div>
                   {/* Additional shimmer effect */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 animate-pulse delay-300"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 animate-pulse delay-300" style={{ zIndex: 1 }}></div>
                   <div className="relative z-10">
                   {/* Compact Project Header */}
                   <div className="flex items-start justify-between mb-3">
@@ -1059,13 +1059,14 @@ export default function GlobalProjects() {
                   )}
 
                   {/* Enhanced Action Buttons */}
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 relative z-20">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleProjectDetails(project.id);
                       }}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white/15 backdrop-blur-xl text-white rounded-xl hover:bg-white/25 transition-all duration-500 text-sm font-medium hover:shadow-[0_0_25px_rgba(255,255,255,0.3)] hover:border-white/40 border border-white/20 hover:scale-105 transform relative overflow-hidden group/btn"
+                      style={{ zIndex: 30 }}
                     >
                       <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-500"></div>
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-500 animate-pulse"></div>
@@ -1089,6 +1090,7 @@ export default function GlobalProjects() {
                         handleProjectClick(project.id);
                       }}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-[#2c3539] rounded-xl hover:from-[#ffa726] hover:to-[#ff9800] transition-all duration-500 text-sm font-semibold hover:shadow-[0_0_40px_rgba(255,189,89,0.8)] transform hover:scale-110 relative overflow-hidden group/btn"
+                      style={{ zIndex: 30 }}
                     >
                       <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-500"></div>
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-500 animate-pulse"></div>

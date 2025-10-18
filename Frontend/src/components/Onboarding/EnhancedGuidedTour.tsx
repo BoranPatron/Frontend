@@ -1,7 +1,88 @@
+/**
+ * EnhancedGuidedTour - Moderne, intuitive Onboarding-Tour für BuildWise
+ * 
+ * ✨ NEUE FEATURES (2.0):
+ * - 🎯 Fokussiert: Nur 8 Steps statt 14+ (60 Sekunden Tour)
+ * - 🎨 Moderne UI: Glassmorphism, Glow-Effekte, Gradient-Buttons
+ * - 📊 Fortschrittsbalken: Animiert mit Shimmer-Effekt
+ * - ⌨️ Keyboard Shortcuts: Pfeiltasten & ESC Support
+ * - 💫 Animationen: Multi-Layer Spotlight, Pulsing Glow
+ * - 🎮 Interaktiv: Click-to-Action für wichtige Features
+ * - 📱 Responsive: Optimiert für alle Bildschirmgrößen
+ * 
+ * BAUTRÄGER TOUR:
+ * 1. Willkommen - Quick Intro
+ * 2. Radial Menu - Kommandozentrum (mit Click)
+ * 3. Personalisierung - Drag & Drop Tipp
+ * 4. Projekt-Mockup - Visuelles Preview
+ * 5. Ausschreibungen - Management Preview
+ * 6. Benachrichtigungen - Real-time Updates
+ * 7. Kanban Board - Task Management
+ * 8. Ready to Start - Erfolgsabschluss
+ * 
+ * DIENSTLEISTER TOUR:
+ * 1. Willkommen - Quick Intro
+ * 2. Werkzeug-Center (mit Click)
+ * 3. Auftragssuche - Tender Preview
+ * 4. Geo-Map - Geografische Suche
+ * 5. Kalkulator - Angebotserstellung
+ * 6. Verfügbarkeit - Ressourcen-Management
+ * 7. Benachrichtigungen
+ * 8. Ready to Start
+ */
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { X, ArrowRight, ArrowLeft, CheckCircle, ChevronDown } from 'lucide-react';
+import { X, ArrowRight, ArrowLeft, CheckCircle, ChevronDown, Sparkles } from 'lucide-react';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { ProjectMockup, TenderMockup, CostPositionMockup, TodoMockup, GeoMapMockup, KanbanMockup, TabsMockup } from './TourMockups';
+
+// Custom CSS Animations
+const customStyles = `
+  @keyframes spotlight-pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.9;
+      transform: scale(1.02);
+    }
+  }
+  
+  @keyframes subtle-glow {
+    0%, 100% {
+      opacity: 0.3;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+  
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+`;
+
+// Inject styles
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement('style');
+  styleSheet.textContent = customStyles;
+  document.head.appendChild(styleSheet);
+}
 
 type Pointer = 'auto' | 'top' | 'bottom' | 'left' | 'right';
 
@@ -24,138 +105,31 @@ interface EnhancedGuidedTourProps {
   userRole?: 'BAUTRAEGER' | 'DIENSTLEISTER';
 }
 
-// Bauträger Steps with mockups and scrolling
+// Moderne, kompakte Bauträger Tour - fokussiert auf die wichtigsten Features
 const bautraegerSteps: TourStep[] = [
   { 
     id: 'dashboard-title', 
     title: 'Willkommen bei BuildWise! 🏗️', 
-    description: 'Perfekt! Du bist jetzt als Bauträger angemeldet. Ich führe dich durch die wichtigsten Funktionen – das dauert nur 3 Minuten und zeigt dir, wie BuildWise deine Bauprojekte revolutioniert.', 
+    description: 'Hey! Schön, dass du da bist. In nur 60 Sekunden zeige ich dir die wichtigsten Features, die deine Bauprojekte revolutionieren werden. Bereit? Dann lass uns loslegen!', 
     pointer: 'bottom' 
-  },
-  {
-    id: 'tour-mockup-tabs',
-    title: 'Deine Kommandozentrale am rechten Bildschirmrand! 🎯',
-    description: 'Hier rechts findest du deine wichtigsten Tools: Benachrichtigungen über neue Angebote und Terminantworten, sowie alle deine Projektdokumente. Diese Tabs sind immer verfügbar und halten dich über alles Wichtige auf dem Laufenden!',
-    pointer: 'auto',
-    showMockup: 'tabs',
-    mockupPosition: 'below',
-    scrollToElement: false
-  },
-  {
-    id: 'tour-mockup-projects',
-    title: 'So werden deine Projekte aussehen! ✨',
-    description: 'Hier siehst du eine Vorschau, wie deine Bauprojekte im Dashboard dargestellt werden. Jedes Projekt zeigt dir auf einen Blick: Fortschritt, Budget, aktuelle Bauphase und alle wichtigen Kennzahlen.',
-    pointer: 'auto',
-    showMockup: 'project',
-    mockupPosition: 'below',
-    scrollToElement: false
   },
   { 
     id: 'radial-menu-fab', 
-    title: 'Dein Kommandozentrum: Das Radial Menu! 🎯', 
-    description: 'Klicke jetzt auf das Plus-Symbol! Hier findest du alle wichtigen Funktionen: Projekte erstellen, Gewerke verwalten, Ausschreibungen starten, Dokumente hochladen und vieles mehr.', 
+    title: 'Dein Kommandozentrum 🎯', 
+    description: 'Dieser Button ist dein Alleskönner! Klicke ihn jetzt an und entdecke alle wichtigen Aktionen: Projekte erstellen, Ausschreibungen starten, Dokumente hochladen – alles an einem Ort.', 
     pointer: 'left',
     waitForClick: true 
   },
   { 
     id: 'radial-menu-fab', 
-    title: 'Personalisierung leicht gemacht! 🎨', 
-    description: 'Pro-Tipp: Du kannst alle Buttons im Radial Menu per Drag & Drop neu anordnen! Ziehe einfach die Buttons an deine bevorzugten Positionen – BuildWise merkt sich deine Einstellungen.', 
+    title: 'Individuell anpassbar 🎨', 
+    description: 'Pro-Tipp: Ziehe die Buttons per Drag & Drop, um dein persönliches Layout zu erstellen. BuildWise merkt sich deine Anordnung automatisch!', 
     pointer: 'top' 
   },
-  { 
-    id: 'dashboard-projects', 
-    title: 'Deine Projektzentrale', 
-    description: 'Hier siehst du alle deine Bauprojekte im Überblick. Jedes Projekt zeigt Status, Fortschritt und wichtige Kennzahlen. Du kannst zwischen verschiedenen Projekten wechseln und alle Details auf einen Blick erfassen.', 
-    pointer: 'auto' 
-  },
   {
-    id: 'tour-mockup-tender',
-    title: 'Ausschreibungen & Angebote verwalten 📋',
-    description: 'So organisierst du deine Ausschreibungen! Du siehst den Status jeder Ausschreibung, wie viele Angebote eingegangen sind und kannst diese direkt vergleichen und bewerten.',
-    pointer: 'auto',
-    showMockup: 'tender',
-    mockupPosition: 'below',
-    scrollToElement: true
-  },
-  {
-    id: 'tour-mockup-cost',
-    title: 'Kostenkontrolle in Echtzeit 💰',
-    description: 'Behalte deine Finanzen im Blick! Jede Kostenposition wird übersichtlich dargestellt – von genehmigten Ausgaben bis zu ausstehenden Rechnungen. So verlierst du nie den Überblick über dein Budget.',
-    pointer: 'auto',
-    showMockup: 'cost',
-    mockupPosition: 'below',
-    scrollToElement: true
-  },
-  { 
-    id: 'navbar-logo', 
-    title: 'Die Navigation', 
-    description: 'Die obere Leiste bietet Schnellzugriff auf wichtige Funktionen. Lass uns die einzelnen Bereiche anschauen.', 
-    pointer: 'bottom',
-    scrollToElement: true 
-  },
-  { 
-    id: 'navbar-credits', 
-    title: 'Dein Credit-System 💳', 
-    description: 'Hier siehst du dein aktuelles Credit-Guthaben. Credits ermöglichen dir den Zugang zu Premium-Funktionen wie erweiterte Analysen, automatische Berichte und Priority-Support.', 
-    pointer: 'bottom' 
-  },
-  { 
-    id: 'notification-tab-bautraeger', 
-    title: 'Dein Benachrichtigungs-Center! 🔔', 
-    description: 'Hier rechts am Bildschirmrand findest du deine Benachrichtigungen. Sobald Dienstleister auf Anfragen antworten oder neue Angebote eingehen, wirst du sofort informiert!', 
-    pointer: 'left' 
-  },
-  {
-    id: 'tour-mockup-kanban',
-    title: 'Kanban Board: Drag & Drop Aufgabenverwaltung 📋',
-    description: 'Organisiere deine Aufgaben mit unserem intuitiven Kanban Board! Ziehe Aufgaben einfach per Drag & Drop zwischen den Spalten "Zu erledigen", "In Bearbeitung" und "Abgeschlossen". So behältst du den Überblick über alle Projektaufgaben.',
-    pointer: 'auto',
-    showMockup: 'kanban',
-    mockupPosition: 'below',
-    scrollToElement: true
-  },
-  {
-    id: 'geo-search-section',
-    title: 'Ressourcen in deiner Nähe finden 🎯',
-    description: 'Finde qualifizierte Dienstleister in deiner Region! Die Geo-Suche zeigt dir alle verfügbaren Ressourcen auf einer interaktiven Karte. Du kannst nach Gewerken filtern, Entfernungen einstellen und direkt Kontakt zu Dienstleistern aufnehmen.',
-    pointer: 'auto',
-    scrollToElement: true
-  },
-  {
-    id: 'resource-search-filters',
-    title: 'Erweiterte Ressourcenfilter 🔍', 
-    description: 'Nutze die erweiterten Filter um genau die Ressourcen zu finden, die du brauchst: Nach Kategorie, Verfügbarkeit, Entfernung, Preisvorstellungen und spezifischen Qualifikationen. So sparst du Zeit und findest die perfekten Partner für dein Projekt.',
-    pointer: 'auto',
-    scrollToElement: true
-  },
-  { 
-    id: 'navbar-profile', 
-    title: 'Dein Profil-Bereich', 
-    description: 'Verwalte hier deine Einstellungen, Credits und Unternehmensdaten. Du kannst auch dein Abonnement upgraden oder Team-Mitglieder einladen.', 
-    pointer: 'bottom' 
-  },
-  { 
-    id: 'dashboard-title', 
-    title: 'Du bist startklar! 🎉', 
-    description: 'Perfekt! Du kennst jetzt alle wichtigen Bereiche von BuildWise. Erstelle dein erstes Projekt oder erkunde die Plattform auf eigene Faust. Unser Support-Team hilft dir gerne bei Fragen weiter!', 
-    pointer: 'bottom',
-    scrollToElement: true 
-  }
-];
-
-// Dienstleister Steps with different focus
-const dienstleisterSteps: TourStep[] = [
-  { 
-    id: 'dashboard-title', 
-    title: 'Willkommen bei BuildWise! 🔧', 
-    description: 'Großartig! Du bist jetzt als Dienstleister registriert. Ich zeige dir, wie du mit BuildWise neue Aufträge findest, Angebote erstellst und deine Projekte verwaltest.', 
-    pointer: 'bottom' 
-  },
-  {
-    id: 'tour-mockup-projects',
-    title: 'Deine Projekte im Überblick! ✨',
-    description: 'So sehen deine laufenden und potenziellen Projekte aus. Du siehst sofort: eingereichte Angebote, gewonnene Aufträge und deren Status. Alles übersichtlich an einem Ort.',
+    id: 'tour-mockup-project',
+    title: 'Deine Projekte im Überblick ✨',
+    description: 'So sehen deine Bauprojekte aus: Fortschritt, Budget, Bauphase und alle wichtigen Kennzahlen – immer aktuell und übersichtlich. Wechsle mit den Dots zwischen mehreren Projekten.',
     pointer: 'auto',
     showMockup: 'project',
     mockupPosition: 'below',
@@ -163,99 +137,96 @@ const dienstleisterSteps: TourStep[] = [
   },
   {
     id: 'tour-mockup-tender',
-    title: 'Neue Aufträge finden & verwalten 🎯',
-    description: 'Hier findest du verfügbare Ausschreibungen in deiner Region! Du siehst die Entfernung, Deadlines und kannst direkt Angebote abgeben. Gewonnene Aufträge werden separat verwaltet.',
+    title: 'Ausschreibungen managen 📋',
+    description: 'Erstelle Ausschreibungen, erhalte Angebote von qualifizierten Dienstleistern und vergleiche sie direkt. Der Status zeigt dir auf einen Blick: Offen, Angebote eingegangen oder bereits vergeben.',
     pointer: 'auto',
     showMockup: 'tender',
     mockupPosition: 'below',
-    scrollToElement: true
-  },
-  {
-    id: 'tour-mockup-geomap',
-    title: 'Geografische Auftragssuche 🗺️', 
-    description: 'Entdecke Aufträge in deiner Nähe! Auf der interaktiven Karte siehst du alle verfügbaren Ausschreibungen als Marker. Jeder Marker zeigt dir Gewerk, Entfernung und Budget. Klicke einfach auf einen Marker, um direkt ein Angebot abzugeben.', 
-    pointer: 'auto',
-    showMockup: 'geomap',
-    mockupPosition: 'below',
-    scrollToElement: true 
-  },
-  {
-    id: 'tour-mockup-cost',
-    title: 'Professionelle Angebotserstellung 💰',
-    description: 'Erstelle detaillierte Kostenvoranschläge mit unserem integrierten Kalkulator. Material, Arbeitszeit, Zusatzleistungen – alles wird automatisch berechnet und professionell formatiert.',
-    pointer: 'auto',
-    showMockup: 'cost',
-    mockupPosition: 'below',
-    scrollToElement: true
+    scrollToElement: false
   },
   { 
-    id: 'service-provider-tabs', 
-    title: 'Deine Arbeitsorganisation', 
-    description: 'Wechsle zwischen "Angebote erstellen", "Laufende Projekte" und "Abgeschlossene Arbeiten". Jeder Bereich ist auf deine Arbeitsweise optimiert.', 
-    pointer: 'auto',
-    scrollToElement: true 
+    id: 'notification-tab-bautraeger', 
+    title: 'Nie wieder etwas verpassen! 🔔', 
+    description: 'Dein Benachrichtigungs-Tab rechts blinkt grün bei neuen Angeboten, Terminbestätigungen oder wichtigen Updates. Ein Klick zeigt dir sofort alle Details!', 
+    pointer: 'left' 
   },
   {
     id: 'tour-mockup-kanban',
-    title: 'Aufgaben-Kanban: Organisiert durch Drag & Drop 📋',
-    description: 'Verwalte deine Projektaufgaben mit dem praktischen Kanban Board! Verschiebe Aufgaben einfach per Drag & Drop zwischen "Zu erledigen", "In Bearbeitung" und "Abgeschlossen". Perfekt für die Übersicht über alle deine laufenden Arbeiten.',
+    title: 'Aufgaben organisieren 📋',
+    description: 'Behalte den Überblick mit dem Kanban Board! Ziehe Aufgaben einfach zwischen "Zu erledigen", "In Bearbeitung" und "Erledigt". Perfekt für Teamarbeit und Projektmanagement.',
     pointer: 'auto',
     showMockup: 'kanban',
     mockupPosition: 'below',
-    scrollToElement: true
-  },
-  {
-    id: 'tour-mockup-todo',
-    title: 'Termine & Deadlines verwalten 📋',
-    description: 'Behalte alle wichtigen Termine im Blick: von Angebots-Deadlines bis zu Projektmeilensteinen und Rechnungsstellungen. Nie wieder wichtige Fristen verpassen!',
-    pointer: 'auto',
-    showMockup: 'todo',
-    mockupPosition: 'below',
-    scrollToElement: true
-  },
-  {
-    id: 'resource-management-section',
-    title: 'Deine Ressourcenverwaltung 🛠️',
-    description: 'Verwalte hier deine verfügbaren Kapazitäten! Lege deine freien Termine, Mitarbeiteranzahl, Stundensätze und Spezialqualifikationen fest. Je detaillierter dein Profil, desto häufiger wirst du für passende Projekte gefunden.',
-    pointer: 'auto',
-    scrollToElement: true
-  },
-  {
-    id: 'resource-create-button',
-    title: 'Ressourcen ausschreiben ➕',
-    description: 'Klicke hier um eine neue Ressource zu erstellen! Gib deinen Zeitraum, deine Kapazitäten und Preise an. Bauträger können dann gezielt nach deinen Leistungen suchen und dich für Projekte vorauswählen.',
-    pointer: 'auto',
-    scrollToElement: true
-  },
-  {
-    id: 'resource-stats',
-    title: 'Deine Leistungskennzahlen 📊',
-    description: 'Behalte den Überblick über deine Auslastung! Hier siehst du deine verfügbaren Personentage, gebuchte Kapazitäten und deinen Auslastungsgrad. Diese KPIs helfen dir bei der optimalen Ressourcenplanung.',
-    pointer: 'auto',
-    scrollToElement: true
-  },
-  { 
-    id: 'radial-menu-fab', 
-    title: 'Dein Werkzeug-Center: Das Radial Menu! 🛠️', 
-    description: 'Entdecke dein persönliches Werkzeug-Center! Das Radial Menu bietet dir schnellen Zugriff auf alle wichtigen Funktionen: Aufgaben verwalten, Dokumente hochladen, Rechnungen erstellen und dein Archiv durchsuchen.', 
-    pointer: 'left' 
-  },
-  { 
-    id: 'notification-icon', 
-    title: 'Deine Benachrichtigungen 🔔', 
-    description: 'Werde sofort informiert über neue Ausschreibungen in deiner Region, Auftragserteilungen und Zahlungseingänge. Verpasse keine Geschäftschance!', 
-    pointer: 'left' 
-  },
-  { 
-    id: 'navbar-profile', 
-    title: 'Dein Unternehmensprofil', 
-    description: 'Pflege hier dein Firmenprofil, Referenzen und Zertifikate. Ein vollständiges Profil erhöht deine Chancen bei Ausschreibungen erheblich.', 
-    pointer: 'bottom' 
+    scrollToElement: false
   },
   { 
     id: 'dashboard-title', 
-    title: 'Bereit für neue Aufträge! 🚀', 
-    description: 'Perfekt! Du kannst jetzt mit BuildWise durchstarten. Schau dir verfügbare Ausschreibungen an oder vervollständige dein Profil. Viel Erfolg bei deinen ersten Projekten!', 
+    title: 'Bereit durchzustarten! 🚀', 
+    description: 'Das war\'s! Du kennst jetzt die wichtigsten Features. Erstelle dein erstes Projekt über das Radial Menu und erlebe, wie einfach Bauprojektmanagement sein kann. Viel Erfolg!', 
+    pointer: 'bottom',
+    scrollToElement: true 
+  }
+];
+
+// Moderne, kompakte Dienstleister Tour - fokussiert auf Auftragsfindung
+const dienstleisterSteps: TourStep[] = [
+  { 
+    id: 'dashboard-title', 
+    title: 'Willkommen bei BuildWise! 🔧', 
+    description: 'Perfekt! In 60 Sekunden zeige ich dir, wie du mit BuildWise neue Aufträge findest und gewinnst. Lass uns deine ersten Schritte zum Erfolg gehen!', 
+    pointer: 'bottom' 
+  },
+  { 
+    id: 'radial-menu-fab', 
+    title: 'Dein Werkzeug-Center 🛠️', 
+    description: 'Dieser Button ist dein Hauptwerkzeug! Klicke ihn jetzt an: Hier findest du alle Funktionen für Angebote, Aufgaben, Dokumente und Ressourcen – alles zentral an einem Ort.', 
+    pointer: 'left',
+    waitForClick: true 
+  },
+  {
+    id: 'tour-mockup-tender',
+    title: 'Aufträge finden & gewinnen 🎯',
+    description: 'So findest du neue Projekte: Verfügbare Ausschreibungen mit Entfernung, Budget und Deadline. Erstelle professionelle Angebote direkt in der Plattform und gewinne lukrative Aufträge!',
+    pointer: 'auto',
+    showMockup: 'tender',
+    mockupPosition: 'below',
+    scrollToElement: false
+  },
+  {
+    id: 'tour-mockup-geomap',
+    title: 'Geografische Suche 🗺️', 
+    description: 'Die Karte zeigt alle Aufträge in deiner Nähe! Jeder Marker ist ein potenzielles Projekt – mit Gewerk, Entfernung und Budget. Ein Klick und du kannst direkt bieten.', 
+    pointer: 'auto',
+    showMockup: 'geomap',
+    mockupPosition: 'below',
+    scrollToElement: false 
+  },
+  {
+    id: 'tour-mockup-cost',
+    title: 'Professionelle Angebote 💰',
+    description: 'Unser Kalkulator hilft dir: Material, Arbeitszeit, Zusatzleistungen – alles wird automatisch berechnet. Erstelle in Minuten professionelle Kostenvoranschläge, die überzeugen!',
+    pointer: 'auto',
+    showMockup: 'cost',
+    mockupPosition: 'below',
+    scrollToElement: false
+  },
+  {
+    id: 'resource-management-section',
+    title: 'Deine Verfügbarkeit 📊',
+    description: 'Erhöhe deine Sichtbarkeit! Hinterlege freie Kapazitäten, Stundensätze und Qualifikationen. Bauträger finden dich dann automatisch für passende Projekte – mehr Aufträge ohne Akquise!',
+    pointer: 'auto',
+    scrollToElement: false
+  },
+  { 
+    id: 'notification-icon', 
+    title: 'Keine Chance verpassen! 🔔', 
+    description: 'Werde sofort benachrichtigt bei neuen Ausschreibungen in deiner Region, Auftragserteilungen oder Zahlungseingängen. Immer einen Schritt voraus!', 
+    pointer: 'left' 
+  },
+  { 
+    id: 'dashboard-title', 
+    title: 'Jetzt durchstarten! 🚀', 
+    description: 'Das war\'s! Du kennst jetzt die wichtigsten Tools. Vervollständige dein Profil, setze deine Verfügbarkeit und finde deine ersten Aufträge. Viel Erfolg!', 
     pointer: 'bottom',
     scrollToElement: true 
   }
@@ -517,45 +488,69 @@ export default function EnhancedGuidedTour({
       style={{ pointerEvents: 'none' }}
       data-tour-id-root
     >
-      {/* Enhanced dimmer */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
+      {/* Modern dimmer with subtle gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/50 to-black/60 backdrop-blur-[3px]" />
 
-      {/* Enhanced highlight box around target */}
+      {/* Ultra-modern highlight with multi-layer glow effect */}
       {rect && !waitingClick && (
         <>
-          {/* Main highlight border with enhanced visibility */}
+          {/* Outer pulsing glow ring */}
           <div
-            className="absolute border-4 border-[#ffbd59] rounded-2xl shadow-[0_0_50px_rgba(255,189,89,0.8)] animate-pulse"
+            className="absolute rounded-3xl animate-pulse"
+            style={{
+              top: rect.top - 20,
+              left: rect.left - 20,
+              width: rect.width + 40,
+              height: rect.height + 40,
+              pointerEvents: 'none',
+              background: 'radial-gradient(circle, rgba(255,189,89,0.15) 0%, transparent 70%)',
+              animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+            }}
+          />
+          
+          {/* Main highlight border with glassmorphism */}
+          <div
+            className="absolute border-4 border-[#ffbd59] rounded-2xl"
             style={{
               top: rect.top - 12,
               left: rect.left - 12,
               width: rect.width + 24,
               height: rect.height + 24,
               pointerEvents: 'none',
-              boxShadow: '0 0 0 9999px rgba(0,0,0,0.5), 0 0 60px rgba(255,189,89,0.6), inset 0 0 20px rgba(255,189,89,0.3)'
+              boxShadow: `
+                0 0 0 9999px rgba(0,0,0,0.5),
+                0 0 80px rgba(255,189,89,0.8),
+                0 0 40px rgba(255,189,89,0.6),
+                inset 0 0 30px rgba(255,189,89,0.2)
+              `,
+              background: 'linear-gradient(135deg, rgba(255,189,89,0.1) 0%, rgba(255,189,89,0.05) 100%)',
+              animation: 'spotlight-pulse 2s ease-in-out infinite'
             }}
           />
-          {/* Secondary glow effect */}
+          
+          {/* Secondary accent glow */}
           <div
-            className="absolute border-2 border-[#ffa726] rounded-2xl animate-pulse"
+            className="absolute border-2 border-[#ffa726]/60 rounded-2xl"
             style={{
               top: rect.top - 8,
               left: rect.left - 8,
               width: rect.width + 16,
               height: rect.height + 16,
               pointerEvents: 'none',
-              boxShadow: '0 0 30px rgba(255,167,38,0.7)'
+              boxShadow: '0 0 40px rgba(255,167,38,0.5), 0 0 20px rgba(255,189,89,0.3)'
             }}
           />
-          {/* Subtle inner highlight */}
+          
+          {/* Inner shimmer effect */}
           <div
-            className="absolute border border-white/30 rounded-xl"
+            className="absolute border border-white/40 rounded-xl"
             style={{
               top: rect.top - 4,
               left: rect.left - 4,
               width: rect.width + 8,
               height: rect.height + 8,
-              pointerEvents: 'none'
+              pointerEvents: 'none',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%)'
             }}
           />
         </>
@@ -606,10 +601,10 @@ export default function EnhancedGuidedTour({
       {/* Main content area */}
       <div className="absolute inset-0 pointer-events-none overflow-y-auto">
         <div className="min-h-full flex flex-col items-center justify-center p-4">
-          {/* Tour tooltip/card */}
+          {/* Modern tour card with glassmorphism */}
           {rect || step?.showMockup ? (
             <div
-              className="max-w-lg bg-gray-900/95 backdrop-blur-md border border-[#ffbd59]/50 text-white rounded-2xl p-6 shadow-2xl pointer-events-auto"
+              className="max-w-lg bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border-2 border-[#ffbd59]/60 text-white rounded-3xl p-8 shadow-2xl pointer-events-auto relative overflow-hidden"
               style={{
                 marginTop: rect && !step?.showMockup ? (() => {
                   const cardHeight = 250;
@@ -622,25 +617,53 @@ export default function EnhancedGuidedTour({
                   if (pointer === 'top') return Math.max(rect.top - 24 - cardHeight, 20);
                   const mid = rect.top + rect.height / 2 - cardHeight / 2;
                   return Math.min(Math.max(mid, 20), window.innerHeight - cardHeight - 20);
-                })() : undefined
+                })() : undefined,
+                boxShadow: `
+                  0 0 60px rgba(255,189,89,0.3),
+                  0 20px 40px rgba(0,0,0,0.4),
+                  inset 0 0 40px rgba(255,189,89,0.05)
+                `
               }}
             >
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold mb-3 leading-tight">{step?.title}</h3>
-                  <p className="text-gray-100 leading-relaxed">{step?.description}</p>
-                  {step?.customContent && (
-                    <div className="mt-4">
-                      {step.customContent}
+              {/* Animated background glow effect */}
+              <div 
+                className="absolute inset-0 opacity-30"
+                style={{
+                  background: 'radial-gradient(circle at 50% 0%, rgba(255,189,89,0.2) 0%, transparent 70%)',
+                  animation: 'subtle-glow 3s ease-in-out infinite'
+                }}
+              />
+              
+              {/* Content wrapper */}
+              <div className="relative z-10">
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div className="flex-1">
+                    {/* Step indicator badge */}
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#ffbd59]/20 border border-[#ffbd59]/40 rounded-full mb-3">
+                      <div className="w-2 h-2 bg-[#ffbd59] rounded-full animate-pulse" />
+                      <span className="text-xs font-semibold text-[#ffbd59]">
+                        Schritt {current + 1} von {tourSteps.length}
+                      </span>
                     </div>
-                  )}
+                    
+                    <h3 className="text-2xl font-bold mb-3 leading-tight bg-gradient-to-r from-white to-[#ffbd59] bg-clip-text text-transparent">
+                      {step?.title}
+                    </h3>
+                    <p className="text-gray-100 leading-relaxed text-base">{step?.description}</p>
+                    {step?.customContent && (
+                      <div className="mt-4">
+                        {step.customContent}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    className="p-2 rounded-xl hover:bg-white/10 transition-all duration-200 hover:scale-110 active:scale-95"
+                    onClick={handleClose}
+                    title="Tour beenden"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-                <button
-                  className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-                  onClick={handleClose}
-                >
-                  <X className="w-5 h-5" />
-                </button>
               </div>
 
               {/* Mockup content */}
@@ -655,91 +678,185 @@ export default function EnhancedGuidedTour({
                 </div>
               )}
 
-              {/* Navigation controls */}
-              <div className="flex items-center justify-between pt-4 border-t border-gray-700">
-                <div className="text-sm text-gray-300">
-                  Schritt {current + 1} von {tourSteps.length}
-                  <div className="w-32 bg-gray-700 rounded-full h-1 mt-1">
+              {/* Modern progress bar */}
+              <div className="relative mt-6 mb-6">
+                <div className="flex items-center justify-between text-sm text-gray-300 mb-2">
+                  <span className="font-medium">Fortschritt</span>
+                  <span className="font-semibold text-[#ffbd59]">{Math.round(((current + 1) / tourSteps.length) * 100)}%</span>
+                </div>
+                <div className="w-full h-2 bg-gray-700/50 rounded-full overflow-hidden relative">
+                  <div 
+                    className="h-full bg-gradient-to-r from-[#ffbd59] to-[#ffa726] rounded-full transition-all duration-500 ease-out relative"
+                    style={{ width: `${((current + 1) / tourSteps.length) * 100}%` }}
+                  >
+                    {/* Shimmer effect */}
                     <div 
-                      className="bg-[#ffbd59] h-1 rounded-full transition-all duration-300"
-                      style={{ width: `${((current + 1) / tourSteps.length) * 100}%` }}
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                      style={{
+                        animation: 'shimmer 2s infinite',
+                        transform: 'translateX(-100%)'
+                      }}
                     />
                   </div>
+                  {/* Glow effect */}
+                  <div 
+                    className="absolute top-0 h-full bg-[#ffbd59] blur-md opacity-50 transition-all duration-500"
+                    style={{ 
+                      width: `${((current + 1) / tourSteps.length) * 100}%`,
+                      left: 0
+                    }}
+                  />
                 </div>
+              </div>
+              
+              {/* Keyboard shortcuts hint */}
+              <div className="flex items-center justify-center gap-2 mb-3 text-xs text-gray-400">
+                <Sparkles className="w-3 h-3" />
+                <span>Tipp: Nutze ← → Pfeiltasten oder ESC zum Beenden</span>
+              </div>
+              
+              {/* Navigation controls with modern styling */}
+              <div className="flex items-center justify-between gap-3 pt-4 border-t border-gray-700/50">
+                <button
+                  className="group flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed border border-white/10 hover:border-white/20 transition-all duration-200 hover:scale-105 active:scale-95 disabled:hover:scale-100"
+                  onClick={prev}
+                  disabled={current === 0 || waitingClick}
+                >
+                  <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                  <span>Zurück</span>
+                </button>
                 
                 <div className="flex gap-3">
-                  <button
-                    className="px-4 py-2 rounded-lg bg-gray-700/80 hover:bg-gray-600/80 text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed border border-gray-600 transition-colors"
-                    onClick={prev}
-                    disabled={current === 0 || waitingClick}
-                  >
-                    <ArrowLeft className="w-4 h-4 inline-block mr-1" /> Zurück
-                  </button>
-                  
                   {current < tourSteps.length - 1 && !waitingClick && (
                     <button
-                      className="px-4 py-2 rounded-lg bg-[#ffbd59] hover:bg-[#ffa726] text-[#2c3539] text-sm font-semibold transition-colors"
+                      className="group flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#ffbd59] to-[#ffa726] hover:from-[#ffa726] hover:to-[#ff9800] text-[#2c3539] text-sm font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-[#ffbd59]/50"
                       onClick={next}
                     >
-                      Weiter <ArrowRight className="w-4 h-4 inline-block ml-1" />
+                      <span>Weiter</span>
+                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                     </button>
                   )}
                   
                   {waitingClick && (
-                    <span className="px-4 py-2 rounded-lg bg-orange-500/20 text-orange-300 text-sm border border-orange-500/30 animate-pulse">
-                      Bitte klicken…
-                    </span>
+                    <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500/20 text-orange-300 text-sm font-medium border border-orange-500/40">
+                      <div className="w-2 h-2 bg-orange-400 rounded-full animate-ping" />
+                      <span className="animate-pulse">Bitte klicken…</span>
+                    </div>
                   )}
                   
                   {current === tourSteps.length - 1 && (
                     <button
-                      className="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white text-sm font-semibold transition-colors"
+                      className="group flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white text-sm font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-green-500/50"
                       onClick={finish}
                     >
-                      <CheckCircle className="w-4 h-4 inline-block mr-1" /> Tour beenden
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Tour beenden</span>
                     </button>
                   )}
                 </div>
               </div>
             </div>
           ) : (
-            <div className="max-w-lg bg-gray-900/95 backdrop-blur-md border border-[#ffbd59]/50 text-white rounded-2xl p-6 shadow-2xl pointer-events-auto">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-xl font-bold mb-3">{step?.title}</h3>
-                  <p className="text-gray-100 leading-relaxed">{step?.description}</p>
-                </div>
-                <button className="p-2 rounded-lg hover:bg-white/10 transition-colors" onClick={handleClose}>
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+            <div className="max-w-lg bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border-2 border-[#ffbd59]/60 text-white rounded-3xl p-8 shadow-2xl pointer-events-auto relative overflow-hidden">
+              {/* Animated background glow */}
+              <div 
+                className="absolute inset-0 opacity-30"
+                style={{
+                  background: 'radial-gradient(circle at 50% 0%, rgba(255,189,89,0.2) 0%, transparent 70%)',
+                  animation: 'subtle-glow 3s ease-in-out infinite'
+                }}
+              />
               
-              <div className="flex items-center justify-between pt-4 border-t border-gray-700">
-                <div className="text-sm text-gray-300">Schritt {current + 1} von {tourSteps.length}</div>
-                <div className="flex gap-3">
+              <div className="relative z-10">
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div className="flex-1">
+                    {/* Step indicator badge */}
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#ffbd59]/20 border border-[#ffbd59]/40 rounded-full mb-3">
+                      <div className="w-2 h-2 bg-[#ffbd59] rounded-full animate-pulse" />
+                      <span className="text-xs font-semibold text-[#ffbd59]">
+                        Schritt {current + 1} von {tourSteps.length}
+                      </span>
+                    </div>
+                    
+                    <h3 className="text-2xl font-bold mb-3 leading-tight bg-gradient-to-r from-white to-[#ffbd59] bg-clip-text text-transparent">
+                      {step?.title}
+                    </h3>
+                    <p className="text-gray-100 leading-relaxed text-base">{step?.description}</p>
+                  </div>
                   <button 
-                    className="px-4 py-2 rounded-lg bg-gray-700/80 hover:bg-gray-600/80 text-white text-sm disabled:opacity-50" 
+                    className="p-2 rounded-xl hover:bg-white/10 transition-all duration-200 hover:scale-110 active:scale-95" 
+                    onClick={handleClose}
+                    title="Tour beenden"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                {/* Progress bar */}
+                <div className="relative mt-6 mb-6">
+                  <div className="flex items-center justify-between text-sm text-gray-300 mb-2">
+                    <span className="font-medium">Fortschritt</span>
+                    <span className="font-semibold text-[#ffbd59]">{Math.round(((current + 1) / tourSteps.length) * 100)}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-700/50 rounded-full overflow-hidden relative">
+                    <div 
+                      className="h-full bg-gradient-to-r from-[#ffbd59] to-[#ffa726] rounded-full transition-all duration-500 ease-out relative"
+                      style={{ width: `${((current + 1) / tourSteps.length) * 100}%` }}
+                    >
+                      <div 
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                        style={{
+                          animation: 'shimmer 2s infinite',
+                          transform: 'translateX(-100%)'
+                        }}
+                      />
+                    </div>
+                    <div 
+                      className="absolute top-0 h-full bg-[#ffbd59] blur-md opacity-50 transition-all duration-500"
+                      style={{ 
+                        width: `${((current + 1) / tourSteps.length) * 100}%`,
+                        left: 0
+                      }}
+                    />
+                  </div>
+                </div>
+                
+                {/* Keyboard shortcuts hint */}
+                <div className="flex items-center justify-center gap-2 mb-3 text-xs text-gray-400">
+                  <Sparkles className="w-3 h-3" />
+                  <span>Tipp: Nutze ← → Pfeiltasten oder ESC zum Beenden</span>
+                </div>
+                
+                {/* Navigation */}
+                <div className="flex items-center justify-between gap-3 pt-4 border-t border-gray-700/50">
+                  <button 
+                    className="group flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed border border-white/10 hover:border-white/20 transition-all duration-200 hover:scale-105 active:scale-95 disabled:hover:scale-100" 
                     onClick={prev} 
                     disabled={current === 0}
                   >
-                    <ArrowLeft className="w-4 h-4 inline-block mr-1" /> Zurück
+                    <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                    <span>Zurück</span>
                   </button>
-                  {current < tourSteps.length - 1 && (
-                    <button 
-                      className="px-4 py-2 rounded-lg bg-[#ffbd59] hover:bg-[#ffa726] text-[#2c3539] text-sm font-semibold" 
-                      onClick={next}
-                    >
-                      Weiter <ArrowRight className="w-4 h-4 inline-block ml-1" />
-                    </button>
-                  )}
-                  {current === tourSteps.length - 1 && (
-                    <button 
-                      className="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white text-sm font-semibold" 
-                      onClick={finish}
-                    >
-                      <CheckCircle className="w-4 h-4 inline-block mr-1" /> Tour beenden
-                    </button>
-                  )}
+                  <div className="flex gap-3">
+                    {current < tourSteps.length - 1 && (
+                      <button 
+                        className="group flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#ffbd59] to-[#ffa726] hover:from-[#ffa726] hover:to-[#ff9800] text-[#2c3539] text-sm font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-[#ffbd59]/50" 
+                        onClick={next}
+                      >
+                        <span>Weiter</span>
+                        <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                      </button>
+                    )}
+                    {current === tourSteps.length - 1 && (
+                      <button 
+                        className="group flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white text-sm font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-green-500/50" 
+                        onClick={finish}
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Tour beenden</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

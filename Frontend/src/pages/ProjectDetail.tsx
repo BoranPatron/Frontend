@@ -72,7 +72,8 @@ import {
 import { getProjectDashboard, updateProject } from '../api/projectService';
 import { getTasks } from '../api/taskService';
 import { getDocuments } from '../api/documentService';
-import { getQuotes, acceptQuote, rejectQuote, resetQuote } from '../api/quoteService';
+import { getQuotes, rejectQuote, resetQuote } from '../api/quoteService';
+import { CreditAnimationProvider, useCreditAdditionAnimation } from '../context/CreditAnimationContext';
 import { getMilestones } from '../api/milestoneService';
 import ProjectBreadcrumb from '../components/ProjectBreadcrumb';
 import TradesCard from '../components/TradesCard';
@@ -195,7 +196,9 @@ interface Trade {
   updated_at: string;
 }
 
-export default function ProjectDetail() {
+// ProjectDetail-Komponente mit Credit-Animation
+function ProjectDetailWithCreditAnimation() {
+  const { acceptQuoteWithAnimation } = useCreditAdditionAnimation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
@@ -710,7 +713,7 @@ export default function ProjectDetail() {
   };
 
   // Quote-Handler für TradesCard
-  const handleAcceptQuote = async (quoteId: number) => {
+  const handleAcceptQuote = async (quoteId: number, providerName?: string, isInspectionQuote?: boolean) => {
     try {
       // Bestätigungsdialog
       const confirmed = window.confirm(
@@ -723,7 +726,7 @@ export default function ProjectDetail() {
         return;
       }
 
-      await acceptQuote(quoteId);
+      await acceptQuoteWithAnimation(quoteId, providerName, isInspectionQuote);
       // Lade Projektdaten neu um den Status zu aktualisieren
       await loadProjectData();
     } catch (error) {
@@ -2026,5 +2029,14 @@ export default function ProjectDetail() {
         </div>
       )}
     </div>
+  );
+}
+
+// Hauptkomponente mit Credit-Animation Provider
+export default function ProjectDetail() {
+  return (
+    <CreditAnimationProvider>
+      <ProjectDetailWithCreditAnimation />
+    </CreditAnimationProvider>
   );
 } 

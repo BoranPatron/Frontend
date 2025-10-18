@@ -5,7 +5,8 @@ import { useProject } from '../context/ProjectContext';
 import { getMilestones, createMilestone, updateMilestone, getAllMilestones, deleteMilestone } from '../api/milestoneService';
 import { getProjects } from '../api/projectService';
 
-import { getQuotesForMilestone, createMockQuotesForMilestone, acceptQuote, resetQuote, createQuote, updateQuote, deleteQuote, submitQuote, rejectQuote, withdrawQuote } from '../api/quoteService';
+import { getQuotesForMilestone, createMockQuotesForMilestone, resetQuote, createQuote, updateQuote, deleteQuote, submitQuote, rejectQuote, withdrawQuote } from '../api/quoteService';
+import { CreditAnimationProvider, useCreditAdditionAnimation } from '../context/CreditAnimationContext';
 import { createFeeFromQuote } from '../api/buildwiseFeeService';
 import { appointmentService } from '../api/appointmentService';
 import { uploadDocument } from '../api/documentService';
@@ -314,7 +315,9 @@ interface ProjectWithTrades extends ProjectSearchResult {
   trades: TradeSearchResult[];
 }
 
-export default function Trades() {
+// Quotes-Komponente mit Credit-Animation
+function QuotesWithCreditAnimation() {
+  const { acceptQuoteWithAnimation } = useCreditAdditionAnimation();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isServiceProvider, isBautraeger, userRole } = useAuth();
@@ -719,7 +722,7 @@ export default function Trades() {
   };
 
   // Akzeptiere ein Angebot
-  const handleAcceptQuote = async (quoteId: number) => {
+  const handleAcceptQuote = async (quoteId: number, providerName?: string, isInspectionQuote?: boolean) => {
     // Finde das zugehörige Gewerk für die Besichtigungsstatus-Prüfung
     let tradeId: number | null = null;
     for (const [tId, quotes] of Object.entries(allTradeQuotes)) {
@@ -764,7 +767,7 @@ export default function Trades() {
         setError('Nicht angemeldet. Bitte melden Sie sich erneut an.');
         return;
       }
-      await acceptQuote(quoteId);
+      await acceptQuoteWithAnimation(quoteId, providerName, isInspectionQuote);
       // Finde das angenommene Angebot und das zugehörige Gewerk
       const acceptedQuote = allTradeQuotes[selectedTradeForCostEstimateDetails?.id || 0]?.find(q => q.id === quoteId);
       if (acceptedQuote && selectedTradeForCostEstimateDetails && currentProject) {
@@ -2943,4 +2946,13 @@ function formatCurrency(amount: number) {
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('de-DE');
+}
+
+// Hauptkomponente mit Credit-Animation Provider
+export default function Trades() {
+  return (
+    <CreditAnimationProvider>
+      <QuotesWithCreditAnimation />
+    </CreditAnimationProvider>
+  );
 }

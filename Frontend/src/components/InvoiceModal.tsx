@@ -104,6 +104,13 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
     }
   };
 
+  // VAT-Berechnungsfunktion
+  const calculateVAT = (netAmount: number, vatRate: number) => {
+    const vat = (netAmount * vatRate) / 100;
+    const total = netAmount + vat;
+    return { vat, total };
+  };
+
   // Hilfsfunktion um Bauträger-User zu ermitteln
   const getBautraegerUserId = async (projectId?: number): Promise<number> => {
     try {
@@ -161,6 +168,21 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
       
       return updated;
     });
+  };
+
+  // Funktion zum Setzen des Fälligkeitsdatums basierend auf Rechnungsdatum + Tage
+  const setDueDateFromInvoiceDate = (days: number) => {
+    if (!manualInvoice.invoiceDate) {
+      setError('Bitte setzen Sie zuerst das Rechnungsdatum');
+      return;
+    }
+    
+    const invoiceDate = new Date(manualInvoice.invoiceDate);
+    const dueDate = new Date(invoiceDate);
+    dueDate.setDate(invoiceDate.getDate() + days);
+    
+    const dueDateString = dueDate.toISOString().split('T')[0];
+    handleManualInputChange('dueDate', dueDateString);
   };
 
   // Kostenpositionen Handler für neue Komponente
@@ -568,12 +590,30 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       ⏰ Fälligkeitsdatum *
                     </label>
-                    <input
-                      type="date"
-                      value={manualInvoice.dueDate}
-                      onChange={(e) => handleManualInputChange('dueDate', e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-600/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent bg-[#1a1a2e]/50 text-white transition-all duration-200"
-                    />
+                    <div className="flex gap-3 items-center">
+                      <input
+                        type="date"
+                        value={manualInvoice.dueDate}
+                        onChange={(e) => handleManualInputChange('dueDate', e.target.value)}
+                        className="flex-1 px-4 py-3 border border-gray-600/30 rounded-lg focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent bg-[#1a1a2e]/50 text-white transition-all duration-200"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDueDateFromInvoiceDate(14)}
+                          className="px-3 py-2 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-400/30 rounded-lg text-blue-300 text-sm font-medium hover:from-blue-500/30 hover:to-cyan-500/30 hover:border-blue-400/50 hover:text-blue-200 transition-all duration-200 shadow-lg hover:shadow-blue-500/20 hover:shadow-lg backdrop-blur-sm"
+                        >
+                          +14T
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDueDateFromInvoiceDate(30)}
+                          className="px-3 py-2 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30 rounded-lg text-green-300 text-sm font-medium hover:from-green-500/30 hover:to-emerald-500/30 hover:border-green-400/50 hover:text-green-200 transition-all duration-200 shadow-lg hover:shadow-green-500/20 hover:shadow-lg backdrop-blur-sm"
+                        >
+                          +30T
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

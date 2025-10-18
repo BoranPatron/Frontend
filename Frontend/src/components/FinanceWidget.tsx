@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { costPositionService } from '../api/costPositionService';
-import { expenseService } from '../api/expenseService';
+import { expenseService, Expense } from '../api/expenseService';
 import { 
   DollarSign, 
   Plus, 
@@ -18,7 +18,11 @@ import {
   Wrench,
   FileText,
   Shield,
-  Building
+  Building,
+  Home,
+  Scale,
+  MapPin,
+  FileCheck
 } from 'lucide-react';
 
 // CSS Animation für fadeInUp
@@ -42,17 +46,6 @@ if (typeof document !== 'undefined') {
   document.head.appendChild(styleSheet);
 }
 
-interface Expense {
-  id: number;
-  title: string;
-  description?: string;
-  amount: number;
-  category: 'material' | 'labor' | 'equipment' | 'services' | 'permits' | 'other';
-  project_id: number;
-  date: string;
-  receipt_url?: string;
-  created_at: string;
-}
 
 interface CostPosition {
   id: number;
@@ -103,13 +96,14 @@ export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
   const [showEditExpenseModal, setShowEditExpenseModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Form state
   const [expenseForm, setExpenseForm] = useState({
     title: '',
     description: '',
     amount: '',
-    category: 'other' as 'material' | 'labor' | 'equipment' | 'services' | 'permits' | 'other',
+    category: 'other' as Expense['category'],
     date: '',
     receipt_url: ''
   });
@@ -149,6 +143,23 @@ export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
       setError('Fehler beim Laden der Finanzdaten');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshCharts = async () => {
+    setRefreshing(true);
+    setError('');
+    
+    try {
+      // Lade nur Ausgaben für Diagramm-Updates
+      const expensesData = await expenseService.getExpenses(projectId);
+      setExpenses(expensesData);
+      console.log('📊 Diagramme aktualisiert');
+    } catch (error: any) {
+      console.error('❌ Fehler beim Aktualisieren der Diagramme:', error);
+      setError('Fehler beim Aktualisieren der Diagramme');
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -251,6 +262,12 @@ export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
         return <FileText size={16} className="text-white" />;
       case 'permits':
         return <Shield size={16} className="text-white" />;
+      case 'property':
+        return <Home size={16} className="text-white" />;
+      case 'legal':
+        return <Scale size={16} className="text-white" />;
+      case 'planning':
+        return <MapPin size={16} className="text-white" />;
       default:
         return <Building size={16} className="text-white" />;
     }
@@ -268,6 +285,12 @@ export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
         return 'Dienstleistungen';
       case 'permits':
         return 'Genehmigungen';
+      case 'property':
+        return 'Grundstück';
+      case 'legal':
+        return 'Rechtliches';
+      case 'planning':
+        return 'Planung';
       case 'other':
         return 'Sonstiges';
       default:
@@ -287,6 +310,12 @@ export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
         return 'bg-purple-100 text-purple-800';
       case 'permits':
         return 'bg-red-100 text-red-800';
+      case 'property':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'legal':
+        return 'bg-orange-100 text-orange-800';
+      case 'planning':
+        return 'bg-teal-100 text-teal-800';
       case 'other':
         return 'bg-gray-100 text-gray-800';
       default:
@@ -314,9 +343,23 @@ export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center space-x-3">
-        <div className="w-3 h-3 bg-[#ffbd59] rounded-full"></div>
-        <span className="text-lg font-semibold text-white">Finanzen</span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-3 h-3 bg-[#ffbd59] rounded-full"></div>
+          <span className="text-lg font-semibold text-white">Finanzen</span>
+        </div>
+        
+        {/* Refresh Button */}
+        <button
+          onClick={refreshCharts}
+          disabled={refreshing}
+          className="group relative overflow-hidden bg-gradient-to-r from-[#ffbd59]/20 to-[#ffa726]/20 hover:from-[#ffbd59]/30 hover:to-[#ffa726]/30 backdrop-blur-sm border border-[#ffbd59]/40 hover:border-[#ffbd59]/60 rounded-xl p-2 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-[#ffbd59]/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <svg className={`w-4 h-4 text-[#ffbd59] group-hover:text-white transition-colors duration-300 ${refreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
       </div>
 
       {/* Error Banner */}
@@ -345,59 +388,6 @@ export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
         </div>
       )}
 
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg">
-              <CreditCard size={20} className="text-white" />
-            </div>
-            <span className="text-xs text-gray-400">Kostenpositionen</span>
-          </div>
-          <h3 className="text-xl font-bold text-white mb-1">{costPositions.length}</h3>
-          <p className="text-xs text-gray-400">Aus akzeptierten Angeboten</p>
-        </div>
-
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-gradient-to-br from-green-400 to-green-600 rounded-lg">
-              <Receipt size={20} className="text-white" />
-            </div>
-            <span className="text-xs text-gray-400">Ausgaben</span>
-          </div>
-          <h3 className="text-xl font-bold text-white mb-1">{expenses.length}</h3>
-          <p className="text-xs text-gray-400">Manuell erfasst</p>
-        </div>
-
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg">
-              <Target size={20} className="text-white" />
-            </div>
-            <span className="text-xs text-gray-400">Gesamtkosten</span>
-          </div>
-          <h3 className="text-xl font-bold text-white mb-1">
-            {formatCurrency(
-              costPositions.reduce((sum, cp) => sum + cp.amount, 0) + 
-              expenses.reduce((sum, exp) => sum + exp.amount, 0)
-            )}
-          </h3>
-          <p className="text-xs text-gray-400">Kostenpositionen + Ausgaben</p>
-        </div>
-
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 border border-white/20">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg">
-              <Wallet size={20} className="text-white" />
-            </div>
-            <span className="text-xs text-gray-400">Bezahlt</span>
-          </div>
-          <h3 className="text-xl font-bold text-white mb-1">
-            {formatCurrency(costPositions.reduce((sum, cp) => sum + cp.paid_amount, 0))}
-          </h3>
-          <p className="text-xs text-gray-400">Bereits bezahlt</p>
-        </div>
-      </div>
 
       {/* Kostenpositionen */}
       <div className="bg-gradient-to-br from-white/10 via-white/5 to-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl shadow-[#ffbd59]/10">
@@ -637,6 +627,9 @@ export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
                               expense.category === 'equipment' ? 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30' :
                               expense.category === 'services' ? 'bg-purple-500/20 text-purple-300 border-purple-400/30' :
                               expense.category === 'permits' ? 'bg-red-500/20 text-red-300 border-red-400/30' :
+                              expense.category === 'property' ? 'bg-indigo-500/20 text-indigo-300 border-indigo-400/30' :
+                              expense.category === 'legal' ? 'bg-orange-500/20 text-orange-300 border-orange-400/30' :
+                              expense.category === 'planning' ? 'bg-teal-500/20 text-teal-300 border-teal-400/30' :
                               'bg-gray-500/20 text-gray-300 border-gray-400/30'
                             }`}>
                               {getCategoryLabel(expense.category)}
@@ -658,6 +651,9 @@ export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
                            expense.category === 'equipment' ? 'Gerät' :
                            expense.category === 'services' ? 'Service' :
                            expense.category === 'permits' ? 'Genehm.' :
+                           expense.category === 'property' ? 'Grundstück' :
+                           expense.category === 'legal' ? 'Rechtlich' :
+                           expense.category === 'planning' ? 'Planung' :
                            'Sonstiges'}
                         </div>
                       </div>
@@ -774,6 +770,9 @@ export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
                       <option value="equipment">Geräte</option>
                       <option value="services">Dienstleistungen</option>
                       <option value="permits">Genehmigungen</option>
+                      <option value="property">Grundstück</option>
+                      <option value="legal">Rechtliches</option>
+                      <option value="planning">Planung</option>
                     </select>
                   </div>
                 </div>
@@ -866,6 +865,9 @@ export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
                       <option value="equipment">Geräte</option>
                       <option value="services">Dienstleistungen</option>
                       <option value="permits">Genehmigungen</option>
+                      <option value="property">Grundstück</option>
+                      <option value="legal">Rechtliches</option>
+                      <option value="planning">Planung</option>
                     </select>
                   </div>
                 </div>

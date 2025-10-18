@@ -100,23 +100,23 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     
     // Zeige Willkommens-Notification für Bauträger nach Abschluss der Guided Tour
     if (userRole === 'BAUTRAEGER' && user) {
-      // Prüfe ob Willkommens-Notification bereits einmalig angezeigt wurde
-      const welcomeKey = `welcome_shown_${user.id}`;
-      const alreadyShown = localStorage.getItem(welcomeKey);
+      // Prüfe ob dies der erste Login nach der Tour ist
+      const firstLoginAfterTourKey = `first_login_after_tour_${user.id}`;
+      const hasShownAfterTour = localStorage.getItem(firstLoginAfterTourKey);
       
       console.log('🎉 Tour completed, checking welcome notification:', {
         userRole,
         userId: user.id,
-        alreadyShown,
-        willShow: !alreadyShown
+        hasShownAfterTour,
+        willShow: !hasShownAfterTour
       });
       
-      if (!alreadyShown) {
+      if (!hasShownAfterTour) {
         // Kleine Verzögerung, damit die Tour vollständig geschlossen ist
         setTimeout(() => {
-          console.log('🎉 Showing welcome notification for user:', user.id);
+          console.log('🎉 Showing welcome notification for user after tour:', user.id);
           setShowWelcomeNotification(true);
-          localStorage.setItem(welcomeKey, 'true');
+          localStorage.setItem(firstLoginAfterTourKey, 'true');
         }, 500);
       }
     }

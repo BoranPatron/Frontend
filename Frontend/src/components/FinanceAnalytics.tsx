@@ -59,6 +59,7 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
   const [costsOverTime, setCostsOverTime] = useState<CostsOverTime | null>(null);
   const [milestoneCosts, setMilestoneCosts] = useState<MilestoneCosts | null>(null);
   const [paymentTimeline, setPaymentTimeline] = useState<PaymentTimeline | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Moderne Chart-Konfigurationen mit CI-Farben
   const chartOptions = {
@@ -193,9 +194,13 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
     loadData();
   }, [projectId, timePeriod, months]);
 
-  const loadData = async () => {
+  const loadData = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError(null);
 
       // Lade alle Daten parallel
@@ -215,6 +220,7 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
       setError('Fehler beim Laden der Finanzdaten');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -628,13 +634,27 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
                   <span className="text-xl text-[#2c3539] drop-shadow-lg">📊</span>
                 </div>
               </div>
-              <div>
+              <div className="flex-1">
                 <h2 className="text-3xl font-bold bg-gradient-to-r from-white via-[#ffbd59] to-white bg-clip-text text-transparent">
                   Finanz-Analytics
                 </h2>
                 <p className="mt-1 text-gray-300">
                   Detaillierte Analyse der Projektkosten und -entwicklung
                 </p>
+              </div>
+              
+              {/* Refresh Button */}
+              <div className="flex items-center">
+                <button
+                  onClick={() => loadData(true)}
+                  disabled={refreshing}
+                  className="group relative overflow-hidden bg-gradient-to-r from-[#ffbd59]/20 to-[#ffa726]/20 hover:from-[#ffbd59]/30 hover:to-[#ffa726]/30 backdrop-blur-sm border border-[#ffbd59]/40 hover:border-[#ffbd59]/60 rounded-xl p-3 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-[#ffbd59]/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <svg className={`w-5 h-5 text-[#ffbd59] group-hover:text-white transition-colors duration-300 ${refreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
               </div>
             </div>
           </div>

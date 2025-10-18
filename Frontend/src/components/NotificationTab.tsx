@@ -13,7 +13,8 @@ import {
   FileText,
   Phone,
   CheckCircle,
-  Trash2
+  Trash2,
+  CreditCard
 } from 'lucide-react';
 import { appointmentService } from '../api/appointmentService';
 import { getApiBaseUrl, apiCall } from '../api/api';
@@ -26,7 +27,7 @@ interface NotificationTabProps {
 
 interface NotificationData {
   id: number;
-  type: 'appointment_invitation' | 'appointment_responses' | 'service_provider_selection_reminder' | 'quote_accepted' | 'quote_submitted' | 'resource_allocated' | 'tender_invitation' | 'acceptance_with_defects';
+  type: 'appointment_invitation' | 'appointment_responses' | 'service_provider_selection_reminder' | 'quote_accepted' | 'quote_submitted' | 'resource_allocated' | 'tender_invitation' | 'acceptance_with_defects' | 'milestone_completed' | 'invoice_submitted';
   title: string;
   message: string;
   description?: string;
@@ -66,6 +67,19 @@ interface NotificationData {
   allocatedStartDate?: string;
   allocatedEndDate?: string;
   allocatedPersonCount?: number;
+  // Für milestone_completed Benachrichtigungen
+  directLink?: string;
+  completionDate?: string;
+  quoteAmount?: number;
+  currency?: string;
+  // Für invoice_submitted Benachrichtigungen
+  invoiceId?: number;
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  dueDate?: string;
+  totalAmount?: number;
+  serviceProviderName?: string;
+  showAcceptanceTab?: boolean;
 }
 
 export default function NotificationTab({ userRole, userId, onResponseSent }: NotificationTabProps) {
@@ -103,27 +117,42 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
     loadNotifications();
     const interval = setInterval(loadNotifications, 30000);
     
-    // Event-Listener für neue Angebot-Benachrichtigungen
+    // Event-Listener für neue Angebot-Benachrichtigungen (Dienstleister)
     const handleQuoteSubmitted = (event: CustomEvent) => {
       console.log('📢 Quote submitted event empfangen:', event.detail);
       const newNotification = event.detail.notification;
       
-      // Füge die neue Benachrichtigung zur Liste hinzu
-      setNotifications(prev => [newNotification, ...prev]);
-      
-      // Setze automatisch als "neu" für 10 Sekunden
-      setTimeout(() => {
-        setNotifications(prev => 
-          prev.map(n => n.id === newNotification.id ? { ...n, isNew: false } : n)
-        );
-      }, 10000);
+      // Prüfe ob newNotification gültig ist
+      if (newNotification && newNotification.id) {
+        // Füge die neue Benachrichtigung zur Liste hinzu
+        setNotifications(prev => [newNotification, ...prev]);
+        
+        // Setze automatisch als "neu" für 10 Sekunden
+        setTimeout(() => {
+          setNotifications(prev => 
+            prev.map(n => n && n.id === newNotification.id ? { ...n, isNew: false } : n)
+          );
+        }, 10000);
+      } else {
+        console.error('❌ NotificationTab: Ungültige Benachrichtigung empfangen:', newNotification);
+      }
+    };
+    
+    // Event-Listener für neue Angebot-Benachrichtigungen (Bauträger)
+    const handleQuoteSubmittedForBautraeger = (event: CustomEvent) => {
+      console.log('📢 NotificationTab: quoteSubmittedForBautraeger Event empfangen, aber NotificationTab ist nur für Dienstleister!');
+      console.log('📢 NotificationTab: Event-Detail:', event.detail);
+      // NotificationTab ist nur für Dienstleister - ignoriere Bautraeger-Events
+      return;
     };
     
     window.addEventListener('quoteSubmitted', handleQuoteSubmitted as EventListener);
+    window.addEventListener('quoteSubmittedForBautraeger', handleQuoteSubmittedForBautraeger as EventListener);
     
     return () => {
       clearInterval(interval);
       window.removeEventListener('quoteSubmitted', handleQuoteSubmitted as EventListener);
+      window.removeEventListener('quoteSubmittedForBautraeger', handleQuoteSubmittedForBautraeger as EventListener);
     };
   }, [userId, userRole]);
 
@@ -380,6 +409,116 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                 projectName: data.projectName || data.project_name,
                 bautraegerName: data.bautraegerName || data.bautraeger_name
               });
+            } else if (notificationType === 'milestone_completed') {
+              console.log('🔔 NotificationTab: Adding milestone_completed notification');
+              const data = notification.data ? JSON.parse(notification.data) : {};
+              notifications.push({
+                id: notification.id,
+                type: 'milestone_completed',
+                title: notification.title,
+                message: notification.message,
+                timestamp: notification.created_at,
+                isNew: !notification.is_acknowledged,
+                notification: notification,
+                priority: notification.priority,
+                tradeId: data.milestone_id,
+                tradeTitle: data.milestone_title,
+                projectName: data.project_name,
+                directLink: data.direct_link,
+                completionDate: data.completion_date,
+                quoteAmount: data.quote_amount,
+                currency: data.currency
+              });
+            } else if (notificationType === 'payment_received') {
+              console.log('🔔 NotificationTab: Adding payment_received notification for Dienstleister');
+              const data = notification.data ? JSON.parse(notification.data) : {};
+              notifications.push({
+                id: notification.id,
+                type: 'payment_received',
+                title: notification.title,
+                message: notification.message,
+                timestamp: notification.created_at,
+                isNew: !notification.is_acknowledged,
+                notification: notification,
+                priority: notification.priority,
+                invoiceId: data.invoice_id,
+                invoiceNumber: data.invoice_number,
+                tradeId: data.milestone_id,
+                tradeTitle: data.milestone_title,
+                projectName: data.project_name,
+                bautraegerName: data.bautraeger_name,
+                totalAmount: data.total_amount,
+                currency: data.currency,
+                paidAt: data.paid_at,
+                paymentReference: data.payment_reference,
+                directLink: data.direct_link
+              });
+            }
+          });
+        } else if (userRole === 'BAUTRAEGER') {
+          console.log('🔔 NotificationTab: Processing notifications for BAUTRAEGER');
+          generalNotifications.forEach((notification: any) => {
+            console.log('🔔 NotificationTab: BAUTRAEGER - Processing notification:', notification);
+            
+            // Überspringe bereits quittierte Benachrichtigungen
+            if (notification.is_acknowledged) {
+              console.log('🔔 NotificationTab: Skipping acknowledged notification:', notification.id);
+              return;
+            }
+            
+            // Normalisiere Type zu Lowercase für Vergleich
+            const notificationType = (notification.type || '').toLowerCase();
+            console.log('🔔 NotificationTab: Normalized type:', notificationType);
+            
+            if (notificationType === 'quote_submitted') {
+              console.log('🔔 NotificationTab: Adding quote_submitted notification for Bautraeger');
+              const data = notification.data ? JSON.parse(notification.data) : {};
+              notifications.push({
+                id: notification.id,
+                type: 'quote_submitted',
+                title: notification.title,
+                message: notification.message,
+                timestamp: notification.created_at,
+                isNew: !notification.is_acknowledged,
+                notification: notification,
+                priority: notification.priority,
+                tradeId: data.trade_id || notification.related_milestone_id,
+                quoteId: data.quote_id || notification.related_quote_id,
+                projectName: data.project_name,
+                bautraegerName: data.bautraeger_name,
+                quoteSummary: {
+                  amount: data.quote_amount,
+                  currency: data.quote_currency,
+                  validUntil: data.valid_until,
+                  startDate: data.start_date,
+                  completionDate: data.completion_date
+                }
+              });
+            } else if (notificationType === 'invoice_submitted') {
+              console.log('🔔 NotificationTab: Adding invoice_submitted notification for Bautraeger');
+              const data = notification.data ? JSON.parse(notification.data) : {};
+              notifications.push({
+                id: notification.id,
+                type: 'invoice_submitted',
+                title: notification.title,
+                message: notification.message,
+                timestamp: notification.created_at,
+                isNew: !notification.is_acknowledged,
+                notification: notification,
+                priority: notification.priority,
+                tradeId: data.milestone_id || data.tradeId,
+                tradeTitle: data.milestone_title || data.tradeTitle,
+                projectName: data.project_name || data.projectName,
+                serviceProviderName: data.service_provider_name,
+                invoiceId: data.invoice_id,
+                invoiceNumber: data.invoice_number,
+                totalAmount: data.total_amount,
+                currency: data.currency,
+                invoiceDate: data.invoice_date,
+                dueDate: data.due_date,
+                directLink: data.direct_link,
+                showAcceptanceTab: data.showAcceptanceTab
+              });
             }
           });
         }
@@ -534,7 +673,12 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
       
       console.log('🔔 NotificationTab: Final notifications array:', notifications);
       console.log('🔔 NotificationTab: Total notifications:', notifications.length);
-      setNotifications(notifications);
+      
+      // Filtere undefined/null Elemente aus dem Array
+      const validNotifications = notifications.filter(n => n !== null && n !== undefined);
+      console.log('🔔 NotificationTab: Valid notifications:', validNotifications.length);
+      
+      setNotifications(validNotifications);
     } catch (error) {
       console.error('❌ NotificationTab: Network error:', error);
     }
@@ -601,7 +745,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
     });
   };
 
-  const newCount = notifications.filter(n => n.isNew).length;
+  const newCount = notifications.filter(n => n && n.isNew).length;
   const hasNewNotifications = newCount > 0;
   
   return (
@@ -609,9 +753,10 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
       {/* Notification Tab - Fixed Position */}
       <div 
         ref={notificationTabRef}
-        className={`fixed right-0 top-1/2 -mt-16 transform -translate-y-1/2 z-[9999] transition-all duration-300 ${
+        className={`fixed right-0 transform z-[9999] transition-all duration-300 ${
           isExpanded ? 'translate-x-0' : 'translate-x-full'
         }`}
+        style={{ top: 'calc(15% - 50px)' }}
       >
         
         {/* Tab Handle - Der "Griff" der Lasche (links) */}
@@ -708,9 +853,9 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
               </div>
             ) : (
               <div className="space-y-2 p-2">
-                {notifications.map((notification) => (
+                {notifications.filter(n => n !== null && n !== undefined).map((notification, index) => (
                   <div
-                    key={notification.id}
+                    key={`notification-${notification.id}-${index}`}
                     className={`p-3 rounded-lg border border-white/20 cursor-pointer hover:border-[#ffbd59]/50 transition-all duration-300 backdrop-blur-sm ${
                       notification.isNew ? 'bg-[#ffbd59]/10 border-l-4 border-l-[#ffbd59] shadow-lg shadow-[#ffbd59]/20' : 'bg-white/5 hover:bg-white/10'
                     }`}
@@ -869,6 +1014,77 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                         
                         // Schließe Benachrichtigungs-Panel
                         setIsExpanded(false);
+                      } else if (userRole === 'DIENSTLEISTER' && notification.type === 'milestone_completed') {
+                        // Öffne die betroffene Ausschreibung für Rechnungsstellung
+                        console.log('💰 Öffne Ausschreibung für Rechnungsstellung:', notification.tradeId);
+                        
+                        // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
+                        if (notification.notification?.id) {
+                          try {
+                            await apiCall(`/notifications/${notification.notification.id}/acknowledge`, {
+                              method: 'PATCH'
+                            });
+                            console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
+                            
+                            // Lade Benachrichtigungen sofort neu, um UI zu aktualisieren
+                            setTimeout(() => {
+                              loadNotifications();
+                            }, 500);
+                          } catch (error) {
+                            console.error('❌ Fehler beim Quittieren der Benachrichtigung:', error);
+                          }
+                        }
+                        
+                        // Markiere auch lokal als gesehen
+                        markAsSeen([notification.id]);
+                        
+                        // Prüfe ob tradeId gültig ist
+                        if (!notification.tradeId || notification.tradeId === 0) {
+                          console.error('❌ NotificationTab: Ungültige tradeId für Gewerk-Abschluss:', notification.tradeId);
+                          alert('Die Ausschreibung konnte nicht gefunden werden. Die Benachrichtigung enthält ungültige Daten.');
+                          return;
+                        }
+                        
+                        // Event für ServiceProviderDashboard auslösen, um TradeDetailsModal zu öffnen
+                        window.dispatchEvent(new CustomEvent('openTradeDetails', {
+                          detail: {
+                            tradeId: notification.tradeId,
+                            source: 'milestone_completed_notification',
+                            showAcceptanceTab: true  // Öffne Abnahme-Tab für Rechnungsstellung
+                          }
+                        }));
+                        
+                        // Schließe Benachrichtigungs-Panel
+                        setIsExpanded(false);
+                      } else if (userRole === 'DIENSTLEISTER' && notification.type === 'payment_received') {
+                        // Navigiere zur Rechnungsseite
+                        console.log('💰 Öffne Rechnungsseite für bezahlte Rechnung:', notification.invoiceId);
+                        
+                        // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
+                        if (notification.notification?.id) {
+                          try {
+                            await apiCall(`/notifications/${notification.notification.id}/acknowledge`, {
+                              method: 'PATCH'
+                            });
+                            console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
+                            
+                            // Lade Benachrichtigungen sofort neu, um UI zu aktualisieren
+                            setTimeout(() => {
+                              loadNotifications();
+                            }, 500);
+                          } catch (error) {
+                            console.error('❌ Fehler beim Quittieren der Benachrichtigung:', error);
+                          }
+                        }
+                        
+                        // Markiere auch lokal als gesehen
+                        markAsSeen([notification.id]);
+                        
+                        // Navigiere zur Rechnungsseite
+                        window.location.href = '/invoices';
+                        
+                        // Schließe Benachrichtigungs-Panel
+                        setIsExpanded(false);
                       } else if (userRole === 'BAUTRAEGER' && notification.type === 'appointment_responses') {
                         // Zeige die Antworten der Dienstleister an
                         setSelectedNotification(notification);
@@ -880,6 +1096,90 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                           viewedAt: new Date().toISOString()
                         }));
                         markAsSeen([notification.id]);
+                      } else if (userRole === 'BAUTRAEGER' && notification.type === 'quote_submitted') {
+                        // Öffne die betroffene Ausschreibung für Angebotsprüfung
+                        console.log('📋 Öffne Ausschreibung für Angebotsprüfung:', notification.tradeId);
+                        
+                        // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
+                        if (notification.notification?.id) {
+                          try {
+                            await apiCall(`/notifications/${notification.notification.id}/acknowledge`, {
+                              method: 'PATCH'
+                            });
+                            console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
+                            
+                            // Lade Benachrichtigungen sofort neu, um UI zu aktualisieren
+                            setTimeout(() => {
+                              loadNotifications();
+                            }, 500);
+                          } catch (error) {
+                            console.error('❌ Fehler beim Quittieren der Benachrichtigung:', error);
+                          }
+                        }
+                        
+                        // Markiere auch lokal als gesehen
+                        markAsSeen([notification.id]);
+                        
+                        // Prüfe ob tradeId gültig ist
+                        if (!notification.tradeId || notification.tradeId === 0) {
+                          console.error('❌ NotificationTab: Ungültige tradeId für Angebot:', notification.tradeId);
+                          alert('Die Ausschreibung konnte nicht gefunden werden. Die Benachrichtigung enthält ungültige Daten.');
+                          return;
+                        }
+                        
+                        // Event für BautraegerDashboard auslösen, um TradeDetailsModal zu öffnen
+                        window.dispatchEvent(new CustomEvent('openTradeDetails', {
+                          detail: {
+                            tradeId: notification.tradeId,
+                            source: 'quote_submitted_notification',
+                            showQuotesTab: true
+                          }
+                        }));
+                        
+                        // Schließe Benachrichtigungs-Panel
+                        setIsExpanded(false);
+                      } else if (userRole === 'BAUTRAEGER' && notification.type === 'invoice_submitted') {
+                        // Öffne die betroffene Ausschreibung im Abnahme-Tab
+                        console.log('💰 Öffne Ausschreibung für Rechnungsprüfung:', notification.tradeId);
+                        
+                        // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
+                        if (notification.notification?.id) {
+                          try {
+                            await apiCall(`/notifications/${notification.notification.id}/acknowledge`, {
+                              method: 'PATCH'
+                            });
+                            console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
+                            
+                            // Lade Benachrichtigungen sofort neu, um UI zu aktualisieren
+                            setTimeout(() => {
+                              loadNotifications();
+                            }, 500);
+                          } catch (error) {
+                            console.error('❌ Fehler beim Quittieren der Benachrichtigung:', error);
+                          }
+                        }
+                        
+                        // Markiere auch lokal als gesehen
+                        markAsSeen([notification.id]);
+                        
+                        // Prüfe ob tradeId gültig ist
+                        if (!notification.tradeId || notification.tradeId === 0) {
+                          console.error('❌ NotificationTab: Ungültige tradeId für Rechnung:', notification.tradeId);
+                          alert('Die Ausschreibung konnte nicht gefunden werden. Die Benachrichtigung enthält ungültige Daten.');
+                          return;
+                        }
+                        
+                        // Event für BautraegerDashboard auslösen, um TradeDetailsModal zu öffnen
+                        window.dispatchEvent(new CustomEvent('openTradeDetails', {
+                          detail: {
+                            tradeId: notification.tradeId,
+                            source: 'invoice_submitted_notification',
+                            showAcceptanceTab: true  // Öffne Abnahme-Tab wo die Rechnung ist
+                          }
+                        }));
+                        
+                        // Schließe Benachrichtigungs-Panel
+                        setIsExpanded(false);
                       } else if (userRole === 'BAUTRAEGER' && notification.type === 'service_provider_selection_reminder') {
                         // Navigiere zur Gewerke-Seite
                         window.location.href = '/quotes';
@@ -913,14 +1213,22 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                               <CheckCircle size={16} className="text-green-500" />
                             ) : notification.type === 'quote_submitted' ? (
                               <FileText size={16} className="text-blue-500" />
+                            ) : notification.type === 'invoice_submitted' ? (
+                              <FileText size={16} className="text-green-500" />
                             ) : notification.type === 'resource_allocated' ? (
                               <User size={16} className="text-purple-500" />
                             ) : notification.type === 'tender_invitation' ? (
                               <AlertCircle size={16} className="text-red-500 animate-pulse" />
                             ) : notification.type === 'acceptance_with_defects' ? (
                               <AlertCircle size={16} className="text-yellow-500 animate-pulse" />
+                            ) : notification.type === 'milestone_completed' ? (
+                              <CheckCircle size={16} className="text-green-500 animate-pulse" />
+                            ) : notification.type === 'payment_received' ? (
+                              <CreditCard size={16} className="text-green-500 animate-pulse" />
                             ) : notification.type === 'service_provider_selection_reminder' ? (
                               <AlertCircle size={16} className="text-orange-400 animate-pulse" />
+                            ) : notification.type === 'quote_submitted' && userRole === 'BAUTRAEGER' ? (
+                              <FileText size={16} className="text-green-500 animate-pulse" />
                             ) : (
                               <MessageSquare size={16} className="text-orange-500" />
                             )}
@@ -1127,6 +1435,206 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                                 </div>
                                 <div className="mt-2 text-xs text-yellow-600 font-medium">
                                   ⚠️ Klicken Sie hier, um die Mängel zu überprüfen und zu beheben
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Zusätzliche Informationen für milestone_completed */}
+                            {notification.type === 'milestone_completed' && (
+                              <div className="mt-3 p-3 bg-green-500/10 rounded-lg border border-green-500/20 backdrop-blur-sm">
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div>
+                                    <span className="text-gray-400">Gewerk:</span>
+                                    <div className="font-semibold text-green-400">
+                                      {notification.tradeTitle || 'Unbekanntes Gewerk'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-400">Projekt:</span>
+                                    <div className="font-semibold text-green-400">
+                                      {notification.projectName || 'Unbekanntes Projekt'}
+                                    </div>
+                                  </div>
+                                  {notification.completionDate && (
+                                    <div>
+                                      <span className="text-gray-500">Abgeschlossen:</span>
+                                      <div className="font-semibold text-gray-700">
+                                        {new Date(notification.completionDate).toLocaleDateString('de-DE')}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {notification.quoteAmount && (
+                                    <div>
+                                      <span className="text-gray-500">Angebotssumme:</span>
+                                      <div className="font-semibold text-gray-700">
+                                        {new Intl.NumberFormat('de-DE', { 
+                                          style: 'currency', 
+                                          currency: notification.currency || 'CHF' 
+                                        }).format(notification.quoteAmount)}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="mt-2 text-xs text-green-600 font-medium">
+                                  💰 Klicken Sie hier, um zur Rechnungsstellung zu gelangen
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Zusätzliche Informationen für payment_received (Dienstleister) */}
+                            {notification.type === 'payment_received' && userRole === 'DIENSTLEISTER' && (
+                              <div className="mt-3 p-3 bg-green-500/10 rounded-lg border border-green-500/20 backdrop-blur-sm">
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div>
+                                    <span className="text-gray-400">Rechnungsnummer:</span>
+                                    <div className="font-semibold text-green-400">
+                                      {notification.invoiceNumber || 'N/A'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-400">Gewerk:</span>
+                                    <div className="font-semibold text-green-400">
+                                      {notification.tradeTitle || 'Unbekanntes Gewerk'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-400">Projekt:</span>
+                                    <div className="font-semibold text-green-400">
+                                      {notification.projectName || 'Unbekanntes Projekt'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-400">Bauträger:</span>
+                                    <div className="font-semibold text-gray-300">
+                                      {notification.bautraegerName || 'Unbekannt'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-400">Betrag:</span>
+                                    <div className="font-semibold text-green-400">
+                                      {new Intl.NumberFormat('de-DE', { 
+                                        style: 'currency', 
+                                        currency: notification.currency || 'CHF' 
+                                      }).format(notification.totalAmount || 0)}
+                                    </div>
+                                  </div>
+                                  {notification.paidAt && (
+                                    <div>
+                                      <span className="text-gray-400">Bezahlt am:</span>
+                                      <div className="font-semibold text-gray-300">
+                                        {new Date(notification.paidAt).toLocaleDateString('de-DE')}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {notification.paymentReference && (
+                                    <div className="col-span-2">
+                                      <span className="text-gray-400">Zahlungsreferenz:</span>
+                                      <div className="font-semibold text-gray-300">
+                                        {notification.paymentReference}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="mt-2 text-xs text-green-600 font-medium">
+                                  💰 Klicken Sie hier, um zur Rechnungsübersicht zu gelangen
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Zusätzliche Informationen für invoice_submitted (Bauträger) */}
+                            {notification.type === 'invoice_submitted' && userRole === 'BAUTRAEGER' && (
+                              <div className="mt-3 p-3 bg-green-500/10 rounded-lg border border-green-500/20 backdrop-blur-sm">
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div>
+                                    <span className="text-gray-400">Gewerk:</span>
+                                    <div className="font-semibold text-green-400">
+                                      {notification.tradeTitle || 'Unbekanntes Gewerk'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-400">Projekt:</span>
+                                    <div className="font-semibold text-green-400">
+                                      {notification.projectName || 'Unbekanntes Projekt'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-400">Dienstleister:</span>
+                                    <div className="font-semibold text-gray-300">
+                                      {notification.serviceProviderName || 'Unbekannt'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-400">Rechnungsnummer:</span>
+                                    <div className="font-semibold text-gray-300">
+                                      {notification.invoiceNumber || 'N/A'}
+                                    </div>
+                                  </div>
+                                  {notification.totalAmount && (
+                                    <div>
+                                      <span className="text-gray-400">Betrag:</span>
+                                      <div className="font-semibold text-green-400 text-base">
+                                        {new Intl.NumberFormat('de-DE', { 
+                                          style: 'currency', 
+                                          currency: notification.currency || 'CHF' 
+                                        }).format(notification.totalAmount)}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {notification.dueDate && (
+                                    <div>
+                                      <span className="text-gray-400">Fällig am:</span>
+                                      <div className="font-semibold text-yellow-400">
+                                        {new Date(notification.dueDate).toLocaleDateString('de-DE')}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="mt-2 text-xs text-green-400 font-medium">
+                                  💳 Klicken Sie hier, um die Rechnung zu prüfen und zu bezahlen
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Zusätzliche Informationen für quote_submitted (Bauträger) */}
+                            {notification.type === 'quote_submitted' && userRole === 'BAUTRAEGER' && notification.quoteSummary && (
+                              <div className="mt-3 p-3 bg-green-500/10 rounded-lg border border-green-500/20 backdrop-blur-sm">
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div>
+                                    <span className="text-gray-400">Angebotssumme:</span>
+                                    <div className="font-semibold text-green-400">
+                                      {new Intl.NumberFormat('de-DE', { 
+                                        style: 'currency', 
+                                        currency: notification.quoteSummary.currency || 'CHF' 
+                                      }).format(notification.quoteSummary.amount || 0)}
+                                    </div>
+                                  </div>
+                                  {notification.quoteSummary.validUntil && (
+                                    <div>
+                                      <span className="text-gray-500">Gültig bis:</span>
+                                      <div className="font-semibold text-gray-700">
+                                        {new Date(notification.quoteSummary.validUntil).toLocaleDateString('de-DE')}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {notification.quoteSummary.startDate && (
+                                    <div>
+                                      <span className="text-gray-500">Start:</span>
+                                      <div className="font-semibold text-gray-700">
+                                        {new Date(notification.quoteSummary.startDate).toLocaleDateString('de-DE')}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {notification.quoteSummary.completionDate && (
+                                    <div>
+                                      <span className="text-gray-500">Fertigstellung:</span>
+                                      <div className="font-semibold text-gray-700">
+                                        {new Date(notification.quoteSummary.completionDate).toLocaleDateString('de-DE')}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="mt-2 text-xs text-green-600 font-medium">
+                                  👆 Klicken Sie hier, um das Angebot zu prüfen und zu bewerten
                                 </div>
                               </div>
                             )}
@@ -1459,7 +1967,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                   {selectedNotification.responses && selectedNotification.responses.length > 0 ? (
                     selectedNotification.responses.map((response: any, index: number) => (
                       <div
-                        key={index}
+                        key={`notification-response-${selectedNotification.id}-${index}`}
                         className={`p-4 rounded-lg border-2 ${
                           response.status === 'accepted'
                             ? 'border-green-200 bg-green-50'

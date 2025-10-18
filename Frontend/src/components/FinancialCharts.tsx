@@ -56,10 +56,14 @@ export default function FinancialCharts({
   const [volumeData, setVolumeData] = useState<any>(null);
   const [categoryData, setCategoryData] = useState<any>(null);
   const [summaryData, setSummaryData] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const loadFinancialData = async () => {
-      setLoading(true);
+  const loadFinancialData = async (isRefresh = false) => {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       try {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -100,6 +104,7 @@ export default function FinancialCharts({
         console.error('Error loading financial data:', err);
       } finally {
         setLoading(false);
+        setRefreshing(false);
       }
     };
 
@@ -386,8 +391,18 @@ export default function FinancialCharts({
               </div>
             </div>
             
-            {/* Budget-Status */}
+            {/* Budget-Status und Refresh-Button */}
             <div className="text-right">
+              <div className="flex items-center justify-end space-x-4 mb-4">
+                <button
+                  onClick={() => loadFinancialData(true)}
+                  disabled={refreshing}
+                  className="group relative overflow-hidden bg-gradient-to-r from-[#ffbd59]/20 to-[#ffa726]/20 hover:from-[#ffbd59]/30 hover:to-[#ffa726]/30 backdrop-blur-sm border border-[#ffbd59]/40 hover:border-[#ffbd59]/60 rounded-xl p-3 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-[#ffbd59]/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#ffbd59]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <RefreshCw className={`w-5 h-5 text-[#ffbd59] group-hover:text-white transition-colors duration-300 ${refreshing ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
               <div className={`text-2xl font-bold ${budgetStatus.isOverBudget ? 'text-red-400' : 'text-white'}`}>
                 {budgetStatus.totalExpenses.toLocaleString('de-DE')} €
               </div>

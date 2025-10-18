@@ -122,6 +122,9 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
     if (mimeType === 'application/pdf' || extension === 'pdf') return 'pdf';
     if (mimeType?.startsWith('text/') || ['txt', 'md', 'log'].includes(extension || '')) return 'text';
     if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension || '')) return 'image';
+    if (mimeType?.includes('spreadsheet') || mimeType?.includes('excel') || mimeType?.includes('sheet') || 
+        mimeType?.includes('vnd.openxmlformats-officedocument.spreadsheetml') || mimeType?.includes('vnd.ms-excel') ||
+        ['xls', 'xlsx', 'xlsm'].includes(extension || '')) return 'excel';
     return 'unsupported';
   };
 
@@ -649,6 +652,55 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
                     </div>
                   </div>
                 ) : null}
+              </div>
+            )}
+
+            {fileType === 'excel' && (
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center max-w-md">
+                  <div className="w-20 h-20 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-green-500/30">
+                    <FileText size={40} className="text-green-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Excel-Datei</h3>
+                  <p className="text-gray-400 text-sm mb-6">
+                    Excel-Dateien können nicht direkt im Browser angezeigt werden. 
+                    Klicken Sie auf "Herunterladen", um die Datei zu öffnen oder zu speichern.
+                  </p>
+                  <div className="space-y-3">
+                    <button
+                      onClick={downloadDocument}
+                      className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
+                    >
+                      <Download size={20} />
+                      <span>Excel-Datei herunterladen</span>
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(`http://localhost:8000/api/v1/documents/${document.id}/download`, {
+                            headers: {
+                              'Authorization': `Bearer ${localStorage.getItem('token')}`
+                            }
+                          });
+                          if (response.ok) {
+                            const blob = await response.blob();
+                            const url = URL.createObjectURL(blob);
+                            window.open(url, '_blank');
+                            setTimeout(() => URL.revokeObjectURL(url), 1000);
+                          }
+                        } catch (error) {
+                          console.error('Fehler beim Öffnen:', error);
+                          downloadDocument();
+                        }
+                      }}
+                      className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
+                    >
+                      <FileText size={20} />
+                      <span>In Excel öffnen</span>
+                    </button>
+                  </div>
+                  <p className="text-gray-500 text-xs mt-4">{document.file_name}</p>
+                </div>
               </div>
             )}
 

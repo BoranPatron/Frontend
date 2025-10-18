@@ -46,7 +46,10 @@ import ResourceManagementModal from '../components/ResourceManagementModal';
 import ResourceCalendar from '../components/ResourceCalendar';
 import ResourceKPIDashboard from '../components/ResourceKPIDashboard';
 import ServiceProviderDocumentTab from '../components/ServiceProviderDocumentTab';
+import NotificationTab from '../components/NotificationTab';
+import ContactTab from '../components/ContactTab';
 import UserRankDisplay from '../components/UserRankDisplay';
+import TaskCreationModal from '../components/TaskCreationModal';
 
 import KanbanBoard from '../components/KanbanBoard';
 import { 
@@ -59,6 +62,7 @@ import { createQuote, getQuotesForMilestone, acceptQuote, rejectQuote, withdrawQ
 import { getMilestones, getAllMilestones } from '../api/milestoneService';
 import { getProjects } from '../api/projectService';
 import { resourceService, type ResourceAllocation } from '../api/resourceService';
+import { checkAccountStatus, type AccountStatus } from '../api/buildwiseFeeService';
 import { TRADE_CATEGORIES } from '../constants/tradeCategories';
 import logo from '../logo_trans_big.png';
 import TradeCreationForm from '../components/TradeCreationForm';
@@ -135,6 +139,7 @@ export default function ServiceProviderDashboard() {
   const [resourceToDelete, setResourceToDelete] = useState<any>(null);
   const [showResourceCalendar, setShowResourceCalendar] = useState(false);
   const [showResourceKPIs, setShowResourceKPIs] = useState(false);
+  const [showTaskCreation, setShowTaskCreation] = useState(false);
   const [showResourceDetails, setShowResourceDetails] = useState(true);
   const [showResourceSection, setShowResourceSection] = useState(false);
   const [userResources, setUserResources] = useState<any[]>([]);
@@ -145,6 +150,10 @@ export default function ServiceProviderDashboard() {
     totalHours: 0,
     utilization: 0
   });
+  
+  // State für Account-Status und überfällige Zahlungen
+  const [accountStatus, setAccountStatus] = useState<AccountStatus | null>(null);
+  const [isCheckingAccountStatus, setIsCheckingAccountStatus] = useState(false);
   
   // State für erweiterte Beschreibungen in Kacheln
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
@@ -182,19 +191,8 @@ export default function ServiceProviderDashboard() {
   const [showTradeDetails, setShowTradeDetails] = useState(false);
   const [detailTrade, setDetailTrade] = useState<TradeSearchResult | null>(null);
 
-  // Neue Layout-State für moderne Umstrukturierung
-  const [activeLeftTab, setActiveLeftTab] = useState<'bidding' | 'awarded' | 'completed'>('bidding'); // 'bidding' = Angebotsverfahren, 'awarded' = Gewonnene Ausschreibungen, 'completed' = Abgeschlossene Projekte
-  
-  // Funktion zum Wechseln der Tabs mit Datenaktualisierung
-  const handleTabChange = (tab: 'bidding' | 'awarded' | 'completed') => {
-    console.log(`🔄 Tab-Wechsel zu: ${tab}, aktualisiere Daten...`);
-    setActiveLeftTab(tab);
-    
-    // Aktualisiere Daten beim Tab-Wechsel
-    loadServiceProviderQuotes().catch(error => {
-      console.error('❌ Fehler beim Aktualisieren der Daten nach Tab-Wechsel:', error);
-    });
-  };
+  // State für eingeklappte abgeschlossene Projekte (standardmäßig eingeklappt)
+  const [isCompletedProjectsExpanded, setIsCompletedProjectsExpanded] = useState(false);
   const [geoSearchExpanded, setGeoSearchExpanded] = useState(false); // State für erweiterte Geo-Search
 
   // Quotes-Integration State
@@ -226,6 +224,32 @@ export default function ServiceProviderDashboard() {
       }
       setShowTradeCreationForm(true);
       // 'create' aus URL entfernen, 'project' belassen
+      const newParams = new URLSearchParams(location.search);
+      newParams.delete('create');
+      navigate({ pathname: location.pathname, search: newParams.toString() ? `?${newParams.toString()}` : '' }, { replace: true });
+    }
+  }, [location.search, navigate]);
+
+  // Query-Param getrieben: Ressourcenmanagement Modal
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const showResourceManagementParam = params.get('showResourceManagement');
+    if (showResourceManagementParam === 'true') {
+      setShowResourceManagement(true);
+      // 'showResourceManagement' aus URL entfernen
+      const newParams = new URLSearchParams(location.search);
+      newParams.delete('showResourceManagement');
+      navigate({ pathname: location.pathname, search: newParams.toString() ? `?${newParams.toString()}` : '' }, { replace: true });
+    }
+  }, [location.search, navigate]);
+
+  // Query-Param getrieben: Task-Erstellung Modal
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const createTaskParam = params.get('create');
+    if (createTaskParam === 'task') {
+      setShowTaskCreation(true);
+      // 'create' aus URL entfernen
       const newParams = new URLSearchParams(location.search);
       newParams.delete('create');
       navigate({ pathname: location.pathname, search: newParams.toString() ? `?${newParams.toString()}` : '' }, { replace: true });
@@ -538,6 +562,36 @@ export default function ServiceProviderDashboard() {
     }
   };
 
+  // Funktion zum Prüfen des Account-Status und überfälliger Zahlungen
+  const checkPaymentStatus = async () => {
+    try {
+      setIsCheckingAccountStatus(true);
+      console.log('🔍 Prüfe Account-Status und überfällige Zahlungen...');
+      
+      const status = await checkAccountStatus();
+      setAccountStatus(status);
+      
+      console.log('✅ Account-Status geprüft:', {
+        hasOverdueFees: status.has_overdue_fees,
+        overdueCount: status.overdue_fees.length,
+        totalOverdueAmount: status.total_overdue_amount
+      });
+      
+    } catch (error) {
+      console.error('❌ Fehler beim Prüfen des Account-Status:', error);
+      // Bei Fehlern setzen wir einen sicheren Fallback
+      setAccountStatus({
+        account_locked: false,
+        has_overdue_fees: false,
+        overdue_fees: [],
+        total_overdue_amount: 0,
+        message: 'Account-Status konnte nicht geprüft werden'
+      });
+    } finally {
+      setIsCheckingAccountStatus(false);
+    }
+  };
+
   // Handler: Ressource Details anzeigen
   const handleShowResourceDetails = (resource: any) => {
     setSelectedResourceForDetails(resource);
@@ -646,24 +700,56 @@ export default function ServiceProviderDashboard() {
     ) || null;
   };
 
-  // URL-Parameter für automatisches Öffnen des Quote-Forms
+  // URL-Parameter für automatisches Öffnen des Quote-Forms und Scrollen zu Ausschreibungen
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const quoteParam = urlParams.get('quote');
+    const scrollToBiddingParam = urlParams.get('scrollToBidding');
     
+    // Handle scroll to bidding section
+    if (scrollToBiddingParam === 'true') {
+      console.log('🎯 URL-Parameter scrollToBidding=true erkannt - scrolle zu Ausschreibungen-Abschnitt');
+      setTimeout(() => {
+        const geoSearchSection = document.querySelector('[data-tour-id="geo-search-section"]');
+        if (geoSearchSection) {
+          geoSearchSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 500); // Small delay to ensure page is loaded
+      
+      // Remove URL parameter after scrolling
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+    
+    // Handle quote form opening
     if (quoteParam && (trades.length > 0 || geoTrades.length > 0)) {
+      console.log('🔍 URL-Parameter quote erkannt:', quoteParam, 'für Trades:', trades.length, 'geoTrades:', geoTrades.length);
       // Finde das Trade mit der ID und öffne das CostEstimateForm
       const tradeId = parseInt(quoteParam);
       if (tradeId && !isNaN(tradeId)) {
         const trade = trades.find(t => t.id === tradeId) || geoTrades.find(t => t.id === tradeId);
         if (trade) {
-          console.log('🎯 Öffne CostEstimateForm für Trade:', trade.id, trade.title);
-          setSelectedTradeForQuote(trade);
-          setShowCostEstimateForm(true);
+          console.log('🔍 Trade gefunden für URL-Parameter:', trade.id, trade.title);
+          // Prüfe ob der User bereits ein Angebot für dieses Trade hat
+          const userHasQuote = hasServiceProviderQuote(trade.id);
+          console.log('🔍 User hat bereits Angebot für Trade', trade.id, ':', userHasQuote);
+          if (!userHasQuote) {
+            console.log('🎯 Öffne CostEstimateForm für Trade:', trade.id, trade.title);
+            setSelectedTradeForQuote(trade);
+            setShowCostEstimateForm(true);
+          } else {
+            console.log('🎯 CostEstimateForm nicht geöffnet (URL-Parameter) - User hat bereits ein Angebot für Trade:', trade.id);
+            // Öffne stattdessen das TradeDetailsModal
+            setSelectedTrade(trade);
+            setDetailTrade(trade);
+            setShowTradeDetails(true);
+          }
           
           // Entferne URL-Parameter nach dem Öffnen
           const newUrl = window.location.pathname;
           window.history.replaceState({}, '', newUrl);
+        } else {
+          console.log('🔍 Trade nicht gefunden für URL-Parameter quote:', tradeId);
         }
       }
     }
@@ -683,6 +769,23 @@ export default function ServiceProviderDashboard() {
   };
 
   // Event-Listener für Benachrichtigungs-Klicks (TradeDetailsModal öffnen)
+  // Event-Listener für Scrollen zu Ausschreibungen-Abschnitt (vom Radial Menu)
+  useEffect(() => {
+    const handleScrollToBidding = () => {
+      console.log('📋 ServiceProviderDashboard: Event empfangen - Scrolle zu Ausschreibungen-Abschnitt');
+      const geoSearchSection = document.querySelector('[data-tour-id="geo-search-section"]');
+      if (geoSearchSection) {
+        geoSearchSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    };
+
+    window.addEventListener('scrollToBidding', handleScrollToBidding as any);
+    
+    return () => {
+      window.removeEventListener('scrollToBidding', handleScrollToBidding as any);
+    };
+  }, []);
+
   useEffect(() => {
     const handleOpenTradeDetails = (event: CustomEvent) => {
       console.log('📋 Event empfangen: TradeDetails öffnen für Trade:', event.detail.tradeId);
@@ -704,10 +807,20 @@ export default function ServiceProviderDashboard() {
         console.log('✅ Trade gefunden:', trade);
         
         // Wenn showQuoteForm=true, öffne direkt das CostEstimateForm
+        // ABER nur wenn der User noch kein Angebot für dieses Trade hat
         if (showQuoteForm) {
-          console.log('🎯 Öffne CostEstimateForm für Trade:', trade.id, trade.title);
-          setSelectedTradeForQuote(trade);
-          setShowCostEstimateForm(true);
+          const userHasQuote = hasServiceProviderQuote(trade.id);
+          if (!userHasQuote) {
+            console.log('🎯 Öffne CostEstimateForm für Trade:', trade.id, trade.title);
+            setSelectedTradeForQuote(trade);
+            setShowCostEstimateForm(true);
+          } else {
+            console.log('🎯 CostEstimateForm nicht geöffnet - User hat bereits ein Angebot für Trade:', trade.id);
+            // Öffne stattdessen das TradeDetailsModal
+            setSelectedTrade(trade);
+            setDetailTrade(trade);
+            setShowTradeDetails(true);
+          }
         } else {
           // Ansonsten Trade auswählen und Modal öffnen
           console.log('🎯 Öffne TradeDetailsModal für Trade:', trade.id, trade.title);
@@ -722,9 +835,17 @@ export default function ServiceProviderDashboard() {
           const refreshedTrade = trades.find(t => t.id === tradeId) || geoTrades.find(t => t.id === tradeId);
           if (refreshedTrade) {
             if (showQuoteForm) {
-              console.log('🎯 Öffne CostEstimateForm für Trade (nach Reload):', refreshedTrade.id, refreshedTrade.title);
-              setSelectedTradeForQuote(refreshedTrade);
-              setShowCostEstimateForm(true);
+              const userHasQuote = hasServiceProviderQuote(refreshedTrade.id);
+              if (!userHasQuote) {
+                console.log('🎯 Öffne CostEstimateForm für Trade (nach Reload):', refreshedTrade.id, refreshedTrade.title);
+                setSelectedTradeForQuote(refreshedTrade);
+                setShowCostEstimateForm(true);
+              } else {
+                console.log('🎯 CostEstimateForm nicht geöffnet (nach Reload) - User hat bereits ein Angebot für Trade:', refreshedTrade.id);
+                setSelectedTrade(refreshedTrade);
+                setDetailTrade(refreshedTrade);
+                setShowTradeDetails(true);
+              }
             } else {
               console.log('🎯 Öffne TradeDetailsModal für Trade (nach Reload):', refreshedTrade.id, refreshedTrade.title);
               setSelectedTrade(refreshedTrade);
@@ -1177,6 +1298,11 @@ export default function ServiceProviderDashboard() {
     loadServiceProviderQuotes().catch(error => {
       console.error('❌ useEffect: Fehler in loadServiceProviderQuotes():', error);
     });
+    
+    // Prüfe Account-Status und überfällige Zahlungen
+    checkPaymentStatus().catch(error => {
+      console.error('❌ useEffect: Fehler beim Prüfen des Account-Status:', error);
+    });
   }, []);
 
   // Zusätzlicher useEffect für regelmäßige Aktualisierung der Service Provider Quotes und Trades
@@ -1195,6 +1321,11 @@ export default function ServiceProviderDashboard() {
       console.log('📧 Aktualisiere Trades für Benachrichtigungen...');
       loadTrades().catch(error => {
         console.error('❌ Fehler bei regelmäßiger Aktualisierung (Trades):', error);
+      });
+      
+      // Aktualisiere Account-Status und überfällige Zahlungen
+      checkPaymentStatus().catch(error => {
+        console.error('❌ Fehler bei regelmäßiger Aktualisierung (Account-Status):', error);
       });
     };
     
@@ -1240,16 +1371,16 @@ export default function ServiceProviderDashboard() {
     };
   }, [user?.id]); // Abhängig von user.id, damit es bei User-Wechsel neu lädt
 
-  // Lade Rechnungen wenn Tab auf 'completed' gewechselt wird
+  // Lade Rechnungen wenn abgeschlossene Projekte eingeklappt werden
   useEffect(() => {
-    if (activeLeftTab === 'completed' && user) {
+    if (isCompletedProjectsExpanded && user) {
       loadTradeInvoices();
     }
-  }, [activeLeftTab, user]);
+  }, [isCompletedProjectsExpanded, user]);
 
   // Erstelle Benachrichtigungen für abgeschlossene Projekte ohne Rechnung
   useEffect(() => {
-    if (activeLeftTab === 'completed' && Object.keys(tradeInvoices).length > 0) {
+    if (isCompletedProjectsExpanded && Object.keys(tradeInvoices).length > 0) {
       const completedTrades = getAllTradesWithQuotes
         .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed');
       
@@ -1265,7 +1396,7 @@ export default function ServiceProviderDashboard() {
         }
       });
     }
-  }, [activeLeftTab, tradeInvoices]);
+  }, [isCompletedProjectsExpanded, tradeInvoices]);
 
   // Prüfe ob der aktuelle Dienstleister bereits ein Angebot für ein Gewerk abgegeben hat
   const hasServiceProviderQuote = (tradeId: number): boolean => {
@@ -1480,7 +1611,8 @@ export default function ServiceProviderDashboard() {
       const promises = [
         loadServiceProviderQuotes(),
         performGeoSearch(),
-        loadTrades()
+        loadTrades(),
+        checkPaymentStatus()
       ];
       
       await Promise.all(promises);
@@ -1909,6 +2041,48 @@ export default function ServiceProviderDashboard() {
           </div>
         </div>
 
+        {/* Zahlungsaufforderungs-Banner */}
+        {accountStatus?.has_overdue_fees && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-red-500/20 to-red-600/10 backdrop-blur-lg border border-red-500/30 rounded-xl shadow-lg shadow-red-500/20 animate-pulse">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0 w-8 h-8 bg-red-500/20 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-red-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-semibold text-red-200 mb-1">
+                    ⚠️ Zahlungsaufforderung
+                  </h3>
+                  <p className="text-sm text-red-300/90 mb-2">
+                    Sie haben {accountStatus.overdue_fees.length} überfällige Zahlung{accountStatus.overdue_fees.length > 1 ? 'en' : ''} 
+                    in Höhe von {formatCurrency(accountStatus.total_overdue_amount)}.
+                  </p>
+                  <p className="text-xs text-red-400/80">
+                    Bitte begleichen Sie diese Zahlungen umgehend, um eine Sperrung Ihres Accounts zu vermeiden.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => navigate('/service-provider/buildwise-fees')}
+                  className="group flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-semibold hover:from-red-700 hover:to-red-800 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-red-500/50 hover:shadow-red-500/70"
+                >
+                  <ExternalLink className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+                  <span>Jetzt bezahlen</span>
+                </button>
+                <button
+                  onClick={() => checkPaymentStatus()}
+                  disabled={isCheckingAccountStatus}
+                  className="group p-2 text-red-400 hover:text-red-300 transition-all duration-200 hover:bg-red-500/20 rounded-lg hover:scale-110 disabled:opacity-50"
+                  title="Status aktualisieren"
+                >
+                  <RefreshCw className={`w-4 h-4 group-hover:scale-110 transition-transform duration-200 ${isCheckingAccountStatus ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Shortcut-Zeile mit wichtigen Funktionen */}
         <div className="mb-8">
           <div className="grid grid-cols-4 gap-2 md:gap-4">
@@ -2056,25 +2230,27 @@ export default function ServiceProviderDashboard() {
               <Users size={24} className="text-[#2c3539]" />
             </div>
             <div className="flex-1">
-              <h2 className="text-xl font-bold text-white">Ressourcenverwaltung</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold text-white">Ressourcenverwaltung</h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowResourceManagement(true)}
+                    className="px-3 py-1.5 bg-[#ffbd59]/20 text-[#ffbd59] rounded-lg hover:bg-[#ffbd59]/30 transition-colors text-xs font-medium border border-[#ffbd59]/30"
+                    data-tour-id="resource-create-button"
+                  >
+                    <Plus size={14} className="inline mr-1" />
+                    Ressourcen ausschreiben
+                  </button>
+                  <button
+                    onClick={() => setShowResourceSection(!showResourceSection)}
+                    className="px-2 py-1.5 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
+                    title={showResourceSection ? 'Bereich einklappen' : 'Bereich ausklappen'}
+                  >
+                    <ChevronDown className={`w-4 h-4 transition-transform ${showResourceSection ? 'rotate-180' : ''}`} />
+                  </button>
+                </div>
+              </div>
               <p className="text-gray-400 text-sm mt-1">Personal- und Kapazitätsplanung für Ihre Projekte</p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowResourceManagement(true)}
-                className="px-4 py-2 bg-[#ffbd59]/20 text-[#ffbd59] rounded-lg hover:bg-[#ffbd59]/30 transition-colors text-sm font-medium border border-[#ffbd59]/30"
-                data-tour-id="resource-create-button"
-              >
-                <Plus size={16} className="inline mr-1" />
-                Ressourcen ausschreiben
-              </button>
-              <button
-                onClick={() => setShowResourceSection(!showResourceSection)}
-                className="px-3 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
-                title={showResourceSection ? 'Bereich einklappen' : 'Bereich ausklappen'}
-              >
-                <ChevronDown className={`w-4 h-4 transition-transform ${showResourceSection ? 'rotate-180' : ''}`} />
-              </button>
             </div>
           </div>
         </div>
@@ -2089,8 +2265,7 @@ export default function ServiceProviderDashboard() {
                 <div>
                   <p className="text-sm font-medium text-blue-400 mb-1">Ressourcen intelligent verwalten</p>
                   <p className="text-xs text-gray-300">
-                    Teilen Sie Ihre verfügbaren Mitarbeiter und Kapazitäten mit Bauträgern. 
-                    Diese können Ihre Ressourcen für Projekte vormerken und Sie zu Angeboten einladen.
+                  Teile deine verfügbaren Mitarbeiter und Kapazitäten mit Bauträgern. Diese können deine Ressourcen für Projekte vormerken und dich zu Angeboten einladen.
                     <br />
                     <span className="text-[#ffbd59] font-medium">🎯 Angezogene Ressourcen</span> werden hier markiert angezeigt.
                   </p>
@@ -2369,7 +2544,7 @@ export default function ServiceProviderDashboard() {
 
       {/* Moderne Zwei-Spalten Layout: Angebotsbereich + Geo-Search */}
       {/* Mobile: Einspaltiges Layout | Desktop: Zwei-Spalten | Expanded: Vollbild */}
-      <div className={`mb-8 transition-all duration-500 ${geoSearchExpanded ? 'fixed inset-0 z-[9999] bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6 overflow-y-auto' : ''}`}>
+      <div className={`mb-8 transition-all duration-500 ${geoSearchExpanded ? 'fixed inset-0 z-[99999] bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6 overflow-y-auto' : ''}`}>
         <div className={`transition-all duration-1000 ease-out ${
           geoSearchExpanded 
             ? 'max-w-7xl mx-auto' 
@@ -2388,83 +2563,66 @@ export default function ServiceProviderDashboard() {
                   <div>
                     <h2 className="text-xl font-bold text-white">Angebots-Management</h2>
                     <p className="text-gray-400 text-sm mt-1">
-                      Verwalten Sie Ihre Ausschreibungen und gewonnenen Projekte
+                      Verwalte deine Ausschreibungen und gewonnenen Projekte
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Moderner Tab-Toggle - Mobile-optimiert */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center p-1 bg-white/10 rounded-xl backdrop-blur-sm mb-6 gap-1 sm:gap-0">
-                <button
-                  onClick={() => handleTabChange('bidding')}
-                  className={`flex-1 px-4 sm:px-6 py-3 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
-                    activeLeftTab === 'bidding'
-                      ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg shadow-blue-500/30 transform scale-[1.02]'
-                      : 'text-gray-300 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  <Gavel size={16} />
-                  <span className="hidden sm:inline">Angebotsverfahren</span>
-                  <span className="sm:hidden">Angebote</span>
-                  <div className={`ml-2 px-2 py-1 rounded-full text-xs ${
-                    activeLeftTab === 'bidding' ? 'bg-white/20 text-white' : 'bg-blue-500/20 text-blue-400'
-                  }`}>
-                    {getAllTradesWithQuotes.filter(trade => getServiceProviderQuoteStatus(trade.id) !== 'accepted').length}
-                  </div>
-                </button>
-                <button
-                  onClick={() => handleTabChange('awarded')}
-                  className={`flex-1 px-4 sm:px-6 py-3 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
-                    activeLeftTab === 'awarded'
-                      ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg shadow-green-500/30 transform scale-[1.02]'
-                      : 'text-gray-300 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  <Award size={16} />
-                  <span className="hidden sm:inline">Gewonnene Projekte</span>
-                  <span className="sm:hidden">Gewonnen</span>
-                  <div className={`ml-2 px-2 py-1 rounded-full text-xs ${
-                    activeLeftTab === 'awarded' ? 'bg-white/20 text-white' : 'bg-green-500/20 text-green-400'
-                  }`}>
-                    {getAllTradesWithQuotes.filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status !== 'completed').length}
-                  </div>
-                </button>
-                <button
-                  onClick={() => handleTabChange('completed')}
-                  className={`flex-1 px-4 sm:px-6 py-3 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
-                    activeLeftTab === 'completed'
-                      ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/30 transform scale-[1.02]'
-                      : 'text-gray-300 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  <CheckCircle size={16} />
-                  <span className="hidden sm:inline">Abgeschlossene Projekte</span>
-                  <span className="sm:hidden">Abgeschlossen</span>
-                  <div className={`ml-2 px-2 py-1 rounded-full text-xs ${
-                    activeLeftTab === 'completed' ? 'bg-white/20 text-white' : 'bg-purple-500/20 text-purple-400'
-                  }`}>
-                    {getAllTradesWithQuotes.filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed').length}
-                  </div>
-                  {/* Badge für Projekte ohne Rechnung */}
-                  {getAllTradesWithQuotes.filter(trade => 
-                    getServiceProviderQuoteStatus(trade.id) === 'accepted' && 
-                    trade.completion_status === 'completed' && 
-                    !hasValidInvoice(trade.id)
-                  ).length > 0 && (
-                    <div className="ml-1 px-1.5 py-0.5 bg-red-500 text-white rounded-full text-xs font-bold animate-pulse">
-                      !
+              {/* Übersichtskarten für Angebotsverfahren und Gewonnene Projekte */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {/* Angebotsverfahren Karte */}
+                <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-xl p-4 border border-blue-500/20 hover:border-blue-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-500/20 rounded-lg">
+                        <Gavel size={20} className="text-blue-400" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-white text-sm">Angebotsverfahren</h3>
+                        <p className="text-gray-400 text-xs">Laufende Angebote</p>
+                      </div>
                     </div>
-                  )}
-                </button>
+                    <div className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-medium">
+                      {getAllTradesWithQuotes.filter(trade => getServiceProviderQuoteStatus(trade.id) !== 'accepted').length}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Gewonnene Projekte Karte */}
+                <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl p-4 border border-green-500/20 hover:border-green-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-500/20 rounded-lg">
+                        <Award size={20} className="text-green-400" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-white text-sm">Gewonnene Projekte</h3>
+                        <p className="text-gray-400 text-xs">Aktive Aufträge</p>
+                      </div>
+                    </div>
+                    <div className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">
+                      {getAllTradesWithQuotes.filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status !== 'completed').length}
+                    </div>
+                  </div>
+                </div>
               </div>
 
 
-              {/* Content-Bereich mit Smooth Transition */}
-              <div className="min-h-[400px]">
-                {/* Angebotsverfahren Content */}
-                {activeLeftTab === 'bidding' && (
-                <div className="transition-all duration-500 opacity-100">
+              {/* Content-Bereich */}
+              <div className="space-y-6">
+                {/* Angebotsverfahren Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <Gavel size={20} className="text-blue-400" />
+                      Angebotsverfahren
+                    </h3>
+                    <div className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-medium">
+                      {getAllTradesWithQuotes.filter(trade => getServiceProviderQuoteStatus(trade.id) !== 'accepted').length}
+                    </div>
+                  </div>
+                  
                   <div className="bidding-cards-container">
                     {getAllTradesWithQuotes
                       .filter(trade => getServiceProviderQuoteStatus(trade.id) !== 'accepted')
@@ -2585,16 +2743,24 @@ export default function ServiceProviderDashboard() {
                       <Gavel size={48} className="mx-auto mb-4 text-gray-500" />
                       <h3 className="text-lg font-semibold text-gray-300 mb-2">Keine laufenden Angebote</h3>
                       <p className="text-gray-400 text-sm max-w-md mx-auto">
-                        Sie haben noch keine Angebote für Gewerke abgegeben. Nutzen Sie die Geo-Search rechts, um passende Ausschreibungen zu finden.
+                        Du hast derzeit keine Angebote im Angebotsverfahren. Nutze die Geo-Search rechts, um passende Ausschreibungen zu finden.
                       </p>
                     </div>
                   )}
                 </div>
-                )}
 
-                {/* Gewonnene Ausschreibungen Content */}
-                {activeLeftTab === 'awarded' && (
-                <div className="transition-all duration-500 opacity-100">
+                {/* Gewonnene Projekte Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <Award size={20} className="text-green-400" />
+                      Gewonnene Projekte
+                    </h3>
+                    <div className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">
+                      {getAllTradesWithQuotes.filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status !== 'completed').length}
+                    </div>
+                  </div>
+                  
                   <div className="bidding-cards-container">
                     {getAllTradesWithQuotes
                       .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status !== 'completed')
@@ -2604,124 +2770,150 @@ export default function ServiceProviderDashboard() {
                         // Verwende nur den tatsächlichen completion_status aus den Daten
                         const actualCompletionStatus = trade.completion_status || 'in_progress';
                         
+                        // Berechne Fortschritt basierend auf Start- und Enddatum
+                        const getProgressPercentage = () => {
+                          if (!quote?.start_date || !quote?.completion_date) return 0;
+                          const start = new Date(quote.start_date);
+                          const end = new Date(quote.completion_date);
+                          const now = new Date();
+                          const total = end.getTime() - start.getTime();
+                          const elapsed = now.getTime() - start.getTime();
+                          return Math.min(Math.max((elapsed / total) * 100, 0), 100);
+                        };
+                        
+                        const progressPercentage = getProgressPercentage();
+                        
                         return (
-                          <div key={trade.id} className="bidding-card bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl p-4 border border-green-500/20 hover:border-green-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20">
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex items-center gap-3">
-                                <div className="p-2 bg-green-500/20 rounded-lg">
-                                  {getCategoryIcon(trade.category)}
-                                </div>
-                                <div>
-                                  <h3 className="font-semibold text-white text-sm">
-                                    {trade.title}
-                                    {trade.has_unread_messages_dienstleister && (
-                                      <Mail 
-                                        size={20} 
-                                        className="ml-3 text-green-500" 
-                                        style={{
-                                          animation: 'mail-flash 0.5s linear infinite !important',
-                                          animationName: 'mail-flash !important',
-                                          animationDuration: '0.5s !important',
-                                          animationTimingFunction: 'linear !important',
-                                          animationIterationCount: 'infinite !important',
-                                          filter: 'drop-shadow(0 0 8px #00ff00)',
-                                          fontWeight: 'bold',
-                                          fontSize: '20px',
-                                          willChange: 'opacity',
-                                          display: 'inline-block'
-                                        }}
-                                      />
-                                    )}
-                                  </h3>
-                                  <p className="text-gray-400 text-xs">Projekt ID: {trade.project_id}</p>
-                                  {/* Beschreibung mit Trunkierung für Gewonnene Projekte */}
-                                  {trade.description && (
-                                    <div className="mt-1">
-                                      <p className="text-gray-300 text-xs leading-relaxed">
-                                        {isDescriptionExpanded(trade.id) 
-                                          ? trade.description 
-                                          : truncateText(trade.description, 80)
-                                        }
-                                      </p>
-                                      {trade.description.length > 80 && (
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            toggleDescriptionExpansion(trade.id);
-                                          }}
-                                          className="inline-flex items-center gap-1 mt-1 text-xs text-green-400 hover:text-green-300 transition-colors"
-                                        >
-                                          {isDescriptionExpanded(trade.id) ? 'Weniger' : 'Mehr'}
-                                        </button>
+                          <div 
+                            key={trade.id} 
+                            className="bidding-card group relative overflow-hidden bg-gradient-to-br from-green-500/5 via-emerald-500/10 to-green-600/5 rounded-2xl p-6 border border-green-500/20 hover:border-green-400/50 transition-all duration-500 hover:shadow-2xl hover:shadow-green-500/25 backdrop-blur-sm cursor-pointer"
+                            onClick={() => {
+                              setDetailTrade(trade);
+                              setShowTradeDetails(true);
+                            }}
+                          >
+                            {/* Glow-Effekt */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 via-emerald-500/5 to-green-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl"></div>
+                            
+                            {/* Glassmorph-Effekt */}
+                            <div className="absolute inset-0 bg-white/5 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl"></div>
+                            
+                            <div className="relative z-10">
+                              <div className="flex items-start justify-between mb-4">
+                                <div className="flex items-center gap-4">
+                                  <div className="p-3 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl shadow-lg group-hover:shadow-green-500/30 transition-all duration-300">
+                                    {getCategoryIcon(trade.category)}
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <h3 className="font-bold text-white text-base group-hover:text-green-300 transition-colors duration-300">
+                                        {trade.title}
+                                      </h3>
+                                      {trade.has_unread_messages_dienstleister && (
+                                        <div className="relative">
+                                          <Mail 
+                                            size={16} 
+                                            className="text-blue-400 animate-pulse" 
+                                            title="Ungelesene Nachrichten"
+                                          />
+                                          <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
+                                        </div>
                                       )}
+                                    </div>
+                                    <p className="text-gray-400 text-sm mb-2">Projekt ID: {trade.project_id}</p>
+                                    
+                                    {/* Beschreibung mit verbessertem Design */}
+                                    {trade.description && (
+                                      <div className="mt-2">
+                                        <p className="text-gray-300 text-sm leading-relaxed">
+                                          {isDescriptionExpanded(trade.id) 
+                                            ? trade.description 
+                                            : truncateText(trade.description, 100)
+                                          }
+                                        </p>
+                                        {trade.description.length > 100 && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              toggleDescriptionExpansion(trade.id);
+                                            }}
+                                            className="inline-flex items-center gap-1 mt-2 text-sm text-green-400 hover:text-green-300 transition-colors font-medium"
+                                          >
+                                            {isDescriptionExpanded(trade.id) ? 'Weniger anzeigen' : 'Mehr anzeigen'}
+                                            <span className="text-xs">{isDescriptionExpanded(trade.id) ? '▲' : '▼'}</span>
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {/* Status und Budget */}
+                                <div className="text-right flex-shrink-0">
+                                  <div className="px-3 py-1 bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-400 rounded-full text-sm font-semibold mb-3 shadow-lg">
+                                    {getCompletionStatusLabel(actualCompletionStatus)}
+                                  </div>
+                                  {quote && (
+                                    <div className="text-green-300 text-lg font-bold mb-2">
+                                      {formatCurrency(quote.total_amount)} CHF
                                     </div>
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                {/* Completion Status Badge - nur wenn tatsächlich gesetzt */}
-                                {actualCompletionStatus === 'completion_requested' ? (
-                                  <>
-                                    <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
-                                    <span className="text-orange-400 text-xs font-medium">Als fertiggestellt markiert</span>
-                                  </>
-                                ) : actualCompletionStatus === 'completed' ? (
-                                  <>
-                                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                                    <span className="text-green-400 text-xs font-medium">Abgeschlossen</span>
-                                  </>
-                                ) : actualCompletionStatus === 'completed_with_defects' ? (
-                                  <>
-                                    <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                                    <span className="text-yellow-400 text-xs font-medium">Unter Vorbehalt</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                                    <span className="text-green-400 text-xs font-medium">Aktiv</span>
-                                  </>
-                                )}
+                              
+                              {/* Erweiterte Projektinformationen */}
+                              <div className="grid grid-cols-2 gap-6 mb-6">
+                                <div className="space-y-3">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-gray-400 text-sm font-medium">Fertigstellung:</span>
+                                    <span className="text-white text-sm font-semibold">
+                                      {quote?.completion_date ? new Date(quote.completion_date).toLocaleDateString('de-DE') : 'Nicht festgelegt'}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-gray-400 text-sm font-medium">Projektstart:</span>
+                                    <span className="text-white text-sm font-semibold">
+                                      {quote?.start_date ? new Date(quote.start_date).toLocaleDateString('de-DE') : 'Nicht festgelegt'}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="space-y-3">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-gray-400 text-sm font-medium">Kategorie:</span>
+                                    <span className="text-white text-sm font-semibold">{trade.category || 'Unbekannt'}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-gray-400 text-sm font-medium">Standort:</span>
+                                    <span className="text-white text-sm font-semibold">
+                                      {(() => {
+                                        // Priorität: location > address_city > address_street > address_zip
+                                        if (trade.location) return trade.location;
+                                        if (trade.address_city) return trade.address_city;
+                                        if (trade.address_street) return trade.address_street;
+                                        if (trade.address_zip) return trade.address_zip;
+                                        return 'Nicht angegeben';
+                                      })()}
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            
-                            <div className="space-y-2 text-xs text-gray-300">
-                              <div className="flex justify-between">
-                                <span>Auftragswert:</span>
-                                <span className="font-semibold text-green-400">
-                                  {quote?.total_amount ? `${Number(quote.total_amount).toLocaleString('de-DE')} ${quote.currency || 'CHF'}` : 'N/A'}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>Angenommen:</span>
-                                <span>{quote?.updated_at ? new Date(quote.updated_at).toLocaleDateString('de-DE') : 'N/A'}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>Status:</span>
-                                <span className="text-green-400">
-                                  {getCompletionStatusLabel(trade.completion_status || 'in_progress')}
-                                </span>
-                              </div>
-                            </div>
-                            
-                            <div className="mt-4 flex gap-2">
-                              <button
-                                onClick={() => {
-                                  setDetailTrade(trade);
-                                  setShowTradeDetails(true);
-                                }}
-                                className="flex-1 px-3 py-2 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition-colors text-xs font-medium"
-                              >
-                                Projekt öffnen
-                              </button>
-                              <button
-                                onClick={() => {
-                                  // Navigation zu Projektdetails oder Fortschritt
-                                  window.location.href = `/projects/${trade.project_id}`;
-                                }}
-                                className="px-3 py-2 bg-blue-500/20 text-blue-300 rounded-lg hover:bg-blue-500/30 transition-colors text-xs font-medium"
-                              >
-                                <ExternalLink size={14} />
-                              </button>
+                              
+                              {/* Fortschrittsbalken */}
+                              {quote?.start_date && quote?.completion_date && (
+                                <div className="mb-6">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <span className="text-gray-400 text-sm font-medium">Projektfortschritt</span>
+                                    <span className="text-green-400 text-sm font-semibold">{Math.round(progressPercentage)}%</span>
+                                  </div>
+                                  <div className="w-full bg-gray-700/50 rounded-full h-2 overflow-hidden">
+                                    <div 
+                                      className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all duration-1000 ease-out shadow-lg"
+                                      style={{ width: `${progressPercentage}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              )}
+                              
                             </div>
                           </div>
                         );
@@ -2738,173 +2930,204 @@ export default function ServiceProviderDashboard() {
                     </div>
                   )}
                 </div>
-                )}
 
-                {/* Abgeschlossene Projekte Content */}
-                {activeLeftTab === 'completed' && (
-                <div className="transition-all duration-500 opacity-100">
-                  <div className="bidding-cards-container">
-                    {getAllTradesWithQuotes
-                      .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed')
-                      .map((trade) => {
-                        const quote = getServiceProviderQuote(trade.id);
-                        
-                        return (
-                          <div key={trade.id} className="bidding-card bg-gradient-to-br from-purple-500/10 to-indigo-500/10 rounded-xl p-4 border border-purple-500/20 hover:border-purple-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20">
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex items-center gap-3">
-                                <div className="p-2 bg-purple-500/20 rounded-lg">
-                                  {getCategoryIcon(trade.category)}
-                                </div>
-                                <div>
-                                  <h3 className="font-semibold text-white text-sm">
-                                    {trade.title}
-                                    {trade.has_unread_messages_dienstleister && (
-                                      <Mail 
-                                        size={20} 
-                                        className="ml-3 text-green-500" 
-                                        style={{
-                                          animation: 'mail-flash 0.5s linear infinite !important',
-                                          animationName: 'mail-flash !important',
-                                          animationDuration: '0.5s !important',
-                                          animationTimingFunction: 'linear !important',
-                                          animationIterationCount: 'infinite !important',
-                                          filter: 'drop-shadow(0 0 8px #00ff00)',
-                                          fontWeight: 'bold',
-                                          fontSize: '20px',
-                                          willChange: 'opacity',
-                                          display: 'inline-block'
-                                        }}
-                                      />
-                                    )}
-                                  </h3>
-                                  <p className="text-gray-400 text-xs">Projekt ID: {trade.project_id}</p>
-                                  {/* Beschreibung mit Trunkierung */}
-                                  {trade.description && (
-                                    <div className="mt-1">
-                                      <p className="text-gray-300 text-xs leading-relaxed">
-                                        {isDescriptionExpanded(trade.id) 
-                                          ? trade.description 
-                                          : truncateText(trade.description, 80)
-                                        }
-                                      </p>
-                                      {trade.description.length > 80 && (
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            toggleDescriptionExpansion(trade.id);
-                                          }}
-                                          className="inline-flex items-center gap-1 mt-1 text-xs text-purple-400 hover:text-purple-300 transition-colors"
-                                        >
-                                          {isDescriptionExpanded(trade.id) ? 'Weniger' : 'Mehr'}
-                                        </button>
+                {/* Abgeschlossene Projekte Section - Einklappbar */}
+                <div>
+                  <button
+                    onClick={() => setIsCompletedProjectsExpanded(!isCompletedProjectsExpanded)}
+                    className="flex items-center justify-between w-full p-4 bg-gradient-to-br from-purple-500/10 to-indigo-500/10 rounded-xl border border-purple-500/20 hover:border-purple-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-purple-500/20 rounded-lg">
+                        <CheckCircle size={20} className="text-purple-400" />
+                      </div>
+                      <div className="text-left">
+                        <h3 className="text-lg font-semibold text-white">Abgeschlossene Projekte</h3>
+                        <p className="text-gray-400 text-sm">Fertige Aufträge</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-medium">
+                        {getAllTradesWithQuotes.filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed').length}
+                      </div>
+                      {/* Badge für Projekte ohne Rechnung */}
+                      {getAllTradesWithQuotes.filter(trade => 
+                        getServiceProviderQuoteStatus(trade.id) === 'accepted' && 
+                        trade.completion_status === 'completed' && 
+                        !hasValidInvoice(trade.id)
+                      ).length > 0 && (
+                        <div className="px-1.5 py-0.5 bg-red-500 text-white rounded-full text-xs font-bold animate-pulse">
+                          !
+                        </div>
+                      )}
+                      <svg 
+                        className={`w-5 h-5 text-purple-400 transition-transform duration-300 ${isCompletedProjectsExpanded ? 'rotate-180' : ''}`} 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </button>
+                  
+                  {/* Einklappbarer Content */}
+                  {isCompletedProjectsExpanded && (
+                    <div className="mt-4 space-y-4">
+                      <div className="bidding-cards-container">
+                        {getAllTradesWithQuotes
+                          .filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed')
+                          .map((trade) => {
+                            const quote = getServiceProviderQuote(trade.id);
+                            
+                            return (
+                              <div key={trade.id} className="bidding-card bg-gradient-to-br from-purple-500/10 to-indigo-500/10 rounded-xl p-4 border border-purple-500/20 hover:border-purple-400/40 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20">
+                                <div className="flex items-start justify-between mb-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-purple-500/20 rounded-lg">
+                                      {getCategoryIcon(trade.category)}
+                                    </div>
+                                    <div>
+                                      <h3 className="font-semibold text-white text-sm">
+                                        {trade.title}
+                                        {trade.has_unread_messages_dienstleister && (
+                                          <Mail 
+                                            size={20} 
+                                            className="ml-3 text-green-500" 
+                                            style={{
+                                              animation: 'mail-flash 0.5s linear infinite !important',
+                                              animationName: 'mail-flash !important',
+                                              animationDuration: '0.5s !important',
+                                              animationTimingFunction: 'linear !important',
+                                              animationIterationCount: 'infinite !important',
+                                              filter: 'drop-shadow(0 0 8px #00ff00)',
+                                              fontWeight: 'bold',
+                                              fontSize: '20px',
+                                              willChange: 'opacity',
+                                              display: 'inline-block'
+                                            }}
+                                          />
+                                        )}
+                                      </h3>
+                                      <p className="text-gray-400 text-xs">Projekt ID: {trade.project_id}</p>
+                                      {/* Beschreibung mit Trunkierung */}
+                                      {trade.description && (
+                                        <div className="mt-1">
+                                          <p className="text-gray-300 text-xs leading-relaxed">
+                                            {isDescriptionExpanded(trade.id) 
+                                              ? trade.description 
+                                              : truncateText(trade.description, 80)
+                                            }
+                                          </p>
+                                          {trade.description.length > 80 && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleDescriptionExpansion(trade.id);
+                                              }}
+                                              className="inline-flex items-center gap-1 mt-1 text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                                            >
+                                              {isDescriptionExpanded(trade.id) ? 'Weniger' : 'Mehr'}
+                                            </button>
+                                          )}
+                                        </div>
                                       )}
                                     </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                                    <span className="text-purple-400 text-xs font-medium">Abgeschlossen</span>
+                                  </div>
+                                </div>
+                                
+                                {/* Prominente Warnung für fehlende Rechnung - nur wenn keine gültige Rechnung existiert */}
+                                {!hasValidInvoice(trade.id) && (
+                                  <div className="mb-3 p-3 bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30 rounded-lg animate-pulse">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <AlertTriangle size={16} className="text-red-400" />
+                                      <span className="text-red-400 font-semibold text-sm">Rechnung ausstehend!</span>
+                                    </div>
+                                    <p className="text-red-300 text-xs">
+                                      Das Projekt ist abgeschlossen, aber Sie haben noch keine Rechnung gestellt. 
+                                      Erstellen Sie jetzt Ihre Rechnung, um die Bezahlung zu erhalten.
+                                    </p>
+                                  </div>
+                                )}
+
+                                {/* Rechnung bereits erstellt - Erfolgs-Anzeige */}
+                                {hasValidInvoice(trade.id) && (
+                                  <div className="mb-3 p-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-lg">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <CheckCircle size={16} className="text-green-400" />
+                                      <span className="text-green-400 font-semibold text-sm">Rechnung erstellt</span>
+                                    </div>
+                                    <p className="text-green-300 text-xs">
+                                      Ihre Rechnung wurde erfolgreich erstellt und versendet. Status: {tradeInvoices[trade.id]?.status || 'Unbekannt'}
+                                    </p>
+                                  </div>
+                                )}
+                                
+                                <div className="space-y-2 text-xs text-gray-300">
+                                  <div className="flex justify-between">
+                                    <span>Auftragswert:</span>
+                                    <span className="font-semibold text-purple-400">
+                                      {quote?.total_amount ? `${Number(quote.total_amount).toLocaleString('de-DE')} ${quote.currency || 'CHF'}` : 'N/A'}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Abgeschlossen:</span>
+                                    <span>{trade.created_at ? new Date(trade.created_at).toLocaleDateString('de-DE') : 'N/A'}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Status:</span>
+                                    <span className="text-purple-400 font-medium">
+                                      Abgeschlossen
+                                    </span>
+                                  </div>
+                                </div>
+                                
+                                <div className="mt-4 flex gap-2">
+                                  {!hasValidInvoice(trade.id) ? (
+                                    <button
+                                      onClick={() => {
+                                        setDetailTrade(trade);
+                                        setShowTradeDetails(true);
+                                      }}
+                                      className="flex-1 px-3 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors text-xs font-medium border border-red-500/30 animate-pulse"
+                                    >
+                                      <AlertTriangle size={14} className="inline mr-1" />
+                                      Rechnung erstellen
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        setDetailTrade(trade);
+                                        setShowTradeDetails(true);
+                                      }}
+                                      className="flex-1 px-3 py-2 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition-colors text-xs font-medium"
+                                    >
+                                      <CheckCircle size={14} className="inline mr-1" />
+                                      Rechnung anzeigen
+                                    </button>
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
-                                <span className="text-purple-400 text-xs font-medium">Abgeschlossen</span>
-                              </div>
-                            </div>
-                            
-                            {/* Prominente Warnung für fehlende Rechnung - nur wenn keine gültige Rechnung existiert */}
-                            {!hasValidInvoice(trade.id) && (
-                              <div className="mb-3 p-3 bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30 rounded-lg animate-pulse">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <AlertTriangle size={16} className="text-red-400" />
-                                  <span className="text-red-400 font-semibold text-sm">Rechnung ausstehend!</span>
-                                </div>
-                                <p className="text-red-300 text-xs">
-                                  Das Projekt ist abgeschlossen, aber Sie haben noch keine Rechnung gestellt. 
-                                  Erstellen Sie jetzt Ihre Rechnung, um die Bezahlung zu erhalten.
-                                </p>
-                              </div>
-                            )}
-
-                            {/* Rechnung bereits erstellt - Erfolgs-Anzeige */}
-                            {hasValidInvoice(trade.id) && (
-                              <div className="mb-3 p-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-lg">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <CheckCircle size={16} className="text-green-400" />
-                                  <span className="text-green-400 font-semibold text-sm">Rechnung erstellt</span>
-                                </div>
-                                <p className="text-green-300 text-xs">
-                                  Ihre Rechnung wurde erfolgreich erstellt und versendet. Status: {tradeInvoices[trade.id]?.status || 'Unbekannt'}
-                                </p>
-                              </div>
-                            )}
-                            
-                            <div className="space-y-2 text-xs text-gray-300">
-                              <div className="flex justify-between">
-                                <span>Auftragswert:</span>
-                                <span className="font-semibold text-purple-400">
-                                  {quote?.total_amount ? `${Number(quote.total_amount).toLocaleString('de-DE')} ${quote.currency || 'CHF'}` : 'N/A'}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>Abgeschlossen:</span>
-                                <span>{trade.created_at ? new Date(trade.created_at).toLocaleDateString('de-DE') : 'N/A'}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>Status:</span>
-                                <span className="text-purple-400 font-medium">
-                                  Abgeschlossen
-                                </span>
-                              </div>
-                            </div>
-                            
-                            <div className="mt-4 flex gap-2">
-                              {!hasValidInvoice(trade.id) ? (
-                                <button
-                                  onClick={() => {
-                                    setDetailTrade(trade);
-                                    setShowTradeDetails(true);
-                                  }}
-                                  className="flex-1 px-3 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors text-xs font-medium border border-red-500/30 animate-pulse"
-                                >
-                                  <AlertTriangle size={14} className="inline mr-1" />
-                                  Rechnung erstellen
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => {
-                                    setDetailTrade(trade);
-                                    setShowTradeDetails(true);
-                                  }}
-                                  className="flex-1 px-3 py-2 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition-colors text-xs font-medium"
-                                >
-                                  <CheckCircle size={14} className="inline mr-1" />
-                                  Rechnung anzeigen
-                                </button>
-                              )}
-                              <button
-                                onClick={() => {
-                                  setDetailTrade(trade);
-                                  setShowTradeDetails(true);
-                                }}
-                                className="px-3 py-2 bg-purple-500/20 text-purple-300 rounded-lg hover:bg-purple-500/30 transition-colors text-xs font-medium"
-                              >
-                                Projekt öffnen
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                  
-                  {getAllTradesWithQuotes.filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed').length === 0 && (
-                    <div className="text-center py-12">
-                      <CheckCircle size={48} className="mx-auto mb-4 text-gray-500" />
-                      <h3 className="text-lg font-semibold text-gray-300 mb-2">Noch keine abgeschlossenen Projekte</h3>
-                      <p className="text-gray-400 text-sm max-w-md mx-auto">
-                        Sobald Ihre Projekte abgeschlossen sind, erscheinen sie hier zur Rechnungsstellung.
-                      </p>
+                            );
+                          })}
+                      </div>
+                      
+                      {getAllTradesWithQuotes.filter(trade => getServiceProviderQuoteStatus(trade.id) === 'accepted' && trade.completion_status === 'completed').length === 0 && (
+                        <div className="text-center py-12">
+                          <CheckCircle size={48} className="mx-auto mb-4 text-gray-500" />
+                          <h3 className="text-lg font-semibold text-gray-300 mb-2">Noch keine abgeschlossenen Projekte</h3>
+                          <p className="text-gray-400 text-sm max-w-md mx-auto">
+                            Sobald deine Projekte abgeschlossen werden, erscheinen sie hier.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-                )}
               </div>
             </div>
           </div>
@@ -2924,10 +3147,10 @@ export default function ServiceProviderDashboard() {
                     <MapPin size={24} className="text-[#2c3539]" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">Ausschreibungen in Ihrer Nähe</h2>
+                    <h2 className="text-xl font-bold text-white">Ausschreibungen in deiner Nähe</h2>
                     <p className="text-gray-400 text-sm mt-1">
                       {currentLocation ? (
-                        <>Finden Sie passende Ausschreibungen im Umkreis</>  
+                        <>Finde passende Ausschreibungen im Umkreis</>  
                       ) : (
                         <>Geben Sie eine Adresse ein oder nutzen Sie Ihren Standort</>  
                       )}
@@ -3163,7 +3386,7 @@ export default function ServiceProviderDashboard() {
             
             {/* Category Filter with Icons */}
             <div className="bg-white/5 rounded-xl p-4 border border-white/10 hover:border-[#ffbd59]/30 transition-all duration-300">
-              <label className="text-white text-sm font-medium mb-3 block">🏗️ Gewerk-Kategorie</label>
+              <label className="text-white text-sm font-medium mb-3 block">🏗️ Kategorie</label>
               <select
                 value={geoTradeCategory || ''}
                 onChange={(e) => setGeoTradeCategory(e.target.value)}
@@ -3421,9 +3644,13 @@ export default function ServiceProviderDashboard() {
                             </p>
                           </div>
                           <div>
-                            <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Budget</p>
+                            <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">Eingabefrist</p>
                             <p className="text-white text-sm font-medium">
-                              💰 {trade.budget ? formatCurrency(trade.budget) : 'Nicht festgelegt'}
+                              {trade.submission_deadline ? (
+                                <>⏰ {formatDate(trade.submission_deadline)}</>
+                              ) : (
+                                <>⏰ Nicht festgelegt</>
+                              )}
                             </p>
                           </div>
                         </div>
@@ -3562,7 +3789,9 @@ export default function ServiceProviderDashboard() {
                               </div>
                               <div className="flex items-center gap-4 text-sm text-gray-400">
                                 <span>{trade.category || 'Unbekannt'}</span>
-                                <span>{trade.budget ? formatCurrency(trade.budget) : 'Budget n.a.'}</span>
+                                <span>
+                                  ⏰ {trade.submission_deadline ? formatDate(trade.submission_deadline) : 'Eingabefrist n.a.'}
+                                </span>
                                 <span>📅 {formatDate(trade.planned_date || trade.start_date)}</span>
                                 <span>📊 {(() => {
                                   const quoteCount = trade.quote_stats?.total_quotes ?? (allTradeQuotes[trade.id] || []).length;
@@ -3720,10 +3949,25 @@ export default function ServiceProviderDashboard() {
         const serviceQuotes = serviceProviderQuotes.filter(q => q.milestone_id === detailTrade.id);
         const allQuotes = [...tradeQuotes, ...serviceQuotes];
         
-        // Entferne Duplikate basierend auf ID
-        const uniqueQuotes = allQuotes.filter((quote, index, self) => 
-          index === self.findIndex(q => q.id === quote.id)
-        );
+        // Entferne Duplikate basierend auf ID - aber bevorzuge Quotes mit korrekter milestone_id
+        const uniqueQuotes = [];
+        const seenIds = new Set();
+        
+        // Erst alle Quotes mit korrekter milestone_id hinzufügen
+        for (const quote of allQuotes) {
+          if (quote.milestone_id === detailTrade.id && !seenIds.has(quote.id)) {
+            uniqueQuotes.push(quote);
+            seenIds.add(quote.id);
+          }
+        }
+        
+        // Dann alle anderen Quotes hinzufügen (falls noch nicht vorhanden)
+        for (const quote of allQuotes) {
+          if (!seenIds.has(quote.id)) {
+            uniqueQuotes.push(quote);
+            seenIds.add(quote.id);
+          }
+        }
         
         console.log('🔍 DEBUG: Erweiterte Übergabe an TradeDetailsModal', {
           tradeId: detailTrade.id,
@@ -3769,7 +4013,7 @@ export default function ServiceProviderDashboard() {
 
     {/* Archiv Modal */}
     {showArchive && (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[99999] p-4">
         <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-7xl w-full max-h-[95vh] overflow-hidden">
           <div className="flex items-center justify-between p-6 border-b border-white/10">
             <h2 className="text-xl font-bold text-white">Archivierte Gewerke</h2>
@@ -3809,7 +4053,7 @@ export default function ServiceProviderDashboard() {
 
     {/* Ressourcenkalender Modal */}
     {showResourceCalendar && (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[99999] p-4">
         <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-7xl w-full max-h-[95vh] overflow-hidden">
           <div className="flex items-center justify-between p-6 border-b border-white/10">
             <h2 className="text-xl font-bold text-white">Ressourcenkalender</h2>
@@ -3834,7 +4078,7 @@ export default function ServiceProviderDashboard() {
 
     {/* Ressourcen KPI Dashboard Modal */}
     {showResourceKPIs && (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[99999] p-4">
         <div className="bg-[#2c3539] rounded-2xl shadow-2xl border border-white/20 max-w-7xl w-full max-h-[95vh] overflow-hidden">
           <div className="flex items-center justify-between p-6 border-b border-white/10">
             <h2 className="text-xl font-bold text-white">Ressourcen KPIs</h2>
@@ -3889,7 +4133,7 @@ export default function ServiceProviderDashboard() {
 
     {/* Resource Calendar Modal */}
     {showResourceCalendar && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4">
         <div className="bg-[#1a1a1a] rounded-2xl w-full max-w-7xl max-h-[95vh] overflow-hidden">
           <div className="flex items-center justify-between p-6 border-b border-gray-700">
             <h2 className="text-2xl font-bold text-white">Ressourcen-Kalenderansicht</h2>
@@ -3912,10 +4156,30 @@ export default function ServiceProviderDashboard() {
       </div>
     )}
 
+      {/* Notification Tab für Dienstleister */}
+      {user && (user.user_type === 'service_provider' || user.user_role === 'DIENSTLEISTER') && (
+        <NotificationTab userRole="DIENSTLEISTER" userId={user.id} />
+      )}
+
       {/* Service Provider Document Tab */}
       {user && (user.user_type === 'service_provider' || user.user_role === 'DIENSTLEISTER') && (
         <ServiceProviderDocumentTab userId={user.id} />
       )}
+
+      {/* Contact Tab für Dienstleister */}
+      {user && (user.user_type === 'service_provider' || user.user_role === 'DIENSTLEISTER') && (
+        <ContactTab userRole="DIENSTLEISTER" userId={user.id} />
+      )}
+
+      {/* Task Creation Modal */}
+      <TaskCreationModal
+        isOpen={showTaskCreation}
+        onClose={() => setShowTaskCreation(false)}
+        onTaskCreated={() => {
+          // Optional: Reload data or show success message
+          console.log('Task created successfully');
+        }}
+      />
     </>
   );
-} 
+}

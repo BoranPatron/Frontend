@@ -56,7 +56,7 @@ interface TradesCardProps {
   projectId?: number;
   isExpanded: boolean;
   onToggle: () => void;
-  onAcceptQuote?: (quoteId: number) => void;
+  onAcceptQuote?: (quoteId: number, providerName?: string, isInspectionQuote?: boolean) => void;
   onRejectQuote?: (quoteId: number, reason: string) => void;
   onResetQuote?: (quoteId: number) => void;
   onEditTrade?: (tradeId: number) => void;
@@ -390,14 +390,18 @@ export default function TradesCard({
     if (!quote) return;
 
     try {
-      await onAcceptQuote(quote.id);
+      // Bestimme ob es ein Besichtigungs-Angebot ist
+      const isInspectionQuote = quote.revised_after_inspection || quote.is_revised_quote;
+      
+      // Übergebe zusätzliche Parameter für die Animation
+      await onAcceptQuote(quote.id, quote.company_name || quote.contact_person, isInspectionQuote);
+      
       // Status aktualisieren
       setQuoteStatus(prev => ({ ...prev, [tradeId]: 'accepted' }));
       // Gewerk-Statistiken neu laden
       await loadTradeStats(tradeId);
-      console.log(`✅ Angebot für Gewerk ${tradeId} erfolgreich angenommen`);
     } catch (error) {
-      console.error('❌ Fehler beim Annehmen des Angebots:', error);
+      console.error('Fehler beim Annehmen des Angebots:', error);
     }
   };
 
@@ -872,6 +876,77 @@ export default function TradesCard({
                                 </div>
                                                             )}
 
+                              {/* Angebotsfrist Badge */}
+                              {(trade as any).submission_deadline && (
+                                <div className="relative group">
+                                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-red-600/20 via-red-500/20 to-red-600/20 border border-red-400/30 rounded-full cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-red-500/20">
+                                    <Clock size={12} className="text-red-300" />
+                                    <span className="text-xs font-medium text-red-200">
+                                      {(() => {
+                                        const deadline = new Date((trade as any).submission_deadline);
+                                        const now = new Date();
+                                        const diffTime = deadline.getTime() - now.getTime();
+                                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                        
+                                        if (diffDays < 0) {
+                                          return `${Math.abs(diffDays)}d überfällig`;
+                                        } else if (diffDays === 0) {
+                                          return 'Heute';
+                                        } else if (diffDays === 1) {
+                                          return 'Morgen';
+                                        } else {
+                                          return `${diffDays}d`;
+                                        }
+                                      })()}
+                                    </span>
+                                  </div>
+                                  
+                                  {/* Tooltip für Angebotsfrist */}
+                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-[100]">
+                                    <div className="bg-gradient-to-b from-gray-900 to-gray-800 text-white text-xs rounded-xl py-3 px-4 shadow-2xl border border-gray-600/50 backdrop-blur-sm min-w-[200px]">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <Clock size={14} className="text-red-400" />
+                                        <div className="font-bold text-red-300">Angebotsfrist</div>
+                                      </div>
+                                      <div className="text-gray-300">
+                                        {new Date((trade as any).submission_deadline).toLocaleDateString('de-DE', {
+                                          day: '2-digit',
+                                          month: 'long',
+                                          year: 'numeric'
+                                        })}
+                                      </div>
+                                      {(() => {
+                                        const deadline = new Date((trade as any).submission_deadline);
+                                        const now = new Date();
+                                        const diffTime = deadline.getTime() - now.getTime();
+                                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                        
+                                        if (diffDays < 0) {
+                                          return (
+                                            <div className="mt-2 pt-2 border-t border-gray-600/50 text-red-300">
+                                              <strong>{Math.abs(diffDays)} Tage überfällig</strong>
+                                            </div>
+                                          );
+                                        } else if (diffDays === 0) {
+                                          return (
+                                            <div className="mt-2 pt-2 border-t border-gray-600/50 text-orange-300">
+                                              <strong>Frist läuft heute ab!</strong>
+                                            </div>
+                                          );
+                                        } else {
+                                          return (
+                                            <div className="mt-2 pt-2 border-t border-gray-600/50 text-gray-300">
+                                              Noch <strong>{diffDays} Tage</strong> verbleibend
+                                            </div>
+                                          );
+                                        }
+                                      })()}
+                                    </div>
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Fertigstellungsstatus Badge - nur wenn tatsächlich fertiggestellt markiert */}
                               {(tradeStatsForTrade?.acceptedQuote || currentQuoteStatus === 'accepted') && (() => {
                                 // Verwende nur den tatsächlichen completion_status aus den Daten
@@ -885,6 +960,8 @@ export default function TradesCard({
                                           ? 'bg-gradient-to-r from-green-600/40 via-emerald-500/40 to-green-600/40 border-green-400/50 hover:shadow-green-500/30'
                                           : actualCompletionStatus === 'completed_with_defects'
                                           ? 'bg-gradient-to-r from-yellow-600/40 via-amber-500/40 to-yellow-600/40 border-yellow-400/50 hover:shadow-yellow-500/30'
+                                          : actualCompletionStatus === 'defects_resolved'
+                                          ? 'bg-gradient-to-r from-green-600/50 via-emerald-500/50 to-green-600/50 border-green-400/60 hover:shadow-green-500/40'
                                           : actualCompletionStatus === 'completion_requested'
                                           ? 'bg-gradient-to-r from-orange-600/40 via-orange-500/40 to-orange-600/40 border-orange-400/50 hover:shadow-orange-500/30 animate-pulse'
                                           : 'bg-gradient-to-r from-gray-600/40 via-gray-500/40 to-gray-600/40 border-gray-400/50 hover:shadow-gray-500/30'
@@ -914,6 +991,14 @@ export default function TradesCard({
                                                 ⚠️ Unter Vorbehalt
                                               </span>
                                             </>
+                                          ) : actualCompletionStatus === 'defects_resolved' ? (
+                                            <>
+                                              <CheckCircle size={12} className="text-green-200" />
+                                              {/* Mobile: Nur Icon, Desktop: Text + Icon */}
+                                              <span className="text-xs font-semibold text-green-200 hidden md:inline">
+                                                ✅ Mängel behoben
+                                              </span>
+                                            </>
                                           ) : (
                                             <span className="text-xs font-semibold text-gray-200 hidden md:inline">{actualCompletionStatus}</span>
                                           )}
@@ -924,6 +1009,7 @@ export default function TradesCard({
                                           actualCompletionStatus === 'completion_requested' ? 'bg-orange-400 animate-ping' :
                                           actualCompletionStatus === 'completed' ? 'bg-green-400' :
                                           actualCompletionStatus === 'completed_with_defects' ? 'bg-yellow-400' :
+                                          actualCompletionStatus === 'defects_resolved' ? 'bg-green-500' :
                                           'bg-gray-400'
                                         }`}></div>
                                       </div>
@@ -947,6 +1033,11 @@ export default function TradesCard({
                                                 <AlertTriangle size={14} className="text-yellow-400" />
                                                 <div className="font-bold text-yellow-300">Abgeschlossen unter Vorbehalt</div>
                                               </>
+                                            ) : actualCompletionStatus === 'defects_resolved' ? (
+                                              <>
+                                                <CheckCircle size={14} className="text-green-400" />
+                                                <div className="font-bold text-green-300">Mängel behoben</div>
+                                              </>
                                             ) : (
                                               <div className="font-bold text-gray-300">Status: {actualCompletionStatus}</div>
                                             )}
@@ -958,6 +1049,8 @@ export default function TradesCard({
                                               ? 'Das Projekt wurde erfolgreich abgeschlossen und abgenommen.'
                                               : actualCompletionStatus === 'completed_with_defects'
                                               ? 'Das Projekt wurde unter Vorbehalt abgenommen. Mängel wurden dokumentiert.'
+                                              : actualCompletionStatus === 'defects_resolved'
+                                              ? 'Alle gemeldeten Mängel wurden erfolgreich behoben und das Projekt ist vollständig abgeschlossen.'
                                               : 'Fertigstellungsstatus des Projekts.'
                                             }
                                           </div>

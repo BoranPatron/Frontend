@@ -22,6 +22,7 @@ interface MilestoneData {
   status: string;
   priority: string;
   planned_date: string;
+  submission_deadline?: string; // Angebotsfrist (optional)
   start_date?: string;
   end_date?: string;
   category?: string;
@@ -52,6 +53,7 @@ export async function createMilestoneWithDocuments(data: MilestoneData & {
   formData.append('category', data.category || '');
   formData.append('priority', data.priority);
   formData.append('planned_date', data.planned_date);
+  formData.append('submission_deadline', data.submission_deadline || '');
   formData.append('notes', data.notes || '');
   formData.append('requires_inspection', String(data.requires_inspection || false));
   formData.append('project_id', String(data.project_id));

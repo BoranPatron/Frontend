@@ -5,7 +5,7 @@ interface AuthContextType {
   token: string | null;
   user: any;
   isInitialized: boolean;
-  login: (token: string, user: any) => Promise<void>;
+  login: (token: string, user: any, isRealLogin?: boolean) => Promise<void>;
   logout: () => void;
   isServiceProvider: () => boolean;
   isBautraeger: () => boolean;
@@ -29,6 +29,57 @@ const isTokenValid = (token: string): boolean => {
   }
 };
 
+// Hilfsfunktion um zu prüfen, ob der tägliche Credit-Abzug bereits heute durchgeführt wurde
+const hasDailyCreditDeductionBeenProcessed = (): boolean => {
+  try {
+    const lastProcessedDate = localStorage.getItem('lastDailyCreditDeduction');
+    if (!lastProcessedDate) return false;
+    
+    // Verwende UTC für Vergleich (wie im Backend)
+    const lastDate = new Date(lastProcessedDate);
+    const today = new Date();
+    
+    // Vergleiche UTC-Datum (nicht lokales Datum)
+    const lastDateUTC = new Date(Date.UTC(
+      lastDate.getUTCFullYear(),
+      lastDate.getUTCMonth(),
+      lastDate.getUTCDate()
+    ));
+    const todayUTC = new Date(Date.UTC(
+      today.getUTCFullYear(),
+      today.getUTCMonth(),
+      today.getUTCDate()
+    ));
+    
+    return lastDateUTC.getTime() === todayUTC.getTime();
+  } catch (error) {
+    console.error('❌ Fehler beim Prüfen des täglichen Credit-Abzugs:', error);
+    return false;
+  }
+};
+
+// Hilfsfunktion um den täglichen Credit-Abzug als verarbeitet zu markieren
+const markDailyCreditDeductionAsProcessed = (): void => {
+  try {
+    localStorage.setItem('lastDailyCreditDeduction', new Date().toISOString());
+  } catch (error) {
+    console.error('❌ Fehler beim Markieren des täglichen Credit-Abzugs:', error);
+  }
+};
+
+// Debug-Funktion um die tägliche Credit-Deduktion zurückzusetzen (nur für Entwicklung)
+const resetDailyCreditDeduction = (): void => {
+  if (process.env.NODE_ENV === 'development') {
+    localStorage.removeItem('lastDailyCreditDeduction');
+    console.log('🔄 Tägliche Credit-Deduktion zurückgesetzt für Debugging');
+  }
+};
+
+// Debug-Funktion für Entwicklung - füge zu window hinzu
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  (window as any).resetDailyCreditDeduction = resetDailyCreditDeduction;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -40,6 +91,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     creditsChanged: number;
     newBalance: number;
   } | null>(null);
+  
+  // Zustand für echte Logins vs. Session-Wiederherstellung
+  const [isRealLogin, setIsRealLogin] = useState(false);
 
   // Initialisiere Auth-Daten beim ersten Laden mit Verzögerung
   useEffect(() => {
@@ -97,37 +151,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               
               if (response.ok) {
                 const freshUserData = await response.json();
-                setUser(freshUserData);
-                localStorage.setItem('user', JSON.stringify(freshUserData));
-                
-                // Setze Rollen-Informationen
-                if (freshUserData.user_role) {
-                  setUserRole(freshUserData.user_role);
-                  }
-                if (freshUserData.role_selected !== undefined) {
-                  setRoleSelected(freshUserData.role_selected);
-                  }
+                // Session-Wiederherstellung - kein echter Login
+                await login(storedToken, freshUserData, false);
                 } else {
-                setUser(userData);
-                
-                // Setze Rollen-Informationen aus localStorage
-                if (userData.user_role) {
-                  setUserRole(userData.user_role);
-                }
-                if (userData.role_selected !== undefined) {
-                  setRoleSelected(userData.role_selected);
-                }
+                // Session-Wiederherstellung - kein echter Login
+                await login(storedToken, userData, false);
               }
             } catch (error) {
-              setUser(userData);
-              
-              // Setze Rollen-Informationen aus localStorage
-              if (userData.user_role) {
-                setUserRole(userData.user_role);
-              }
-              if (userData.role_selected !== undefined) {
-                setRoleSelected(userData.role_selected);
-              }
+              // Session-Wiederherstellung - kein echter Login
+              await login(storedToken, userData, false);
             }
             
             } catch (error) {
@@ -190,7 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, isInitializing]);
 
-  const login = async (newToken: string, newUser: any) => {
+  const login = async (newToken: string, newUser: any, isRealLogin: boolean = true) => {
     try {
       // Stoppe die Initialisierung, um Race Conditions zu vermeiden
       setIsInitializing(false);
@@ -209,41 +241,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setRoleSelected(newUser.role_selected);
         }
       
-          // Verarbeite täglichen Credit-Abzug für Bauträger (nur beim Login)
-          if (newUser?.user_role === 'bautraeger' || newUser?.user_role === 'BAUTRAEGER') {
-            try {
-              const { processDailyLoginDeduction } = await import('../api/creditService');
-              const result = await processDailyLoginDeduction();
-              console.log('💰 Täglicher Credit-Abzug beim Login:', result);
+      // Verarbeite täglichen Credit-Abzug für Bauträger (nur bei echten Logins)
+      if (isRealLogin && (newUser?.user_role === 'bautraeger' || newUser?.user_role === 'BAUTRAEGER')) {
+        console.log('🏗️ Bauträger-Login erkannt - prüfe täglichen Credit-Abzug');
+        
+        // Prüfe ob der tägliche Credit-Abzug bereits heute durchgeführt wurde
+        if (!hasDailyCreditDeductionBeenProcessed()) {
+          console.log('📅 Täglicher Credit-Abzug noch nicht verarbeitet - führe durch');
+          try {
+            const { processDailyLoginDeduction } = await import('../api/creditService');
+            const result = await processDailyLoginDeduction();
+            console.log('💰 Täglicher Credit-Abzug beim Login:', result);
+            
+            // DEBUG: Zeige detaillierte Informationen
+            console.log('🔍 DEBUG - API Response Details:', {
+              status: result.status,
+              message: result.message,
+              fullResponse: result
+            });
+            
+            // Zeige Notification nur wenn Credit tatsächlich abgezogen wurde
+            if (result.status === 'success') {
+              console.log('✅ Credit wurde abgezogen - zeige Notification und Animation');
+              // Hole aktuelle Credit-Balance für Notification
+              const { getCreditBalance } = await import('../api/creditService');
+              const balance = await getCreditBalance();
               
-              // DEBUG: Zeige detaillierte Informationen
-              console.log('🔍 DEBUG - API Response Details:', {
-                status: result.status,
-                message: result.message,
-                fullResponse: result
+              setCreditNotification({
+                creditsChanged: -1, // 1 Credit wird täglich abgezogen
+                newBalance: balance.credits
               });
               
-              // Zeige Notification nur wenn Credit tatsächlich abgezogen wurde
-              if (result.status === 'success') {
-                console.log('✅ Credit wurde abgezogen - zeige Notification');
-                // Hole aktuelle Credit-Balance für Notification
-                const { getCreditBalance } = await import('../api/creditService');
-                const balance = await getCreditBalance();
-                
-                setCreditNotification({
-                  creditsChanged: -1, // 1 Credit wird täglich abgezogen
-                  newBalance: balance.credits
-                });
-              } else if (result.status === 'skipped') {
-                console.log('⏭️ Kein Credit-Abzug nötig:', result.message);
-              } else {
-                console.log('❓ Unbekannter Status:', result.status, result.message);
-              }
-            } catch (error) {
-              console.warn('⚠️ Fehler beim täglichen Credit-Abzug:', error);
-              // Fehler beim Credit-Abzug soll das Login nicht blockieren
+              // Trigger navbar animation
+              window.dispatchEvent(new CustomEvent('creditDeduction'));
+              console.log('🎬 Credit deduction animation triggered');
+              
+              // Markiere als verarbeitet
+              markDailyCreditDeductionAsProcessed();
+              console.log('✅ Täglicher Credit-Abzug erfolgreich verarbeitet und markiert');
+            } else if (result.status === 'skipped') {
+              console.log('⏭️ Kein Credit-Abzug nötig:', result.message);
+              // Auch bei "skipped" als verarbeitet markieren, um mehrfache API-Calls zu vermeiden
+              markDailyCreditDeductionAsProcessed();
+              console.log('✅ Täglicher Credit-Abzug als "skipped" markiert');
+            } else {
+              console.log('❓ Unbekannter Status:', result.status, result.message);
             }
+          } catch (error) {
+            console.warn('⚠️ Fehler beim täglichen Credit-Abzug:', error);
+            // Fehler beim Credit-Abzug soll das Login nicht blockieren
           }
+        } else {
+          console.log('⏭️ Täglicher Credit-Abzug bereits heute verarbeitet - überspringe');
+        }
+      } else if (isRealLogin) {
+        console.log('👤 Nicht-Bauträger Login - kein Credit-Abzug nötig');
+      } else {
+        console.log('🔄 Session-Wiederherstellung - kein Credit-Abzug nötig');
+      }
       
       } catch (error) {
       console.error('❌ Fehler in login() Funktion:', error);
@@ -257,6 +312,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('rememberMe');
     localStorage.removeItem('sessionExpiry');
+    // Lösche auch die tägliche Credit-Deduktion-Markierung beim Logout
+    localStorage.removeItem('lastDailyCreditDeduction');
     setToken(null);
     setUser(null);
   };
@@ -358,8 +415,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }}>
       {children}
       
-      {/* Credit Notification */}
-      {creditNotification && (
+      {/* Credit Notification - nur für Bauträger */}
+      {creditNotification && user && isBautraeger() && (
         <CreditNotification
           creditsChanged={creditNotification.creditsChanged}
           newBalance={creditNotification.newBalance}

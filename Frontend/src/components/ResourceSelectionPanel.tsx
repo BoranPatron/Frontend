@@ -53,6 +53,7 @@ import { resourceService, type Resource, type ResourceAllocation } from '../api/
 import { useAuth } from '../context/AuthContext';
 import { getBrowserLocation } from '../api/geoService';
 import { TRADE_CATEGORIES } from '../constants/tradeCategories';
+import StarRating from './StarRating';
 import dayjs from 'dayjs';
 
 interface ResourceSelectionPanelProps {
@@ -291,6 +292,24 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
                     📍 Kein Standort
                   </span>
                 )}
+                {/* Sterne-Bewertung */}
+                {resource.overall_rating && resource.overall_rating > 0 && (
+                  <div className="flex items-center space-x-1">
+                    <StarRating 
+                      rating={resource.overall_rating} 
+                      size="sm" 
+                      showCount={true} 
+                      count={resource.rating_count || 0}
+                      detailedRatings={{
+                        quality: resource.avg_quality_rating,
+                        timeliness: resource.avg_timeliness_rating,
+                        communication: resource.avg_communication_rating,
+                        value: resource.avg_value_rating
+                      }}
+                      className="bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/30 backdrop-blur-sm shadow-sm shadow-yellow-500/20"
+                    />
+                  </div>
+                )}
               </div>
             </div>
             <button
@@ -506,6 +525,139 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
           {showContactInfo && (
             <div className="mt-2 pt-2 border-t border-gray-600">
               <div className="space-y-3">
+                {/* Bewertung - Prominent angezeigt */}
+                {resource.overall_rating && resource.overall_rating > 0 && (
+                  <div>
+                    <div className="text-xs text-[#ffbd59] font-medium mb-2">⭐ Bewertung</div>
+                    <div className="flex items-center justify-between">
+                      <StarRating 
+                        rating={resource.overall_rating} 
+                        size="md" 
+                        showCount={true} 
+                        count={resource.rating_count || 0}
+                        detailedRatings={{
+                          quality: resource.avg_quality_rating,
+                          timeliness: resource.avg_timeliness_rating,
+                          communication: resource.avg_communication_rating,
+                          value: resource.avg_value_rating
+                        }}
+                        className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 px-3 py-2 rounded-lg border border-yellow-500/40 backdrop-blur-sm shadow-lg shadow-yellow-500/20"
+                      />
+                      <div className="text-xs text-gray-300">
+                        {resource.rating_count === 1 ? '1 Bewertung' : `${resource.rating_count || 0} Bewertungen`}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Detaillierte Bewertungen - Zeige immer wenn Gesamtbewertung vorhanden ist */}
+                {(() => {
+                  console.log('🔍 DEBUG Frontend - Resource:', resource.title);
+                  console.log('   Service Provider ID:', resource.service_provider_id);
+                  console.log('   Gesamtbewertung:', resource.overall_rating);
+                  console.log('   Anzahl Bewertungen:', resource.rating_count);
+                  console.log('   Qualität:', resource.avg_quality_rating);
+                  console.log('   Termintreue:', resource.avg_timeliness_rating);
+                  console.log('   Kommunikation:', resource.avg_communication_rating);
+                  console.log('   Preis-Leistung:', resource.avg_value_rating);
+                  
+                  const hasDetailedRatings = (resource.avg_quality_rating && resource.avg_quality_rating > 0) || 
+                                           (resource.avg_timeliness_rating && resource.avg_timeliness_rating > 0) || 
+                                           (resource.avg_communication_rating && resource.avg_communication_rating > 0) || 
+                                           (resource.avg_value_rating && resource.avg_value_rating > 0);
+                  
+                  console.log('   Hat detaillierte Bewertungen:', hasDetailedRatings);
+                  return resource.overall_rating && resource.overall_rating > 0;
+                })() && (
+                  <div>
+                    <div className="text-xs text-[#ffbd59] font-medium mb-2">📊 Detaillierte Bewertungen</div>
+                    <div className="grid grid-cols-1 gap-2">
+                      {resource.avg_quality_rating && resource.avg_quality_rating > 0 && (
+                        <div className="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg border border-gray-600/50">
+                          <span className="text-xs text-gray-300">Qualität</span>
+                          <div className="flex items-center space-x-1">
+                            <StarRating 
+                              rating={resource.avg_quality_rating} 
+                              size="sm" 
+                              showCount={false}
+                              className="text-yellow-400"
+                            />
+                            <span className="text-xs text-yellow-400 font-medium">
+                              {resource.avg_quality_rating.toFixed(1)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {resource.avg_timeliness_rating && resource.avg_timeliness_rating > 0 && (
+                        <div className="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg border border-gray-600/50">
+                          <span className="text-xs text-gray-300">Termintreue</span>
+                          <div className="flex items-center space-x-1">
+                            <StarRating 
+                              rating={resource.avg_timeliness_rating} 
+                              size="sm" 
+                              showCount={false}
+                              className="text-yellow-400"
+                            />
+                            <span className="text-xs text-yellow-400 font-medium">
+                              {resource.avg_timeliness_rating.toFixed(1)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {resource.avg_communication_rating && resource.avg_communication_rating > 0 && (
+                        <div className="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg border border-gray-600/50">
+                          <span className="text-xs text-gray-300">Kommunikation</span>
+                          <div className="flex items-center space-x-1">
+                            <StarRating 
+                              rating={resource.avg_communication_rating} 
+                              size="sm" 
+                              showCount={false}
+                              className="text-yellow-400"
+                            />
+                            <span className="text-xs text-yellow-400 font-medium">
+                              {resource.avg_communication_rating.toFixed(1)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {resource.avg_value_rating && resource.avg_value_rating > 0 && (
+                        <div className="flex items-center justify-between p-2 bg-gray-800/50 rounded-lg border border-gray-600/50">
+                          <span className="text-xs text-gray-300">Preis-Leistung</span>
+                          <div className="flex items-center space-x-1">
+                            <StarRating 
+                              rating={resource.avg_value_rating} 
+                              size="sm" 
+                              showCount={false}
+                              className="text-yellow-400"
+                            />
+                            <span className="text-xs text-yellow-400 font-medium">
+                              {resource.avg_value_rating.toFixed(1)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Fallback wenn keine detaillierten Bewertungen vorhanden sind */}
+                    {!(resource.avg_quality_rating && resource.avg_quality_rating > 0) && 
+                     !(resource.avg_timeliness_rating && resource.avg_timeliness_rating > 0) && 
+                     !(resource.avg_communication_rating && resource.avg_communication_rating > 0) && 
+                     !(resource.avg_value_rating && resource.avg_value_rating > 0) && (
+                      <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-600/30 text-center">
+                        <div className="text-xs text-gray-400 mb-1">
+                          📊 Detaillierte Bewertungen
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Keine detaillierten Bewertungen verfügbar
+                        </div>
+                        <div className="text-xs text-gray-600 mt-1">
+                          Nur Gesamtbewertung vorhanden
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Kontaktinformationen */}
                 <div>
                   <div className="text-xs text-[#ffbd59] font-medium mb-1">📞 Kontakt</div>
@@ -623,7 +775,7 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
                     <div className="flex flex-wrap gap-1">
                       {resource.skills.map((skill, index) => (
                         <span
-                          key={index}
+                          key={`resource-skill-${resource.id}-${index}`}
                           className="inline-flex items-center px-2 py-0.5 bg-[#ffbd59]/20 text-[#ffbd59] border border-[#ffbd59]/30 rounded-full text-xs font-medium"
                         >
                           {skill}
@@ -643,7 +795,7 @@ const SortableResourceItem: React.FC<DraggableResourceProps & { id: string }> = 
                     <div className="flex flex-wrap gap-1">
                       {resource.equipment.map((item, index) => (
                         <span
-                          key={index}
+                          key={`resource-equipment-${resource.id}-${index}`}
                           className="inline-flex items-center px-2 py-0.5 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full text-xs font-medium"
                         >
                           {item}
@@ -893,6 +1045,18 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
       });
     }
   }, [preferredDateRange]);
+
+  // Debug: Log resource data to see if ratings are included
+  useEffect(() => {
+    if (resources.length > 0) {
+      console.log('🔍 ResourceSelectionPanel - Resources loaded:', resources.map(r => ({
+        id: r.id,
+        provider_name: r.provider_name,
+        overall_rating: r.overall_rating,
+        rating_count: r.rating_count
+      })));
+    }
+  }, [resources]);
 
   // Click-Outside-to-Close Funktionalität
   useEffect(() => {

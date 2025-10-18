@@ -5,7 +5,7 @@ export interface Expense {
   title: string;
   description?: string;
   amount: number;
-  category: 'material' | 'labor' | 'equipment' | 'services' | 'permits' | 'other';
+  category: 'material' | 'labor' | 'equipment' | 'services' | 'permits' | 'property' | 'legal' | 'planning' | 'other';
   project_id: number;
   date: string;
   receipt_url?: string;
@@ -18,7 +18,7 @@ export interface ExpenseCreate {
   title: string;
   description?: string;
   amount: number;
-  category: 'material' | 'labor' | 'equipment' | 'services' | 'permits' | 'other';
+  category: 'material' | 'labor' | 'equipment' | 'services' | 'permits' | 'property' | 'legal' | 'planning' | 'other';
   project_id: number;
   date: string;
   receipt_url?: string;
@@ -29,7 +29,7 @@ export interface ExpenseUpdate {
   title?: string;
   description?: string;
   amount?: number;
-  category?: 'material' | 'labor' | 'equipment' | 'services' | 'permits' | 'other';
+  category?: 'material' | 'labor' | 'equipment' | 'services' | 'permits' | 'property' | 'legal' | 'planning' | 'other';
   date?: string;
   receipt_url?: string;
   construction_phase?: string;

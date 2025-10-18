@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useCreditAdditionAnimation } from '../context/CreditAnimationContext';
 import { appointmentService } from '../api/appointmentService';
 // import InspectionStatusTracker from './InspectionStatusTracker'; // DEPRECATED: Ersetzt durch AppointmentStatusCard
 import AppointmentStatusCard from './AppointmentStatusCard';
@@ -111,6 +112,7 @@ export default function CostEstimateDetailsModal({
   inspectionStatus: externalInspectionStatus
 }: CostEstimateDetailsModalProps) {
   const { user, isBautraeger } = useAuth();
+  const { checkAndShowProjectCompletionAnimation } = useCreditAdditionAnimation();
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -1097,6 +1099,11 @@ export default function CostEstimateDetailsModal({
       // Aktualisiere Trade-Status
       if (acceptanceData.accepted) {
         setCompletionStatus('completed');
+        
+        // Zeige Credit-Animation für Projekt-Abschluss (nur für Bauträger)
+        if (isBautraeger) {
+          await checkAndShowProjectCompletionAnimation(trade?.title || 'Projekt');
+        }
         
         // Zeige Erfolgs-Nachricht
         alert('✅ Abnahme erfolgreich abgeschlossen!');

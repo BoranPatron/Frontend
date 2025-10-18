@@ -172,6 +172,28 @@ const InvoiceManagementModal: React.FC<InvoiceManagementModalProps> = ({ isOpen,
     loadInvoices(); // Lade Rechnungen neu
   };
 
+  const handleViewInvoice = async (invoice: Invoice) => {
+    try {
+      // Markiere als angesehen
+      await api.post(`/invoices/${invoice.id}/mark-viewed`);
+      
+      // Öffne PDF in neuem Tab
+      window.open(`/api/v1/invoices/${invoice.id}/download`, '_blank');
+    } catch (error) {
+      console.error('❌ Fehler beim Ansehen der Rechnung:', error);
+    }
+  };
+
+  const handleDownloadInvoice = async (invoice: Invoice) => {
+    try {
+      // Markiere als angesehen und lade dann herunter
+      await api.post(`/invoices/${invoice.id}/mark-viewed`);
+      window.open(`/api/v1/invoices/${invoice.id}/download`, '_blank');
+    } catch (error) {
+      console.error('❌ Fehler beim Herunterladen der Rechnung:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -365,12 +387,20 @@ const InvoiceManagementModal: React.FC<InvoiceManagementModalProps> = ({ isOpen,
                     {/* Card Actions */}
                     <div className="p-4 border-t border-white/10">
                       <div className="flex items-center gap-2">
-                        <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#51636f] text-white rounded-lg hover:bg-[#3a4a57] transition-colors text-sm">
+                        <button 
+                          onClick={() => handleViewInvoice(invoice)}
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#51636f] text-white rounded-lg hover:bg-[#3a4a57] transition-colors text-sm"
+                          title="Rechnung ansehen"
+                        >
                           <Eye size={14} />
                           Ansehen
                         </button>
                         
-                        <button className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors text-sm">
+                        <button 
+                          onClick={() => handleDownloadInvoice(invoice)}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors text-sm"
+                          title="Rechnung herunterladen"
+                        >
                           <Download size={14} />
                         </button>
                         

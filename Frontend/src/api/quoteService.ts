@@ -86,6 +86,56 @@ export interface QuoteData {
 
 export async function createQuote(data: QuoteData) {
   const response = await api.post('/quotes/', data);
+  
+  // Event für Bautraeger-Benachrichtigung auslösen (sofort, ohne Backend-Abfrage)
+  if (response.data && response.data.id) {
+    console.log('📢 quoteService: Angebot erstellt, erstelle Event für Bautraeger...');
+    
+    // Erstelle Event mit verfügbaren Daten (ohne Backend-Abfrage)
+    const event = new CustomEvent('quoteSubmittedForBautraeger', {
+      detail: {
+        trade: {
+          id: data.milestone_id,
+          title: 'Gewerk', // Fallback-Titel
+          project_id: data.project_id
+        },
+        quote: response.data,
+        tradeData: {
+          id: data.milestone_id,
+          title: 'Gewerk',
+          project_id: data.project_id
+        }
+      }
+    });
+    
+    console.log('📢 quoteService: Event-Objekt erstellt:', event);
+    console.log('📢 quoteService: Event-Detail:', event.detail);
+    
+    window.dispatchEvent(event);
+    
+    // Zusätzlich: Speichere Benachrichtigung in localStorage für Bautraeger
+    const notificationData = {
+      id: `quote_${response.data.id}_${Date.now()}`,
+      type: 'quote_submitted',
+      title: 'Neues Angebot eingegangen! 📋',
+      message: `Ein Dienstleister hat ein Angebot für "Gewerk" eingereicht.`,
+      timestamp: new Date().toISOString(),
+      tradeId: data.milestone_id,
+      quoteId: response.data.id,
+      projectId: data.project_id,
+      quoteAmount: response.data.total_amount,
+      quoteCurrency: response.data.currency
+    };
+    
+    // Speichere in localStorage für Bautraeger
+    const existingNotifications = JSON.parse(localStorage.getItem('pendingBautraegerNotifications') || '[]');
+    existingNotifications.push(notificationData);
+    localStorage.setItem('pendingBautraegerNotifications', JSON.stringify(existingNotifications));
+    
+    console.log('📢 quoteService: Benachrichtigung in localStorage gespeichert:', notificationData);
+    console.log('📢 quoteService: quoteSubmittedForBautraeger Event AUSGELÖST!');
+  }
+  
   return response.data;
 }
 

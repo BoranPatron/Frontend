@@ -1,4 +1,5 @@
 import React, { useState, useEffect, memo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, X, Trash2, Calendar, Clock, User, ChevronDown, ChevronUp, Maximize2, Minimize2, CheckSquare, Upload, Image, FileX } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -711,14 +712,14 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         </motion.div>
       )}
 
-      {/* Create Task Modal - Modernisiert */}
-      <AnimatePresence>
-        {showCreateModal && (
+      {/* Create Task Modal - Modernisiert mit Portal */}
+      {showCreateModal && createPortal(
+        <AnimatePresence>
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[99999] p-4"
             onClick={() => setShowCreateModal(false)}
           >
             <motion.div
@@ -726,7 +727,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] rounded-2xl p-6 w-full max-w-md shadow-2xl border border-white/10"
+              className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] rounded-2xl p-6 w-full max-w-md shadow-2xl border border-white/10 max-h-[90vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
@@ -856,7 +857,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                          <div className="grid grid-cols-2 gap-2">
                            {uploadedFiles.map((file, index) => (
                              <div
-                               key={index}
+                               key={`kanban-file-${file.id || file.name || index}`}
                                className="relative bg-white/5 rounded-lg p-2 border border-white/10"
                              >
                                <div className="flex items-center gap-2">
@@ -907,8 +908,9 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
               </div>
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
       </div>
 
       {/* Task Detail Modal - außerhalb des Hauptcontainers */}

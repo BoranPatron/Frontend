@@ -253,7 +253,7 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">
-                {isServiceProvider ? 'Mängelbehebung melden' : 'Finale Abnahme'}
+                {isServiceProvider ? 'Mängelbehebung melden' : 'Schritt 3 von 3: Finale Abnahme'}
               </h2>
               <p className="text-sm text-gray-300">{milestoneTitle}</p>
             </div>

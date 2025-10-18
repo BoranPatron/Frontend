@@ -419,7 +419,7 @@ const CostPositionManager: React.FC<CostPositionManagerProps> = ({
               Noch keine Kostenpositionen
             </h3>
             <p className="text-gray-400 text-sm mb-6">
-              Fügen Sie Ihre erste Kostenposition hinzu, um mit der Rechnungsstellung zu beginnen.
+              Füge die Kostenposition hinzu, um mit der Rechnungsstellung zu beginnen.
             </p>
             <button
               onClick={openAddDialog}
