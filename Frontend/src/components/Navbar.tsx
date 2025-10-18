@@ -1002,20 +1002,6 @@ export default function Navbar() {
             {!isServiceProvider() && user?.user_role === 'BAUTRAEGER' && (
               <div className="hidden md:block" data-tour-id="navbar-credits">
                 <CreditDisplay />
-                
-                {/* Test Button für Credit-Deduktion-Animation (nur in Development) */}
-                {process.env.NODE_ENV === 'development' && (
-                  <button
-                    onClick={() => {
-                      console.log('🧪 Test: Triggering credit deduction animation...');
-                      window.dispatchEvent(new CustomEvent('creditDeduction'));
-                    }}
-                    className="ml-2 px-2 py-1 text-xs bg-red-500/20 text-red-400 border border-red-500/30 rounded hover:bg-red-500/30 transition-colors"
-                    title="Test Credit Deduction Animation"
-                  >
-                    Test Animation
-                  </button>
-                )}
               </div>
             )}
 

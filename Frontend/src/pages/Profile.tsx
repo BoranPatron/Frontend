@@ -17,7 +17,10 @@ import {
   Calendar,
   Shield,
   Bell,
-  Palette
+  Palette,
+  Upload,
+  X,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface ProfileData {
@@ -30,6 +33,8 @@ interface ProfileData {
   company_uid: string;
   company_phone: string;
   company_website: string;
+  company_logo: string;
+  company_logo_advertising_consent: boolean;
   bio: string;
   region: string;
   languages: string;
@@ -56,6 +61,8 @@ export default function Profile() {
     company_uid: '',
     company_phone: '',
     company_website: '',
+    company_logo: '',
+    company_logo_advertising_consent: false,
     bio: '',
     region: '',
     languages: '',
@@ -72,10 +79,45 @@ export default function Profile() {
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'personal' | 'company' | 'settings'>('personal');
+  const [companyLogo, setCompanyLogo] = useState<File | null>(null);
+  const [companyLogoPreview, setCompanyLogoPreview] = useState<string | null>(null);
 
   useEffect(() => {
     loadProfile();
   }, []);
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validiere Dateityp
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/svg+xml', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setMessage({ type: 'error', text: 'Ungültiger Dateityp. Erlaubt sind: JPG, PNG, SVG, WEBP' });
+      return;
+    }
+
+    // Validiere Dateigröße (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage({ type: 'error', text: 'Datei ist zu groß. Maximal 5MB erlaubt.' });
+      return;
+    }
+
+    setCompanyLogo(file);
+
+    // Erstelle Vorschau
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setCompanyLogoPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveLogo = () => {
+    setCompanyLogo(null);
+    setCompanyLogoPreview(null);
+    setProfileData(prev => ({ ...prev, company_logo: '' }));
+  };
 
   const loadProfile = async () => {
     if (!user) return;
@@ -111,6 +153,8 @@ export default function Profile() {
         company_uid: userData.company_uid || '',
         company_phone: userData.company_phone || '',
         company_website: userData.company_website || '',
+        company_logo: userData.company_logo || '',
+        company_logo_advertising_consent: userData.company_logo_advertising_consent || false,
         bio: userData.bio || '',
         region: userData.region || '',
         languages: userData.languages || '',
@@ -122,6 +166,11 @@ export default function Profile() {
         marketing_consent: userData.marketing_consent || false,
         email_notifications: userData.email_notifications !== false
       });
+      
+      // Setze Logo-Vorschau wenn vorhanden
+      if (userData.company_logo) {
+        setCompanyLogoPreview(`/${userData.company_logo}`);
+      }
     } catch (error) {
       console.error('❌ Fehler beim Laden des Profils:', error);
       setMessage({ type: 'error', text: 'Fehler beim Laden der Profildaten' });
@@ -152,6 +201,14 @@ export default function Profile() {
     setMessage(null);
     
     try {
+      // Logo hochladen falls vorhanden
+      let logoPath = profileData.company_logo;
+      if (companyLogo) {
+        const { uploadCompanyLogo } = await import('../api/userService');
+        const response = await uploadCompanyLogo(companyLogo);
+        logoPath = response.file_path;
+      }
+      
       // Vollständige Adresse zusammenstellen
       const addressParts = [
         profileData.address_street,
@@ -168,6 +225,8 @@ export default function Profile() {
         company_uid: profileData.company_uid || null,
         company_phone: profileData.company_phone,
         company_website: profileData.company_website,
+        company_logo: logoPath,
+        company_logo_advertising_consent: profileData.company_logo_advertising_consent,
         bio: profileData.bio,
         region: profileData.region,
         languages: profileData.languages,
@@ -462,6 +521,70 @@ export default function Profile() {
                     <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   </div>
                 </div>
+              </div>
+
+              {/* Firmenlogo Upload */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-200 mb-3">
+                  Firmenlogo (optional)
+                </label>
+                
+                {companyLogoPreview ? (
+                  <div className="relative w-full h-48 bg-gray-800/50 rounded-xl border-2 border-gray-600 overflow-hidden">
+                    <img 
+                      src={companyLogoPreview} 
+                      alt="Logo Vorschau" 
+                      className="w-full h-full object-contain p-4"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveLogo}
+                      className="absolute top-3 right-3 p-2 bg-red-500/80 hover:bg-red-600 rounded-full transition-colors duration-200 shadow-lg"
+                    >
+                      <X className="w-5 h-5 text-white" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-48 bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-600 hover:border-[#ffbd59] cursor-pointer transition-all duration-200 group">
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <div className="w-16 h-16 mb-4 rounded-full bg-[#ffbd59]/20 flex items-center justify-center group-hover:bg-[#ffbd59]/30 group-hover:scale-110 transition-all duration-200">
+                        <Upload className="w-8 h-8 text-[#ffbd59]" />
+                      </div>
+                      <p className="text-base text-gray-300 font-semibold mb-2">Logo hochladen</p>
+                      <p className="text-sm text-gray-400">JPG, PNG, SVG, WEBP (max. 5MB)</p>
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/jpeg,image/jpg,image/png,image/svg+xml,image/webp"
+                      onChange={handleLogoChange}
+                    />
+                  </label>
+                )}
+                
+                <p className="text-xs text-gray-400 mt-2">
+                  Unterstützte Formate: JPG, PNG, SVG, WEBP (max. 5MB)
+                </p>
+              </div>
+
+              {/* Werbeeinwilligung Checkbox */}
+              <div className="bg-gradient-to-br from-[#ffbd59]/10 to-[#ffa726]/5 rounded-xl p-5 border border-[#ffbd59]/20">
+                <label className="flex items-start cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={profileData.company_logo_advertising_consent}
+                    onChange={(e) => handleInputChange('company_logo_advertising_consent', e.target.checked)}
+                    className="mt-1 w-5 h-5 rounded border-gray-500 bg-gray-700 text-[#ffbd59] focus:ring-2 focus:ring-[#ffbd59] focus:ring-offset-0 cursor-pointer transition-all duration-200"
+                  />
+                  <div className="ml-3 flex-1">
+                    <span className="text-sm text-gray-200 leading-relaxed font-medium">
+                      Ich möchte, dass mein Firmenlogo auf der BuildWise-Landingpage zu Werbezwecken angezeigt wird und als aktiver Nutzer der Plattform präsentiert wird.
+                    </span>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Diese Einstellung kann jederzeit hier geändert werden.
+                    </p>
+                  </div>
+                </label>
               </div>
             </div>
           )}

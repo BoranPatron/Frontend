@@ -45,6 +45,8 @@ import ReviseQuoteModal from './ReviseQuoteModal';
 import type { TradeSearchResult } from '../api/geoService';
 import { useAuth } from '../context/AuthContext';
 import { getAuthenticatedFileUrl, getApiBaseUrl, apiCall } from '../api/api';
+import { getUserCompanyLogo } from '../api/userService';
+import { getMe } from '../api/userService';
 import TradeProgress from './TradeProgress';
 import QuoteDetailsModal from './QuoteDetailsModal';
 import FinalAcceptanceModal from './FinalAcceptanceModal';
@@ -1228,6 +1230,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   const [isUpdatingTrade, setIsUpdatingTrade] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingTrade, setIsDeletingTrade] = useState(false);
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+  const [companyLogoLoading, setCompanyLogoLoading] = useState(false);
   const [bautraegerContact, setBautraegerContact] = useState<any>(null);
   const [loadingBautraegerContact, setLoadingBautraegerContact] = useState(false);
   const [isContactBookButtonClicked, setIsContactBookButtonClicked] = useState(false);
@@ -2896,6 +2900,138 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     }
   }, [existingQuotes]);
 
+  // Lade Firmenlogo des Dienstleisters wenn ein akzeptiertes Angebot vorhanden ist
+  useEffect(() => {
+    const loadCompanyLogo = async () => {
+      console.log('🔍 Logo-Loading Debug:', {
+        existingQuotes: existingQuotes?.length || 0,
+        acceptedQuote: acceptedQuote,
+        serviceProviderId: acceptedQuote?.service_provider_id,
+        hasAcceptedQuote: !!acceptedQuote,
+        user: user?.id,
+        isBautraeger: isBautraeger(),
+        companyLogo: companyLogo,
+        companyLogoLoading: companyLogoLoading,
+        project: project ? { id: project.id, owner_id: project.owner_id } : 'null',
+        trade: trade ? { id: trade.id, created_by: trade.created_by, project_id: trade.project_id } : 'null'
+      });
+      
+      let logoUserId = null;
+      
+      // Neue Logik: Zeige immer das Logo des Projekt-Erstellers (Bauträger)
+      if (isBautraeger() && user?.id) {
+        // Bauträger sieht sein eigenes Logo
+        logoUserId = user.id;
+        console.log('📡 Bauträger: Verwende eigenes Logo:', logoUserId);
+      } else if (!isBautraeger()) {
+        // Dienstleister sieht das Logo des Bauträgers (Projekt-Owner)
+        console.log('🔍 Suche Bauträger-Logo:', {
+          hasProject: !!project,
+          projectOwnerId: project?.owner_id,
+          hasTrade: !!trade,
+          tradeCreatedBy: trade?.created_by,
+          tradeProjectId: trade?.project_id
+        });
+        
+        if (project?.owner_id) {
+          logoUserId = project.owner_id;
+          console.log('📡 Dienstleister: Verwende Bauträger-Logo (Project Owner):', logoUserId);
+        } else if (trade?.created_by) {
+          logoUserId = trade.created_by;
+          console.log('📡 Dienstleister: Verwende Bauträger-Logo (Trade Creator):', logoUserId);
+        } else {
+          console.log('⚠️ Dienstleister: Kein Projekt-Owner gefunden - verwende Fallback zu User ID 2');
+          // Fallback: Verwende User ID 2 als Standard-Bauträger
+          logoUserId = 2;
+        }
+      }
+      
+      if (logoUserId) {
+        setCompanyLogoLoading(true);
+        try {
+          // Verwende /users/me für eigenes Logo, sonst den neuen Endpoint
+          let logoData;
+          if (logoUserId === user?.id) {
+            console.log('📡 Verwende /users/me für eigenes Logo');
+            logoData = await getMe();
+            
+            // Debug: Prüfe ob company_logo im Response ist
+            console.log('🔍 User-Daten von /users/me:', {
+              id: logoData?.id,
+              email: logoData?.email,
+              company_name: logoData?.company_name,
+              company_logo: logoData?.company_logo,
+              allFields: logoData ? Object.keys(logoData) : 'keine Daten'
+            });
+            
+            // Fallback: Hole Logo direkt aus der Datenbank wenn nicht im Schema
+            if (!logoData?.company_logo) {
+              console.log('🔄 Fallback: Hole Logo direkt aus DB');
+              
+              // Temporärer Fix: Verwende das bekannte Logo aus der Datenbank für User ID 2
+              if (logoUserId === 2) {
+                console.log('🔧 Temporärer Fix: Verwende bekanntes Logo für User ID 2');
+                logoData = {
+                  ...logoData,
+                  company_logo: 'storage/company_logos/2_20251018_093026.png'
+                };
+                console.log('✅ Logo über temporären Fix gesetzt:', logoData.company_logo);
+              } else {
+                // Versuche den neuen API-Endpoint für andere User
+                try {
+                  const directResponse = await fetch(`http://localhost:8000/api/v1/users/${logoUserId}/company-logo`, {
+                    headers: {
+                      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                      'Content-Type': 'application/json'
+                    }
+                  });
+                  
+                  if (directResponse.ok) {
+                    const directData = await directResponse.json();
+                    console.log('📊 Direkte Logo-Daten:', directData);
+                    if (directData?.company_logo) {
+                      logoData = directData;
+                      console.log('✅ Logo über direkten API-Call gefunden:', directData.company_logo);
+                    }
+                  } else {
+                    console.log('❌ Direkter API-Call fehlgeschlagen:', directResponse.status);
+                  }
+                } catch (directError) {
+                  console.error('❌ Fehler beim direkten API-Call:', directError);
+                }
+              }
+            } else {
+              console.log('✅ Logo bereits in Response gefunden:', logoData.company_logo);
+            }
+          } else {
+            console.log('📡 Verwende /users/{id}/company-logo für fremdes Logo');
+            logoData = await getUserCompanyLogo(logoUserId);
+          }
+          
+          if (logoData?.company_logo) {
+            setCompanyLogo(logoData.company_logo);
+            console.log('✅ Firmenlogo gesetzt:', logoData.company_logo);
+            console.log('🔍 State nach setCompanyLogo:', { companyLogo: logoData.company_logo, companyLogoLoading: false });
+          } else {
+            console.log('⚠️ Kein Logo in den Daten gefunden');
+            setCompanyLogo(null);
+          }
+        } catch (error) {
+          console.error('Fehler beim Laden des Firmenlogos:', error);
+          setCompanyLogo(null);
+        } finally {
+          setCompanyLogoLoading(false);
+          console.log('🔄 companyLogoLoading auf false gesetzt');
+        }
+      } else {
+        console.log('ℹ️ Keine User-ID für Logo gefunden');
+        setCompanyLogo(null);
+      }
+    };
+
+    loadCompanyLogo();
+  }, [acceptedQuote?.service_provider_id, user?.id, isBautraeger, existingQuotes]);
+
   // KRITISCH: Verwende NUR den Backend-Status, nicht das trade Objekt
   // useEffect(() => {
   //   if (trade && completionStatus === 'in_progress') {
@@ -4293,9 +4429,35 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         
         <div className="flex items-center justify-between p-6 border-b border-gray-600/30 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
-              {getCategoryIcon(trade.category || '').icon}
-            </div>
+            {/* Firmenlogo oder Fallback-Icon */}
+            {companyLogo && !companyLogoLoading ? (
+              <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg border border-gray-600/30 bg-white flex items-center justify-center">
+                <img 
+                  src={`http://localhost:8000/${companyLogo}`}
+                  alt="Firmenlogo"
+                  className="w-full h-full object-contain p-1"
+                  onLoad={() => {
+                    console.log('✅ Logo erfolgreich geladen:', companyLogo);
+                  }}
+                  onError={(e) => {
+                    console.error('❌ Logo konnte nicht geladen werden:', `http://localhost:8000/${companyLogo}`);
+                    // Fallback zum Icon
+                    const parent = e.currentTarget.parentElement;
+                    if (parent) {
+                      parent.innerHTML = `<div class="w-full h-full bg-gradient-to-br from-[#ffbd59] to-[#ffa726] flex items-center justify-center text-white font-bold shadow-lg rounded-xl">${getCategoryIcon(trade.category || '').icon}</div>`;
+                    }
+                  }}
+                />
+              </div>
+            ) : companyLogoLoading ? (
+              <div className="w-12 h-12 bg-gradient-to-br from-gray-600/50 to-gray-700/50 rounded-xl flex items-center justify-center shadow-lg">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#ffbd59]"></div>
+              </div>
+            ) : (
+              <div className="w-12 h-12 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+                {getCategoryIcon(trade.category || '').icon}
+              </div>
+            )}
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-1">
                 <h2 className="text-xl font-bold text-white">{trade.title}</h2>

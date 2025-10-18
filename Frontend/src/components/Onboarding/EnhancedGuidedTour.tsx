@@ -423,11 +423,13 @@ export default function EnhancedGuidedTour({
   }, []);
 
   const next = () => {
+    console.log('🔴 NEXT BUTTON CLICKED!', { current, waitingClick, stepId: step?.id });
     if (current < tourSteps.length - 1) setCurrent(current + 1);
     else finish();
   };
 
   const prev = () => {
+    console.log('🔴 PREV BUTTON CLICKED!', { current, waitingClick, stepId: step?.id });
     if (waitingClick) return;
     setCurrent((c) => Math.max(0, c - 1));
   };
@@ -472,7 +474,7 @@ export default function EnhancedGuidedTour({
     return (
       <div 
         ref={mockupRef}
-        className="w-full max-w-2xl mx-auto mt-6 mb-6"
+        className="w-full max-w-2xl mx-auto mt-6 mb-6 pointer-events-none"
         data-tour-id={step.id}
       >
         {mockupComponents[step.showMockup]}
@@ -491,70 +493,7 @@ export default function EnhancedGuidedTour({
       {/* Modern dimmer with subtle gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/50 to-black/60 backdrop-blur-[3px]" />
 
-      {/* Ultra-modern highlight with multi-layer glow effect */}
-      {rect && !waitingClick && (
-        <>
-          {/* Outer pulsing glow ring */}
-          <div
-            className="absolute rounded-3xl animate-pulse"
-            style={{
-              top: rect.top - 20,
-              left: rect.left - 20,
-              width: rect.width + 40,
-              height: rect.height + 40,
-              pointerEvents: 'none',
-              background: 'radial-gradient(circle, rgba(255,189,89,0.15) 0%, transparent 70%)',
-              animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
-            }}
-          />
-          
-          {/* Main highlight border with glassmorphism */}
-          <div
-            className="absolute border-4 border-[#ffbd59] rounded-2xl"
-            style={{
-              top: rect.top - 12,
-              left: rect.left - 12,
-              width: rect.width + 24,
-              height: rect.height + 24,
-              pointerEvents: 'none',
-              boxShadow: `
-                0 0 0 9999px rgba(0,0,0,0.5),
-                0 0 80px rgba(255,189,89,0.8),
-                0 0 40px rgba(255,189,89,0.6),
-                inset 0 0 30px rgba(255,189,89,0.2)
-              `,
-              background: 'linear-gradient(135deg, rgba(255,189,89,0.1) 0%, rgba(255,189,89,0.05) 100%)',
-              animation: 'spotlight-pulse 2s ease-in-out infinite'
-            }}
-          />
-          
-          {/* Secondary accent glow */}
-          <div
-            className="absolute border-2 border-[#ffa726]/60 rounded-2xl"
-            style={{
-              top: rect.top - 8,
-              left: rect.left - 8,
-              width: rect.width + 16,
-              height: rect.height + 16,
-              pointerEvents: 'none',
-              boxShadow: '0 0 40px rgba(255,167,38,0.5), 0 0 20px rgba(255,189,89,0.3)'
-            }}
-          />
-          
-          {/* Inner shimmer effect */}
-          <div
-            className="absolute border border-white/40 rounded-xl"
-            style={{
-              top: rect.top - 4,
-              left: rect.left - 4,
-              width: rect.width + 8,
-              height: rect.height + 8,
-              pointerEvents: 'none',
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%)'
-            }}
-          />
-        </>
-      )}
+      {/* NO HIGHLIGHT FOR ANY STEP - GUARANTEED NO CLICK BLOCKING */}
       
       {/* Interactive hole for click-waiting steps */}
       {rect && waitingClick && (
@@ -599,12 +538,12 @@ export default function EnhancedGuidedTour({
       )}
 
       {/* Main content area */}
-      <div className="absolute inset-0 pointer-events-none overflow-y-auto">
+      <div className="absolute inset-0 pointer-events-none overflow-y-auto z-[9998]">
         <div className="min-h-full flex flex-col items-center justify-center p-4">
           {/* Modern tour card with glassmorphism */}
           {rect || step?.showMockup ? (
             <div
-              className="max-w-lg bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border-2 border-[#ffbd59]/60 text-white rounded-3xl p-8 shadow-2xl pointer-events-auto relative overflow-hidden"
+              className="max-w-lg bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border-2 border-[#ffbd59]/60 text-white rounded-3xl p-8 shadow-2xl pointer-events-auto relative overflow-hidden z-[9999]"
               style={{
                 marginTop: rect && !step?.showMockup ? (() => {
                   const cardHeight = 250;
@@ -727,7 +666,7 @@ export default function EnhancedGuidedTour({
                 </button>
                 
                 <div className="flex gap-3">
-                  {current < tourSteps.length - 1 && !waitingClick && (
+                  {current < tourSteps.length - 1 && (
                     <button
                       className="group flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#ffbd59] to-[#ffa726] hover:from-[#ffa726] hover:to-[#ff9800] text-[#2c3539] text-sm font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-[#ffbd59]/50"
                       onClick={next}
@@ -757,7 +696,7 @@ export default function EnhancedGuidedTour({
               </div>
             </div>
           ) : (
-            <div className="max-w-lg bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border-2 border-[#ffbd59]/60 text-white rounded-3xl p-8 shadow-2xl pointer-events-auto relative overflow-hidden">
+            <div className="max-w-lg bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border-2 border-[#ffbd59]/60 text-white rounded-3xl p-8 shadow-2xl pointer-events-auto relative overflow-hidden z-[9999]">
               {/* Animated background glow */}
               <div 
                 className="absolute inset-0 opacity-30"

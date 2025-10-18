@@ -802,7 +802,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
         </div>
 
         {/* Notification Panel */}
-        <div className="bg-white/10 backdrop-blur-xl shadow-2xl rounded-l-xl w-96 max-h-[80vh] overflow-hidden border-l-4 border-[#ffbd59] border border-white/20">
+        <div className="bg-gradient-to-br from-[#1a1a2e]/95 to-[#2c3539]/95 backdrop-blur-xl shadow-2xl rounded-l-xl w-96 max-h-[80vh] overflow-hidden border-l-4 border-[#ffbd59] border border-white/20">
           
           {/* Header */}
           <div className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white p-4">
@@ -847,7 +847,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
           {/* Notifications List */}
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
+              <div className="text-center py-8 text-gray-200">
                 <Bell size={32} className="mx-auto mb-2 opacity-50" />
                 <p>Keine Benachrichtigungen</p>
               </div>
@@ -1237,11 +1237,11 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                             <h4 className="font-medium text-white mb-1">
                               {notification.title}
                             </h4>
-                            <p className="text-sm text-gray-300 mb-2">
+                            <p className="text-sm text-gray-200 mb-2">
                               {notification.message}
                             </p>
                             
-                            <div className="flex items-center gap-4 text-sm text-gray-400">
+                            <div className="flex items-center gap-4 text-sm text-gray-300">
                               {notification.scheduledDate && (
                                 <>
                                   <div className="flex items-center gap-1">
@@ -1267,7 +1267,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                               <div className="mt-3 p-3 bg-blue-500/10 rounded-lg border border-blue-500/20 backdrop-blur-sm">
                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                   <div>
-                                    <span className="text-gray-400">Angebotssumme:</span>
+                                    <span className="text-gray-200">Angebotssumme:</span>
                                     <div className="font-semibold text-blue-400">
                                       {new Intl.NumberFormat('de-DE', { 
                                         style: 'currency', 
@@ -1277,24 +1277,24 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                                   </div>
                                   {notification.quoteSummary.validUntil && (
                                     <div>
-                                      <span className="text-gray-500">Gültig bis:</span>
-                                      <div className="font-semibold text-gray-700">
+                                      <span className="text-gray-200">Gültig bis:</span>
+                                      <div className="font-semibold text-gray-100">
                                         {new Date(notification.quoteSummary.validUntil).toLocaleDateString('de-DE')}
                                       </div>
                                     </div>
                                   )}
                                   {notification.quoteSummary.startDate && (
                                     <div>
-                                      <span className="text-gray-500">Start:</span>
-                                      <div className="font-semibold text-gray-700">
+                                      <span className="text-gray-200">Start:</span>
+                                      <div className="font-semibold text-gray-100">
                                         {new Date(notification.quoteSummary.startDate).toLocaleDateString('de-DE')}
                                       </div>
                                     </div>
                                   )}
                                   {notification.quoteSummary.completionDate && (
                                     <div>
-                                      <span className="text-gray-500">Fertigstellung:</span>
-                                      <div className="font-semibold text-gray-700">
+                                      <span className="text-gray-200">Fertigstellung:</span>
+                                      <div className="font-semibold text-gray-100">
                                         {new Date(notification.quoteSummary.completionDate).toLocaleDateString('de-DE')}
                                       </div>
                                     </div>
@@ -1312,7 +1312,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                   {notification.tradeTitle && (
                                     <div>
-                                      <span className="text-gray-400">Gewerk:</span>
+                                      <span className="text-gray-200">Gewerk:</span>
                                       <div className="font-semibold text-purple-400">
                                         {notification.tradeTitle}
                                       </div>
@@ -1320,38 +1320,38 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                                   )}
                                   {notification.projectName && (
                                     <div>
-                                      <span className="text-gray-400">Projekt:</span>
+                                      <span className="text-gray-200">Projekt:</span>
                                       <div className="font-semibold text-purple-400">
                                         {notification.projectName}
                                       </div>
                                     </div>
                                   )}
                                   <div>
-                                    <span className="text-gray-500">Bauträger:</span>
-                                    <div className="font-semibold text-gray-700">
+                                    <span className="text-gray-200">Bauträger:</span>
+                                    <div className="font-semibold text-gray-100">
                                       {notification.bautraegerName}
                                     </div>
                                   </div>
                                   {notification.allocatedStartDate && (
                                     <div>
-                                      <span className="text-gray-500">Start:</span>
-                                      <div className="font-semibold text-gray-700">
+                                      <span className="text-gray-200">Start:</span>
+                                      <div className="font-semibold text-gray-100">
                                         {new Date(notification.allocatedStartDate).toLocaleDateString('de-DE')}
                                       </div>
                                     </div>
                                   )}
                                   {notification.allocatedEndDate && (
                                     <div>
-                                      <span className="text-gray-500">Ende:</span>
-                                      <div className="font-semibold text-gray-700">
+                                      <span className="text-gray-200">Ende:</span>
+                                      <div className="font-semibold text-gray-100">
                                         {new Date(notification.allocatedEndDate).toLocaleDateString('de-DE')}
                                       </div>
                                     </div>
                                   )}
                                   {notification.allocatedPersonCount && (
                                     <div>
-                                      <span className="text-gray-500">Personen:</span>
-                                      <div className="font-semibold text-gray-700">
+                                      <span className="text-gray-200">Personen:</span>
+                                      <div className="font-semibold text-gray-100">
                                         {notification.allocatedPersonCount}
                                       </div>
                                     </div>
@@ -1368,20 +1368,20 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                               <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                   <div>
-                                    <span className="text-gray-500">Projekt:</span>
+                                    <span className="text-gray-200">Projekt:</span>
                                     <div className="font-semibold text-red-600">
                                       {notification.projectName || 'Unbekanntes Projekt'}
                                     </div>
                                   </div>
                                   <div>
-                                    <span className="text-gray-500">Bauträger:</span>
-                                    <div className="font-semibold text-gray-700">
+                                    <span className="text-gray-200">Bauträger:</span>
+                                    <div className="font-semibold text-gray-100">
                                       {notification.bautraegerName}
                                     </div>
                                   </div>
                                   {notification.deadline && (
                                     <div className="col-span-2">
-                                      <span className="text-gray-500">Abgabefrist:</span>
+                                      <span className="text-gray-200">Abgabefrist:</span>
                                       <div className="font-semibold text-red-600">
                                         {new Date(notification.deadline).toLocaleDateString('de-DE')} um {new Date(notification.deadline).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
                                       </div>
@@ -1389,16 +1389,16 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                                   )}
                                   {notification.allocatedStartDate && (
                                     <div>
-                                      <span className="text-gray-500">Start:</span>
-                                      <div className="font-semibold text-gray-700">
+                                      <span className="text-gray-200">Start:</span>
+                                      <div className="font-semibold text-gray-100">
                                         {new Date(notification.allocatedStartDate).toLocaleDateString('de-DE')}
                                       </div>
                                     </div>
                                   )}
                                   {notification.allocatedEndDate && (
                                     <div>
-                                      <span className="text-gray-500">Ende:</span>
-                                      <div className="font-semibold text-gray-700">
+                                      <span className="text-gray-200">Ende:</span>
+                                      <div className="font-semibold text-gray-100">
                                         {new Date(notification.allocatedEndDate).toLocaleDateString('de-DE')}
                                       </div>
                                     </div>
@@ -1415,19 +1415,19 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                               <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                   <div>
-                                    <span className="text-gray-500">Projekt:</span>
+                                    <span className="text-gray-200">Projekt:</span>
                                     <div className="font-semibold text-yellow-600">
                                       {notification.projectName || 'Unbekanntes Projekt'}
                                     </div>
                                   </div>
                                   <div>
-                                    <span className="text-gray-500">Bauträger:</span>
-                                    <div className="font-semibold text-gray-700">
+                                    <span className="text-gray-200">Bauträger:</span>
+                                    <div className="font-semibold text-gray-100">
                                       {notification.bautraegerName}
                                     </div>
                                   </div>
                                   <div className="col-span-2">
-                                    <span className="text-gray-500">Status:</span>
+                                    <span className="text-gray-200">Status:</span>
                                     <div className="font-semibold text-yellow-600">
                                       Abnahme unter Vorbehalt
                                     </div>
@@ -1444,29 +1444,29 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                               <div className="mt-3 p-3 bg-green-500/10 rounded-lg border border-green-500/20 backdrop-blur-sm">
                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                   <div>
-                                    <span className="text-gray-400">Gewerk:</span>
+                                    <span className="text-gray-200">Gewerk:</span>
                                     <div className="font-semibold text-green-400">
                                       {notification.tradeTitle || 'Unbekanntes Gewerk'}
                                     </div>
                                   </div>
                                   <div>
-                                    <span className="text-gray-400">Projekt:</span>
+                                    <span className="text-gray-200">Projekt:</span>
                                     <div className="font-semibold text-green-400">
                                       {notification.projectName || 'Unbekanntes Projekt'}
                                     </div>
                                   </div>
                                   {notification.completionDate && (
                                     <div>
-                                      <span className="text-gray-500">Abgeschlossen:</span>
-                                      <div className="font-semibold text-gray-700">
+                                      <span className="text-gray-200">Abgeschlossen:</span>
+                                      <div className="font-semibold text-gray-100">
                                         {new Date(notification.completionDate).toLocaleDateString('de-DE')}
                                       </div>
                                     </div>
                                   )}
                                   {notification.quoteAmount && (
                                     <div>
-                                      <span className="text-gray-500">Angebotssumme:</span>
-                                      <div className="font-semibold text-gray-700">
+                                      <span className="text-gray-200">Angebotssumme:</span>
+                                      <div className="font-semibold text-gray-100">
                                         {new Intl.NumberFormat('de-DE', { 
                                           style: 'currency', 
                                           currency: notification.currency || 'CHF' 
@@ -1486,31 +1486,31 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                               <div className="mt-3 p-3 bg-green-500/10 rounded-lg border border-green-500/20 backdrop-blur-sm">
                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                   <div>
-                                    <span className="text-gray-400">Rechnungsnummer:</span>
+                                    <span className="text-gray-200">Rechnungsnummer:</span>
                                     <div className="font-semibold text-green-400">
                                       {notification.invoiceNumber || 'N/A'}
                                     </div>
                                   </div>
                                   <div>
-                                    <span className="text-gray-400">Gewerk:</span>
+                                    <span className="text-gray-200">Gewerk:</span>
                                     <div className="font-semibold text-green-400">
                                       {notification.tradeTitle || 'Unbekanntes Gewerk'}
                                     </div>
                                   </div>
                                   <div>
-                                    <span className="text-gray-400">Projekt:</span>
+                                    <span className="text-gray-200">Projekt:</span>
                                     <div className="font-semibold text-green-400">
                                       {notification.projectName || 'Unbekanntes Projekt'}
                                     </div>
                                   </div>
                                   <div>
-                                    <span className="text-gray-400">Bauträger:</span>
+                                    <span className="text-gray-200">Bauträger:</span>
                                     <div className="font-semibold text-gray-300">
                                       {notification.bautraegerName || 'Unbekannt'}
                                     </div>
                                   </div>
                                   <div>
-                                    <span className="text-gray-400">Betrag:</span>
+                                    <span className="text-gray-200">Betrag:</span>
                                     <div className="font-semibold text-green-400">
                                       {new Intl.NumberFormat('de-DE', { 
                                         style: 'currency', 
@@ -1520,7 +1520,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                                   </div>
                                   {notification.paidAt && (
                                     <div>
-                                      <span className="text-gray-400">Bezahlt am:</span>
+                                      <span className="text-gray-200">Bezahlt am:</span>
                                       <div className="font-semibold text-gray-300">
                                         {new Date(notification.paidAt).toLocaleDateString('de-DE')}
                                       </div>
@@ -1528,7 +1528,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                                   )}
                                   {notification.paymentReference && (
                                     <div className="col-span-2">
-                                      <span className="text-gray-400">Zahlungsreferenz:</span>
+                                      <span className="text-gray-200">Zahlungsreferenz:</span>
                                       <div className="font-semibold text-gray-300">
                                         {notification.paymentReference}
                                       </div>
@@ -1546,32 +1546,32 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                               <div className="mt-3 p-3 bg-green-500/10 rounded-lg border border-green-500/20 backdrop-blur-sm">
                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                   <div>
-                                    <span className="text-gray-400">Gewerk:</span>
+                                    <span className="text-gray-200">Gewerk:</span>
                                     <div className="font-semibold text-green-400">
                                       {notification.tradeTitle || 'Unbekanntes Gewerk'}
                                     </div>
                                   </div>
                                   <div>
-                                    <span className="text-gray-400">Projekt:</span>
+                                    <span className="text-gray-200">Projekt:</span>
                                     <div className="font-semibold text-green-400">
                                       {notification.projectName || 'Unbekanntes Projekt'}
                                     </div>
                                   </div>
                                   <div>
-                                    <span className="text-gray-400">Dienstleister:</span>
+                                    <span className="text-gray-200">Dienstleister:</span>
                                     <div className="font-semibold text-gray-300">
                                       {notification.serviceProviderName || 'Unbekannt'}
                                     </div>
                                   </div>
                                   <div>
-                                    <span className="text-gray-400">Rechnungsnummer:</span>
+                                    <span className="text-gray-200">Rechnungsnummer:</span>
                                     <div className="font-semibold text-gray-300">
                                       {notification.invoiceNumber || 'N/A'}
                                     </div>
                                   </div>
                                   {notification.totalAmount && (
                                     <div>
-                                      <span className="text-gray-400">Betrag:</span>
+                                      <span className="text-gray-200">Betrag:</span>
                                       <div className="font-semibold text-green-400 text-base">
                                         {new Intl.NumberFormat('de-DE', { 
                                           style: 'currency', 
@@ -1582,7 +1582,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                                   )}
                                   {notification.dueDate && (
                                     <div>
-                                      <span className="text-gray-400">Fällig am:</span>
+                                      <span className="text-gray-200">Fällig am:</span>
                                       <div className="font-semibold text-yellow-400">
                                         {new Date(notification.dueDate).toLocaleDateString('de-DE')}
                                       </div>
@@ -1600,7 +1600,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                               <div className="mt-3 p-3 bg-green-500/10 rounded-lg border border-green-500/20 backdrop-blur-sm">
                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                   <div>
-                                    <span className="text-gray-400">Angebotssumme:</span>
+                                    <span className="text-gray-200">Angebotssumme:</span>
                                     <div className="font-semibold text-green-400">
                                       {new Intl.NumberFormat('de-DE', { 
                                         style: 'currency', 
@@ -1610,24 +1610,24 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                                   </div>
                                   {notification.quoteSummary.validUntil && (
                                     <div>
-                                      <span className="text-gray-500">Gültig bis:</span>
-                                      <div className="font-semibold text-gray-700">
+                                      <span className="text-gray-200">Gültig bis:</span>
+                                      <div className="font-semibold text-gray-100">
                                         {new Date(notification.quoteSummary.validUntil).toLocaleDateString('de-DE')}
                                       </div>
                                     </div>
                                   )}
                                   {notification.quoteSummary.startDate && (
                                     <div>
-                                      <span className="text-gray-500">Start:</span>
-                                      <div className="font-semibold text-gray-700">
+                                      <span className="text-gray-200">Start:</span>
+                                      <div className="font-semibold text-gray-100">
                                         {new Date(notification.quoteSummary.startDate).toLocaleDateString('de-DE')}
                                       </div>
                                     </div>
                                   )}
                                   {notification.quoteSummary.completionDate && (
                                     <div>
-                                      <span className="text-gray-500">Fertigstellung:</span>
-                                      <div className="font-semibold text-gray-700">
+                                      <span className="text-gray-200">Fertigstellung:</span>
+                                      <div className="font-semibold text-gray-100">
                                         {new Date(notification.quoteSummary.completionDate).toLocaleDateString('de-DE')}
                                       </div>
                                     </div>
@@ -1696,7 +1696,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                     <div className="flex items-center gap-2">
                       <Calendar size={16} className="text-blue-500" />
                       <div>
-                        <span className="text-gray-500">Datum:</span>
+                        <span className="text-gray-200">Datum:</span>
                         <br />
                         {formatDate(selectedNotification.scheduledDate)} um {formatTime(selectedNotification.scheduledDate)}
                       </div>
@@ -1708,7 +1708,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                     <div className="flex items-center gap-2">
                       <Clock size={16} className="text-green-500" />
                       <div>
-                        <span className="text-gray-500">Dauer:</span>
+                        <span className="text-gray-200">Dauer:</span>
                         <br />
                         {selectedNotification.duration_minutes} Minuten
                       </div>
@@ -1720,7 +1720,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                     <div className="flex items-center gap-2 md:col-span-2">
                       <MapPin size={16} className="text-red-500" />
                       <div className="flex-1">
-                        <span className="text-gray-500">Adresse:</span>
+                        <span className="text-gray-200">Adresse:</span>
                         <br />
                         {selectedNotification.location}
                       </div>
@@ -1732,7 +1732,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                     <div className="flex items-start gap-2 md:col-span-2">
                       <MapPin size={16} className="text-orange-500 mt-0.5" />
                       <div className="flex-1">
-                        <span className="text-gray-500">Zusätzliche Ortsangaben:</span>
+                        <span className="text-gray-200">Zusätzliche Ortsangaben:</span>
                         <br />
                         {selectedNotification.location_details}
                       </div>
@@ -1744,7 +1744,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                     <div className="flex items-center gap-2">
                       <User size={16} className="text-purple-500" />
                       <div>
-                        <span className="text-gray-500">Ansprechpartner:</span>
+                        <span className="text-gray-200">Ansprechpartner:</span>
                         <br />
                         {selectedNotification.contact_person}
                       </div>
@@ -1756,7 +1756,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                     <div className="flex items-center gap-2">
                       <Phone size={16} className="text-indigo-500" />
                       <div>
-                        <span className="text-gray-500">Telefonnummer:</span>
+                        <span className="text-gray-200">Telefonnummer:</span>
                         <br />
                         <a href={`tel:${selectedNotification.contact_phone}`} className="text-indigo-600 hover:underline">
                           {selectedNotification.contact_phone}
@@ -1783,7 +1783,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-100 mb-2">
                   Nachricht (optional)
                 </label>
                 <textarea
@@ -1870,7 +1870,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                     <div className="flex items-center gap-2">
                       <Calendar size={16} className="text-blue-500" />
                       <div>
-                        <span className="text-gray-500">Datum:</span>
+                        <span className="text-gray-200">Datum:</span>
                         <br />
                         {formatDate(selectedNotification.scheduledDate)} um {formatTime(selectedNotification.scheduledDate)}
                       </div>
@@ -1882,7 +1882,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                     <div className="flex items-center gap-2">
                       <Clock size={16} className="text-green-500" />
                       <div>
-                        <span className="text-gray-500">Dauer:</span>
+                        <span className="text-gray-200">Dauer:</span>
                         <br />
                         {selectedNotification.duration_minutes} Minuten
                       </div>
@@ -1894,7 +1894,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                     <div className="flex items-center gap-2 md:col-span-2">
                       <MapPin size={16} className="text-red-500" />
                       <div className="flex-1">
-                        <span className="text-gray-500">Adresse:</span>
+                        <span className="text-gray-200">Adresse:</span>
                         <br />
                         {selectedNotification.location}
                       </div>
@@ -1906,7 +1906,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                     <div className="flex items-start gap-2 md:col-span-2">
                       <MapPin size={16} className="text-orange-500 mt-0.5" />
                       <div className="flex-1">
-                        <span className="text-gray-500">Zusätzliche Ortsangaben:</span>
+                        <span className="text-gray-200">Zusätzliche Ortsangaben:</span>
                         <br />
                         {selectedNotification.location_details}
                       </div>
@@ -1918,7 +1918,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                     <div className="flex items-center gap-2">
                       <User size={16} className="text-purple-500" />
                       <div>
-                        <span className="text-gray-500">Ansprechpartner:</span>
+                        <span className="text-gray-200">Ansprechpartner:</span>
                         <br />
                         {selectedNotification.contact_person}
                       </div>
@@ -1930,7 +1930,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                     <div className="flex items-center gap-2">
                       <Phone size={16} className="text-indigo-500" />
                       <div>
-                        <span className="text-gray-500">Telefonnummer:</span>
+                        <span className="text-gray-200">Telefonnummer:</span>
                         <br />
                         <a href={`tel:${selectedNotification.contact_phone}`} className="text-indigo-600 hover:underline">
                           {selectedNotification.contact_phone}
@@ -2003,7 +2003,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                             <div className="flex items-start gap-2">
                               <MessageSquare size={14} className="text-blue-500 mt-0.5" />
                               <div>
-                                <span className="text-sm font-medium text-gray-700">Nachricht:</span>
+                                <span className="text-sm font-medium text-gray-100">Nachricht:</span>
                                 <p className="text-sm text-gray-600 mt-1 font-medium bg-blue-50 p-2 rounded border-l-3 border-blue-400">
                                   {response.message}
                                 </p>
@@ -2018,7 +2018,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                             <div className="flex items-start gap-2">
                               <Calendar size={14} className="text-orange-500 mt-0.5" />
                               <div>
-                                <span className="text-sm font-medium text-gray-700">Alternativtermin:</span>
+                                <span className="text-sm font-medium text-gray-100">Alternativtermin:</span>
                                 <p className="text-sm text-orange-700 mt-1 font-medium">
                                   {new Date(response.suggested_date).toLocaleDateString('de-DE', {
                                     weekday: 'long',
@@ -2037,14 +2037,14 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
 
                         {/* Antwortzeit */}
                         {response.responded_at && (
-                          <div className="mt-2 text-xs text-gray-500">
+                          <div className="mt-2 text-xs text-gray-200">
                             Geantwortet am: {new Date(response.responded_at).toLocaleDateString('de-DE')} um {new Date(response.responded_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         )}
                       </div>
                     ))
                   ) : (
-                    <div className="text-center py-8 text-gray-400">
+                    <div className="text-center py-8 text-gray-200">
                       <MessageSquare size={32} className="mx-auto mb-2 opacity-50" />
                       <p>Noch keine Antworten erhalten</p>
                     </div>
@@ -2106,7 +2106,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                   <h4 className="font-medium text-gray-900">{selectedNotification.title}</h4>
                 </div>
                 
-                <p className="text-sm text-gray-700 mb-3">{selectedNotification.message}</p>
+                <p className="text-sm text-gray-100 mb-3">{selectedNotification.message}</p>
                 
                 <div className="space-y-2 text-sm text-gray-600">
                   <div className="flex items-center gap-2">
@@ -2140,7 +2140,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                   <AlertCircle size={16} className="text-blue-500" />
                   Nächste Schritte
                 </h5>
-                <ul className="text-sm text-gray-700 space-y-1">
+                <ul className="text-sm text-gray-100 space-y-1">
                   <li>• Kontaktdaten des Bauträgers sind nun freigeschaltet</li>
                   <li>• Sie können mit der Projektplanung beginnen</li>
                   <li>• Vereinbaren Sie einen Starttermin</li>

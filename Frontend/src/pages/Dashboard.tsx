@@ -71,7 +71,7 @@ import {
   BarChart3
 } from 'lucide-react';
 import GuidedTourOverlay from '../components/Onboarding/GuidedTourOverlay';
-import EnhancedGuidedTour from '../components/Onboarding/EnhancedGuidedTour';
+import FinalGuidedTour from '../components/Onboarding/FinalGuidedTour';
 import { useOnboarding } from '../context/OnboardingContext';
 import DisableableButton from '../components/Onboarding/DisableableButton';
 import { DocumentCategorizer } from '../utils/documentCategorizer';
@@ -3816,14 +3816,13 @@ function DashboardWithCreditAnimation() {
 
       {/* Radial Menu wurde global in App.tsx eingebunden */}
 
-      {/* Enhanced Guided Tour */}
-      {showTour && (
-        <EnhancedGuidedTour
-          onClose={() => setShowTour(false)}
-          onCompleted={() => completeTour()}
-          userRole={onboardingUserRole || 'BAUTRAEGER'}
-        />
-      )}
+      {/* Final Guided Tour - Best of both worlds */}
+      <FinalGuidedTour
+        isOpen={showTour}
+        onClose={() => setShowTour(false)}
+        onCompleted={() => completeTour()}
+        userRole={onboardingUserRole || 'BAUTRAEGER'}
+      />
 
       {/* DMS Upload Modal */}
       {showUploadModal && (

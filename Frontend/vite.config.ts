@@ -3,9 +3,40 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  
+  // Development server configuration
   server: {
-    port: 5173
+    port: 5173,
+    host: true  // Allow network access
   },
+  
+  // Production build optimizations
+  build: {
+    outDir: 'dist',
+    sourcemap: false,  // Disable sourcemaps in production for smaller bundle
+    minify: 'terser',  // Use terser for better minification
+    terserOptions: {
+      compress: {
+        drop_console: true,  // Remove console.log in production
+        drop_debugger: true
+      }
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split vendor code for better caching
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['lucide-react', 'framer-motion'],
+          'chart-vendor': ['chart.js', 'react-chartjs-2', 'recharts'],
+          'utils-vendor': ['axios', 'dayjs', 'date-fns']
+        }
+      }
+    },
+    // Chunk size warnings
+    chunkSizeWarningLimit: 1000  // 1MB
+  },
+  
+  // Dependency optimization
   optimizeDeps: {
     include: [
       'react',
@@ -29,5 +60,11 @@ export default defineConfig({
       '@dnd-kit/sortable',
       '@dnd-kit/utilities'
     ]
+  },
+  
+  // Preview server (for testing production build)
+  preview: {
+    port: 4173,
+    host: true
   }
 })

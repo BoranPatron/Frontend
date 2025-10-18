@@ -172,29 +172,50 @@ export default function TradeMap({
 
   // Suchradius-Kreis aktualisieren
   useEffect(() => {
-    if (!map || !currentLocation) return;
+    if (!map || !currentLocation || !isMapLoaded || !mapRef.current) {
+      console.log('🔍 Radius-Kreis übersprungen - Map noch nicht bereit');
+      return;
+    }
 
     // @ts-ignore
     const L = window.L;
-    if (!L) return;
+    if (!L) {
+      console.warn('⚠️ Leaflet nicht verfügbar für Radius-Kreis');
+      return;
+    }
 
-    // Alten Radius-Kreis entfernen
-    map.eachLayer((layer: any) => {
-      if (layer instanceof L.Circle) {
-        map.removeLayer(layer);
-      }
-    });
+    try {
+      // Alten Radius-Kreis entfernen
+      map.eachLayer((layer: any) => {
+        if (layer instanceof L.Circle) {
+          map.removeLayer(layer);
+        }
+      });
 
-    // Neuen Radius-Kreis hinzufügen
-    L.circle([currentLocation.latitude, currentLocation.longitude], {
-      color: '#ffbd59',
-      fillColor: '#ffbd59',
-      fillOpacity: 0.1,
-      weight: 2,
-      radius: radiusKm * 1000 // Meter
-    }).addTo(map);
+      // Neuen Radius-Kreis hinzufügen - mit Verzögerung für DOM-Bereitschaft
+      setTimeout(() => {
+        try {
+          const circle = L.circle([currentLocation.latitude, currentLocation.longitude], {
+            color: '#ffbd59',
+            fillColor: '#ffbd59',
+            fillOpacity: 0.1,
+            weight: 2,
+            radius: radiusKm * 1000 // Meter
+          });
+          
+          if (map && mapRef.current) {
+            circle.addTo(map);
+            console.log('✅ Radius-Kreis hinzugefügt:', radiusKm, 'km');
+          }
+        } catch (error) {
+          console.error('❌ Fehler beim Hinzufügen des Radius-Kreises:', error);
+        }
+      }, 100);
+    } catch (error) {
+      console.error('❌ Fehler beim Verarbeiten des Radius-Kreises:', error);
+    }
 
-  }, [map, currentLocation, radiusKm]);
+  }, [map, currentLocation, radiusKm, isMapLoaded]);
 
     // Trade-Marker mit Clustering aktualisieren
   useEffect(() => {
@@ -215,6 +236,14 @@ export default function TradeMap({
       if (cluster.length === 1) {
         // Einzelnes Gewerk - normaler Marker
         const trade = cluster[0];
+        
+        // Sicherheitsprüfung: Überspringe Trades ohne gültige Koordinaten
+        if (!trade.address_latitude || !trade.address_longitude || 
+            isNaN(trade.address_latitude) || isNaN(trade.address_longitude)) {
+          console.warn('⚠️ Trade ohne gültige Koordinaten übersprungen:', trade.id, trade.title);
+          return;
+        }
+        
         const categoryInfo = getCategoryIcon(trade.category);
         
         // Quote-Status prüfen
@@ -282,6 +311,14 @@ export default function TradeMap({
       } else {
         // Cluster-Marker für mehrere Gewerke
         const firstTrade = cluster[0];
+        
+        // Sicherheitsprüfung: Überspringe Cluster ohne gültige Koordinaten
+        if (!firstTrade.address_latitude || !firstTrade.address_longitude || 
+            isNaN(firstTrade.address_latitude) || isNaN(firstTrade.address_longitude)) {
+          console.warn('⚠️ Cluster ohne gültige Koordinaten übersprungen:', cluster.length, 'Trades');
+          return;
+        }
+        
         const clusterIcon = createClusterIcon(cluster);
         
         const marker = L.marker([firstTrade.address_latitude, firstTrade.address_longitude], { icon: clusterIcon })
@@ -312,6 +349,13 @@ export default function TradeMap({
     const CLUSTER_THRESHOLD = 0.001; // ~100m Radius
 
     trades.forEach(trade => {
+      // Überspringe Trades ohne gültige Koordinaten
+      if (!trade.address_latitude || !trade.address_longitude || 
+          isNaN(trade.address_latitude) || isNaN(trade.address_longitude)) {
+        console.warn('⚠️ Trade beim Clustering übersprungen (keine Koordinaten):', trade.id);
+        return;
+      }
+      
       // Erstelle einen Cluster-Key basierend auf gerundeten Koordinaten
       const lat = Math.round(trade.address_latitude / CLUSTER_THRESHOLD) * CLUSTER_THRESHOLD;
       const lng = Math.round(trade.address_longitude / CLUSTER_THRESHOLD) * CLUSTER_THRESHOLD;
@@ -634,40 +678,68 @@ export default function TradeMap({
 
   // Auto-Zoom zu allen Markern
   useEffect(() => {
-    if (!map || !currentLocation || trades.length === 0) return;
+    if (!map || !currentLocation || trades.length === 0 || !isMapLoaded || !mapRef.current) {
+      console.log('🔍 Auto-Zoom übersprungen - Map noch nicht bereit oder keine Trades');
+      return;
+    }
 
     // @ts-ignore
     const L = window.L;
-    if (!L) return;
+    if (!L) {
+      console.warn('⚠️ Leaflet nicht verfügbar für Auto-Zoom');
+      return;
+    }
 
-         const group = new (L as any).featureGroup([
-       (L as any).marker([currentLocation.latitude, currentLocation.longitude]),
-       ...trades.map(trade => (L as any).marker([trade.address_latitude, trade.address_longitude]))
-     ]);
+    try {
+      // Filtere Trades ohne gültige Koordinaten
+      const validTrades = trades.filter(trade => 
+        trade.address_latitude && trade.address_longitude &&
+        !isNaN(trade.address_latitude) && !isNaN(trade.address_longitude)
+      );
 
-    map.fitBounds(group.getBounds().pad(0.1));
-  }, [map, currentLocation, trades]);
+      if (validTrades.length === 0) {
+        console.log('🔍 Keine Trades mit gültigen Koordinaten für Auto-Zoom');
+        return;
+      }
+
+      const group = new (L as any).featureGroup([
+        (L as any).marker([currentLocation.latitude, currentLocation.longitude]),
+        ...validTrades.map(trade => (L as any).marker([trade.address_latitude, trade.address_longitude]))
+      ]);
+
+      map.fitBounds(group.getBounds().pad(0.1));
+      console.log('✅ Auto-Zoom auf', validTrades.length, 'Trades angewendet');
+    } catch (error) {
+      console.error('❌ Fehler beim Auto-Zoom:', error);
+    }
+  }, [map, currentLocation, trades, isMapLoaded]);
 
   // Karte bei Hover-Vergrößerung neu dimensionieren
   useEffect(() => {
-    if (!map) return;
+    if (!map || !mapRef.current) {
+      console.log('🔍 Map-Resize übersprungen - Map noch nicht bereit');
+      return;
+    }
 
     // Längeres Timeout für smooth transition (synchron mit CSS-Transitions)
     const resizeTimeout = setTimeout(() => {
       try {
-        map.invalidateSize();
-        
-        // Optional: Zoom-Level bei Vergrößerung leicht anpassen
-        if (isExpanded && currentLocation) {
-          const currentZoom = map.getZoom();
-          // Leichte Zoom-Anpassung für bessere Übersicht bei größerer Karte
-          map.setView([currentLocation.latitude, currentLocation.longitude], Math.min(currentZoom + 0.3, 14), {
-            animate: true,
-            duration: 0.8 // Smooth zoom animation
-          });
+        if (map && mapRef.current) {
+          map.invalidateSize();
+          
+          // Optional: Zoom-Level bei Vergrößerung leicht anpassen
+          if (isExpanded && currentLocation) {
+            const currentZoom = map.getZoom();
+            // Leichte Zoom-Anpassung für bessere Übersicht bei größerer Karte
+            map.setView([currentLocation.latitude, currentLocation.longitude], Math.min(currentZoom + 0.3, 14), {
+              animate: true,
+              duration: 0.8 // Smooth zoom animation
+            });
+          }
+          console.log('✅ Map-Größe aktualisiert, isExpanded:', isExpanded);
         }
       } catch (error) {
-        console.log('Map resize error:', error);
+        console.error('❌ Map resize error:', error);
       }
     }, 300); // Längere Verzögerung für smooth transition (synchron mit 1000ms CSS)
 

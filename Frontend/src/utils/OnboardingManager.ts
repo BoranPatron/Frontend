@@ -109,7 +109,19 @@ export class OnboardingManager {
     }
 
     // 3b. Dashboard-Tour prüfen: Wenn Rolle existiert, aber Tour nicht abgeschlossen → Tour zeigen
-    const tourCompleted = !!(user.consent_fields && user.consent_fields.dashboard_tour && user.consent_fields.dashboard_tour.completed);
+    const tourCompleted = !!(user.consent_fields && 
+                           user.consent_fields.dashboard_tour && 
+                           user.consent_fields.dashboard_tour.completed === true);
+    
+    console.log('🔍 OnboardingManager - Tour completion check:', {
+      userId: user.id,
+      consentFields: user.consent_fields,
+      dashboardTour: user.consent_fields?.dashboard_tour,
+      tourCompleted,
+      roleSelected: user.role_selected,
+      userRole: user.user_role
+    });
+    
     if (user.role_selected && user.user_role && !tourCompleted) {
       return {
         needsOnboarding: true,
@@ -249,7 +261,18 @@ export class OnboardingManager {
     }
 
     // Prüfe ob Tour bereits abgeschlossen wurde
-    const tourCompleted = !!(user.consent_fields && user.consent_fields.dashboard_tour && user.consent_fields.dashboard_tour.completed);
+    const tourCompleted = !!(user.consent_fields && 
+                           user.consent_fields.dashboard_tour && 
+                           user.consent_fields.dashboard_tour.completed === true);
+    
+    console.log('🔍 canStartDashboardTour - Tour completion check:', {
+      userId: user.id,
+      consentFields: user.consent_fields,
+      dashboardTour: user.consent_fields?.dashboard_tour,
+      tourCompleted,
+      canStart: !tourCompleted
+    });
+    
     if (tourCompleted) {
       return false; // Tour bereits abgeschlossen
     }

@@ -3413,7 +3413,38 @@ export default function ServiceProviderDashboard() {
           
 
           {/* Modern Content Area with Smooth Transitions */}
-              {activeTab === 'rows' || activeTab === 'cards' ? (
+              {(() => {
+                /* Kombiniere und dedupliziere Geo-Trades und lokale Trades FÜR ALLE TABS */
+                // Erstelle eine Map für Deduplizierung basierend auf ID
+                const tradeMap: { [key: number]: any } = {};
+                
+                // Füge Geo-Trades hinzu (haben Priorität wegen Distanz-Info)
+                geoTrades.forEach(trade => {
+                  tradeMap[trade.id] = {...trade, isGeoResult: true};
+                });
+                
+                // WICHTIG: Merge lokale Trades mit Geo-Trades um has_unread_messages Felder zu erhalten
+                trades.forEach(trade => {
+                  if (tradeMap[trade.id]) {
+                    // Trade existiert bereits in geoTrades - MERGE die Felder
+                    tradeMap[trade.id] = {
+                      ...tradeMap[trade.id], // Behalte Geo-Daten (distance_km, etc.)
+                      has_unread_messages_bautraeger: trade.has_unread_messages_bautraeger,
+                      has_unread_messages_dienstleister: trade.has_unread_messages_dienstleister,
+                      // Weitere wichtige Felder aus lokalen Trades übernehmen
+                      completion_status: trade.completion_status || tradeMap[trade.id].completion_status,
+                    };
+                  } else {
+                    // Trade existiert nur in lokalen Trades
+                    tradeMap[trade.id] = {...trade, isGeoResult: false};
+                  }
+                });
+                
+                const combinedTrades = Object.values(tradeMap);
+
+                // Rendering basierend auf activeTab
+                if (activeTab === 'rows' || activeTab === 'cards') {
+                  return (
             <div>
               {(isLoadingTrades || geoLoading) ? (
                 <div className="bg-gradient-to-br from-white/5 to-white/10 rounded-2xl p-12 text-center backdrop-blur-sm border border-white/10">
@@ -3439,33 +3470,6 @@ export default function ServiceProviderDashboard() {
                 </div>
               ) : (
                 (() => {
-                  /* Kombiniere und dedupliziere Geo-Trades und lokale Trades */
-                  // Erstelle eine Map für Deduplizierung basierend auf ID
-                  const tradeMap: { [key: number]: any } = {};
-                  
-                  // Füge Geo-Trades hinzu (haben Priorität wegen Distanz-Info)
-                  geoTrades.forEach(trade => {
-                    tradeMap[trade.id] = {...trade, isGeoResult: true};
-                  });
-                  
-                  // WICHTIG: Merge lokale Trades mit Geo-Trades um has_unread_messages Felder zu erhalten
-                  trades.forEach(trade => {
-                    if (tradeMap[trade.id]) {
-                      // Trade existiert bereits in geoTrades - MERGE die Felder
-                      tradeMap[trade.id] = {
-                        ...tradeMap[trade.id], // Behalte Geo-Daten (distance_km, etc.)
-                        has_unread_messages_bautraeger: trade.has_unread_messages_bautraeger,
-                        has_unread_messages_dienstleister: trade.has_unread_messages_dienstleister,
-                        // Weitere wichtige Felder aus lokalen Trades übernehmen
-                        completion_status: trade.completion_status || tradeMap[trade.id].completion_status,
-                      };
-                    } else {
-                      // Trade existiert nur in lokalen Trades
-                      tradeMap[trade.id] = {...trade, isGeoResult: false};
-                    }
-                  });
-                  
-                  const combinedTrades = Object.values(tradeMap);
                   
                   // Debug: Zeige has_unread_messages Status für alle Trades
                   console.log('🔍 CombinedTrades - Mail-Symbol Status:', combinedTrades.map(t => ({
@@ -3847,12 +3851,25 @@ export default function ServiceProviderDashboard() {
                 })()
               )}
             </div>
-          ) : (
+                  );
+                } else {
+                  // Map-Ansicht mit kombinierten Trades
+                  // Filtere nur Trades mit gültigen Koordinaten (von GeoSearch)
+                  const tradesWithCoordinates = combinedTrades.filter(trade => 
+                    trade.address_latitude != null && 
+                    trade.address_longitude != null &&
+                    !isNaN(trade.address_latitude) &&
+                    !isNaN(trade.address_longitude)
+                  );
+                  
+                  console.log('🗺️ Map-Ansicht: Gefilterte Trades mit Koordinaten:', tradesWithCoordinates.length, 'von', combinedTrades.length);
+                  
+                  return (
                 /* Modern Map View with Glow */
                 <div className="rounded-2xl overflow-hidden border border-white/20 shadow-2xl h-[50vh] min-h-[400px] hover:shadow-[0_0_40px_rgba(255,189,89,0.2)] transition-all duration-300">
                   <TradeMap
                     currentLocation={currentLocation}
-                    trades={geoTrades}
+                    trades={tradesWithCoordinates}
                     radiusKm={radiusKm}
                     onTradeClick={(trade) => {
                       handleTradeDetails(trade);
@@ -3862,7 +3879,9 @@ export default function ServiceProviderDashboard() {
                     getQuoteStatusForTrade={getServiceProviderQuoteStatus}
                   />
                 </div>
-          )}
+                  );
+                }
+              })()}
 
               {/* Error-Anzeige */}
               {geoError && (

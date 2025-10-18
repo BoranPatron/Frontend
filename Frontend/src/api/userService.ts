@@ -19,7 +19,30 @@ export async function getUserProfile(user_id: number) {
   return res.data;
 }
 
-export async function updateCompanyInfo(companyData: { company_name: string; company_address: string; company_uid?: string }) {
+export async function getUserCompanyLogo(user_id: number) {
+  const res = await api.get(`/users/${user_id}/company-logo`);
+  return res.data;
+}
+
+export async function uploadCompanyLogo(file: File): Promise<{ file_path: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const res = await api.post('/auth/upload-company-logo', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return res.data;
+}
+
+export async function updateCompanyInfo(companyData: { 
+  company_name: string; 
+  company_address: string; 
+  company_uid?: string;
+  company_logo?: string;
+  company_logo_advertising_consent?: boolean;
+}) {
   const res = await api.post('/auth/update-company-info', companyData);
   return res.data;
 }

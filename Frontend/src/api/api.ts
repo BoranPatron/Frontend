@@ -1,17 +1,45 @@
 import axios from 'axios';
 import { cacheManager, withCache } from '../utils/cacheManager';
 
-// Dynamische API-URL basierend auf der aktuellen Host-URL
+// Dynamische API-URL basierend auf Environment und Host
 export const getApiBaseUrl = () => {
+  // 1. Check for environment variable (Vite uses VITE_ prefix)
+  const envApiUrl = import.meta.env.VITE_API_URL;
+  if (envApiUrl) {
+    console.log('🌍 Using API URL from environment:', envApiUrl);
+    return envApiUrl;
+  }
+  
+  // 2. Production detection (Render.com or custom domain)
   const hostname = window.location.hostname;
-  // Wenn localhost, verwende localhost für Backend
-  // Ansonsten verwende die gleiche IP-Adresse wie das Frontend
+  const isProduction = hostname.includes('onrender.com') || 
+                       (!hostname.includes('localhost') && !hostname.includes('127.0.0.1'));
+  
+  if (isProduction) {
+    // Production: try to construct API URL from hostname
+    if (hostname.includes('onrender.com')) {
+      // Render: replace frontend subdomain with api subdomain
+      const apiUrl = `https://buildwise-api.onrender.com/api/v1`;
+      console.log('🚀 Production mode (Render):', apiUrl);
+      return apiUrl;
+    } else {
+      // Custom domain: assume API is on same domain with /api path
+      const apiUrl = `${window.location.protocol}//${hostname}/api/v1`;
+      console.log('🚀 Production mode (Custom domain):', apiUrl);
+      return apiUrl;
+    }
+  }
+  
+  // 3. Development fallback
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     const baseUrl = 'http://localhost:8000/api/v1';
+    console.log('💻 Development mode (localhost):', baseUrl);
     return baseUrl;
   }
-  // Für Netzwerk-Zugriff verwende die gleiche IP wie das Frontend
+  
+  // 4. Local network (mobile testing)
   const baseUrl = `http://${hostname}:8000/api/v1`;
+  console.log('📱 Local network mode:', baseUrl);
   return baseUrl;
 };
 
