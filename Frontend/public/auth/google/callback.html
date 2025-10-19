@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BuildWise OAuth Callback</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 32px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error {
+            color: #ef4444;
+        }
+        .success {
+            color: #10b981;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .secondary {
+            background: #6b7280;
+        }
+        .secondary:hover {
+            background: #4b5563;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="spinner" class="spinner"></div>
+        <h2 id="status">Anmeldung läuft...</h2>
+        <p id="message">Verarbeite OAuth-Callback...</p>
+        <div id="buttons" style="display: none;">
+            <button onclick="goToLogin()">Zurück zur Anmeldung</button>
+            <button onclick="reloadPage()" class="secondary">Seite neu laden</button>
+        </div>
+    </div>
+
+    <script>
+        async function processOAuthCallback() {
+            try {
+                // URL-Parameter extrahieren
+                const urlParams = new URLSearchParams(window.location.search);
+                const code = urlParams.get('code');
+                const state = urlParams.get('state');
+                const error = urlParams.get('error');
+                const errorDescription = urlParams.get('error_description');
+
+                console.log('📋 URL-Parameter:', { 
+                    code: code ? `${code.substring(0, 10)}...` : 'missing', 
+                    state, 
+                    error, 
+                    errorDescription 
+                });
+
+                // Prüfe auf OAuth-Fehler
+                if (error) {
+                    console.error('❌ OAuth-Fehler:', error, errorDescription);
+                    showError(errorDescription || `OAuth-Fehler: ${error}`);
+                    return;
+                }
+
+                if (!code) {
+                    console.error('❌ Kein Authorization Code erhalten');
+                    showError('Kein Authorization Code erhalten');
+                    return;
+                }
+
+                // Bestimme Provider aus URL
+                const pathname = window.location.pathname;
+                let provider = '';
+                
+                if (pathname.includes('/auth/google/callback')) {
+                    provider = 'google';
+                } else if (pathname.includes('/auth/microsoft/callback')) {
+                    provider = 'microsoft';
+                } else {
+                    console.error('❌ Unbekannter OAuth-Provider');
+                    showError('Unbekannter OAuth-Provider');
+                    return;
+                }
+
+                console.log(`🔗 Verarbeite ${provider.toUpperCase()} OAuth-Callback`);
+
+                // Bestimme API-URL
+                const apiUrl = 'https://buildwise-api.onrender.com/api/v1';
+                console.log(`🌐 Sende OAuth-Callback an: ${apiUrl}/auth/oauth/${provider}/callback`);
+                
+                // Sende Code an Backend
+                const response = await fetch(`${apiUrl}/auth/oauth/${provider}/callback`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        code,
+                        state: state || undefined,
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    let errorData;
+                    
+                    try {
+                        errorData = JSON.parse(errorText);
+                    } catch {
+                        errorData = { detail: errorText || 'Unbekannter Fehler' };
+                    }
+                    
+                    console.error('❌ Backend-Fehler:', response.status, errorData);
+                    showError(errorData.detail || `Backend-Fehler: ${response.status}`);
+                    return;
+                }
+
+                const data = await response.json();
+                console.log('✅ OAuth-Callback erfolgreich:', data);
+
+                if (!data.access_token) {
+                    console.error('❌ Kein Access Token erhalten');
+                    showError('Kein Access Token erhalten');
+                    return;
+                }
+
+                // Speichere Token und User-Daten
+                localStorage.setItem('token', data.access_token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+                
+                showSuccess(data.user);
+                
+                // Weiterleitung nach kurzer Verzögerung
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+
+            } catch (err) {
+                console.error('❌ OAuth-Callback Fehler:', err);
+                showError(err.message || 'Anmeldung fehlgeschlagen');
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('spinner').style.display = 'none';
+            document.getElementById('status').textContent = 'Anmeldung fehlgeschlagen';
+            document.getElementById('status').className = 'error';
+            document.getElementById('message').textContent = message;
+            document.getElementById('buttons').style.display = 'block';
+        }
+
+        function showSuccess(user) {
+            document.getElementById('spinner').style.display = 'none';
+            document.getElementById('status').textContent = 'Anmeldung erfolgreich!';
+            document.getElementById('status').className = 'success';
+            document.getElementById('message').textContent = `Willkommen, ${user.first_name} ${user.last_name}! Sie werden in Kürze weitergeleitet...`;
+        }
+
+        function goToLogin() {
+            window.location.href = '/login';
+        }
+
+        function reloadPage() {
+            window.location.reload();
+        }
+
+        // Starte OAuth-Callback-Verarbeitung
+        processOAuthCallback();
+    </script>
+</body>
+</html>
