@@ -1,6 +1,19 @@
 /* Trade Details Modal - Mobile Background Fix für iOS Safari */
 /* Höchste Spezifität für garantierten dunklen Hintergrund */
 
+/* Data Attribute Selektoren - Höchste Priorität */
+[data-modal="trade-details"] {
+  background: linear-gradient(135deg, #1a1a2e 0%, #2c3539 100%) !important;
+  background-color: #1a1a2e !important;
+  background-image: linear-gradient(135deg, #1a1a2e 0%, #2c3539 100%) !important;
+}
+
+[data-mobile="true"][data-modal="trade-details"] {
+  background: linear-gradient(135deg, #1a1a2e 0%, #2c3539 100%) !important;
+  background-color: #1a1a2e !important;
+  background-image: linear-gradient(135deg, #1a1a2e 0%, #2c3539 100%) !important;
+}
+
 [class*="TradeDetailsModal"] > div > div {
   background: linear-gradient(135deg, #1a1a2e 0%, #2c3539 100%) !important;
   background-color: #1a1a2e !important;

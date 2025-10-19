@@ -4399,6 +4399,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       
     <div className={`fixed inset-0 z-50 ${isMobile ? 'mobile-modal-container' : 'bg-black/50 backdrop-blur-sm flex items-center justify-center p-4'}`}>
       <div 
+        data-modal="trade-details"
+        data-mobile={isMobile}
         className={`shadow-2xl border border-gray-600/30 w-full overflow-hidden relative flex flex-col
           ${isMobile 
             ? 'h-[100vh] rounded-t-3xl backdrop-blur-lg border border-white/20' 
@@ -4406,9 +4408,9 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           }
           ${activeTab === 'contact' && !isBautraeger() && !isMobile ? 'h-screen' : ''}`}
         style={{
-          background: 'linear-gradient(135deg, rgb(26, 26, 46) 0%, rgb(44, 53, 57) 100%)',
-          backgroundColor: 'rgb(26, 26, 46)',
-          backgroundImage: 'linear-gradient(135deg, rgb(26, 26, 46) 0%, rgb(44, 53, 57) 100%)'
+          background: 'linear-gradient(135deg, rgb(26, 26, 46) 0%, rgb(44, 53, 57) 100%) !important',
+          backgroundColor: 'rgb(26, 26, 46) !important',
+          backgroundImage: 'linear-gradient(135deg, rgb(26, 26, 46) 0%, rgb(44, 53, 57) 100%) !important'
         } as React.CSSProperties}
         onTouchStart={isMobile ? swipeGestures.onTouchStart as any : undefined}
         onTouchMove={isMobile ? swipeGestures.onTouchMove as any : undefined}
