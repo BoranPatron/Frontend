@@ -1825,11 +1825,35 @@ export default function ServiceProviderDashboard() {
 
   const handleCostEstimateSubmit = async (costEstimateData: any) => {
     if (!selectedTradeForQuote || !user) {
-      console.error('❌ Fehlende Daten für Angebotserstellung');
+      console.error('❌ Fehlende Daten für Angebotserstellung:', {
+        selectedTradeForQuote: !!selectedTradeForQuote,
+        user: !!user,
+        userEmail: user?.email,
+        userId: user?.id
+      });
+      
+      // Zeige Fehlermeldung an den Benutzer
+      alert('Fehler: Benutzerdaten oder Trade-Informationen fehlen. Bitte melden Sie sich erneut an.');
       return;
     }
 
     try {
+      // Validiere erforderliche Felder
+      if (!costEstimateData.total_amount || parseFloat(costEstimateData.total_amount) <= 0) {
+        alert('Fehler: Bitte geben Sie einen gültigen Gesamtbetrag ein.');
+        return;
+      }
+      
+      if (!user.email) {
+        alert('Fehler: Ihre E-Mail-Adresse ist nicht verfügbar. Bitte melden Sie sich erneut an.');
+        return;
+      }
+      
+      if (!user.first_name || !user.last_name) {
+        alert('Fehler: Ihre Kontaktdaten sind unvollständig. Bitte melden Sie sich erneut an.');
+        return;
+      }
+
       // Angebot über API erstellen
       // WICHTIG: Verwende IMMER die aktuellen User-Daten für Kontaktinformationen
       const quoteData = {
@@ -1878,9 +1902,19 @@ export default function ServiceProviderDashboard() {
         contact_person: quoteData.contact_person,
         company_name: quoteData.company_name,
         userId: user.id,
-        userEmail: user.email
+        userEmail: user.email,
+        apiUrl: window.location.hostname
       });
 
+      // Prüfe API-Verbindung vor dem Request
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('❌ Kein Token im localStorage gefunden');
+        alert('Fehler: Sie sind nicht angemeldet. Bitte melden Sie sich erneut an.');
+        return;
+      }
+
+      console.log('🔑 Token gefunden, erstelle Angebot...');
       const newQuote = await createQuote(quoteData);
       
       console.log('✅ ServiceProviderDashboard: Angebot erfolgreich erstellt:', newQuote);
@@ -1912,6 +1946,35 @@ export default function ServiceProviderDashboard() {
       
       } catch (error) {
       console.error('❌ Fehler beim Erstellen des Angebots:', error);
+      
+      // Detaillierte Fehlerbehandlung
+      if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+        
+        console.error('❌ API-Fehler:', {
+          status,
+          data,
+          url: error.config?.url
+        });
+        
+        if (status === 401) {
+          alert('Fehler: Sie sind nicht angemeldet oder Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.');
+        } else if (status === 422) {
+          const errorMessage = data?.detail || data?.message || 'Validierungsfehler';
+          alert(`Fehler: ${errorMessage}`);
+        } else if (status === 500) {
+          alert('Fehler: Server-Fehler. Bitte versuchen Sie es später erneut.');
+        } else {
+          alert(`Fehler: ${status} - ${data?.message || 'Unbekannter Fehler'}`);
+        }
+      } else if (error.request) {
+        console.error('❌ Netzwerk-Fehler:', error.request);
+        alert('Fehler: Keine Verbindung zum Server. Bitte überprüfen Sie Ihre Internetverbindung.');
+      } else {
+        console.error('❌ Unbekannter Fehler:', error.message);
+        alert(`Fehler: ${error.message || 'Ein unbekannter Fehler ist aufgetreten'}`);
+      }
     }
   };
 
@@ -2023,7 +2086,7 @@ export default function ServiceProviderDashboard() {
 
   return (
     <>
-      <div className="service-provider-dashboard min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6">
+      <div className="service-providerdashboard min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6">
       {/* Header mit Dienstleister-Informationen */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">

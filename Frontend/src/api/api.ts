@@ -183,6 +183,11 @@ api.interceptors.request.use(
       console.log(`🔑 Token hinzugefügt für: ${config.method?.toUpperCase()} ${config.url}`);
     } else if (!config.url?.includes('/auth/login')) {
       console.log(`⚠️ Kein Token verfügbar für: ${config.method?.toUpperCase()} ${config.url}`);
+      
+      // Für kritische Endpunkte wie quotes, prüfe ob Token wirklich fehlt
+      if (config.url?.includes('/quotes/') && config.method === 'POST') {
+        console.error('❌ KRITISCH: Kein Token für Angebotserstellung verfügbar!');
+      }
     }
     
     // Spezielle Behandlung für FormData
