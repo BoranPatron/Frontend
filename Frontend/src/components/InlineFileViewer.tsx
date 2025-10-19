@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { X, Download, ZoomIn, ZoomOut, RotateCw, Maximize2, Minimize2, ExternalLink } from 'lucide-react';
+import { getAuthenticatedFileUrl } from '../api/api';
 
 interface InlineFileViewerProps {
   fileUrl: string;
@@ -16,13 +17,6 @@ function inferType(fileUrl: string): 'pdf' | 'image' | 'unknown' {
   return 'unknown';
 }
 
-function ensureAbsoluteUrl(url: string): string {
-  if (!url) return url;
-  if (/^https?:\/\//i.test(url)) return url;
-  const backend = (import.meta as any).env?.VITE_BACKEND_URL || window.location.origin.replace(':5173', ':8000');
-  if (url.startsWith('/')) return `${backend}${url}`;
-  return url;
-}
 
 const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, title, onClose }) => {
   const [zoom, setZoom] = useState(1);
@@ -32,8 +26,9 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const absoluteUrl = ensureAbsoluteUrl(fileUrl);
-  const fileType = inferType(absoluteUrl);
+  // Verwende getAuthenticatedFileUrl für alle URLs
+  const authenticatedUrl = getAuthenticatedFileUrl(fileUrl);
+  const fileType = inferType(authenticatedUrl);
 
   // Lade Datei mit Authentifizierung und erstelle Blob-URL
   useEffect(() => {
@@ -47,10 +42,10 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
           throw new Error('Kein Authentifizierungstoken verfügbar');
         }
         
-        console.log('🔄 Lade Datei für Inline-Viewer:', absoluteUrl);
+        console.log('🔄 Lade Datei für Inline-Viewer:', authenticatedUrl);
         
         // Verwende fetch mit Authorization-Header
-        const response = await fetch(absoluteUrl, {
+        const response = await fetch(authenticatedUrl, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': '*/*'
@@ -82,7 +77,7 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
         URL.revokeObjectURL(blobUrl);
       }
     };
-  }, [absoluteUrl]);
+  }, [authenticatedUrl]);
 
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();
@@ -97,8 +92,8 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
 
   const download = () => {
     const a = document.createElement('a');
-    // Verwende Blob-URL falls verfügbar, sonst absoluteUrl
-    a.href = blobUrl || absoluteUrl;
+    // Verwende Blob-URL falls verfügbar, sonst authenticatedUrl
+    a.href = blobUrl || authenticatedUrl;
     a.download = fileName || title || 'datei';
     a.rel = 'noreferrer';
     document.body.appendChild(a);
@@ -120,7 +115,7 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
             <span className="text-white text-sm w-12 text-center">{Math.round(zoom * 100)}%</span>
             <button onClick={() => setZoom(z => Math.min(z + 0.25, 3))} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Vergrößern"><ZoomIn size={18} /></button>
             <button onClick={() => setRotation(r => (r + 90) % 360)} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Drehen"><RotateCw size={18} /></button>
-            <a href={blobUrl || absoluteUrl} target="_blank" rel="noreferrer" className="p-2 rounded-lg hover:bg-white/10 text-white" title="In neuem Tab öffnen"><ExternalLink size={18} /></a>
+            <a href={blobUrl || authenticatedUrl} target="_blank" rel="noreferrer" className="p-2 rounded-lg hover:bg-white/10 text-white" title="In neuem Tab öffnen"><ExternalLink size={18} /></a>
             <button onClick={download} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Download"><Download size={18} /></button>
             <button onClick={() => setIsFullscreen(v => !v)} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Vollbild">
               {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
@@ -143,7 +138,7 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
               <div className="mb-4">❌ Fehler beim Laden des Dokuments</div>
               <p className="text-sm mb-4">{error}</p>
               <div className="flex items-center justify-center gap-2">
-                <a href={absoluteUrl} target="_blank" rel="noreferrer" className="px-4 py-2 bg-[#ffbd59] text-[#1a1a2e] rounded-lg hover:bg-[#ffa726]">Im neuen Tab öffnen</a>
+                <a href={authenticatedUrl} target="_blank" rel="noreferrer" className="px-4 py-2 bg-[#ffbd59] text-[#1a1a2e] rounded-lg hover:bg-[#ffa726]">Im neuen Tab öffnen</a>
                 <button onClick={download} className="px-4 py-2 border border-gray-600 rounded-lg hover:bg-white/10">Download</button>
               </div>
             </div>
@@ -168,7 +163,7 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
             <div className="text-center text-gray-300">
               <div className="mb-4">Keine Inline-Vorschau verfügbar.</div>
               <div className="flex items-center justify-center gap-2">
-                <a href={blobUrl || absoluteUrl} target="_blank" rel="noreferrer" className="px-4 py-2 bg-[#ffbd59] text-[#1a1a2e] rounded-lg hover:bg-[#ffa726]">Im neuen Tab öffnen</a>
+                <a href={blobUrl || authenticatedUrl} target="_blank" rel="noreferrer" className="px-4 py-2 bg-[#ffbd59] text-[#1a1a2e] rounded-lg hover:bg-[#ffa726]">Im neuen Tab öffnen</a>
                 <button onClick={download} className="px-4 py-2 border border-gray-600 rounded-lg hover:bg-white/10">Download</button>
               </div>
             </div>
