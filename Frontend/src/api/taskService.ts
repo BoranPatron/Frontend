@@ -3,7 +3,8 @@ import api from './api';
 export async function getTasks(project_id?: number) {
   try {
     const params = project_id ? { project_id } : {};
-    const res = await api.get('/tasks', { params });
+    // WICHTIG: Trailing slash verwenden um 307-Redirect zu vermeiden
+    const res = await api.get('/tasks/', { params });
     return res.data;
   } catch (error: any) {
     console.error('❌ Error fetching tasks:', error);
@@ -54,7 +55,8 @@ export async function createTask(data: any) {
       is_milestone: data.is_milestone || false
     };
     
-    const res = await api.post('/tasks', taskData);
+    // WICHTIG: Trailing slash verwenden um 307-Redirect zu vermeiden
+    const res = await api.post('/tasks/', taskData);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error creating task:', error);
