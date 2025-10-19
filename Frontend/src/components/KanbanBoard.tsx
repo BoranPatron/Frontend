@@ -385,7 +385,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         status: 'todo'
       };
       
-      const response = await api.post('/tasks', taskData);
+      const response = await api.post('/tasks/', taskData);
       const createdTask = response.data || response;
       
       setTasks(prev => [...prev, createdTask]);
