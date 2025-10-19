@@ -225,6 +225,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   });
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Lade Tasks EINMALIG beim Mount
   useEffect(() => {
@@ -253,7 +254,15 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
       } catch (err) {
         console.error('❌ Fehler beim Laden der Tasks:', err);
         if (mounted) {
-          setError('Fehler beim Laden der Aufgaben');
+          // iOS-spezifische Fehlerbehandlung
+          const errorMessage = err instanceof Error ? err.message : 'Fehler beim Laden der Aufgaben';
+          if (errorMessage.includes('Network Error') || errorMessage.includes('timeout')) {
+            setError('Netzwerkfehler - Bitte prüfen Sie Ihre Internetverbindung');
+          } else if (errorMessage.includes('401') || errorMessage.includes('Authentication')) {
+            setError('Sitzung abgelaufen - Bitte melden Sie sich erneut an');
+          } else {
+            setError('Fehler beim Laden der Aufgaben');
+          }
           setTasks([]);
         }
       } finally {
@@ -496,12 +505,66 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
         <p className="text-red-600 font-semibold mb-2">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="text-sm text-red-700 hover:text-red-800 underline"
-        >
-          Erneut versuchen
-        </button>
+        <div className="flex gap-2 justify-center">
+          <button
+            onClick={() => {
+              setError(null);
+              setLoading(true);
+              setRetryCount(prev => prev + 1);
+              
+              // iOS-optimierte Retry-Logik mit Exponential Backoff
+              const loadTasks = async () => {
+                try {
+                  // Exponential Backoff für iOS Safari
+                  const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+                  if (retryCount > 0) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                  }
+                  
+                  const { api } = await import('../api/api');
+                  const params = new URLSearchParams();
+                  if (projectId) params.append('project_id', projectId.toString());
+                  if (showOnlyAssignedToMe && user?.id) {
+                    params.append('assigned_to', user.id.toString());
+                  }
+                  
+                  const url = `/tasks${params.toString() ? `?${params.toString()}` : ''}`;
+                  const response = await api.get(url);
+                  const data = response.data || response;
+                  
+                  setTasks(Array.isArray(data) ? data : []);
+                  setError(null);
+                  setRetryCount(0); // Reset bei Erfolg
+                } catch (err) {
+                  console.error('❌ Retry fehlgeschlagen:', err);
+                  const errorMessage = err instanceof Error ? err.message : 'Fehler beim Laden der Aufgaben';
+                  if (errorMessage.includes('Network Error') || errorMessage.includes('timeout')) {
+                    setError(`Netzwerkfehler (Versuch ${retryCount + 1}) - Bitte prüfen Sie Ihre Internetverbindung`);
+                  } else if (errorMessage.includes('401') || errorMessage.includes('Authentication')) {
+                    setError('Sitzung abgelaufen - Bitte melden Sie sich erneut an');
+                  } else {
+                    setError(`Fehler beim Laden der Aufgaben (Versuch ${retryCount + 1})`);
+                  }
+                } finally {
+                  setLoading(false);
+                }
+              };
+              loadTasks();
+            }}
+            className="text-sm text-red-700 hover:text-red-800 underline px-3 py-1 bg-red-100 rounded hover:bg-red-200 transition-colors"
+          >
+            Erneut versuchen
+          </button>
+          <button
+            onClick={() => {
+              setError(null);
+              setTasks([]);
+            }}
+            className="text-sm text-gray-600 hover:text-gray-800 underline px-3 py-1 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+          >
+            Schließen
+          </button>
+        </div>
       </div>
     );
   }
