@@ -2023,7 +2023,7 @@ export default function ServiceProviderDashboard() {
 
   return (
     <>
-      <div className="service-provider-dashboard mobile-container min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6">
+      <div className="service-provider-dashboard min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6">
       {/* Header mit Dienstleister-Informationen */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
