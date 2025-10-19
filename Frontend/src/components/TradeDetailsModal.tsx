@@ -3,6 +3,7 @@ import QuoteDocumentUpload from './QuoteDocumentUpload';
 import AddToContactBookButton from './AddToContactBookButton';
 import ContactBook from './ContactBook';
 import { useMobile, useSwipeGesture } from '../hooks/useMobile';
+import '../styles/mobile-modals.css';
 import { 
   X, 
   Eye, 
@@ -4270,16 +4271,16 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             
             {/* Aktions-Buttons */}
             <div className="flex flex-col sm:flex-row gap-3">
-              {/* Mängelbehebung Button */}
+                {/* Mängelbehebung Button */}
               <button
                 onClick={() => {
                   // Verwende bestehende Funktion für Mängelbehebung
                   handleDefectResolution('Mängelbehebung abgeschlossen');
                 }}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors"
+                className={`flex-1 flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors ${isMobile ? 'mobile-touch-button px-3 py-3 text-sm' : 'px-4 py-3'}`}
               >
                 <AlertTriangle size={16} />
-                Mängelbehebung abgeschlossen melden
+                {isMobile ? 'Mängel behoben' : 'Mängelbehebung abgeschlossen melden'}
               </button>
 
               {/* Weiter ohne Mängel Button */}
@@ -4288,10 +4289,10 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   // Direkt zur finalen Abnahme ohne Mängelbehebung
                   handleDefectResolution('Keine Mängel festgestellt - direkt zur finalen Abnahme');
                 }}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
+                className={`flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors ${isMobile ? 'mobile-touch-button px-3 py-3 text-sm' : 'px-4 py-3'}`}
               >
                 <CheckCircle size={16} />
-                Weiter ohne Mängelbehebung
+                {isMobile ? 'Ohne Mängel' : 'Weiter ohne Mängelbehebung'}
               </button>
             </div>
 
@@ -4395,11 +4396,14 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         />
       )}
       
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className={`fixed inset-0 z-50 ${isMobile ? 'mobile-modal-container' : 'bg-black/50 backdrop-blur-sm flex items-center justify-center p-4'}`}>
       <div 
-        className={`bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] rounded-2xl shadow-2xl border border-gray-600/30 max-w-6xl w-full overflow-hidden relative flex flex-col ${
-          activeTab === 'contact' && !isBautraeger() ? 'h-screen' : 'h-[90vh]'
-        }`}
+        className={`bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] shadow-2xl border border-gray-600/30 w-full overflow-hidden relative flex flex-col
+          ${isMobile 
+            ? 'mobile-modal-content h-[100vh] rounded-t-3xl' 
+            : 'rounded-2xl max-w-6xl h-[90vh]'
+          }
+          ${activeTab === 'contact' && !isBautraeger() && !isMobile ? 'h-screen' : ''}`}
         onTouchStart={isMobile ? swipeGestures.onTouchStart as any : undefined}
         onTouchMove={isMobile ? swipeGestures.onTouchMove as any : undefined}
         onTouchEnd={isMobile ? swipeGestures.onTouchEnd : undefined}
@@ -4427,11 +4431,11 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           </div>
         )}
         
-        <div className="flex items-center justify-between p-6 border-b border-gray-600/30 flex-shrink-0">
-          <div className="flex items-center gap-3">
+        <div className={`flex items-center justify-between border-b border-gray-600/30 flex-shrink-0 ${isMobile ? 'mobile-modal-header' : 'p-6'}`}>
+          <div className="flex items-center gap-3 flex-1 min-w-0">
             {/* Firmenlogo oder Fallback-Icon */}
             {companyLogo && !companyLogoLoading ? (
-              <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg border border-gray-600/30 bg-white flex items-center justify-center">
+              <div className={`rounded-xl overflow-hidden shadow-lg border border-gray-600/30 bg-white flex items-center justify-center flex-shrink-0 ${isMobile ? 'w-10 h-10' : 'w-12 h-12'}`}>
                 <img 
                   src={`http://localhost:8000/${companyLogo}`}
                   alt="Firmenlogo"
@@ -4450,17 +4454,17 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                 />
               </div>
             ) : companyLogoLoading ? (
-              <div className="w-12 h-12 bg-gradient-to-br from-gray-600/50 to-gray-700/50 rounded-xl flex items-center justify-center shadow-lg">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#ffbd59]"></div>
+              <div className={`bg-gradient-to-br from-gray-600/50 to-gray-700/50 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0 ${isMobile ? 'w-10 h-10' : 'w-12 h-12'}`}>
+                <div className={`animate-spin rounded-full border-b-2 border-[#ffbd59] ${isMobile ? 'h-5 w-5' : 'h-6 w-6'}`}></div>
               </div>
             ) : (
-              <div className="w-12 h-12 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+              <div className={`bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl flex items-center justify-center text-white font-bold shadow-lg flex-shrink-0 ${isMobile ? 'w-10 h-10' : 'w-12 h-12'}`}>
                 {getCategoryIcon(trade.category || '').icon}
               </div>
             )}
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-1">
-                <h2 className="text-xl font-bold text-white">{trade.title}</h2>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <h2 className={`font-bold text-white ${isMobile ? 'text-base truncate mobile-modal-title' : 'text-xl'}`}>{trade.title}</h2>
                 {/* Bearbeiten Button: nur wenn kein Angebot angenommen und keine Angebote vorliegen - NUR FÜR BAUTRÄGER */}
                 {isBautraeger() && (() => {
                   const hasAccepted = (existingQuotes || []).some(q => String(q.status).toLowerCase() === 'accepted');
@@ -4529,12 +4533,12 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   </div>
                 )}
               </div>
-              <p className="text-gray-400 text-sm">{trade.category}</p>
+              <p className={`text-gray-400 ${isMobile ? 'text-xs truncate mobile-modal-subtitle' : 'text-sm'}`}>{trade.category}</p>
               
               {/* Gewerk-Details */}
               <div className="mt-3 space-y-3">
                 {/* ZusÃ¤tzliche Informationen Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
                   {/* Erstellungsdatum */}
                   {trade.created_at && (
                     <div className="flex items-center gap-2 text-sm">
@@ -4616,7 +4620,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               {/* Projektinformationen */}
               {project && (
                 <div className="mt-4 pt-3 border-t border-gray-600/30">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                  <div className={`grid gap-3 text-sm ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-3'}`}>
                     <div className="flex items-center gap-2 text-gray-300">
                       <Building size={14} className="text-[#ffbd59]" />
                       <span className="text-gray-400">Projekt:</span>
@@ -4661,7 +4665,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           
 
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {/* Angebot abgeben Button für Dienstleister */}
             {!isBautraeger() && (() => {
               const userQuote = (existingQuotes || []).find(quote => quote.service_provider_id === user?.id);
@@ -4674,10 +4678,10 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       // Navigiere zum ServiceProviderDashboard mit Quote-Parameter
                       window.location.href = `/service-provider?quote=${trade.id}`;
                     }}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2 shadow-lg"
+                    className={`bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2 shadow-lg ${isMobile ? 'mobile-touch-button px-3 py-2 text-sm' : 'px-4 py-2'}`}
                   >
-                    <Package size={16} />
-                    Angebot abgeben
+                    <Package size={isMobile ? 14 : 16} />
+                    {!isMobile && 'Angebot abgeben'}
                   </button>
                 );
               }
@@ -4686,16 +4690,16 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10"
+              className={`text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/10 ${isMobile ? 'mobile-icon-button' : 'p-2'}`}
             >
-              <X size={24} />
+              <X size={isMobile ? 20 : 24} />
             </button>
           </div>
         </div>
         
         {/* Banner für Terminzusagen */}
         {userAcceptedAppointments.length > 0 && (
-          <div className="mx-6 mt-4 mb-2">
+          <div className={`mt-4 mb-2 ${isMobile ? 'mx-4' : 'mx-6'}`}>
             {userAcceptedAppointments.map(({appointment, response}, index) => (
               <AppointmentBanner 
                 key={`${appointment.id}-${index}`}
@@ -4762,12 +4766,12 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           });
 
           return relevantAppointments.length > 0 && !inspectionCompleted && (
-            <div className={`px-6 py-4 border-b flex-shrink-0 ${
+            <div className={`border-b flex-shrink-0 ${isMobile ? 'px-4 py-3' : 'px-6 py-4'} ${
               relevantAppointments[0]?.appointment_type === 'REVIEW'
                 ? 'bg-gradient-to-r from-orange-600/20 to-amber-500/20 border-orange-400/30'
                 : 'bg-gradient-to-r from-blue-600/20 to-cyan-500/20 border-blue-400/30'
             }`}>
-              <div className="flex items-start gap-4">
+              <div className={`flex items-start ${isMobile ? 'flex-col gap-3' : 'gap-4'}`}>
                 <div className="flex items-center gap-3">
                   <div className={`p-3 rounded-xl ${
                     relevantAppointments[0]?.appointment_type === 'REVIEW'
@@ -4834,30 +4838,32 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   </div>
                 </div>
                 
-                <div className="flex-1"></div>
+                {!isMobile && <div className="flex-1"></div>}
                 
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    {relevantAppointments.length > 1 && (
-                      <div className="text-blue-200 text-sm mb-1">
-                        {relevantAppointments.length} Termine
-                      </div>
-                    )}
-                    {relevantAppointments[0]?.description && (
-                      <div className="text-blue-300 text-xs max-w-xs truncate">
-                        {relevantAppointments[0].description}
-                      </div>
-                    )}
-                  </div>
+                <div className={`flex items-center gap-2 ${isMobile ? 'w-full flex-wrap' : 'gap-3'}`}>
+                  {!isMobile && (
+                    <div className="text-right">
+                      {relevantAppointments.length > 1 && (
+                        <div className="text-blue-200 text-sm mb-1">
+                          {relevantAppointments.length} Termine
+                        </div>
+                      )}
+                      {relevantAppointments[0]?.description && (
+                        <div className="text-blue-300 text-xs max-w-xs truncate">
+                          {relevantAppointments[0].description}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   
                   {/* Besichtigung stattgefunden Button - dezent */}
                   <button
                     onClick={handleInspectionCompleted}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-yellow-500/10 text-yellow-400 rounded-lg hover:bg-yellow-500/20 transition-colors text-xs font-medium border border-yellow-500/20 hover:border-yellow-500/40"
+                    className={`flex items-center gap-1 bg-yellow-500/10 text-yellow-400 rounded-lg hover:bg-yellow-500/20 transition-colors font-medium border border-yellow-500/20 hover:border-yellow-500/40 ${isMobile ? 'mobile-touch-button flex-1 px-3 py-2 text-xs justify-center' : 'px-3 py-1.5 text-xs'}`}
                     title="Besichtigung hat stattgefunden"
                   >
                     <CheckCircle size={14} />
-                    Stattgefunden
+                    {isMobile ? 'Erledigt' : 'Stattgefunden'}
                   </button>
                   
                   {/* ICS Download Button */}
@@ -4871,10 +4877,10 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                         alert('Fehler beim Herunterladen des Kalendereintrags');
                       }
                     }}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 text-blue-300 rounded-lg hover:bg-blue-500/30 transition-colors text-sm font-medium"
+                    className={`flex items-center gap-2 bg-blue-500/20 text-blue-300 rounded-lg hover:bg-blue-500/30 transition-colors font-medium ${isMobile ? 'mobile-touch-button flex-1 px-3 py-2 text-xs justify-center' : 'px-4 py-2 text-sm'}`}
                     title="Kalendereintrag speichern"
                   >
-                    <Download size={16} />
+                    <Download size={isMobile ? 14 : 16} />
                     Kalender
                   </button>
                 </div>
@@ -4921,7 +4927,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           });
 
           return relevantAppointments.length > 0 && inspectionCompleted && (
-            <div className="px-6 py-2 bg-gradient-to-r from-yellow-600/10 to-amber-500/10 border-b border-yellow-400/20 flex-shrink-0">
+            <div className={`bg-gradient-to-r from-yellow-600/10 to-amber-500/10 border-b border-yellow-400/20 flex-shrink-0 ${isMobile ? 'px-4 py-2' : 'px-6 py-2'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-yellow-500/20 rounded-lg">
@@ -5134,7 +5140,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-6 min-h-0">
+        <div className={`flex-1 overflow-y-auto min-h-0 mobile-modal-scroll ${isMobile ? 'p-4' : 'p-6'}`}>
           {/* Tab Content */}
           {activeTab === 'overview' && (
             <div 
@@ -5153,7 +5159,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                     <h3 className="text-lg font-semibold text-white">Beauftragter Dienstleister</h3>
                   </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
                 {/* Firma und Kontaktperson */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
@@ -5202,7 +5208,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               </div>
               
               {/* Angebotssumme und Zeitraum */}
-              <div className="mt-4 pt-4 border-t border-emerald-500/20 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className={`mt-4 pt-4 border-t border-emerald-500/20 grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-3'}`}>
                 <div>
                   <div className="text-xs text-gray-400 mb-1">Angebotssumme</div>
                   <div className="text-xl font-bold text-[#ffbd59]">
@@ -5306,7 +5312,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                 }}
                 className="space-y-3"
               >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
                   <div>
                     <label className="block text-xs text-gray-300 mb-1">Titel</label>
                     <input 
@@ -5345,7 +5351,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       required
                     />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className={`grid gap-3 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-3'}`}>
                   <div>
                     <label className="block text-xs text-gray-300 mb-1">PrioritÃ¤t</label>
                     <select 
@@ -5426,7 +5432,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               </div>
 
               {/* Erstellungsdatum, Angebotsfrist und Notizen Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'}`}>
                 {/* Geplantes Datum */}
                 <div>
                   <div className="flex items-center gap-2 mb-2">
@@ -5608,7 +5614,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                         )}
                         
                         {/* Gesamtbetrag und Status */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div className={`grid gap-4 mb-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
                           <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg p-3">
                             <div className="text-sm text-green-300 mb-1">Gesamtbetrag</div>
                             <div className="text-xl font-bold text-white">
@@ -5641,7 +5647,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                         )}
 
                         {/* Termine */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div className={`grid gap-4 mb-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-3'}`}>
                           {userQuote.valid_until && (
                             <div>
                               <div className="text-sm text-green-300 mb-1">Gültig bis</div>
@@ -5678,7 +5684,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                             <Calculator size={16} className="text-green-400" />
                             Kostenaufschlüsselung
                           </h5>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-3'}`}>
                             {userQuote.labor_cost && (
                               <div className="text-center">
                                 <div className="text-sm text-green-300 mb-1">Arbeitskosten</div>
@@ -5730,7 +5736,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                             <User size={16} className="text-green-400" />
                             Kontaktinformationen
                           </h5>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          <div className={`grid gap-4 text-sm ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
                             {userQuote.company_name && (
                               <div>
                                 <div className="text-green-300 mb-1">Unternehmen</div>
@@ -5944,7 +5950,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       )}
 
                       {/* Erstellungs- und Aktualisierungsdatum */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-400">
+                      <div className={`grid gap-4 text-sm text-gray-400 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
                         <div>
                           <span className="text-green-300">Erstellt:</span> {new Date(userQuote.created_at).toLocaleDateString('de-DE', { 
                             year: 'numeric', 
@@ -6015,22 +6021,24 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               </div>
 
               {/* Button-Bereich */}
-              <div className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg shadow-blue-500/50 flex-shrink-0">
-                    <Edit size={28} className="text-white" />
-                  </div>
+              <div className={isMobile ? 'p-4' : 'p-6'}>
+                <div className={`flex items-center ${isMobile ? 'flex-col gap-3' : 'gap-4'}`}>
+                  {!isMobile && (
+                    <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg shadow-blue-500/50 flex-shrink-0">
+                      <Edit size={28} className="text-white" />
+                    </div>
+                  )}
                   <div className="flex-1">
-                    <h5 className="text-white font-semibold mb-1">
+                    <h5 className={`text-white font-semibold mb-1 ${isMobile ? 'text-center' : ''}`}>
                       Bereit zur Überarbeitung?
                     </h5>
-                    <p className="text-gray-300 text-sm">
-                      Klicken Sie auf den Button, um Ihr Angebot anzupassen
+                    <p className={`text-gray-300 text-sm ${isMobile ? 'text-center' : ''}`}>
+                      {isMobile ? 'Passen Sie Ihr Angebot an' : 'Klicken Sie auf den Button, um Ihr Angebot anzupassen'}
                     </p>
                   </div>
                   <button
                     onClick={handleReviseQuote}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-blue-500/50 flex-shrink-0"
+                    className={`flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-300 shadow-lg shadow-blue-500/50 ${isMobile ? 'mobile-touch-button w-full justify-center px-4 py-3' : 'px-6 py-3 flex-shrink-0 transform hover:scale-105'}`}
                   >
                     <Edit size={18} />
                     Angebot überarbeiten
@@ -6063,13 +6071,13 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               {/* Angebote für Bauträger - TEMPORÄR: Zeige auch wenn keine Angebote vorhanden */}
           {isBautraeger() && (
             <div className="mb-6 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-xl overflow-hidden">
-              <div className="p-4 border-b border-blue-500/20">
-                <div className="flex items-center justify-between">
+              <div className={`border-b border-blue-500/20 ${isMobile ? 'p-3' : 'p-4'}`}>
+                <div className={`flex items-center ${isMobile ? 'flex-col gap-3' : 'justify-between'}`}>
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-500/20 rounded-lg">
-                      <FileText size={18} className="text-blue-400" />
+                    <div className={`bg-blue-500/20 rounded-lg ${isMobile ? 'p-1.5' : 'p-2'}`}>
+                      <FileText size={isMobile ? 16 : 18} className="text-blue-400" />
                     </div>
-                    <h3 className="text-lg font-bold text-blue-300">
+                    <h3 className={`font-bold text-blue-300 ${isMobile ? 'text-base' : 'text-lg'}`}>
                       Eingegangene Angebote ({(existingQuotes?.length || 0) + (resourceAllocations?.length || 0)})
                     </h3>
                   </div>
@@ -6083,7 +6091,9 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                         onCreateInspection?.(trade.id, selectedQuoteIds);
                       }}
                       disabled={selectedQuoteIds.length === 0 || (appointmentsForTrade && appointmentsForTrade.length > 0)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all duration-300 ${
+                      className={`rounded-lg font-medium flex items-center gap-2 transition-all duration-300 ${
+                        isMobile ? 'mobile-touch-button w-full justify-center px-4 py-2 text-xs' : 'px-4 py-2 text-sm'
+                      } ${
                         (appointmentsForTrade && appointmentsForTrade.length > 0)
                           ? 'bg-gray-500/20 text-gray-400 cursor-not-allowed border border-gray-500/40'
                           : selectedQuoteIds.length > 0
@@ -6091,17 +6101,17 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                             : 'bg-gray-500/20 text-gray-400 cursor-not-allowed border border-gray-500/40'
                       }`}
                     >
-                      <Calendar size={16} />
+                      <Calendar size={isMobile ? 14 : 16} />
                       {(appointmentsForTrade && appointmentsForTrade.length > 0) 
-                        ? 'Termin bereits vereinbart' 
-                        : `Besichtigung vereinbaren (${selectedQuoteIds.length})`
+                        ? (isMobile ? 'Termin vereinbart' : 'Termin bereits vereinbart')
+                        : (isMobile ? `Besichtigung (${selectedQuoteIds.length})` : `Besichtigung vereinbaren (${selectedQuoteIds.length})`)
                       }
                     </button>
                   )}
                 </div>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className={`space-y-4 ${isMobile ? 'p-4' : 'p-6'}`}>
                 {/* ResourceAllocations (zugeordnete Ressourcen) - nur anzeigen wenn keine Angebote vorhanden */}
                 {loadingResourceAllocations ? (
                   <div className="flex items-center justify-center py-8">
@@ -6386,7 +6396,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                      </div>
 
                      {/* Angebotsdetails */}
-                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
+                     <div className={`grid gap-4 text-sm mb-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-3'}`}>
                        <div>
                          <span className="text-gray-400">Angebotssumme:</span>
                          <div className="text-[#ffbd59] font-bold text-lg">
@@ -6760,7 +6770,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       <Building size={18} className="text-purple-400" />
                       Projektinformationen
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
                       <div>
                         <div className="text-sm text-purple-300 mb-1">Projektname</div>
                         <div className="text-white font-medium">{project.name || 'Nicht angegeben'}</div>
@@ -6816,7 +6826,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       </div>
 
                       {/* Kontaktinformationen Grid */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
                         {/* E-Mail */}
                         {bautraegerContact.email && (
                           <div className="flex items-center gap-3">
@@ -7127,7 +7137,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                                existingInvoice.status === 'sent' ? 'Versendet' : 'Entwurf'}
                             </span>
                           </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
                             <div className="bg-gradient-to-r from-[#1a1a2e]/50 to-[#2c3539]/50 rounded-lg p-3 border border-gray-600/30">
                               <div className="text-sm text-gray-400 mb-1">Rechnungsnummer</div>
                               <div className="text-white font-semibold">{existingInvoice.invoice_number}</div>
