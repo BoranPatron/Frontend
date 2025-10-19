@@ -36,8 +36,9 @@
 
 /* Modal Container - Mobile-First */
 .mobile-modal-container {
-  @apply fixed inset-0 z-[10000] bg-black/50 backdrop-blur-sm;
+  @apply fixed inset-0 z-[10000];
   @apply flex items-end justify-center;
+  background: rgba(0, 0, 0, 0.5) !important;
 }
 
 @media (min-width: 768px) {

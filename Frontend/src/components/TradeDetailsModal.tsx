@@ -4397,20 +4397,34 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         />
       )}
       
-    <div className={`fixed inset-0 z-50 ${isMobile ? 'mobile-modal-container' : 'bg-black/50 backdrop-blur-sm flex items-center justify-center p-4'}`}>
+    <div 
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 50,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: isMobile ? 'flex-end' : 'center',
+        justifyContent: 'center',
+        padding: isMobile ? 0 : '1rem'
+      }}
+    >
       <div 
         data-modal="trade-details"
         data-mobile={isMobile}
-        className={`shadow-2xl border border-gray-600/30 w-full overflow-hidden relative flex flex-col
-          ${isMobile 
-            ? 'h-[100vh] rounded-t-3xl backdrop-blur-lg border border-white/20' 
-            : 'rounded-2xl max-w-6xl h-[90vh]'
-          }
-          ${activeTab === 'contact' && !isBautraeger() && !isMobile ? 'h-screen' : ''}`}
         style={{
-          background: 'linear-gradient(135deg, rgb(26, 26, 46) 0%, rgb(44, 53, 57) 100%) !important',
-          backgroundColor: 'rgb(26, 26, 46) !important',
-          backgroundImage: 'linear-gradient(135deg, rgb(26, 26, 46) 0%, rgb(44, 53, 57) 100%) !important'
+          background: '#1a1a2e',
+          backgroundImage: 'linear-gradient(135deg, #1a1a2e 0%, #2c3539 100%)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          border: '1px solid rgba(107, 114, 128, 0.3)',
+          width: '100%',
+          maxWidth: isMobile ? '100%' : '72rem',
+          height: isMobile ? '100vh' : '90vh',
+          overflow: 'hidden',
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: isMobile ? '1.5rem 1.5rem 0 0' : '1rem'
         } as React.CSSProperties}
         onTouchStart={isMobile ? swipeGestures.onTouchStart as any : undefined}
         onTouchMove={isMobile ? swipeGestures.onTouchMove as any : undefined}

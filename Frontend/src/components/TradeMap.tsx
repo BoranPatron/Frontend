@@ -840,12 +840,12 @@ export default function TradeMap({
           className={`bg-gradient-to-br from-white/95 to-white/90 backdrop-blur-xl rounded-xl shadow-2xl border border-white/30 transition-all duration-500 ease-out overflow-hidden ${
             isLegendExpanded 
               ? isMobile 
-                ? `w-64 ${isTouching ? 'shadow-[0_0_40px_rgba(255,189,89,0.35)] scale-105' : 'shadow-[0_0_30px_rgba(255,189,89,0.25)]'}` 
+                ? `w-48 ${isTouching ? 'shadow-[0_0_35px_rgba(255,189,89,0.35)] scale-105' : 'shadow-[0_0_25px_rgba(255,189,89,0.25)]'}` 
                 : isTablet
                 ? 'w-72 shadow-[0_0_35px_rgba(255,189,89,0.28)]'
                 : 'w-80 shadow-[0_0_40px_rgba(255,189,89,0.3)] hover:shadow-[0_0_50px_rgba(255,189,89,0.4)]'
               : isMobile
-                ? `w-32 ${isTouching ? 'shadow-[0_0_25px_rgba(255,189,89,0.25)] scale-105' : 'shadow-[0_0_15px_rgba(255,189,89,0.15)]'}`
+                ? `w-24 ${isTouching ? 'shadow-[0_0_20px_rgba(255,189,89,0.25)] scale-105' : 'shadow-[0_0_12px_rgba(255,189,89,0.15)]'}`
                 : isTablet
                 ? 'w-40 shadow-[0_0_18px_rgba(255,189,89,0.18)]'
                 : 'w-48 shadow-[0_0_20px_rgba(255,189,89,0.2)] hover:shadow-[0_0_30px_rgba(255,189,89,0.3)]'
@@ -859,18 +859,18 @@ export default function TradeMap({
         >
           {/* Header mit Toggle-Button */}
           <div className={`flex items-center justify-between bg-gradient-to-r from-[#ffbd59]/20 to-[#ffa726]/20 border-b border-white/20 ${
-            isMobile ? 'p-2' : 
+            isMobile ? 'p-1.5' : 
             isTablet ? 'p-2.5' : 
             'p-3'
           }`}>
-            <div className="flex items-center gap-2">
+            <div className={`flex items-center ${isMobile ? 'gap-1.5' : 'gap-2'}`}>
               <div className={`bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg flex items-center justify-center shadow-lg ${
-                isMobile ? 'w-5 h-5' : 
+                isMobile ? 'w-4 h-4' : 
                 isTablet ? 'w-5.5 h-5.5' : 
                 'w-6 h-6'
               }`}>
                 <svg className={`text-white ${
-                  isMobile ? 'w-3 h-3' : 
+                  isMobile ? 'w-2.5 h-2.5' : 
                   isTablet ? 'w-3.5 h-3.5' : 
                   'w-4 h-4'
                 }`} fill="currentColor" viewBox="0 0 24 24">
@@ -885,7 +885,7 @@ export default function TradeMap({
                 {isMobile && !isLegendExpanded ? 'L' : 'Legende'}
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className={`flex items-center ${isMobile ? 'gap-1.5' : 'gap-2'}`}>
               <span className={`bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white rounded-full font-bold shadow-lg ${
                 isMobile ? 'text-xs px-1.5 py-0.5' : 
                 isTablet ? 'text-xs px-1.5 py-0.5' : 
@@ -905,14 +905,14 @@ export default function TradeMap({
 
           {/* Kompakter Inhalt (immer sichtbar) */}
           <div className={`${
-            isMobile ? 'p-2' : 
+            isMobile ? 'p-1.5' : 
             isTablet ? 'p-2.5' : 
             'p-3'
           }`}>
-            <div className={`space-y-2 ${isMobile ? 'text-xs' : 'text-xs'}`}>
-              <div className="flex items-center gap-2">
+            <div className={`${isMobile ? 'space-y-1.5' : 'space-y-2'} ${isMobile ? 'text-xs' : 'text-xs'}`}>
+              <div className={`flex items-center ${isMobile ? 'gap-1.5' : 'gap-2'}`}>
                 <div className={`bg-blue-500 rounded-full border border-white shadow-sm ${
-                  isMobile ? 'w-2.5 h-2.5' : 
+                  isMobile ? 'w-2 h-2' : 
                   isTablet ? 'w-2.5 h-2.5' : 
                   'w-3 h-3'
                 }`}></div>
@@ -921,12 +921,12 @@ export default function TradeMap({
                   isTablet ? 'text-xs' : 
                   'text-xs'
                 }`}>
-                  {isMobile && !isLegendExpanded ? 'Standort' : 'Ihr Standort'}
+                  {isMobile && !isLegendExpanded ? '📍' : 'Ihr Standort'}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className={`flex items-center ${isMobile ? 'gap-1.5' : 'gap-2'}`}>
                 <div className={`bg-yellow-500 rounded-full border border-white shadow-sm ${
-                  isMobile ? 'w-2.5 h-2.5' : 
+                  isMobile ? 'w-2 h-2' : 
                   isTablet ? 'w-2.5 h-2.5' : 
                   'w-3 h-3'
                 }`}></div>
@@ -935,7 +935,7 @@ export default function TradeMap({
                   isTablet ? 'text-xs' : 
                   'text-xs'
                 }`}>
-                  {isMobile && !isLegendExpanded ? 'Trades' : 'Ausschreibungen'}
+                  {isMobile && !isLegendExpanded ? '🎯' : 'Ausschreibungen'}
                 </span>
               </div>
             </div>
@@ -946,13 +946,13 @@ export default function TradeMap({
             isLegendExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
           }`}>
             <div className={`border-t border-white/20 bg-gradient-to-b from-white/10 to-transparent ${
-              isMobile ? 'px-2 pb-2' : 
+              isMobile ? 'px-1.5 pb-1.5' : 
               isTablet ? 'px-2.5 pb-2.5' : 
               'px-3 pb-3'
             }`}>
               {/* Kategorien */}
               <div className={`${
-                isMobile ? 'mt-2' : 
+                isMobile ? 'mt-1.5' : 
                 isTablet ? 'mt-2.5' : 
                 'mt-3'
               }`}>
@@ -998,7 +998,7 @@ export default function TradeMap({
 
               {/* Zusätzliche Informationen */}
               <div className={`pt-2 border-t border-white/20 ${
-                isMobile ? 'mt-2' : 
+                isMobile ? 'mt-1.5' : 
                 isTablet ? 'mt-2.5' : 
                 'mt-3'
               }`}>
