@@ -2031,7 +2031,10 @@ export default function ServiceProviderDashboard() {
             <h1 className="text-3xl font-bold text-white mb-2" data-tour-id="dashboard-title">
               Willkommen zurück, {user?.first_name || user?.name || 'Dienstleister'}! 🔧
             </h1>
-            <p className="text-gray-300 text-lg">
+            <p className="text-gray-300 text-lg md:block hidden md:whitespace-normal">
+              Hier ist dein Dashboard - entdecke neue Aufträge, verwalte deine Angebote und baue dein Geschäft aus.
+            </p>
+            <p className="text-gray-300 text-lg md:hidden block whitespace-nowrap overflow-hidden text-ellipsis">
               Hier ist dein Dashboard - entdecke neue Aufträge, verwalte deine Angebote und baue dein Geschäft aus.
             </p>
           </div>

@@ -227,8 +227,14 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
-  // Lade Tasks EINMALIG beim Mount
+  // Lade Tasks wenn User verfügbar ist
   useEffect(() => {
+    // Warte bis user verfügbar ist
+    if (!user?.id) {
+      console.log('⏳ Warte auf User-Daten...');
+      return;
+    }
+
     let mounted = true;
 
     const loadTasks = async () => {
@@ -244,7 +250,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
           params.append('assigned_to', user.id.toString());
         }
         
-        const url = `/tasks${params.toString() ? `?${params.toString()}` : ''}`;
+        const url = `/tasks/${params.toString() ? `?${params.toString()}` : ''}`;
         const response = await api.get(url);
         const data = response.data || response;
         
@@ -280,7 +286,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     return () => {
       mounted = false;
     };
-  }, []); // Leeres Dependency-Array = nur einmal beim Mount
+  }, [user?.id, projectId, showOnlyAssignedToMe]); // Dependencies angepasst
 
   const loadMilestones = useCallback(async () => {
     if (!projectId) return;
@@ -501,6 +507,18 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     );
   }
 
+  // Zeige Loading-State wenn User-Daten noch nicht verfügbar sind
+  if (!user?.id) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Lade Benutzer-Daten...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
@@ -528,7 +546,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     params.append('assigned_to', user.id.toString());
                   }
                   
-                  const url = `/tasks${params.toString() ? `?${params.toString()}` : ''}`;
+                  const url = `/tasks/${params.toString() ? `?${params.toString()}` : ''}`;
                   const response = await api.get(url);
                   const data = response.data || response;
                   
