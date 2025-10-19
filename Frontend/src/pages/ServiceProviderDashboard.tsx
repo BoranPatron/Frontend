@@ -2035,7 +2035,7 @@ export default function ServiceProviderDashboard() {
               Hier ist dein Dashboard - entdecke neue Aufträge, verwalte deine Angebote und baue dein Geschäft aus.
             </p>
             <p className="text-gray-300 text-lg md:hidden block whitespace-nowrap overflow-hidden text-ellipsis">
-              Hier ist dein Dashboard - entdecke neue Aufträge, verwalte deine Angebote und baue dein Geschäft aus.
+              Dein Dashboard - Aufträge & Angebote verwalten.
             </p>
           </div>
           <div className="flex items-center space-x-2">
