@@ -3,7 +3,9 @@ import api, { safeApiCall } from './api';
 export async function getProjects() {
   return safeApiCall(async () => {
     try {
-      const res = await api.get('/projects');
+      // WICHTIG: Trailing slash verwenden um 307-Redirect zu vermeiden
+      // iOS Safari verliert Authorization-Header bei 307-Redirects
+      const res = await api.get('/projects/');
       return res.data;
     } catch (error: any) {
       // Spezielle Behandlung für Authentifizierungsfehler
@@ -49,7 +51,8 @@ interface ProjectData {
 
 export async function createProject(data: ProjectData) {
   try {
-    const res = await api.post('/projects', data);
+    // WICHTIG: Trailing slash verwenden um 307-Redirect zu vermeiden
+    const res = await api.post('/projects/', data);
     return res.data;
   } catch (error: any) {
     // Spezielle Behandlung für Authentifizierungsfehler
