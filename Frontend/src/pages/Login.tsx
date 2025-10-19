@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, AlertTriangle, CheckCircle } from 'lucide-react';
+import { getApiBaseUrl } from '../api/api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -49,7 +50,7 @@ export default function Login() {
       formData.append('username', email); // Backend erwartet 'username' statt 'email'
       formData.append('password', password);
 
-      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+      const response = await fetch(`${getApiBaseUrl()}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -127,7 +128,7 @@ export default function Login() {
       formData.append('username', 'test-dienstleister@buildwise.de');
       formData.append('password', 'Dienstleister123!');
 
-      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+      const response = await fetch(`${getApiBaseUrl()}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -187,7 +188,7 @@ export default function Login() {
 
     try {
       // Generiere OAuth-URL vom Backend
-      const response = await fetch('http://localhost:8000/api/v1/auth/oauth/google/url', {
+      const response = await fetch(`${getApiBaseUrl()}/auth/oauth/google/url`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -217,7 +218,7 @@ export default function Login() {
 
     try {
       // Generiere OAuth-URL vom Backend
-      const response = await fetch('http://localhost:8000/api/v1/auth/oauth/microsoft/url', {
+      const response = await fetch(`${getApiBaseUrl()}/auth/oauth/microsoft/url`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

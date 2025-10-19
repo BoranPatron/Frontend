@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import CreditNotification from '../components/CreditNotification';
+import { getApiBaseUrl } from '../api/api';
 
 interface AuthContextType {
   token: string | null;
@@ -142,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const userData = JSON.parse(storedUser);
             // IMMER aktuelle User-Daten vom Backend laden (verhindert veraltete localStorage-Daten)
             try {
-              const response = await fetch('http://localhost:8000/api/v1/users/me', {
+              const response = await fetch(`${getApiBaseUrl()}/users/me`, {
                 headers: {
                   'Authorization': `Bearer ${storedToken}`,
                   'Content-Type': 'application/json'
@@ -348,7 +349,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Funktion zum Auswählen der Benutzerrolle
   const selectRole = async (role: 'bautraeger' | 'dienstleister') => {
     try {
-      const response = await fetch('http://localhost:8000/api/v1/auth/select-role', {
+      const response = await fetch(`${getApiBaseUrl()}/auth/select-role`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

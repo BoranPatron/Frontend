@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
+import { getApiBaseUrl } from '../api/api';
 
 export default function OAuthCallback() {
   const [searchParams] = useSearchParams();
@@ -75,7 +76,7 @@ export default function OAuthCallback() {
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 Sekunden Timeout
 
         try {
-          const response = await fetch(`http://localhost:8000/api/v1/auth/oauth/${provider}/callback`, {
+          const response = await fetch(`${getApiBaseUrl()}/auth/oauth/${provider}/callback`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
