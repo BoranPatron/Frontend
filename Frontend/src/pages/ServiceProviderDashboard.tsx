@@ -2032,10 +2032,10 @@ export default function ServiceProviderDashboard() {
               Willkommen zurück, {user?.first_name || user?.name || 'Dienstleister'}! 🔧
             </h1>
             <p className="text-gray-300 text-lg md:block hidden md:whitespace-normal">
-              Hier ist dein Dashboard - entdecke neue Aufträge, verwalte deine Angebote und baue dein Geschäft aus.
+              Dashboard|Aufträge, Angebote und mehr
             </p>
             <p className="text-gray-300 text-lg md:hidden block whitespace-nowrap overflow-hidden text-ellipsis">
-              Dein Dashboard - Aufträge & Angebote verwalten.
+               Aufträge & Angebote verwalten.
             </p>
           </div>
           <div className="flex items-center space-x-2">

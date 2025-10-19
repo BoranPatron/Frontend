@@ -28,8 +28,61 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [blobUrl, setBlobUrl] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
   const absoluteUrl = ensureAbsoluteUrl(fileUrl);
   const fileType = inferType(absoluteUrl);
+
+  // Lade Datei mit Authentifizierung und erstelle Blob-URL
+  useEffect(() => {
+    const loadFile = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Kein Authentifizierungstoken verfügbar');
+        }
+        
+        console.log('🔄 Lade Datei für Inline-Viewer:', absoluteUrl);
+        
+        // Verwende fetch mit Authorization-Header
+        const response = await fetch(absoluteUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': '*/*'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        setBlobUrl(url);
+        
+        console.log('✅ Datei erfolgreich geladen als Blob-URL');
+      } catch (err: any) {
+        console.error('❌ Fehler beim Laden der Datei:', err);
+        setError(err.message || 'Fehler beim Laden der Datei');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadFile();
+    
+    // Cleanup bei Unmount
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, [absoluteUrl]);
 
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();
@@ -44,7 +97,8 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
 
   const download = () => {
     const a = document.createElement('a');
-    a.href = absoluteUrl;
+    // Verwende Blob-URL falls verfügbar, sonst absoluteUrl
+    a.href = blobUrl || absoluteUrl;
     a.download = fileName || title || 'datei';
     a.rel = 'noreferrer';
     document.body.appendChild(a);
@@ -66,7 +120,7 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
             <span className="text-white text-sm w-12 text-center">{Math.round(zoom * 100)}%</span>
             <button onClick={() => setZoom(z => Math.min(z + 0.25, 3))} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Vergrößern"><ZoomIn size={18} /></button>
             <button onClick={() => setRotation(r => (r + 90) % 360)} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Drehen"><RotateCw size={18} /></button>
-            <a href={absoluteUrl} target="_blank" rel="noreferrer" className="p-2 rounded-lg hover:bg-white/10 text-white" title="In neuem Tab öffnen"><ExternalLink size={18} /></a>
+            <a href={blobUrl || absoluteUrl} target="_blank" rel="noreferrer" className="p-2 rounded-lg hover:bg-white/10 text-white" title="In neuem Tab öffnen"><ExternalLink size={18} /></a>
             <button onClick={download} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Download"><Download size={18} /></button>
             <button onClick={() => setIsFullscreen(v => !v)} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Vollbild">
               {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
@@ -77,26 +131,44 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
 
         {/* Content */}
         <div className="flex-1 flex items-center justify-center overflow-auto p-4">
-          {fileType === 'image' && (
+          {loading && (
+            <div className="text-center text-gray-300">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ffbd59] mx-auto mb-4"></div>
+              <p>Dokument wird geladen...</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="text-center text-red-300">
+              <div className="mb-4">❌ Fehler beim Laden des Dokuments</div>
+              <p className="text-sm mb-4">{error}</p>
+              <div className="flex items-center justify-center gap-2">
+                <a href={absoluteUrl} target="_blank" rel="noreferrer" className="px-4 py-2 bg-[#ffbd59] text-[#1a1a2e] rounded-lg hover:bg-[#ffa726]">Im neuen Tab öffnen</a>
+                <button onClick={download} className="px-4 py-2 border border-gray-600 rounded-lg hover:bg-white/10">Download</button>
+              </div>
+            </div>
+          )}
+
+          {!loading && !error && fileType === 'image' && blobUrl && (
             <img
-              src={absoluteUrl}
+              src={blobUrl}
               alt={title || fileName || 'Bild'}
               className="max-w-none"
               style={{ transform: `scale(${zoom}) rotate(${rotation}deg)`, transformOrigin: 'center', transition: 'transform 0.2s ease' }}
             />
           )}
 
-          {fileType === 'pdf' && (
+          {!loading && !error && fileType === 'pdf' && blobUrl && (
             <div className="bg-white shadow-2xl" style={{ transform: `scale(${zoom}) rotate(${rotation}deg)`, transformOrigin: 'center', transition: 'transform 0.2s ease' }}>
-              <iframe src={`${absoluteUrl}#toolbar=0`} title={title || fileName || 'PDF'} className="w-[900px] h-[80vh] border-0" />
+              <iframe src={`${blobUrl}#toolbar=0`} title={title || fileName || 'PDF'} className="w-[900px] h-[80vh] border-0" />
             </div>
           )}
 
-          {fileType === 'unknown' && (
+          {!loading && !error && fileType === 'unknown' && (
             <div className="text-center text-gray-300">
               <div className="mb-4">Keine Inline-Vorschau verfügbar.</div>
               <div className="flex items-center justify-center gap-2">
-                <a href={absoluteUrl} target="_blank" rel="noreferrer" className="px-4 py-2 bg-[#ffbd59] text-[#1a1a2e] rounded-lg hover:bg-[#ffa726]">Im neuen Tab öffnen</a>
+                <a href={blobUrl || absoluteUrl} target="_blank" rel="noreferrer" className="px-4 py-2 bg-[#ffbd59] text-[#1a1a2e] rounded-lg hover:bg-[#ffa726]">Im neuen Tab öffnen</a>
                 <button onClick={download} className="px-4 py-2 border border-gray-600 rounded-lg hover:bg-white/10">Download</button>
               </div>
             </div>

@@ -231,7 +231,8 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
         const token = localStorage.getItem('token');
         if (!token) return;
 
-        const response = await fetch(`http://localhost:8000/api/v1/projects/${projectId}`, {
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+        const response = await fetch(`${baseUrl}/projects/${projectId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -252,7 +253,8 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
         const token = localStorage.getItem('token');
         if (!token) return;
 
-        const response = await fetch(`http://localhost:8000/api/v1/documents?project_id=${projectId}&limit=100`, {
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+        const response = await fetch(`${baseUrl}/documents?project_id=${projectId}&limit=100`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -567,7 +569,8 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
         formData.append('is_public', 'true');
 
         const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:8000/api/v1/documents/upload', {
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+        const response = await fetch(`${baseUrl}/documents/upload`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
