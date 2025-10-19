@@ -1088,7 +1088,7 @@ export default function Navbar() {
 
         {/* Mobile Menu */}
         {showMobileMenu && (
-          <div className="md:hidden mobile-container border-t border-white/10 py-4">
+          <div className="md:hidden mobile-container border-t border-white/10 py-4 relative z-50">
             <div className="space-y-2">
               {isServiceProvider() ? (
                 /* Dienstleister Mobile Menu: nur Dashboard und Gebühren */
@@ -1167,7 +1167,7 @@ export default function Navbar() {
       {/* Click outside to close dropdowns */}
       {(showUserMenu || showMobileMenu) && (
         <div 
-          className="mobile-menu-overlay fixed inset-0 z-40" 
+          className="fixed inset-0 z-40 bg-transparent" 
           onClick={() => {
             setShowUserMenu(false);
             setShowMobileMenu(false);

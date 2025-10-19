@@ -369,10 +369,37 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* Enhanced Touch Targets */
+/* Mobile Menu Overlay Fix */
+.mobile-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: transparent;
+  z-index: 40;
+  pointer-events: auto;
+}
+
+/* Mobile Menu Container */
+.mobile-container {
+  position: relative;
+  z-index: 50;
+  background: inherit;
+}
+
+/* Mobile Touch Target */
 .mobile-touch-target {
-  @apply min-w-[44px] min-h-[44px];
-  @apply flex items-center justify-center;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(255, 189, 89, 0.2);
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Backdrop Filter Fallback */
