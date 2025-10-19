@@ -4400,7 +4400,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       <div 
         className={`bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] shadow-2xl border border-gray-600/30 w-full overflow-hidden relative flex flex-col
           ${isMobile 
-            ? 'mobile-modal-content h-[100vh] rounded-t-3xl' 
+            ? 'h-[100vh] rounded-t-3xl backdrop-blur-lg border border-white/20' 
             : 'rounded-2xl max-w-6xl h-[90vh]'
           }
           ${activeTab === 'contact' && !isBautraeger() && !isMobile ? 'h-screen' : ''}`}
