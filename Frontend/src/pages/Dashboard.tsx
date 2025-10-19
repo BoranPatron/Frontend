@@ -19,7 +19,7 @@ import FinanceWidget from '../components/FinanceWidget';
 import FinanceAnalytics from '../components/FinanceAnalytics';
 import FinancialCharts from '../components/FinancialCharts';
 import ProjectFinancialAnalysis from '../components/ProjectFinancialAnalysis';
-import { getMilestones } from '../api/milestoneService';
+import { getMilestones, getAllMilestones } from '../api/milestoneService';
 import { acceptQuote, rejectQuote, resetQuote, getQuotesForMilestone, getQuotes } from '../api/quoteService';
 import { getTasks } from '../api/taskService';
 import { getCategoryStatistics } from '../api/documentService';
@@ -1132,35 +1132,85 @@ function DashboardWithCreditAnimation() {
     try {
       setStatsLoading(true);
       // 1) Aktive Gewerke: Milestones mit Status != completed/cancelled
-      const trades = await getMilestones(project.id);
-      const activeTrades = (trades || []).filter((t: any) => {
-        const s = String(t.status || '').toLowerCase();
-        return s !== 'completed' && s !== 'cancelled' && s !== 'archived';
-      }).length;
+      console.log(`📡 [ROBUST] Lade aktive Gewerke für Projekt ${project.id}`);
+      let activeTrades = 0;
+      try {
+        const trades = await getMilestones(project.id);
+        if (trades && Array.isArray(trades)) {
+          activeTrades = trades.filter((t: any) => {
+            const s = String(t.status || '').toLowerCase();
+            return s !== 'completed' && s !== 'cancelled' && s !== 'archived';
+          }).length;
+          console.log(`✅ [ROBUST] ${activeTrades} aktive Gewerke gefunden von ${trades.length} total`);
+        } else {
+          console.warn(`⚠️ [ROBUST] Keine oder ungültige Trades erhalten:`, trades);
+        }
+      } catch (tradesError: any) {
+        console.error(`❌ [ROBUST] Fehler beim Laden der Gewerke:`, tradesError);
+      }
 
       // 2) Offene Aufgaben: Tasks mit Status != completed/cancelled
-      const tasks = await getTasks(project.id);
-      const openTasks = (tasks || []).filter((t: any) => {
-        const s = String(t.status || '').toLowerCase();
-        return s !== 'completed' && s !== 'cancelled';
-      }).length;
+      console.log(`📡 [ROBUST] Lade Aufgaben für Projekt ${project.id}`);
+      let openTasks = 0;
+      try {
+        const tasks = await getTasks(project.id);
+        if (tasks && Array.isArray(tasks)) {
+          openTasks = tasks.filter((t: any) => {
+            const s = String(t.status || '').toLowerCase();
+            return s !== 'completed' && s !== 'cancelled';
+          }).length;
+          console.log(`✅ [ROBUST] ${openTasks} offene Aufgaben gefunden von ${tasks.length} total`);
+        } else {
+          console.warn(`⚠️ [ROBUST] Keine oder ungültige Aufgaben erhalten:`, tasks);
+        }
+      } catch (tasksError: any) {
+        console.error(`❌ [ROBUST] Fehler beim Laden der Aufgaben:`, tasksError);
+      }
 
       // 3) Dokumente: Summe aller DMS-Dokumente (über Kategorien summiert)
-      const categoryStats = await getCategoryStatistics(project.id);
-      const documentsTotal = Object.values(categoryStats || {}).reduce((sum: number, cat: any) => sum + (cat?.total_documents || 0), 0);
+      console.log(`📡 [ROBUST] Lade Dokument-Statistiken für Projekt ${project.id}`);
+      let documentsTotal = 0;
+      try {
+        const categoryStats = await getCategoryStatistics(project.id);
+        if (categoryStats && typeof categoryStats === 'object') {
+          documentsTotal = Object.values(categoryStats).reduce((sum: number, cat: any) => sum + (cat?.total_documents || 0), 0);
+          console.log(`✅ [ROBUST] ${documentsTotal} Dokumente gefunden`);
+        } else {
+          console.warn(`⚠️ [ROBUST] Keine oder ungültige Kategorie-Statistiken erhalten:`, categoryStats);
+        }
+      } catch (docError: any) {
+        console.error(`❌ [ROBUST] Fehler beim Laden der Dokument-Statistiken:`, docError);
+      }
 
       // 4) Neue Angebote: Angebote mit viewed === false
-      const quotes = await getQuotes(project.id);
-      const viewedLocalRaw = localStorage.getItem('viewed_quotes') || '[]';
-      let viewedLocal: number[] = [];
-      try { viewedLocal = JSON.parse(viewedLocalRaw) as number[]; } catch { viewedLocal = []; }
-      const newQuotes = (quotes || []).filter((q: any) => {
-        if (!q) return false;
-        if (typeof q.viewed !== 'undefined') {
-          return q.viewed === false || q.viewed === 0;
+      console.log(`📡 [ROBUST] Lade Angebote für Projekt ${project.id}`);
+      let newQuotes = 0;
+      try {
+        const quotes = await getQuotes(project.id);
+        if (quotes && Array.isArray(quotes)) {
+          const viewedLocalRaw = localStorage.getItem('viewed_quotes') || '[]';
+          let viewedLocal: number[] = [];
+          try { 
+            viewedLocal = JSON.parse(viewedLocalRaw) as number[]; 
+          } catch { 
+            viewedLocal = []; 
+          }
+          
+          newQuotes = quotes.filter((q: any) => {
+            if (!q) return false;
+            if (typeof q.viewed !== 'undefined') {
+              return q.viewed === false || q.viewed === 0;
+            }
+            return !viewedLocal.includes(Number(q.id));
+          }).length;
+          
+          console.log(`✅ [ROBUST] ${newQuotes} neue Angebote gefunden von ${quotes.length} total`);
+        } else {
+          console.warn(`⚠️ [ROBUST] Keine oder ungültige Angebote erhalten:`, quotes);
         }
-        return !viewedLocal.includes(Number(q.id));
-      }).length;
+      } catch (quoteError: any) {
+        console.error(`❌ [ROBUST] Fehler beim Laden der Angebote:`, quoteError);
+      }
 
       setProjectStats(prev => ({
         ...prev,
@@ -1218,12 +1268,59 @@ function DashboardWithCreditAnimation() {
     });
   };
   
-  // Hilfsfunktion zum Laden und Filtern von Gewerken
+  // Hilfsfunktion zum Laden und Filtern von Gewerken mit robuster Fehlerbehandlung
   const loadAndFilterTrades = async (projectId: number) => {
-    const allTrades = await getMilestones(projectId);
-    const activeTrades = filterActiveTradesOnly(allTrades);
-    console.log('🔍 Aktive Gewerke (ohne archivierte):', activeTrades.length, 'von', allTrades?.length || 0);
-    return activeTrades;
+    console.log(`🔍 [ROBUST] loadAndFilterTrades aufgerufen für projectId: ${projectId}`);
+    
+    try {
+      // Schritt 1: Validiere Projekt-ID
+      if (!projectId || projectId <= 0) {
+        console.error(`❌ [ROBUST] Ungültige projectId: ${projectId}`);
+        return [];
+      }
+
+      // Schritt 2: Versuche Milestones zu laden
+      console.log(`📡 [ROBUST] Lade Milestones für Projekt ${projectId}`);
+      const allTrades = await getMilestones(projectId);
+      
+      if (!allTrades || !Array.isArray(allTrades)) {
+        console.warn(`⚠️ [ROBUST] Keine oder ungültige Milestones erhalten:`, allTrades);
+        return [];
+      }
+
+      console.log(`✅ [ROBUST] ${allTrades.length} Milestones geladen für Projekt ${projectId}`);
+
+      // Schritt 3: Filtere aktive Trades
+      const activeTrades = filterActiveTradesOnly(allTrades);
+      console.log(`🔍 [ROBUST] Aktive Gewerke (ohne archivierte): ${activeTrades.length} von ${allTrades.length}`);
+      
+      return activeTrades;
+    } catch (error: any) {
+      console.error(`❌ [ROBUST] Fehler in loadAndFilterTrades für Projekt ${projectId}:`, error);
+      
+      // Fallback: Versuche alle Milestones zu laden und clientseitig zu filtern
+      try {
+        console.log(`🔄 [ROBUST] Versuche Fallback: lade alle Milestones`);
+        const allMilestones = await getAllMilestones();
+        
+        if (allMilestones && Array.isArray(allMilestones)) {
+          // Filtere nach Projekt-ID
+          const projectMilestones = allMilestones.filter((milestone: any) => 
+            milestone.project_id === projectId
+          );
+          
+          const activeTrades = filterActiveTradesOnly(projectMilestones);
+          console.log(`✅ [ROBUST] Fallback erfolgreich: ${activeTrades.length} aktive Trades für Projekt ${projectId}`);
+          return activeTrades;
+        }
+      } catch (fallbackError: any) {
+        console.error(`❌ [ROBUST] Auch Fallback fehlgeschlagen:`, fallbackError);
+      }
+      
+      // Letzter Fallback: leere Liste
+      console.log(`🔄 [ROBUST] Verwende letzten Fallback: leere Liste`);
+      return [];
+    }
   };
   
   // Modal-States (wie in Quotes.tsx)
@@ -1353,28 +1450,44 @@ function DashboardWithCreditAnimation() {
   useEffect(() => {
     const loadProjectTrades = async () => {
       if (!selectedProject) {
+        console.log(`🔍 [ROBUST] Kein Projekt ausgewählt, setze leere Trades`);
         setProjectTrades([]);
         return;
       }
+      
+      console.log(`🔍 [ROBUST] loadProjectTrades aufgerufen für Projekt: ${selectedProject.id} (${selectedProject.name})`);
+      
       try {
         setIsLoadingTrades(true);
         setTradesError(null);
+        
+        // Verwende die robuste loadAndFilterTrades Funktion
         const activeTrades = await loadAndFilterTrades(selectedProject.id);
+        
+        console.log(`✅ [ROBUST] ${activeTrades.length} aktive Trades geladen für Projekt ${selectedProject.id}`);
         setProjectTrades(activeTrades);
+        
         if (activeTrades && activeTrades.length > 0) {
+          console.log(`📡 [ROBUST] Lade Quotes für ${activeTrades.length} Trades`);
           void loadQuotesForTrades(activeTrades);
         } else {
+          console.log(`ℹ️ [ROBUST] Keine aktiven Trades, setze leere Quotes`);
           setAllTradeQuotes({});
         }
       } catch (e: any) {
-        console.error('❌ Fehler beim Laden der Gewerke:', e);
-        setTradesError('Gewerke konnten nicht geladen werden');
+        console.error(`❌ [ROBUST] Fehler beim Laden der Gewerke für Projekt ${selectedProject.id}:`, e);
+        setTradesError(`Gewerke konnten nicht geladen werden: ${e.message}`);
         setProjectTrades([]);
         setAllTradeQuotes({});
+        
+        // Zeige Benutzer-freundliche Fehlermeldung
+        console.log(`ℹ️ [ROBUST] Zeige Fehlermeldung für Benutzer`);
       } finally {
         setIsLoadingTrades(false);
+        console.log(`✅ [ROBUST] loadProjectTrades abgeschlossen für Projekt ${selectedProject.id}`);
       }
     };
+    
     loadProjectTrades();
   }, [selectedProject?.id]);
 

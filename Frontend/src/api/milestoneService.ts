@@ -1,18 +1,108 @@
 import api from './api';
 
+/**
+ * Robuste Implementierung für Milestone-Service mit Fallback-Mechanismen
+ */
+
 export async function getMilestones(project_id: number) {
-  const res = await api.get('/milestones', { params: { project_id } });
-  return res.data;
+  console.log(`🔍 [ROBUST] getMilestones aufgerufen für project_id: ${project_id}`);
+  
+  try {
+    // Schritt 1: Validiere Eingabe
+    if (!project_id || project_id <= 0) {
+      console.error(`❌ [ROBUST] Ungültige project_id: ${project_id}`);
+      throw new Error('Ungültige Projekt-ID');
+    }
+
+    // Schritt 2: Versuche primären Endpoint
+    try {
+      console.log(`📡 [ROBUST] Versuche primären Endpoint: /milestones?project_id=${project_id}`);
+      const response = await api.get('/milestones', { params: { project_id } });
+      
+      if (response.data && Array.isArray(response.data)) {
+        console.log(`✅ [ROBUST] Primärer Endpoint erfolgreich: ${response.data.length} Milestones erhalten`);
+        return response.data;
+      } else {
+        console.warn(`⚠️ [ROBUST] Primärer Endpoint gab ungültige Daten zurück:`, response.data);
+        throw new Error('Ungültige Antwort vom primären Endpoint');
+      }
+    } catch (primaryError: any) {
+      console.warn(`⚠️ [ROBUST] Primärer Endpoint fehlgeschlagen:`, primaryError.message);
+      
+      // Schritt 3: Fallback auf /milestones/all mit clientseitiger Filterung
+      try {
+        console.log(`🔄 [ROBUST] Versuche Fallback-Endpoint: /milestones/all`);
+        const fallbackResponse = await api.get('/milestones/all');
+        
+        if (fallbackResponse.data && Array.isArray(fallbackResponse.data)) {
+          // Filtere clientseitig nach project_id
+          const filteredMilestones = fallbackResponse.data.filter((milestone: any) => 
+            milestone.project_id === project_id
+          );
+          
+          console.log(`✅ [ROBUST] Fallback erfolgreich: ${filteredMilestones.length} Milestones für Projekt ${project_id} gefiltert`);
+          return filteredMilestones;
+        } else {
+          console.warn(`⚠️ [ROBUST] Fallback-Endpoint gab ungültige Daten zurück:`, fallbackResponse.data);
+          throw new Error('Ungültige Antwort vom Fallback-Endpoint');
+        }
+      } catch (fallbackError: any) {
+        console.error(`❌ [ROBUST] Auch Fallback-Endpoint fehlgeschlagen:`, fallbackError.message);
+        
+        // Schritt 4: Letzter Fallback - leere Liste
+        console.log(`🔄 [ROBUST] Verwende letzten Fallback: leere Liste`);
+        return [];
+      }
+    }
+  } catch (error: any) {
+    console.error(`❌ [ROBUST] Unerwarteter Fehler in getMilestones:`, error);
+    
+    // Gebe leere Liste zurück statt Fehler zu werfen
+    console.log(`🔄 [ROBUST] Gebe leere Liste zurück als letzter Fallback`);
+    return [];
+  }
 }
 
 export async function getAllMilestones() {
-  const res = await api.get('/milestones/all');
-  return res.data;
+  console.log(`🔍 [ROBUST] getAllMilestones aufgerufen`);
+  
+  try {
+    const res = await api.get('/milestones/all');
+    
+    if (res.data && Array.isArray(res.data)) {
+      console.log(`✅ [ROBUST] getAllMilestones erfolgreich: ${res.data.length} Milestones erhalten`);
+      return res.data;
+    } else {
+      console.warn(`⚠️ [ROBUST] getAllMilestones gab ungültige Daten zurück:`, res.data);
+      return [];
+    }
+  } catch (error: any) {
+    console.error(`❌ [ROBUST] Fehler in getAllMilestones:`, error);
+    return [];
+  }
 }
 
 export async function getMilestone(id: number) {
-  const res = await api.get(`/milestones/${id}`);
-  return res.data;
+  console.log(`🔍 [ROBUST] getMilestone aufgerufen für id: ${id}`);
+  
+  try {
+    if (!id || id <= 0) {
+      throw new Error('Ungültige Milestone-ID');
+    }
+
+    const res = await api.get(`/milestones/${id}`);
+    
+    if (res.data) {
+      console.log(`✅ [ROBUST] getMilestone erfolgreich für ID ${id}`);
+      return res.data;
+    } else {
+      console.warn(`⚠️ [ROBUST] getMilestone gab keine Daten zurück für ID ${id}`);
+      return null;
+    }
+  } catch (error: any) {
+    console.error(`❌ [ROBUST] Fehler in getMilestone für ID ${id}:`, error);
+    return null;
+  }
 }
 
 interface MilestoneData {
