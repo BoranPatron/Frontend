@@ -252,18 +252,23 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
         <RoleSelectionModal 
           onSelectRole={async (role) => {
             try {
+              console.log('🎯 App.tsx: onSelectRole aufgerufen mit:', role);
               await selectRole(role);
+              console.log('✅ App.tsx: selectRole erfolgreich');
+              
               // Rollenauswahl-Modal schließen
               setShowRoleModal(false);
+              console.log('✅ App.tsx: RoleModal geschlossen');
               
               // Nach Rollenauswahl: Zeige Firmenadresse-Modal
               setShowCompanyAddressModal(true);
+              console.log('✅ App.tsx: CompanyAddressModal geöffnet');
               
               // Willkommens-Notification wird erst nach Abschluss der Guided Tour angezeigt
               // (siehe OnboardingContext für die Logik)
               
               } catch (error) {
-              console.error('❌ Fehler beim Speichern der Rolle:', error);
+              console.error('❌ App.tsx: Fehler beim Speichern der Rolle:', error);
               // Modal bleibt offen bei Fehlern
             }
           }}

@@ -349,6 +349,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Funktion zum Auswählen der Benutzerrolle
   const selectRole = async (role: 'bautraeger' | 'dienstleister') => {
     try {
+      console.log('🔄 selectRole aufgerufen mit:', role);
+      console.log('🔑 Token vorhanden:', !!token);
+      console.log('🌐 API Base URL:', getApiBaseUrl());
+      
       const response = await fetch(`${getApiBaseUrl()}/auth/select-role`, {
         method: 'POST',
         headers: {
@@ -358,6 +362,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ role })
       });
 
+      console.log('📡 API Response Status:', response.status);
+      console.log('📡 API Response OK:', response.ok);
+
       if (!response.ok) {
         const errorData = await response.text();
         console.error('❌ Backend Error:', errorData);
@@ -365,6 +372,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const data = await response.json();
+      console.log('✅ API Response Data:', data);
+      
       // Aktualisiere lokale States
       setUserRole(role);
       setRoleSelected(true);
@@ -374,6 +383,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const updatedUser = { ...user, user_role: role, role_selected: true };
         setUser(updatedUser);
         localStorage.setItem('user', JSON.stringify(updatedUser));
+        console.log('✅ User-Objekt aktualisiert:', updatedUser);
       }
       
       } catch (error) {

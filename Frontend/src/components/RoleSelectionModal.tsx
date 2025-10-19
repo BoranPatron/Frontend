@@ -8,13 +8,33 @@ interface RoleSelectionModalProps {
 export default function RoleSelectionModal({ onSelectRole }: RoleSelectionModalProps) {
   const [selectedRole, setSelectedRole] = useState<'bautraeger' | 'dienstleister' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Debug-Logging für selectedRole Änderungen
+  React.useEffect(() => {
+    console.log('🔍 selectedRole geändert:', selectedRole);
+  }, [selectedRole]);
 
   const handleConfirm = async () => {
-    if (!selectedRole) return;
+    if (!selectedRole) {
+      console.log('❌ Keine Rolle ausgewählt');
+      setError('Bitte wählen Sie eine Rolle aus.');
+      return;
+    }
     
+    console.log('🔄 Bestätige Rolle:', selectedRole);
     setIsLoading(true);
-    await onSelectRole(selectedRole);
-    setIsLoading(false);
+    setError(null);
+    
+    try {
+      await onSelectRole(selectedRole);
+      console.log('✅ Rolle erfolgreich gespeichert');
+    } catch (error) {
+      console.error('❌ Fehler beim Speichern der Rolle:', error);
+      setError('Fehler beim Speichern der Rolle. Bitte versuchen Sie es erneut.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -30,10 +50,14 @@ export default function RoleSelectionModal({ onSelectRole }: RoleSelectionModalP
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          {/* Bauträger/Bauherr Karte */}
-          <button
-            onClick={() => setSelectedRole('bautraeger')}
-            className={`
+           {/* Bauträger/Bauherr Karte */}
+           <button
+             onClick={() => {
+               console.log('🎯 Rolle ausgewählt: bautraeger');
+               setSelectedRole('bautraeger');
+               setError(null); // Fehler zurücksetzen bei neuer Auswahl
+             }}
+             className={`
               relative p-4 sm:p-6 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 transform hover:scale-105 active:scale-95
               ${selectedRole === 'bautraeger' 
                 ? 'border-[#ffbd59] bg-[#ffbd59]/20' 
@@ -73,10 +97,14 @@ export default function RoleSelectionModal({ onSelectRole }: RoleSelectionModalP
             )}
           </button>
 
-          {/* Dienstleister Karte */}
-          <button
-            onClick={() => setSelectedRole('dienstleister')}
-            className={`
+           {/* Dienstleister Karte */}
+           <button
+             onClick={() => {
+               console.log('🎯 Rolle ausgewählt: dienstleister');
+               setSelectedRole('dienstleister');
+               setError(null); // Fehler zurücksetzen bei neuer Auswahl
+             }}
+             className={`
               relative p-4 sm:p-6 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 transform hover:scale-105 active:scale-95
               ${selectedRole === 'dienstleister' 
                 ? 'border-[#ffbd59] bg-[#ffbd59]/20' 
@@ -117,20 +145,30 @@ export default function RoleSelectionModal({ onSelectRole }: RoleSelectionModalP
           </button>
         </div>
 
-        <div className="text-center">
-          <button
-            onClick={handleConfirm}
-            disabled={!selectedRole || isLoading}
-            className={`
-              w-full sm:w-auto px-6 sm:px-8 py-3 rounded-lg sm:rounded-xl font-semibold transition-all duration-300 transform text-sm sm:text-base
-              ${selectedRole && !isLoading
-                ? 'bg-[#ffbd59] text-[#2c3539] hover:bg-[#ffa726] hover:scale-105 active:scale-95' 
-                : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-              }
-            `}
-          >
-            {isLoading ? 'Wird gespeichert...' : 'Rolle bestätigen'}
-          </button>
+         <div className="text-center">
+           {error && (
+             <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+               <p className="text-red-300 text-sm">{error}</p>
+             </div>
+           )}
+           
+           <button
+             onClick={handleConfirm}
+             disabled={!selectedRole || isLoading}
+             className={`
+               w-full sm:w-auto px-6 sm:px-8 py-3 rounded-lg sm:rounded-xl font-semibold transition-all duration-300 transform text-sm sm:text-base
+               ${selectedRole && !isLoading
+                 ? 'bg-[#ffbd59] text-[#2c3539] hover:bg-[#ffa726] hover:scale-105 active:scale-95' 
+                 : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+               }
+             `}
+             style={{ 
+               opacity: selectedRole && !isLoading ? 1 : 0.5,
+               cursor: selectedRole && !isLoading ? 'pointer' : 'not-allowed'
+             }}
+           >
+             {isLoading ? 'Wird gespeichert...' : 'Rolle bestätigen'}
+           </button>
           <p className="text-xs text-gray-400 mt-3 sm:mt-4 px-2">
             Diese Auswahl kann später vom Administrator geändert werden.
           </p>
