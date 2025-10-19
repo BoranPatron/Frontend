@@ -26,6 +26,49 @@ export default function TradeMap({
   const [markers, setMarkers] = useState<any[]>([]);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [isLegendExpanded, setIsLegendExpanded] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
+  const [lastTouchTime, setLastTouchTime] = useState(0);
+  const [isTouching, setIsTouching] = useState(false);
+
+  // Touch-Handler für bessere mobile Interaktion
+  const handleTouchToggle = () => {
+    const now = Date.now();
+    if (now - lastTouchTime < 300) return; // Verhindere Doppelklicks
+    setLastTouchTime(now);
+    setIsLegendExpanded(!isLegendExpanded);
+  };
+
+  const handleTouchStart = () => {
+    setIsTouching(true);
+    handleTouchToggle();
+  };
+
+  const handleTouchEnd = () => {
+    setTimeout(() => setIsTouching(false), 150); // Kurze Verzögerung für visuelles Feedback
+  };
+
+  // Mobile Detection und Responsive Verhalten
+  useEffect(() => {
+    const checkMobile = () => {
+      const width = window.innerWidth;
+      const mobile = width < 768; // Tailwind md breakpoint
+      const tablet = width >= 768 && width < 1024; // Tailwind lg breakpoint
+      
+      setIsMobile(mobile);
+      setIsTablet(tablet);
+      
+      // In der mobilen Ansicht ist die Legende standardmäßig eingeklappt
+      if (mobile) {
+        setIsLegendExpanded(false);
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Leaflet CSS laden
   useEffect(() => {
@@ -788,62 +831,144 @@ export default function TradeMap({
       />
       
       {/* Kompakte ausklappbare Legende mit Glow- und Glassmorph-Effekten */}
-      <div className="absolute top-4 right-4 z-10">
+      <div className={`absolute z-10 ${
+        isMobile ? 'top-2 right-2' : 
+        isTablet ? 'top-3 right-3' : 
+        'top-4 right-4'
+      }`}>
         <div 
           className={`bg-gradient-to-br from-white/95 to-white/90 backdrop-blur-xl rounded-xl shadow-2xl border border-white/30 transition-all duration-500 ease-out overflow-hidden ${
             isLegendExpanded 
-              ? 'w-80 shadow-[0_0_40px_rgba(255,189,89,0.3)] hover:shadow-[0_0_50px_rgba(255,189,89,0.4)]' 
-              : 'w-48 shadow-[0_0_20px_rgba(255,189,89,0.2)] hover:shadow-[0_0_30px_rgba(255,189,89,0.3)]'
+              ? isMobile 
+                ? `w-64 ${isTouching ? 'shadow-[0_0_40px_rgba(255,189,89,0.35)] scale-105' : 'shadow-[0_0_30px_rgba(255,189,89,0.25)]'}` 
+                : isTablet
+                ? 'w-72 shadow-[0_0_35px_rgba(255,189,89,0.28)]'
+                : 'w-80 shadow-[0_0_40px_rgba(255,189,89,0.3)] hover:shadow-[0_0_50px_rgba(255,189,89,0.4)]'
+              : isMobile
+                ? `w-32 ${isTouching ? 'shadow-[0_0_25px_rgba(255,189,89,0.25)] scale-105' : 'shadow-[0_0_15px_rgba(255,189,89,0.15)]'}`
+                : isTablet
+                ? 'w-40 shadow-[0_0_18px_rgba(255,189,89,0.18)]'
+                : 'w-48 shadow-[0_0_20px_rgba(255,189,89,0.2)] hover:shadow-[0_0_30px_rgba(255,189,89,0.3)]'
           }`}
-          onMouseEnter={() => setIsLegendExpanded(true)}
-          onMouseLeave={() => setIsLegendExpanded(false)}
+          onMouseEnter={() => !isMobile && setIsLegendExpanded(true)}
+          onMouseLeave={() => !isMobile && setIsLegendExpanded(false)}
+          onClick={() => isMobile && handleTouchToggle()}
+          onTouchStart={() => isMobile && handleTouchStart()}
+          onTouchEnd={() => isMobile && handleTouchEnd()}
+          style={{ touchAction: 'manipulation' }}
         >
           {/* Header mit Toggle-Button */}
-          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-[#ffbd59]/20 to-[#ffa726]/20 border-b border-white/20">
+          <div className={`flex items-center justify-between bg-gradient-to-r from-[#ffbd59]/20 to-[#ffa726]/20 border-b border-white/20 ${
+            isMobile ? 'p-2' : 
+            isTablet ? 'p-2.5' : 
+            'p-3'
+          }`}>
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg flex items-center justify-center shadow-lg">
-                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <div className={`bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg flex items-center justify-center shadow-lg ${
+                isMobile ? 'w-5 h-5' : 
+                isTablet ? 'w-5.5 h-5.5' : 
+                'w-6 h-6'
+              }`}>
+                <svg className={`text-white ${
+                  isMobile ? 'w-3 h-3' : 
+                  isTablet ? 'w-3.5 h-3.5' : 
+                  'w-4 h-4'
+                }`} fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                 </svg>
               </div>
-              <span className="text-sm font-bold text-gray-800">Legende</span>
+              <span className={`font-bold text-gray-800 ${
+                isMobile ? 'text-xs' : 
+                isTablet ? 'text-xs' : 
+                'text-sm'
+              }`}>
+                {isMobile && !isLegendExpanded ? 'L' : 'Legende'}
+              </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white px-2 py-1 rounded-full font-bold shadow-lg">
+              <span className={`bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white rounded-full font-bold shadow-lg ${
+                isMobile ? 'text-xs px-1.5 py-0.5' : 
+                isTablet ? 'text-xs px-1.5 py-0.5' : 
+                'text-xs px-2 py-1'
+              }`}>
                 {trades.length}
               </span>
-              <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
+              <div className={`rounded-full transition-all duration-300 ${
                 isLegendExpanded ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+              } ${
+                isMobile ? 'w-1.5 h-1.5' : 
+                isTablet ? 'w-1.5 h-1.5' : 
+                'w-2 h-2'
               }`}></div>
             </div>
           </div>
 
           {/* Kompakter Inhalt (immer sichtbar) */}
-          <div className="p-3">
-            <div className="space-y-2 text-xs">
+          <div className={`${
+            isMobile ? 'p-2' : 
+            isTablet ? 'p-2.5' : 
+            'p-3'
+          }`}>
+            <div className={`space-y-2 ${isMobile ? 'text-xs' : 'text-xs'}`}>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-blue-500 rounded-full border border-white shadow-sm"></div>
-                <span className="text-gray-700 font-medium">Ihr Standort</span>
+                <div className={`bg-blue-500 rounded-full border border-white shadow-sm ${
+                  isMobile ? 'w-2.5 h-2.5' : 
+                  isTablet ? 'w-2.5 h-2.5' : 
+                  'w-3 h-3'
+                }`}></div>
+                <span className={`text-gray-700 font-medium ${
+                  isMobile ? 'text-xs' : 
+                  isTablet ? 'text-xs' : 
+                  'text-xs'
+                }`}>
+                  {isMobile && !isLegendExpanded ? 'Standort' : 'Ihr Standort'}
+                </span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-yellow-500 rounded-full border border-white shadow-sm"></div>
-                <span className="text-gray-700 font-medium">Ausschreibungen</span>
+                <div className={`bg-yellow-500 rounded-full border border-white shadow-sm ${
+                  isMobile ? 'w-2.5 h-2.5' : 
+                  isTablet ? 'w-2.5 h-2.5' : 
+                  'w-3 h-3'
+                }`}></div>
+                <span className={`text-gray-700 font-medium ${
+                  isMobile ? 'text-xs' : 
+                  isTablet ? 'text-xs' : 
+                  'text-xs'
+                }`}>
+                  {isMobile && !isLegendExpanded ? 'Trades' : 'Ausschreibungen'}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Erweiterte Inhalte (nur bei Hover) */}
+          {/* Erweiterte Inhalte (nur bei Hover/Click) */}
           <div className={`transition-all duration-500 ease-out overflow-hidden ${
             isLegendExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
           }`}>
-            <div className="px-3 pb-3 border-t border-white/20 bg-gradient-to-b from-white/10 to-transparent">
+            <div className={`border-t border-white/20 bg-gradient-to-b from-white/10 to-transparent ${
+              isMobile ? 'px-2 pb-2' : 
+              isTablet ? 'px-2.5 pb-2.5' : 
+              'px-3 pb-3'
+            }`}>
               {/* Kategorien */}
-              <div className="mt-3">
-                <div className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-1">
+              <div className={`${
+                isMobile ? 'mt-2' : 
+                isTablet ? 'mt-2.5' : 
+                'mt-3'
+              }`}>
+                <div className={`font-bold text-gray-700 mb-2 flex items-center gap-1 ${
+                  isMobile ? 'text-xs' : 
+                  isTablet ? 'text-xs' : 
+                  'text-xs'
+                }`}>
                   <span>🏗️</span>
-                  <span>Gewerke-Kategorien</span>
+                  <span>{isMobile ? 'Kategorien' : 'Gewerke-Kategorien'}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-1 text-xs">
+                <div className={`grid gap-1 ${
+                  isMobile ? 'grid-cols-1 text-xs' : 
+                  isTablet ? 'grid-cols-2 text-xs' : 
+                  'grid-cols-2 text-xs'
+                }`}>
                   <div className="flex items-center gap-1 hover:bg-white/20 rounded px-1 py-0.5 transition-colors">
                     <span>⚡</span>
                     <span className="text-gray-600">Elektro</span>
@@ -872,15 +997,31 @@ export default function TradeMap({
               </div>
 
               {/* Zusätzliche Informationen */}
-              <div className="mt-3 pt-2 border-t border-white/20">
-                <div className="text-xs text-gray-500 space-y-1">
+              <div className={`pt-2 border-t border-white/20 ${
+                isMobile ? 'mt-2' : 
+                isTablet ? 'mt-2.5' : 
+                'mt-3'
+              }`}>
+                <div className={`text-gray-500 space-y-1 ${
+                  isMobile ? 'text-xs' : 
+                  isTablet ? 'text-xs' : 
+                  'text-xs'
+                }`}>
                   <div className="flex items-center gap-1">
                     <span>💡</span>
-                    <span>Klicken Sie auf Marker für Details</span>
+                    <span>{
+                      isMobile ? 'Marker anklicken' : 
+                      isTablet ? 'Marker anklicken' : 
+                      'Klicken Sie auf Marker für Details'
+                    }</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <span>🎯</span>
-                    <span>Angebote direkt abgeben</span>
+                    <span>{
+                      isMobile ? 'Angebote abgeben' : 
+                      isTablet ? 'Angebote abgeben' : 
+                      'Angebote direkt abgeben'
+                    }</span>
                   </div>
                 </div>
               </div>

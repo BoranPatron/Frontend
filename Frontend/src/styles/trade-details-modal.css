@@ -1,0 +1,51 @@
+/* Trade Details Modal - Mobile Background Fix für iOS Safari */
+/* Höchste Spezifität für garantierten dunklen Hintergrund */
+
+[class*="TradeDetailsModal"] > div > div {
+  background: linear-gradient(135deg, #1a1a2e 0%, #2c3539 100%) !important;
+  background-color: #1a1a2e !important;
+  background-image: linear-gradient(135deg, #1a1a2e 0%, #2c3539 100%) !important;
+}
+
+/* Mobile Modal Container Override */
+.mobile-modal-container > div {
+  background: linear-gradient(135deg, #1a1a2e 0%, #2c3539 100%) !important;
+  background-color: #1a1a2e !important;
+  background-image: linear-gradient(135deg, #1a1a2e 0%, #2c3539 100%) !important;
+}
+
+/* Verhindere weiße Hintergründe */
+.mobile-modal-content {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.mobile-modal-header {
+  background: transparent !important;
+  background-color: rgba(26, 26, 46, 0.8) !important;
+}
+
+/* iOS Safari spezifische Fixes */
+@supports (-webkit-overflow-scrolling: touch) {
+  .mobile-modal-container > div {
+    background: #1a1a2e !important;
+    background-image: linear-gradient(135deg, #1a1a2e 0%, #2c3539 100%) !important;
+  }
+}
+
+/* Dark Mode erzwingen */
+@media (prefers-color-scheme: dark) {
+  .mobile-modal-container > div {
+    background: linear-gradient(135deg, #1a1a2e 0%, #2c3539 100%) !important;
+    background-color: #1a1a2e !important;
+  }
+}
+
+/* Light Mode auch dunkel halten */
+@media (prefers-color-scheme: light) {
+  .mobile-modal-container > div {
+    background: linear-gradient(135deg, #1a1a2e 0%, #2c3539 100%) !important;
+    background-color: #1a1a2e !important;
+  }
+}
+

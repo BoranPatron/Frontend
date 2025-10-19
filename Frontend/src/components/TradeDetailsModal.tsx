@@ -4,6 +4,7 @@ import AddToContactBookButton from './AddToContactBookButton';
 import ContactBook from './ContactBook';
 import { useMobile, useSwipeGesture } from '../hooks/useMobile';
 import '../styles/mobile-modals.css';
+import '../styles/trade-details-modal.css';
 import { 
   X, 
   Eye, 
@@ -4405,9 +4406,10 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           }
           ${activeTab === 'contact' && !isBautraeger() && !isMobile ? 'h-screen' : ''}`}
         style={{
-          background: 'linear-gradient(to bottom right, #1a1a2e, #2c3539)',
-          backgroundColor: '#1a1a2e'
-        }}
+          background: 'linear-gradient(135deg, rgb(26, 26, 46) 0%, rgb(44, 53, 57) 100%)',
+          backgroundColor: 'rgb(26, 26, 46)',
+          backgroundImage: 'linear-gradient(135deg, rgb(26, 26, 46) 0%, rgb(44, 53, 57) 100%)'
+        } as React.CSSProperties}
         onTouchStart={isMobile ? swipeGestures.onTouchStart as any : undefined}
         onTouchMove={isMobile ? swipeGestures.onTouchMove as any : undefined}
         onTouchEnd={isMobile ? swipeGestures.onTouchEnd : undefined}
