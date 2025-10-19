@@ -15,11 +15,13 @@ export default function OAuthCallback() {
   const mountedRef = useRef(true);
 
   useEffect(() => {
+    console.log('🔄 OAuthCallback mounted, processing OAuth callback...');
     // Setze mountedRef explizit auf true beim Mount
     mountedRef.current = true;
     const handleOAuthCallback = async () => {
       // Verhindere mehrfache Verarbeitung mit robuster Prüfung
       if (processingRef.current) {
+        console.log('⚠️ OAuth callback already processing, skipping...');
         return;
       }
       
@@ -76,7 +78,10 @@ export default function OAuthCallback() {
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 Sekunden Timeout
 
         try {
-          const response = await fetch(`${getApiBaseUrl()}/auth/oauth/${provider}/callback`, {
+          const apiUrl = getApiBaseUrl();
+          console.log(`🌐 Sende OAuth-Callback an: ${apiUrl}/auth/oauth/${provider}/callback`);
+          
+          const response = await fetch(`${apiUrl}/auth/oauth/${provider}/callback`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -99,192 +104,155 @@ export default function OAuthCallback() {
             } catch {
               errorData = { detail: errorText || 'Unbekannter Fehler' };
             }
-
-            console.error(`❌ ${provider.toUpperCase()} OAuth fehlgeschlagen:`, errorData);
             
-            const errorDetail = errorData.detail || '';
-            
-            // Bei invalid_grant oder ähnlichen Fehlern
-            if (errorDetail.includes('OAuth-Code ist abgelaufen') || 
-                errorDetail.includes('OAuth-Code bereits verwendet') || 
-                errorDetail.includes('invalid_grant') ||
-                errorDetail.includes('authorization code has expired') ||
-                errorDetail.includes('AADSTS70008')) {
-              
-              setStatus('error');
-              setMessage('Der OAuth-Code ist bereits verwendet oder abgelaufen. Bitte starten Sie den Login-Prozess erneut.');
-              return;
-            }
-            
-            // Bei Konfigurationsfehlern
-            if (errorDetail.includes('nicht konfiguriert') || 
-                errorDetail.includes('Client-Konfiguration fehlerhaft')) {
-              setStatus('error');
-              setMessage('OAuth ist nicht korrekt konfiguriert. Bitte wenden Sie sich an den Administrator.');
-              return;
-            }
-            
-            // Bei anderen Fehlern
+            console.error('❌ Backend-Fehler:', response.status, errorData);
             setStatus('error');
-            setMessage(errorDetail || `${provider.toUpperCase()} OAuth fehlgeschlagen`);
+            setMessage(errorData.detail || `Backend-Fehler: ${response.status}`);
             return;
           }
 
           const data = await response.json();
-          // Login erfolgreich - ENTFERNE mountedRef Check komplett
-          if (data.access_token && data.user) {
-            console.log('🔄 Führe Login durch (ohne mountedRef Check)');
-            
-            try {
-              // Speichere Benutzerdaten für die Willkommensnachricht
-              setCurrentUser(data.user);
-              
-              // Führe Login durch - IMMER ausführen
-              console.log('🔐 Rufe login() Funktion auf...');
-              login(data.access_token, data.user);
-              console.log('✅ login() Funktion erfolgreich aufgerufen');
-              
-              setStatus('success');
-              setMessage(`${provider.toUpperCase()} Login erfolgreich! Weiterleitung...`);
-              // Verzögerte Weiterleitung für AuthContext-Aktualisierung
-              setTimeout(() => {
-                const redirectPath = localStorage.getItem('redirectAfterLogin') || '/';
-                localStorage.removeItem('redirectAfterLogin');
-                navigate(redirectPath, { replace: true });
-              }, 2000); // Etwas länger für bessere UX mit der neuen Willkommensnachricht
-              
-            } catch (loginError) {
-              console.error('❌ Fehler beim Login-Prozess:', loginError);
-              setStatus('error');
-              setMessage('Fehler beim Login-Prozess');
-            }
-          } else {
-            console.error('❌ Unvollständige Antwort vom Backend:', data);
+          console.log('✅ OAuth-Callback erfolgreich:', data);
+
+          if (!data.access_token) {
+            console.error('❌ Kein Access Token erhalten');
             setStatus('error');
-            setMessage('Unvollständige Antwort vom Server');
+            setMessage('Kein Access Token erhalten');
+            return;
           }
+
+          // Login durchführen
+          console.log('🔐 Führe Login durch...');
+          await login(data.access_token, data.user, true);
+          
+          setCurrentUser(data.user);
+          setStatus('success');
+          setMessage('Anmeldung erfolgreich!');
+
+          // Weiterleitung nach kurzer Verzögerung
+          setTimeout(() => {
+            if (mountedRef.current) {
+              console.log('🚀 Weiterleitung zum Dashboard...');
+              navigate('/');
+            }
+          }, 2000);
 
         } catch (fetchError: any) {
           clearTimeout(timeoutId);
           
           if (fetchError.name === 'AbortError') {
-            console.error('❌ OAuth-Request Timeout');
+            console.error('⏰ OAuth-Callback Timeout');
             setStatus('error');
-            setMessage('Timeout beim Verbinden mit dem Server. Bitte versuchen Sie es erneut.');
+            setMessage('Anmeldung dauerte zu lange. Bitte versuchen Sie es erneut.');
           } else {
-            console.error('❌ Netzwerkfehler:', fetchError);
+            console.error('❌ OAuth-Callback Fehler:', fetchError);
             setStatus('error');
-            setMessage('Netzwerkfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
+            setMessage(fetchError.message || 'Anmeldung fehlgeschlagen');
           }
         }
 
       } catch (err: any) {
-        console.error('❌ OAuth callback error:', err);
+        console.error('❌ Allgemeiner OAuth-Callback Fehler:', err);
         setStatus('error');
-        setMessage(err.message || 'Ein unerwarteter Fehler ist aufgetreten');
+        setMessage(err.message || 'Anmeldung fehlgeschlagen');
+      } finally {
+        processingRef.current = false;
       }
     };
 
-    // Starte OAuth-Callback-Verarbeitung
     handleOAuthCallback();
 
-    // Cleanup function
+    // Cleanup
     return () => {
       mountedRef.current = false;
     };
   }, [searchParams, navigate, login]);
 
+  // Cleanup beim Unmount
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const getStatusIcon = () => {
+    switch (status) {
+      case 'loading':
+        return <Loader2 className="w-8 h-8 animate-spin text-blue-500" />;
+      case 'success':
+        return <CheckCircle className="w-8 h-8 text-green-500" />;
+      case 'error':
+        return <AlertTriangle className="w-8 h-8 text-red-500" />;
+      default:
+        return <Loader2 className="w-8 h-8 animate-spin text-blue-500" />;
+    }
+  };
+
+  const getStatusColor = () => {
+    switch (status) {
+      case 'loading':
+        return 'text-blue-600';
+      case 'success':
+        return 'text-green-600';
+      case 'error':
+        return 'text-red-600';
+      default:
+        return 'text-blue-600';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center p-4">
       <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 w-full max-w-md border border-white/20 shadow-2xl text-center">
-        
-        {/* Logo */}
-        <div className="flex justify-center mb-6">
-          <img 
-            src="/src/logo_trans_big.png" 
-            alt="BuildWise Logo" 
-            className="h-20 w-auto object-contain"
-          />
+        <div className="mb-6">
+          {getStatusIcon()}
         </div>
-
-        {/* Dynamischer Titel basierend auf Status */}
-        {status === 'loading' && (
-          <h1 className="text-2xl font-bold text-[#ffbd59] mb-4">OAuth-Verarbeitung</h1>
+        
+        <h2 className={`text-2xl font-bold mb-4 ${getStatusColor()}`}>
+          {status === 'loading' && 'Anmeldung läuft...'}
+          {status === 'success' && 'Anmeldung erfolgreich!'}
+          {status === 'error' && 'Anmeldung fehlgeschlagen'}
+        </h2>
+        
+        <p className="text-white/80 mb-6">
+          {message || 'Verarbeite OAuth-Callback...'}
+        </p>
+        
+        {status === 'success' && currentUser && (
+          <div className="bg-white/10 rounded-lg p-4 mb-6">
+            <p className="text-white/90 font-medium">
+              Willkommen, {currentUser.first_name} {currentUser.last_name}!
+            </p>
+            <p className="text-white/70 text-sm mt-1">
+              Sie werden in Kürze weitergeleitet...
+            </p>
+          </div>
         )}
         
-        {(status === 'success' || status === 'error') && (
-          <h1 className="text-2xl font-bold text-[#ffbd59] mb-4">
-            {status === 'success' && currentUser ? 
-              `Willkommen ${currentUser.first_name || currentUser.name || currentUser.email || 'zurück'}!` : 
-              'Anmeldung'
-            }
-          </h1>
-        )}
-
-        {/* Status-Anzeige */}
-        {status === 'loading' && (
-          <div className="space-y-4">
-            <div className="flex justify-center">
-              <Loader2 className="h-12 w-12 text-[#ffbd59] animate-spin" />
-            </div>
-            <p className="text-gray-300">Verarbeite OAuth-Callback...</p>
-          </div>
-        )}
-
-        {status === 'success' && (
-          <div className="space-y-4">
-            <div className="flex justify-center">
-              <CheckCircle className="h-12 w-12 text-green-500" />
-            </div>
-            <div className="text-center space-y-3">
-              <p className="text-lg text-white font-medium">
-                Schön, dass du da bist! 🎉
-              </p>
-              <p className="text-gray-300">
-                Deine Anmeldung war erfolgreich. Du wirst gleich zu deinem Dashboard weitergeleitet.
-              </p>
-              <p className="text-sm text-gray-400">
-                {message}
-              </p>
-            </div>
-          </div>
-        )}
-
         {status === 'error' && (
           <div className="space-y-4">
-            <div className="flex justify-center">
-              <AlertTriangle className="h-12 w-12 text-red-500" />
-            </div>
-            <p className="text-gray-300 mb-4">{message}</p>
+            <button
+              onClick={() => navigate('/login')}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+            >
+              Zurück zur Anmeldung
+            </button>
             
-            {/* Hilfe-Sektion */}
-            <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-              <h3 className="text-yellow-500 font-semibold mb-2">💡 Lösung:</h3>
-              <ol className="text-sm text-gray-300 space-y-1 text-left">
-                <li>1. Gehen Sie zurück zur Login-Seite</li>
-                <li>2. Klicken Sie erneut auf "Mit Microsoft anmelden"</li>
-                <li>3. Führen Sie den Login-Prozess erneut durch</li>
-              </ol>
-              <div className="mt-3">
-                <button 
-                  onClick={() => {
-                    window.location.href = '/';
-                  }}
-                  className="bg-[#ffbd59] text-black px-4 py-2 rounded-lg hover:bg-[#ffbd59]/80 transition-colors"
-                >
-                  Zurück zur Login-Seite
-                </button>
-              </div>
-            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full bg-gray-600 hover:bg-gray-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+            >
+              Seite neu laden
+            </button>
           </div>
         )}
-
-        {/* Debug-Info */}
-        <div className="mt-6 text-xs text-gray-400">
-          <p>Provider: {window.location.pathname.includes('google') ? 'Google' : 'Microsoft'}</p>
-          <p>Status: {status}</p>
-        </div>
+        
+        {status === 'loading' && (
+          <div className="text-white/60 text-sm">
+            Bitte warten Sie, während wir Ihre Anmeldung verarbeiten...
+          </div>
+        )}
       </div>
     </div>
   );
-} 
+}
