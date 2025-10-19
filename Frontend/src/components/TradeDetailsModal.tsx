@@ -4398,12 +4398,16 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       
     <div className={`fixed inset-0 z-50 ${isMobile ? 'mobile-modal-container' : 'bg-black/50 backdrop-blur-sm flex items-center justify-center p-4'}`}>
       <div 
-        className={`bg-gradient-to-br from-[#1a1a2e] to-[#2c3539] shadow-2xl border border-gray-600/30 w-full overflow-hidden relative flex flex-col
+        className={`shadow-2xl border border-gray-600/30 w-full overflow-hidden relative flex flex-col
           ${isMobile 
             ? 'h-[100vh] rounded-t-3xl backdrop-blur-lg border border-white/20' 
             : 'rounded-2xl max-w-6xl h-[90vh]'
           }
           ${activeTab === 'contact' && !isBautraeger() && !isMobile ? 'h-screen' : ''}`}
+        style={{
+          background: 'linear-gradient(to bottom right, #1a1a2e, #2c3539)',
+          backgroundColor: '#1a1a2e'
+        }}
         onTouchStart={isMobile ? swipeGestures.onTouchStart as any : undefined}
         onTouchMove={isMobile ? swipeGestures.onTouchMove as any : undefined}
         onTouchEnd={isMobile ? swipeGestures.onTouchEnd : undefined}
@@ -4431,7 +4435,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           </div>
         )}
         
-        <div className={`flex items-center justify-between border-b border-gray-600/30 flex-shrink-0 ${isMobile ? 'mobile-modal-header' : 'p-6'}`}>
+        <div className={`flex items-center justify-between border-b border-gray-600/30 flex-shrink-0 ${isMobile ? 'sticky top-0 backdrop-blur-md rounded-t-3xl px-4 py-4 border-b border-white/10 z-10' : 'p-6'}`}>
           <div className="flex items-center gap-3 flex-1 min-w-0">
             {/* Firmenlogo oder Fallback-Icon */}
             {companyLogo && !companyLogoLoading ? (
