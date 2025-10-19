@@ -248,7 +248,7 @@ export default function Login() {
           {/* Logo zentral über der Login-Eingabe */}
           <div className="flex justify-center mb-6">
             <img 
-              src="/src/logo_trans_big.png" 
+              src="/logo_trans_big.png" 
               alt="BuildWise Logo" 
               className="h-40 w-auto object-contain"
             />
