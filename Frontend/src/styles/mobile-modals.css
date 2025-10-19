@@ -47,8 +47,9 @@
 }
 
 .mobile-modal-content {
-  @apply bg-white/10 backdrop-blur-lg border border-white/20 shadow-2xl w-full;
+  @apply backdrop-blur-lg border border-white/20 shadow-2xl w-full;
   @apply rounded-t-3xl max-h-[92vh] overflow-y-auto;
+  /* Hintergrund wird vom Modal selbst definiert */
 }
 
 @media (min-width: 768px) {
