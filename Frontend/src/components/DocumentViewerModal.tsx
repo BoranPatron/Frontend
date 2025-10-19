@@ -60,12 +60,12 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 
     try {
       const token = localStorage.getItem('token');
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
       // Versuche Document-ID aus verschiedenen Quellen zu extrahieren
       let documentId = document.id;
       
-      const response = await fetch(`${baseUrl}/api/v1/documents/${documentId}/content`, {
+      const response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -91,9 +91,9 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 
     try {
       const token = localStorage.getItem('token');
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
-      const response = await fetch(`${baseUrl}/api/v1/documents/${document.id}/download`, {
+      const response = await fetch(`${baseUrl}/documents/${document.id}/download`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

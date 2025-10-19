@@ -118,9 +118,9 @@ const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ onDocumentClick }) =>
     
     try {
       const token = localStorage.getItem('token');
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
       
-      const response = await fetch(`${baseUrl}/api/v1/documents/bautraeger/overview?project_id=${selectedProject.id}`, {
+      const response = await fetch(`${baseUrl}/documents/bautraeger/overview?project_id=${selectedProject.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
