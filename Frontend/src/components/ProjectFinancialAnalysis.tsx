@@ -87,12 +87,13 @@ export default function ProjectFinancialAnalysis({
         };
 
         // Lade Finanzdaten vom Backend
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
         const [summaryResponse, categoryResponse, timelineResponse, breakdownResponse, analysisResponse] = await Promise.all([
-          fetch(`http://localhost:8000/api/v1/financial-charts/project/${projectId}/summary`, { headers }),
-          fetch(`http://localhost:8000/api/v1/financial-charts/project/${projectId}/category-data`, { headers }),
-          fetch(`http://localhost:8000/api/v1/financial-charts/project/${projectId}/timeline-data?months=12`, { headers }),
-          fetch(`http://localhost:8000/api/v1/financial-charts/project/${projectId}/cost-breakdown?limit=20`, { headers }),
-          fetch(`http://localhost:8000/api/v1/financial-charts/project/${projectId}/cost-analysis`, { headers })
+          fetch(`${baseUrl}/financial-charts/project/${projectId}/summary`, { headers }),
+          fetch(`${baseUrl}/financial-charts/project/${projectId}/category-data`, { headers }),
+          fetch(`${baseUrl}/financial-charts/project/${projectId}/timeline-data?months=12`, { headers }),
+          fetch(`${baseUrl}/financial-charts/project/${projectId}/cost-breakdown?limit=20`, { headers }),
+          fetch(`${baseUrl}/financial-charts/project/${projectId}/cost-analysis`, { headers })
         ]);
 
         if (!summaryResponse.ok || !categoryResponse.ok || !timelineResponse.ok || !breakdownResponse.ok || !analysisResponse.ok) {
