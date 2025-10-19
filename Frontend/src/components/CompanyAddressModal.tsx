@@ -110,34 +110,34 @@ export default function CompanyAddressModal({ onComplete, onSkip, userRole }: Co
   const RoleIcon = userRole === 'bautraeger' ? Building2 : Building2;
 
   return (
-    <div className="fixed top-16 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
-      <div className="bg-white/10 backdrop-blur-lg rounded-3xl max-w-2xl w-full border border-white/20 shadow-2xl max-h-[90vh] flex flex-col">
-        <div className="p-8 pb-4 flex-shrink-0">
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center mb-4">
-              <div className="w-16 h-16 rounded-full bg-[#ffbd59]/20 flex items-center justify-center">
-                <RoleIcon className="w-8 h-8 text-[#ffbd59]" />
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-2 sm:p-4">
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl sm:rounded-3xl max-w-sm sm:max-w-lg lg:max-w-2xl w-full border border-white/20 shadow-2xl max-h-[90vh] flex flex-col">
+        <div className="p-4 sm:p-6 lg:p-8 pb-2 sm:pb-4 flex-shrink-0">
+          <div className="text-center mb-6 sm:mb-8">
+            <div className="flex items-center justify-center mb-3 sm:mb-4">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-[#ffbd59]/20 flex items-center justify-center">
+                <RoleIcon className="w-6 h-6 sm:w-8 sm:h-8 text-[#ffbd59]" />
               </div>
             </div>
-            <h2 className="text-3xl font-bold text-white mb-2">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-2">
               Firmeninformationen
             </h2>
           </div>
         </div>
 
         {/* Scrollable content area */}
-        <div className="flex-1 overflow-y-auto px-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           {/* Firmenname */}
           <div>
-            <label className="block text-sm font-semibold text-gray-200 mb-3">
+            <label className="block text-sm font-semibold text-gray-200 mb-2 sm:mb-3">
               Firmenname *
             </label>
             <input
               type="text"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-gray-800 border border-gray-600 text-white rounded-lg sm:rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400 text-sm sm:text-base"
               placeholder="z.B. Mustermann Bau GmbH"
               required
             />
@@ -145,14 +145,14 @@ export default function CompanyAddressModal({ onComplete, onSkip, userRole }: Co
 
           {/* UID-Nummer */}
           <div>
-            <label className="block text-sm font-semibold text-gray-200 mb-3">
+            <label className="block text-sm font-semibold text-gray-200 mb-2 sm:mb-3">
               UID-Nummer
             </label>
             <input
               type="text"
               value={companyUid}
               onChange={(e) => setCompanyUid(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-800 border border-gray-600 text-white rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400"
+              className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-gray-800 border border-gray-600 text-white rounded-lg sm:rounded-xl focus:ring-2 focus:ring-[#ffbd59] focus:border-transparent transition-all duration-200 placeholder-gray-400 text-sm sm:text-base"
               placeholder="z.B. DE123456789"
             />
             <p className="text-xs text-gray-400 mt-2">
@@ -246,12 +246,12 @@ export default function CompanyAddressModal({ onComplete, onSkip, userRole }: Co
           </div>
 
           {/* Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 pt-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4">
             <button
               type="button"
               onClick={handleSkip}
               disabled={isLoading}
-              className="flex-1 px-6 py-3 rounded-xl font-semibold border-2 border-gray-600 text-gray-300 hover:bg-gray-600/20 hover:border-gray-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-semibold border-2 border-gray-600 text-gray-300 hover:bg-gray-600/20 hover:border-gray-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
             >
               Später ergänzen
             </button>
@@ -260,7 +260,7 @@ export default function CompanyAddressModal({ onComplete, onSkip, userRole }: Co
               type="submit"
               disabled={!companyName.trim() || isLoading}
               className={`
-                flex-1 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2
+                flex-1 px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 text-sm sm:text-base active:scale-95
                 ${companyName.trim() && !isLoading
                   ? 'bg-[#ffbd59] text-[#2c3539] hover:bg-[#ffa726] hover:scale-105' 
                   : 'bg-gray-600 text-gray-400 cursor-not-allowed'
@@ -272,7 +272,7 @@ export default function CompanyAddressModal({ onComplete, onSkip, userRole }: Co
               ) : (
                 <>
                   Speichern
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
                 </>
               )}
             </button>
@@ -281,9 +281,9 @@ export default function CompanyAddressModal({ onComplete, onSkip, userRole }: Co
         </div>
 
         {/* Fixed footer */}
-        <div className="p-8 pt-4 flex-shrink-0">
+        <div className="p-4 sm:p-6 lg:p-8 pt-2 sm:pt-4 flex-shrink-0">
           <div className="text-center">
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-400 px-2">
               Diese Informationen können jederzeit in den Profileinstellungen geändert werden.
             </p>
           </div>
