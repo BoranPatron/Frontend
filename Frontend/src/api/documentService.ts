@@ -60,7 +60,7 @@ export async function getDocuments(project_id: number, params?: Partial<Document
         originalParams: params
       });
       
-      const res = await api.get('/documents/sp/documents');
+      const res = await api.get('/api/v1/documents/sp/documents');
       console.log('🔍 Service Provider Response:', {
         status: res.status,
         dataLength: res.data?.length || 0,
@@ -70,7 +70,7 @@ export async function getDocuments(project_id: number, params?: Partial<Document
       return res.data;
     }
     
-    const res = await api.get('/documents', { params: searchParams });
+    const res = await api.get('/api/v1/documents', { params: searchParams });
     return res.data;
   } catch (error: any) {
     console.error('❌ Error fetching documents:', error);
@@ -103,7 +103,7 @@ export async function searchDocumentsFulltext(query: string, project_id?: number
     if (project_id) params.project_id = project_id;
     if (category) params.category = category;
     
-    const res = await api.get('/documents/search/fulltext', { params });
+    const res = await api.get('/api/v1/documents/search/fulltext', { params });
     return res.data;
   } catch (error: any) {
     console.error('❌ Error in full-text search:', error);
@@ -113,7 +113,7 @@ export async function searchDocumentsFulltext(query: string, project_id?: number
 
 export async function toggleDocumentFavorite(documentId: number) {
   try {
-    const res = await api.post(`/documents/${documentId}/favorite`);
+    const res = await api.post(`/api/v1/documents/${documentId}/favorite`);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error toggling favorite:', error);
@@ -123,7 +123,7 @@ export async function toggleDocumentFavorite(documentId: number) {
 
 export async function updateDocumentStatus(documentId: number, newStatus: string) {
   try {
-    const res = await api.put(`/documents/${documentId}/status`, null, {
+    const res = await api.put(`/api/v1/documents/${documentId}/status`, null, {
       params: { new_status: newStatus }
     });
     return res.data;
@@ -146,11 +146,11 @@ export async function getCategoryStatistics(project_id?: number, service_provide
         originalParams: { project_id, service_provider_documents, quote_status_filter }
       });
       
-      const res = await api.get('/documents/sp/stats');
+      const res = await api.get('/api/v1/documents/sp/stats');
       return res.data;
     }
     
-    const res = await api.get('/documents/categories/stats', { params });
+    const res = await api.get('/api/v1/documents/categories/stats', { params });
     return res.data;
   } catch (error: any) {
     console.error('❌ Error fetching category statistics:', error);
@@ -160,7 +160,7 @@ export async function getCategoryStatistics(project_id?: number, service_provide
 
 export async function trackDocumentAccess(documentId: number) {
   try {
-    const res = await api.get(`/documents/${documentId}/access`);
+    const res = await api.get(`/api/v1/documents/${documentId}/access`);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error tracking access:', error);
@@ -174,7 +174,7 @@ export async function getRecentDocuments(project_id?: number, limit: number = 10
     const params: any = { limit };
     if (project_id) params.project_id = project_id;
     
-    const res = await api.get('/documents/recent', { params });
+    const res = await api.get('/api/v1/documents/recent', { params });
     return res.data;
   } catch (error: any) {
     console.error('❌ Error fetching recent documents:', error);
@@ -184,7 +184,7 @@ export async function getRecentDocuments(project_id?: number, limit: number = 10
 
 export async function getDocument(id: number) {
   try {
-    const res = await api.get(`/documents/${id}`);
+    const res = await api.get(`/api/v1/documents/${id}`);
     
     // Track access when viewing document
     trackDocumentAccess(id);
@@ -205,7 +205,7 @@ export async function deleteDocumentForServiceProvider(documentId: number) {
   try {
     console.log(`🗑️ Deleting document ${documentId} for service provider...`);
     
-    const res = await api.delete(`/documents/sp/documents/${documentId}`);
+    const res = await api.delete(`/api/v1/documents/sp/documents/${documentId}`);
     
     console.log('✅ Document deleted successfully:', res.data);
     return res.data;
@@ -292,7 +292,7 @@ export async function uploadDocument(formData: FormData) {
       file: file instanceof File ? `${file.name} (${file.size} bytes)` : 'No file'
     });
     
-    const res = await api.post('/documents/upload', uploadFormData, { 
+    const res = await api.post('/api/v1/documents/upload', uploadFormData, { 
       headers: { 
         'Content-Type': 'multipart/form-data' 
       } 
@@ -335,7 +335,7 @@ export async function uploadDocument(formData: FormData) {
 
 export async function updateDocument(id: number, data: any) {
   try {
-    const res = await api.put(`/documents/${id}`, data);
+    const res = await api.put(`/api/v1/documents/${id}`, data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error updating document:', error);
@@ -350,7 +350,7 @@ export async function updateDocument(id: number, data: any) {
 
 export async function deleteDocument(id: number) {
   try {
-    await api.delete(`/documents/${id}`);
+    await api.delete(`/api/v1/documents/${id}`);
     } catch (error: any) {
     console.error('❌ Error deleting document:', error);
     console.error('Error details:', {
@@ -367,7 +367,7 @@ export async function downloadDocument(id: number) {
     // Track access when downloading
     trackDocumentAccess(id);
     
-    const res = await api.get(`/documents/${id}/download`, {
+    const res = await api.get(`/api/v1/documents/${id}/download`, {
       responseType: 'blob'
     });
     
@@ -380,7 +380,7 @@ export async function downloadDocument(id: number) {
 
 export async function getProjectMilestones(project_id: number): Promise<Milestone[]> {
   try {
-    const res = await api.get(`/documents/project/${project_id}/milestones`);
+    const res = await api.get(`/api/v1/documents/project/${project_id}/milestones`);
     return res.data;
   } catch (error) {
     console.error('Error fetching project milestones:', error);

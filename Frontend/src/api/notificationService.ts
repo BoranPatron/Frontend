@@ -52,7 +52,7 @@ export const notificationService = {
       if (userId) params.user_id = userId;
       if (unreadOnly) params.unread_only = true;
 
-      const response = await api.get('/notifications', { params });
+      const response = await api.get('/api/v1/notifications', { params });
       return response.data || [];
     } catch (error) {
       console.error('❌ Fehler beim Laden der Benachrichtigungen:', error);
@@ -199,7 +199,7 @@ export const notificationService = {
       const params: any = {};
       if (userId) params.user_id = userId;
 
-      const response = await api.get('/notifications/stats', { params });
+      const response = await api.get('/api/v1/notifications/stats', { params });
       return response.data || { total: 0, unread: 0, high_priority: 0, requires_action: 0 };
     } catch (error) {
       console.error('❌ Fehler beim Laden der Benachrichtigungs-Statistiken:', error);

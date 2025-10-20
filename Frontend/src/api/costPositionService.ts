@@ -117,7 +117,7 @@ export const costPositionService = {
       console.log(`🔄 Lade echte Kostenpositionen für Projekt ${projectId}...`);
       
       // Lade echte Kostenpositionen aus der Datenbank
-      const response = await api.get(`/cost-positions/project/${projectId}`);
+      const response = await api.get(`/api/v1/cost-positions/project/${projectId}`);
       const costPositions = response.data || [];
       
       console.log(`✅ ${costPositions.length} echte Kostenpositionen geladen`);
@@ -143,36 +143,36 @@ export const costPositionService = {
 
   // Get a specific cost position
   getCostPosition: async (costPositionId: number): Promise<CostPosition> => {
-    const response = await api.get(`/cost-positions/${costPositionId}`);
+    const response = await api.get(`/api/v1/cost-positions/${costPositionId}`);
     return response.data;
   },
 
   // Create a new cost position
   createCostPosition: async (costPosition: CostPositionCreate): Promise<CostPosition> => {
-    const response = await api.post('/cost-positions/', costPosition);
+    const response = await api.post('/api/v1/cost-positions/', costPosition);
     return response.data;
   },
 
   // Update a cost position
   updateCostPosition: async (costPositionId: number, costPosition: CostPositionUpdate): Promise<CostPosition> => {
-    const response = await api.put(`/cost-positions/${costPositionId}`, costPosition);
+    const response = await api.put(`/api/v1/cost-positions/${costPositionId}`, costPosition);
     return response.data;
   },
 
   // Delete a cost position
   deleteCostPosition: async (costPositionId: number): Promise<void> => {
-    await api.delete(`/cost-positions/${costPositionId}`);
+    await api.delete(`/api/v1/cost-positions/${costPositionId}`);
   },
 
   // Get cost position statistics for a project
   getCostPositionStatistics: async (projectId: number): Promise<CostPositionStatistics> => {
-    const response = await api.get(`/cost-positions/project/${projectId}/statistics`);
+    const response = await api.get(`/api/v1/cost-positions/project/${projectId}/statistics`);
     return response.data;
   },
 
   // Update progress of a cost position
   updateProgress: async (costPositionId: number, progressPercentage: number): Promise<{ message: string; cost_position_id: number; progress_percentage: number }> => {
-    const response = await api.post(`/cost-positions/${costPositionId}/progress`, null, {
+    const response = await api.post(`/api/v1/cost-positions/${costPositionId}/progress`, null, {
       params: { progress_percentage: progressPercentage }
     });
     return response.data;
@@ -180,7 +180,7 @@ export const costPositionService = {
 
   // Record a payment for a cost position
   recordPayment: async (costPositionId: number, paymentAmount: number): Promise<{ message: string; cost_position_id: number; payment_amount: number; total_paid: number }> => {
-    const response = await api.post(`/cost-positions/${costPositionId}/payment`, null, {
+    const response = await api.post(`/api/v1/cost-positions/${costPositionId}/payment`, null, {
       params: { payment_amount: paymentAmount }
     });
     return response.data;

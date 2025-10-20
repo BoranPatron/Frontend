@@ -2,14 +2,14 @@ import api from './api';
 
 export async function getQuotes(project_id?: number) {
   const params = project_id ? { project_id } : {};
-  const response = await api.get('/quotes/', { params });
+  const response = await api.get('/api/v1/quotes/', { params });
   return response.data;
 }
 
 export async function getQuotesForMilestone(milestone_id: number) {
   console.log('🔍 getQuotesForMilestone: API-Aufruf für milestone_id:', milestone_id);
   try {
-    const response = await api.get(`/quotes/milestone/${milestone_id}`);
+    const response = await api.get(`/api/v1/quotes/milestone/${milestone_id}`);
     console.log('🔍 getQuotesForMilestone: Response für milestone_id', milestone_id, ':', response.data);
     console.log('🔍 getQuotesForMilestone: Response Status:', response.status);
     console.log('🔍 getQuotesForMilestone: Response Headers:', response.headers);
@@ -34,12 +34,12 @@ export async function getQuotesForMilestone(milestone_id: number) {
 }
 
 export async function createMockQuotesForMilestone(milestone_id: number, project_id: number) {
-  const response = await api.post(`/quotes/milestone/${milestone_id}/mock?project_id=${project_id}`);
+  const response = await api.post(`/api/v1/quotes/milestone/${milestone_id}/mock?project_id=${project_id}`);
   return response.data;
 }
 
 export async function getQuote(id: number) {
-  const response = await api.get(`/quotes/${id}`);
+  const response = await api.get(`/api/v1/quotes/${id}`);
   return response.data;
 }
 
@@ -85,7 +85,7 @@ export interface QuoteData {
 }
 
 export async function createQuote(data: QuoteData) {
-  const response = await api.post('/quotes/', data);
+  const response = await api.post('/api/v1/quotes/', data);
   
   // Event für Bautraeger-Benachrichtigung auslösen (sofort, ohne Backend-Abfrage)
   if (response.data && response.data.id) {
@@ -140,50 +140,50 @@ export async function createQuote(data: QuoteData) {
 }
 
 export async function updateQuote(id: number, data: Partial<QuoteData>) {
-  const response = await api.put(`/quotes/${id}`, data);
+  const response = await api.put(`/api/v1/quotes/${id}`, data);
   return response.data;
 }
 
 export async function deleteQuote(id: number) {
-  const response = await api.delete(`/quotes/${id}`);
+  const response = await api.delete(`/api/v1/quotes/${id}`);
   return response.data;
 }
 
 export async function submitQuote(id: number) {
-  const response = await api.post(`/quotes/${id}/submit`);
+  const response = await api.post(`/api/v1/quotes/${id}/submit`);
   return response.data;
 }
 
 export async function acceptQuote(id: number) {
-  const response = await api.post(`/quotes/${id}/accept`);
+  const response = await api.post(`/api/v1/quotes/${id}/accept`);
   return response.data;
 }
 
 export async function rejectQuote(id: number, rejectionReason?: string) {
-  const response = await api.post(`/quotes/${id}/reject`, {
+  const response = await api.post(`/api/v1/quotes/${id}/reject`, {
     rejection_reason: rejectionReason
   });
   return response.data;
 }
 
 export async function resetQuote(id: number) {
-  const response = await api.post(`/quotes/${id}/reset`);
+  const response = await api.post(`/api/v1/quotes/${id}/reset`);
   return response.data;
 }
 
 export async function withdrawQuote(id: number) {
   // Dienstleister können ihre Angebote zurückziehen (löschen)
-  const response = await api.delete(`/quotes/${id}`);
+  const response = await api.delete(`/api/v1/quotes/${id}`);
   return response.data;
 }
 
 export async function analyzeQuote(id: number) {
-  const response = await api.get(`/quotes/${id}/analysis`);
+  const response = await api.get(`/api/v1/quotes/${id}/analysis`);
   return response.data;
 }
 
 export async function getQuoteStatistics(project_id: number) {
-  const response = await api.get(`/quotes/project/${project_id}/statistics`);
+  const response = await api.get(`/api/v1/quotes/project/${project_id}/statistics`);
   return response.data;
 }
 
@@ -199,7 +199,7 @@ export async function createQuoteWithPdf(formData: FormData) {
 
 export async function reviseQuoteAfterInspection(quoteId: number, data: Partial<QuoteData>) {
   // Überarbeitet ein bestehendes Angebot nach Besichtigung
-  const response = await api.put(`/quotes/${quoteId}/revise-after-inspection`, data);
+  const response = await api.put(`/api/v1/quotes/${quoteId}/revise-after-inspection`, data);
   return response.data;
 }
 

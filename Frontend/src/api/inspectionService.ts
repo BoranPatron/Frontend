@@ -116,13 +116,13 @@ export const inviteServiceProviders = async (inspectionId: number, quoteIds: num
 // Besichtigungen laden
 export const getInspections = async (milestoneId?: number): Promise<InspectionRead[]> => {
   const params = milestoneId ? { milestone_id: milestoneId } : {};
-  const response = await api.get('/inspections/', { params });
+  const response = await api.get('/api/v1/inspections/', { params });
   return response.data;
 };
 
 // Meine Einladungen laden (für Dienstleister)
 export const getMyInvitations = async (): Promise<InspectionInvitationRead[]> => {
-  const response = await api.get('/inspections/invitations');
+  const response = await api.get('/api/v1/inspections/invitations');
   return response.data;
 };
 
@@ -140,7 +140,7 @@ export const createQuoteRevision = async (inspectionId: number, revisionData: Qu
 
 // Quote-Revisionen laden
 export const getQuoteRevisions = async (inspectionId: number): Promise<QuoteRevisionRead[]> => {
-  const response = await api.get(`/inspections/${inspectionId}/quote-revisions`);
+  const response = await api.get(`/api/v1/inspections/${inspectionId}/quote-revisions`);
   return response.data;
 };
 
@@ -170,6 +170,6 @@ export const cancelInspection = async (inspectionId: number, cancellationReason?
 
 // Besichtigungspflichtige Gewerke laden
 export const getInspectionRequiredMilestones = async (): Promise<any[]> => {
-  const response = await api.get('/inspections/milestones/inspection-required');
+  const response = await api.get('/api/v1/inspections/milestones/inspection-required');
   return response.data;
 }; 

@@ -168,7 +168,7 @@ export class CanvasService {
 
   // Canvas CRUD
   async getCanvas(projectId: number): Promise<Canvas> {
-    const response = await api.get(`/canvas/${projectId}`);
+    const response = await api.get(`/api/v1/canvas/${projectId}`);
     return response.data;
   }
 
@@ -192,7 +192,7 @@ export class CanvasService {
   }
 
   async loadCanvasState(canvasId: number): Promise<CanvasState> {
-    const response = await api.get(`/canvas/${canvasId}/load`);
+    const response = await api.get(`/api/v1/canvas/${canvasId}/load`);
     return response.data;
   }
 
@@ -236,7 +236,7 @@ export class CanvasService {
 
   // Active Users
   async getActiveUsers(canvasId: number): Promise<ActiveUsersResponse> {
-    const response = await api.get(`/canvas/${canvasId}/active-users`);
+    const response = await api.get(`/api/v1/canvas/${canvasId}/active-users`);
     return response.data;
   }
 
@@ -248,7 +248,7 @@ export class CanvasService {
 
   // Statistics
   async getCanvasStatistics(canvasId: number): Promise<CanvasStatistics> {
-    const response = await api.get(`/canvas/${canvasId}/statistics`);
+    const response = await api.get(`/api/v1/canvas/${canvasId}/statistics`);
     return response.data;
   }
 

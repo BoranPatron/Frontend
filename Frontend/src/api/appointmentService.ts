@@ -95,20 +95,20 @@ export interface CalendarEventData {
 export const appointmentService = {
   // Erstelle neuen Termin
   async createAppointment(data: AppointmentCreate): Promise<AppointmentResponse> {
-    const response = await api.post('/appointments/', data);
+    const response = await api.post('/api/v1/appointments/', data);
     return response.data;
   },
 
   // Hole Termin nach ID
   async getAppointment(appointmentId: number): Promise<AppointmentResponse> {
-    const response = await api.get(`/appointments/${appointmentId}`);
+    const response = await api.get(`/api/v1/appointments/${appointmentId}`);
     return response.data;
   },
 
   // Hole alle Termine eines Projekts
   async getProjectAppointments(projectId: number, status?: string): Promise<AppointmentResponse[]> {
     const params = status ? { status } : {};
-    const response = await api.get(`/appointments/project/${projectId}`, { params });
+    const response = await api.get(`/api/v1/appointments/project/${projectId}`, { params });
     return response.data;
   },
 
@@ -116,12 +116,12 @@ export const appointmentService = {
   async getMyAppointments(projectId?: number): Promise<AppointmentResponse[]> {
     // Erst Test-Endpoint aufrufen
     try {
-      const testResponse = await api.get('/appointments/test-no-deps');
+      const testResponse = await api.get('/api/v1/appointments/test-no-deps');
       } catch (error) {
       console.error('❌ Test endpoint failed:', error);
     }
     
-    const response = await api.get('/appointments/my-appointments-simple');
+    const response = await api.get('/api/v1/appointments/my-appointments-simple');
     // Convert simple format to expected format
     if (response.data && response.data.appointments) {
       return response.data.appointments.map((apt: any) => ({
@@ -163,13 +163,13 @@ export const appointmentService = {
 
   // Hole ausstehende Follow-ups
   async getPendingFollowUps(): Promise<AppointmentResponse[]> {
-    const response = await api.get('/appointments/follow-ups/pending');
+    const response = await api.get('/api/v1/appointments/follow-ups/pending');
     return response.data;
   },
 
   // Service Provider Antwort auf Einladung
   async respondToAppointment(data: AppointmentResponseRequest): Promise<any> {
-    const response = await api.post(`/appointments/${data.appointment_id}/respond`, data);
+    const response = await api.post(`/api/v1/appointments/${data.appointment_id}/respond`, data);
     
     // Benachrichtigung wird jetzt automatisch im Backend erstellt
     console.log('✅ Terminantwort gespeichert - Benachrichtigung wird automatisch vom Backend erstellt');
@@ -179,19 +179,19 @@ export const appointmentService = {
 
   // Besichtigung abschließen
   async completeInspection(data: InspectionDecisionRequest): Promise<AppointmentResponse> {
-    const response = await api.post(`/appointments/${data.appointment_id}/complete`, data);
+    const response = await api.post(`/api/v1/appointments/${data.appointment_id}/complete`, data);
     return response.data;
   },
 
   // Kalendereintrag-Daten abrufen
   async getCalendarEvent(appointmentId: number): Promise<CalendarEventData> {
-    const response = await api.get(`/appointments/${appointmentId}/calendar`);
+    const response = await api.get(`/api/v1/appointments/${appointmentId}/calendar`);
     return response.data;
   },
 
   // Kalendereintrag (.ics) herunterladen
   async downloadCalendarEvent(appointmentId: number): Promise<void> {
-    const response = await api.get(`/appointments/${appointmentId}/calendar/download`, {
+    const response = await api.get(`/api/v1/appointments/${appointmentId}/calendar/download`, {
       responseType: 'blob'
     });
     
@@ -209,23 +209,23 @@ export const appointmentService = {
 
   // Termin aktualisieren
   async updateAppointment(appointmentId: number, data: Partial<AppointmentCreate>): Promise<AppointmentResponse> {
-    const response = await api.put(`/appointments/${appointmentId}`, data);
+    const response = await api.put(`/api/v1/appointments/${appointmentId}`, data);
     return response.data;
   },
 
   // Termin löschen
   async deleteAppointment(appointmentId: number): Promise<void> {
-    await api.delete(`/appointments/${appointmentId}`);
+    await api.delete(`/api/v1/appointments/${appointmentId}`);
   },
 
   // Follow-up als gesendet markieren
   async markFollowUpSent(appointmentId: number): Promise<void> {
-    await api.post(`/appointments/${appointmentId}/follow-up-sent`);
+    await api.post(`/api/v1/appointments/${appointmentId}/follow-up-sent`);
   },
 
   // Besichtigung als abgeschlossen markieren
   async markInspectionCompleted(appointmentId: number): Promise<{ message: string; appointment_id: number }> {
-    const response = await api.post(`/appointments/${appointmentId}/mark-completed`);
+    const response = await api.post(`/api/v1/appointments/${appointmentId}/mark-completed`);
     return response.data;
   },
 

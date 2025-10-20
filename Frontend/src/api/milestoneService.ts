@@ -16,8 +16,8 @@ export async function getMilestones(project_id: number) {
 
     // Schritt 2: Versuche primären Endpoint
     try {
-      console.log(`📡 [ROBUST] Versuche primären Endpoint: /milestones?project_id=${project_id}`);
-      const response = await api.get('/milestones', { params: { project_id } });
+      console.log(`📡 [ROBUST] Versuche primären Endpoint: /api/v1/milestones?project_id=${project_id}`);
+      const response = await api.get('/api/v1/milestones', { params: { project_id } });
       
       if (response.data && Array.isArray(response.data)) {
         console.log(`✅ [ROBUST] Primärer Endpoint erfolgreich: ${response.data.length} Milestones erhalten`);
@@ -31,8 +31,8 @@ export async function getMilestones(project_id: number) {
       
       // Schritt 3: Fallback auf /milestones/all mit clientseitiger Filterung
       try {
-        console.log(`🔄 [ROBUST] Versuche Fallback-Endpoint: /milestones/all`);
-        const fallbackResponse = await api.get('/milestones/all');
+        console.log(`🔄 [ROBUST] Versuche Fallback-Endpoint: /api/v1/milestones/all`);
+        const fallbackResponse = await api.get('/api/v1/milestones/all');
         
         if (fallbackResponse.data && Array.isArray(fallbackResponse.data)) {
           // Filtere clientseitig nach project_id
@@ -67,7 +67,7 @@ export async function getAllMilestones() {
   console.log(`🔍 [ROBUST] getAllMilestones aufgerufen`);
   
   try {
-    const res = await api.get('/milestones/all');
+    const res = await api.get('/api/v1/milestones/all');
     
     if (res.data && Array.isArray(res.data)) {
       console.log(`✅ [ROBUST] getAllMilestones erfolgreich: ${res.data.length} Milestones erhalten`);
@@ -90,7 +90,7 @@ export async function getMilestone(id: number) {
       throw new Error('Ungültige Milestone-ID');
     }
 
-    const res = await api.get(`/milestones/${id}`);
+    const res = await api.get(`/api/v1/milestones/${id}`);
     
     if (res.data) {
       console.log(`✅ [ROBUST] getMilestone erfolgreich für ID ${id}`);
@@ -124,7 +124,7 @@ interface MilestoneData {
 }
 
 export async function createMilestone(data: MilestoneData) {
-  const res = await api.post('/milestones', data);
+  const res = await api.post('/api/v1/milestones', data);
   return res.data;
 }
 
@@ -170,7 +170,7 @@ export async function createMilestoneWithDocuments(data: MilestoneData & {
     });
   }
   
-  const res = await api.post('/milestones/with-documents', formData, {
+  const res = await api.post('/api/v1/milestones/with-documents', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
@@ -179,15 +179,15 @@ export async function createMilestoneWithDocuments(data: MilestoneData & {
 }
 
 export async function updateMilestone(id: number, data: Partial<MilestoneData>) {
-  const res = await api.put(`/milestones/${id}`, data);
+  const res = await api.put(`/api/v1/milestones/${id}`, data);
   return res.data;
 }
 
 export async function deleteMilestone(id: number) {
-  await api.delete(`/milestones/${id}`);
+  await api.delete(`/api/v1/milestones/${id}`);
 }
 
 export async function getMilestoneStatistics(project_id: number) {
-  const res = await api.get(`/milestones/project/${project_id}/statistics`);
+  const res = await api.get(`/api/v1/milestones/project/${project_id}/statistics`);
   return res.data;
 } 

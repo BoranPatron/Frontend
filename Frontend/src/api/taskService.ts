@@ -4,7 +4,7 @@ export async function getTasks(project_id?: number) {
   try {
     const params = project_id ? { project_id } : {};
     // WICHTIG: Trailing slash verwenden um 307-Redirect zu vermeiden
-    const res = await api.get('/tasks/', { params });
+    const res = await api.get('/api/v1/tasks/', { params });
     return res.data;
   } catch (error: any) {
     console.error('❌ Error fetching tasks:', error);
@@ -19,7 +19,7 @@ export async function getTasks(project_id?: number) {
 
 export async function getTask(id: number) {
   try {
-    const res = await api.get(`/tasks/${id}`);
+    const res = await api.get(`/api/v1/tasks/${id}`);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error fetching task:', error);
@@ -56,7 +56,7 @@ export async function createTask(data: any) {
     };
     
     // WICHTIG: Trailing slash verwenden um 307-Redirect zu vermeiden
-    const res = await api.post('/tasks/', taskData);
+    const res = await api.post('/api/v1/tasks/', taskData);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error creating task:', error);
@@ -84,7 +84,7 @@ export async function createTask(data: any) {
 
 export async function updateTask(id: number, data: any) {
   try {
-    const res = await api.put(`/tasks/${id}`, data);
+    const res = await api.put(`/api/v1/tasks/${id}`, data);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error updating task:', error);
@@ -99,7 +99,7 @@ export async function updateTask(id: number, data: any) {
 
 export async function deleteTask(id: number) {
   try {
-    await api.delete(`/tasks/${id}`);
+    await api.delete(`/api/v1/tasks/${id}`);
     } catch (error: any) {
     console.error('❌ Error deleting task:', error);
     console.error('Error details:', {
@@ -113,7 +113,7 @@ export async function deleteTask(id: number) {
 
 export async function getTaskStatistics(project_id: number) {
   try {
-    const res = await api.get(`/tasks/project/${project_id}/statistics`);
+    const res = await api.get(`/api/v1/tasks/project/${project_id}/statistics`);
     return res.data;
   } catch (error: any) {
     console.error('❌ Error fetching task statistics:', error);
