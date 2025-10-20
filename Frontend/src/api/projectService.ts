@@ -5,7 +5,7 @@ export async function getProjects() {
     try {
       // WICHTIG: Trailing slash verwenden um 307-Redirect zu vermeiden
       // iOS Safari verliert Authorization-Header bei 307-Redirects
-      const res = await api.get('/projects/');
+      const res = await api.get('/api/v1/projects/');
       return res.data;
     } catch (error: any) {
       // Spezielle Behandlung für Authentifizierungsfehler
@@ -19,7 +19,7 @@ export async function getProjects() {
 
 export async function getProject(id: number) {
   try {
-    const res = await api.get(`/projects/${id}`);
+    const res = await api.get(`/api/v1/projects/${id}`);
     return res.data;
   } catch (error: any) {
     // Spezielle Behandlung für Authentifizierungsfehler
@@ -52,7 +52,7 @@ interface ProjectData {
 export async function createProject(data: ProjectData) {
   try {
     // WICHTIG: Trailing slash verwenden um 307-Redirect zu vermeiden
-    const res = await api.post('/projects/', data);
+    const res = await api.post('/api/v1/projects/', data);
     return res.data;
   } catch (error: any) {
     // Spezielle Behandlung für Authentifizierungsfehler
@@ -65,7 +65,7 @@ export async function createProject(data: ProjectData) {
 
 export async function updateProject(id: number, data: Partial<ProjectData>) {
   try {
-    const res = await api.put(`/projects/${id}`, data);
+    const res = await api.put(`/api/v1/projects/${id}`, data);
     return res.data;
   } catch (error: any) {
     // Spezielle Behandlung für Authentifizierungsfehler
@@ -78,7 +78,7 @@ export async function updateProject(id: number, data: Partial<ProjectData>) {
 
 export async function deleteProject(id: number) {
   try {
-    await api.delete(`/projects/${id}`);
+    await api.delete(`/api/v1/projects/${id}`);
   } catch (error: any) {
     // Spezielle Behandlung für Authentifizierungsfehler
     if (error.name === 'AuthenticationError' || error.response?.status === 401) {
@@ -90,7 +90,7 @@ export async function deleteProject(id: number) {
 
 export async function getProjectDashboard(id: number) {
   try {
-    const res = await api.get(`/projects/${id}/dashboard`);
+    const res = await api.get(`/api/v1/projects/${id}/dashboard`);
     return res.data;
   } catch (error: any) {
     // Spezielle Behandlung für Authentifizierungsfehler

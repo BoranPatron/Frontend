@@ -3180,7 +3180,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
           console.log('🔄 DEBUG: Versuche Projekt-Details zu laden für ID:', project.id);
           
           try {
-            const projectResponse = await api.get(`/projects/${project.id}`);
+            const projectResponse = await api.get(`/api/v1/projects/${project.id}`);
             console.log('📡 DEBUG: Projekt API Response:', projectResponse);
             
             if (projectResponse.data && projectResponse.data.owner_id) {

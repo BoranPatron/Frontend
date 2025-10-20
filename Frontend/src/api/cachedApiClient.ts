@@ -26,8 +26,8 @@ const ENDPOINT_CACHE_CONFIG: Record<string, { ttl: number; cacheable: boolean }>
   '/users/profile': { ttl: CACHE_CONFIG.MEDIUM, cacheable: true },
   
   // Projekt-Daten - kurze Cache-Zeit (ändern sich häufig)
-  '/projects': { ttl: CACHE_CONFIG.SHORT, cacheable: true },
-  '/projects/': { ttl: CACHE_CONFIG.SHORT, cacheable: true },
+  '/api/v1/projects': { ttl: CACHE_CONFIG.SHORT, cacheable: true },
+  '/api/v1/projects/': { ttl: CACHE_CONFIG.SHORT, cacheable: true },
   
   // Gewerk-Daten - kurze Cache-Zeit
   '/trades': { ttl: CACHE_CONFIG.SHORT, cacheable: true },

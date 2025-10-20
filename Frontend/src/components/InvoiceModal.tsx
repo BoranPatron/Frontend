@@ -115,7 +115,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const getBautraegerUserId = async (projectId?: number): Promise<number> => {
     try {
       if (projectId) {
-        const projectResponse = await api.get(`/projects/${projectId}`);
+        const projectResponse = await api.get(`/api/v1/projects/${projectId}`);
         if (projectResponse.data?.bautraeger_id) {
           return projectResponse.data.bautraeger_id;
         }

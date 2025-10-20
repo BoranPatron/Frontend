@@ -28,7 +28,10 @@ export default defineConfig({
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'ui-vendor': ['lucide-react', 'framer-motion'],
           'chart-vendor': ['chart.js', 'react-chartjs-2', 'recharts'],
-          'utils-vendor': ['axios', 'dayjs', 'date-fns']
+          'utils-vendor': ['axios', 'dayjs', 'date-fns'],
+          'leaflet-vendor': ['leaflet', 'react-leaflet'],
+          'dnd-vendor': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+          'pdf-vendor': ['jspdf', 'canvas-confetti']
         }
       }
     },
@@ -54,7 +57,6 @@ export default defineConfig({
       'dayjs',
       'date-fns',
       'recharts',
-      'gantt-task-react',
       'react-swipeable',
       '@dnd-kit/core',
       '@dnd-kit/sortable',
