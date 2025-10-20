@@ -1186,7 +1186,7 @@ export default function ServiceProviderDashboard() {
         }
       };
 
-      await api.post('/notifications/', notificationData);
+      await api.post('/api/v1/notifications/', notificationData);
       
       console.log('📢 Benachrichtigung für fehlende Rechnung erstellt:', notificationData);
       

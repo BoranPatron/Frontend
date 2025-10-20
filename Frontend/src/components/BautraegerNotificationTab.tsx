@@ -277,7 +277,7 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
         console.log('🔔 BautraegerNotificationTab: Rufe /notifications/ API auf...');
         
         // Erweiterte Fehlerbehandlung für 500-Fehler
-        const response = await api.get('/notifications/', {
+        const response = await api.get('/api/v1/notifications/', {
           params: {
             limit: 20,
             unacknowledged_only: true
@@ -691,7 +691,7 @@ Ihr BuildWise Team
         
         if ((notification.type === 'quote_submitted' || notification.type === 'quote_revised' || notification.type === 'completion' || notification.type === 'milestone_completed' || notification.type === 'defects_resolved' || notification.type === 'invoice_received' || notification.type === 'invoice_submitted') && notification.notification) {
           // Für Angebots-, Überarbeitungs-, Fertigstellungs-, Mängelbehebungs- und Rechnungsbenachrichtigungen - markiere als acknowledged
-          api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
+          api.patch(`/api/v1/notifications/${notification.notification.id}/acknowledge`).catch(error => {
             console.error('Fehler beim Bestätigen der Benachrichtigung:', error);
           });
         }
@@ -732,7 +732,7 @@ Ihr BuildWise Team
       // Wenn es eine Backend-Benachrichtigung ist, lösche sie auch dort
       const notification = notifications.find(n => n.id === notificationId);
       if (notification?.notification?.id) {
-        await api.delete(`/notifications/${notification.notification.id}`);
+        await api.delete(`/api/v1/notifications/${notification.notification.id}`);
       }
       
       // Schließe Modal falls offen
@@ -753,7 +753,7 @@ Ihr BuildWise Team
     
     try {
       // Lösche alle Benachrichtigungen im Backend
-      await api.delete('/notifications/delete-all');
+      await api.delete('/api/v1/notifications/delete-all');
       
       // Leere den lokalen State
       setNotifications([]);
@@ -912,7 +912,7 @@ Ihr BuildWise Team
                     
                     // Markiere Backend-Benachrichtigung als gelesen
                     if (notification.notification) {
-                      api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
+                      api.patch(`/api/v1/notifications/${notification.notification.id}/acknowledge`).catch(error => {
                         console.error('Fehler beim Bestätigen der Rechnungs-Benachrichtigung:', error);
                       });
                     }
@@ -943,7 +943,7 @@ Ihr BuildWise Team
                     
                     // Markiere Backend-Benachrichtigung als gelesen
                     if (notification.notification?.id) {
-                      api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
+                      api.patch(`/api/v1/notifications/${notification.notification.id}/acknowledge`).catch(error => {
                         console.error('Fehler beim Bestätigen der Benachrichtigung:', error);
                       });
                     }
@@ -990,7 +990,7 @@ Ihr BuildWise Team
                     
                     // Markiere Backend-Benachrichtigung als quittiert
                     if (notification.notification?.id) {
-                      api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
+                      api.patch(`/api/v1/notifications/${notification.notification.id}/acknowledge`).catch(error => {
                         console.error('Fehler beim Bestätigen der Milestone-Completed-Benachrichtigung:', error);
                       });
                     }
@@ -1017,7 +1017,7 @@ Ihr BuildWise Team
                     
                     // Markiere Backend-Benachrichtigung als quittiert
                     if (notification.notification?.id) {
-                      api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
+                      api.patch(`/api/v1/notifications/${notification.notification.id}/acknowledge`).catch(error => {
                         console.error('Fehler beim Bestätigen der Completion-Benachrichtigung:', error);
                       });
                     }
@@ -1044,7 +1044,7 @@ Ihr BuildWise Team
                     
                     // Markiere Backend-Benachrichtigung als quittiert
                     if (notification.notification?.id) {
-                      api.patch(`/notifications/${notification.notification.id}/acknowledge`).catch(error => {
+                      api.patch(`/api/v1/notifications/${notification.notification.id}/acknowledge`).catch(error => {
                         console.error('Fehler beim Bestätigen der Defects-Resolved-Benachrichtigung:', error);
                       });
                     }
@@ -1394,7 +1394,7 @@ Ihr BuildWise Team
                       onClick={async () => {
                         if (selectedNotification.notification) {
                           // Markiere als acknowledged
-                          await api.patch(`/notifications/${selectedNotification.notification.id}/acknowledge`);
+                          await api.patch(`/api/v1/notifications/${selectedNotification.notification.id}/acknowledge`);
                           
                           // Öffne die Ausschreibung (TradeDetailsModal)
                           const milestoneId = selectedNotification.notification.related_milestone_id;
@@ -1425,7 +1425,7 @@ Ihr BuildWise Team
                     <button 
                       onClick={async () => {
                         if (selectedNotification.notification) {
-                          await api.patch(`/notifications/${selectedNotification.notification.id}/acknowledge`);
+                          await api.patch(`/api/v1/notifications/${selectedNotification.notification.id}/acknowledge`);
                           setSelectedNotification(null);
                           loadBautraegerNotifications();
                         }
@@ -1488,7 +1488,7 @@ Ihr BuildWise Team
                           }
                           
                           // Markiere Benachrichtigung als quittiert
-                          await api.patch(`/notifications/${selectedNotification.notification.id}/acknowledge`);
+                          await api.patch(`/api/v1/notifications/${selectedNotification.notification.id}/acknowledge`);
                           
                           // Schließe Modal und aktualisiere Liste
                           setSelectedNotification(null);
@@ -1502,7 +1502,7 @@ Ihr BuildWise Team
                     <button 
                       onClick={async () => {
                         if (selectedNotification.notification) {
-                          await api.patch(`/notifications/${selectedNotification.notification.id}/acknowledge`);
+                          await api.patch(`/api/v1/notifications/${selectedNotification.notification.id}/acknowledge`);
                           setSelectedNotification(null);
                           loadBautraegerNotifications();
                         }
@@ -1576,7 +1576,7 @@ Ihr BuildWise Team
                            }
                            
                            // Markiere Benachrichtigung als quittiert
-                           await api.patch(`/notifications/${selectedNotification.notification.id}/acknowledge`);
+                           await api.patch(`/api/v1/notifications/${selectedNotification.notification.id}/acknowledge`);
                            
                            // Schließe Modal und aktualisiere Liste
                            setSelectedNotification(null);

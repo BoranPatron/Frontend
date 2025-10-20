@@ -34,7 +34,7 @@ export interface CreditPackage {
 
 export const getCreditBalance = async (): Promise<CreditBalance> => {
   try {
-    const response = await api.get('/credits/balance');
+    const response = await api.get('/api/v1/credits/balance');
     return response.data;
   } catch (error) {
     console.error('Fehler beim Abrufen der Credit-Balance:', error);
@@ -44,7 +44,7 @@ export const getCreditBalance = async (): Promise<CreditBalance> => {
 
 export const getCreditHistory = async (): Promise<CreditEvent[]> => {
   try {
-    const response = await api.get('/credits/history');
+    const response = await api.get('/api/v1/credits/history');
     return response.data;
   } catch (error) {
     console.error('Fehler beim Abrufen der Credit-Historie:', error);
@@ -54,7 +54,7 @@ export const getCreditHistory = async (): Promise<CreditEvent[]> => {
 
 export const getCreditPackages = async (): Promise<CreditPackage[]> => {
   try {
-    const response = await api.get('/credits/packages');
+    const response = await api.get('/api/v1/credits/packages');
     return response.data;
   } catch (error) {
     console.error('Fehler beim Abrufen der Credit-Pakete:', error);
@@ -64,7 +64,7 @@ export const getCreditPackages = async (): Promise<CreditPackage[]> => {
 
 export const purchaseCredits = async (packageId: string): Promise<any> => {
   try {
-    const response = await api.post('/credits/purchase', { package_id: packageId });
+    const response = await api.post('/api/v1/credits/purchase', { package_id: packageId });
     return response.data;
   } catch (error) {
     console.error('Fehler beim Kauf von Credits:', error);
@@ -74,7 +74,7 @@ export const purchaseCredits = async (packageId: string): Promise<any> => {
 
 export const confirmPurchase = async (purchaseId: number, paymentDetails: any): Promise<any> => {
   try {
-    const response = await api.post(`/credits/purchase/${purchaseId}/confirm`, paymentDetails);
+    const response = await api.post(`/api/v1/credits/purchase/${purchaseId}/confirm`, paymentDetails);
     return response.data;
   } catch (error) {
     console.error('Fehler bei der Bestätigung des Credit-Kaufs:', error);
@@ -84,7 +84,7 @@ export const confirmPurchase = async (purchaseId: number, paymentDetails: any): 
 
 export const processDailyLoginDeduction = async (): Promise<any> => {
   try {
-    const response = await api.post('/credits/daily-login-deduction');
+    const response = await api.post('/api/v1/credits/daily-login-deduction');
     return response.data;
   } catch (error) {
     console.error('Fehler beim täglichen Credit-Abzug:', error);

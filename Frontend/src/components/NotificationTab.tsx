@@ -209,7 +209,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
       // Sende Acknowledge-Request für jede Backend-Benachrichtigung
       const acknowledgePromises = backendNotifications.map(async notification => {
         try {
-          await apiCall(`/notifications/${notification.notification.id}/acknowledge`, {
+          await apiCall(`/api/v1/notifications/${notification.notification.id}/acknowledge`, {
             method: 'PATCH'
           });
           console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
@@ -264,7 +264,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
       // Wenn es eine Backend-Benachrichtigung ist, lösche sie auch dort
       const notification = notifications.find(n => n.id === notificationId);
       if (notification?.notification?.id) {
-        await apiCall(`/notifications/${notification.notification.id}`, {
+        await apiCall(`/api/v1/notifications/${notification.notification.id}`, {
           method: 'DELETE'
         });
       }
@@ -287,7 +287,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
     
     try {
       // Lösche alle Benachrichtigungen im Backend
-      await apiCall('/notifications/delete-all', {
+      await apiCall('/api/v1/notifications/delete-all', {
         method: 'DELETE'
       });
       
@@ -309,7 +309,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
       
       // 1. Lade allgemeine Benachrichtigungen aus der Datenbank
       try {
-        const notificationData = await apiCall('/notifications/', {
+        const notificationData = await apiCall('/api/v1/notifications/', {
           method: 'GET'
         });
         
@@ -530,7 +530,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
       
       // 2. Lade Termin-Benachrichtigungen (bestehende Logik)
       try {
-        const data = await apiCall('/appointments/my-appointments-simple', {
+        const data = await apiCall('/api/v1/appointments/my-appointments-simple', {
           method: 'GET'
         });
         const myAppointments = data.appointments || [];
@@ -894,7 +894,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                         // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
                         if (notification.notification?.id) {
                           try {
-                            await apiCall(`/notifications/${notification.notification.id}/acknowledge`, {
+                            await apiCall(`/api/v1/notifications/${notification.notification.id}/acknowledge`, {
                               method: 'PATCH'
                             });
                             console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
@@ -937,7 +937,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                         // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
                         if (notification.notification?.id) {
                           try {
-                            await apiCall(`/notifications/${notification.notification.id}/acknowledge`, {
+                            await apiCall(`/api/v1/notifications/${notification.notification.id}/acknowledge`, {
                               method: 'PATCH'
                             });
                             console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
@@ -979,7 +979,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                         // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
                         if (notification.notification?.id) {
                           try {
-                            await apiCall(`/notifications/${notification.notification.id}/acknowledge`, {
+                            await apiCall(`/api/v1/notifications/${notification.notification.id}/acknowledge`, {
                               method: 'PATCH'
                             });
                             console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
@@ -1021,7 +1021,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                         // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
                         if (notification.notification?.id) {
                           try {
-                            await apiCall(`/notifications/${notification.notification.id}/acknowledge`, {
+                            await apiCall(`/api/v1/notifications/${notification.notification.id}/acknowledge`, {
                               method: 'PATCH'
                             });
                             console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
@@ -1063,7 +1063,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                         // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
                         if (notification.notification?.id) {
                           try {
-                            await apiCall(`/notifications/${notification.notification.id}/acknowledge`, {
+                            await apiCall(`/api/v1/notifications/${notification.notification.id}/acknowledge`, {
                               method: 'PATCH'
                             });
                             console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
@@ -1103,7 +1103,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                         // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
                         if (notification.notification?.id) {
                           try {
-                            await apiCall(`/notifications/${notification.notification.id}/acknowledge`, {
+                            await apiCall(`/api/v1/notifications/${notification.notification.id}/acknowledge`, {
                               method: 'PATCH'
                             });
                             console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
@@ -1145,7 +1145,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                         // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
                         if (notification.notification?.id) {
                           try {
-                            await apiCall(`/notifications/${notification.notification.id}/acknowledge`, {
+                            await apiCall(`/api/v1/notifications/${notification.notification.id}/acknowledge`, {
                               method: 'PATCH'
                             });
                             console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
@@ -2081,7 +2081,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                     // Markiere Benachrichtigung als acknowledged
                     if (selectedNotification.notification) {
                       try {
-                        await apiCall(`/notifications/${selectedNotification.notification.id}/acknowledge`, {
+                        await apiCall(`/api/v1/notifications/${selectedNotification.notification.id}/acknowledge`, {
                           method: 'PATCH'
                         });
                       } catch (error) {
@@ -2156,7 +2156,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                     // Markiere als acknowledged
                     if (selectedNotification.notification) {
                       try {
-                        await apiCall(`/notifications/${selectedNotification.notification.id}/acknowledge`, {
+                        await apiCall(`/api/v1/notifications/${selectedNotification.notification.id}/acknowledge`, {
                           method: 'PATCH'
                         });
                       } catch (error) {

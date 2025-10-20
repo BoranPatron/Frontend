@@ -3346,22 +3346,13 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       const loadAppointments = async () => {
         if (isOpen && trade?.requires_inspection && !isBautraeger() && user?.id) {
           try {
-            const response = await fetch('http://localhost:8000/api/v1/appointments/my-appointments-simple', {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json'
-              }
-            });
+            const response = await api.get('/api/v1/appointments/my-appointments-simple');
             
-            if (response.ok) {
-              const data = await response.json();
-              
-              // Filtere nur Termine für dieses Gewerk
-              const relevantAppointments = (data.appointments || [])
-                .filter((apt: any) => apt.milestone_id === trade.id);
-              
-              setAppointments(relevantAppointments);
-            }
+            // Filtere nur Termine für dieses Gewerk
+            const relevantAppointments = (response.data.appointments || [])
+              .filter((apt: any) => apt.milestone_id === trade.id);
+            
+            setAppointments(relevantAppointments);
           } catch (error) {
             console.error('Fehler beim Laden der Termine:', error);
           }
