@@ -3,6 +3,8 @@
  * Bietet API-Zugriff auf Benutzer-Ränge und Gamification-Features
  */
 
+import api from './api';
+
 export interface RankInfo {
   key: string;
   title: string;
@@ -28,32 +30,13 @@ export interface UserRankResponse {
   rank_updated_at?: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
 /**
  * Lädt den aktuellen Rang des eingeloggten Benutzers
  */
 export async function getMyRank(): Promise<UserRankResponse> {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Kein Authentifizierungstoken gefunden');
-    }
-
-    const response = await fetch(`${API_BASE_URL}/api/v1/api/user/my-rank`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data;
+    const response = await api.get('/api/v1/user/my-rank');
+    return response.data;
   } catch (error) {
     console.error('Fehler beim Laden des Benutzer-Rangs:', error);
     throw error;
@@ -65,25 +48,8 @@ export async function getMyRank(): Promise<UserRankResponse> {
  */
 export async function getLeaderboard(limit: number = 10): Promise<any[]> {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Kein Authentifizierungstoken gefunden');
-    }
-
-    const response = await fetch(`${API_BASE_URL}/api/v1/gamification/leaderboard?limit=${limit}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.leaderboard || [];
+    const response = await api.get(`/api/v1/gamification/leaderboard?limit=${limit}`);
+    return response.data.leaderboard || [];
   } catch (error) {
     console.error('Fehler beim Laden der Rangliste:', error);
     throw error;
@@ -95,25 +61,8 @@ export async function getLeaderboard(limit: number = 10): Promise<any[]> {
  */
 export async function getRankSystemInfo(): Promise<any> {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Kein Authentifizierungstoken gefunden');
-    }
-
-    const response = await fetch(`${API_BASE_URL}/api/v1/gamification/ranks`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data;
+    const response = await api.get('/api/v1/gamification/ranks');
+    return response.data;
   } catch (error) {
     console.error('Fehler beim Laden der Rang-System-Informationen:', error);
     throw error;

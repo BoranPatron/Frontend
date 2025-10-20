@@ -1,4 +1,6 @@
-// Schlanker Service für Visualize-Flows per Fetch (robust gegen Axios-Header-Probleme)
+// Service für Visualize-Flows mit Axios für konsistente API-Kommunikation
+
+import api from './api';
 
 export type VisualizationCategory = 'interior' | 'exterior' | 'individual'
 
@@ -18,25 +20,16 @@ export interface VisualizationItem {
   uploader_email?: string
 }
 
-function authHeaders(): HeadersInit {
-  const token = localStorage.getItem('token')
-  return {
-    'Authorization': token ? `Bearer ${token}` : '',
-  }
-}
-
 export async function listVisualizations(projectId: number, category?: VisualizationCategory): Promise<VisualizationItem[]> {
   try {
-    const url = new URL('/api/v1/visualizations/', window.location.origin)
-    url.searchParams.set('project_id', String(projectId))
-    if (category) url.searchParams.set('category', category)
+    const params: any = { 
+      project_id: projectId, 
+      user_only: 'true' 
+    };
+    if (category) params.category = category;
     
-    // Benutzer-spezifische Filterung - nur eigene Dokumente anzeigen
-    url.searchParams.set('user_only', 'true')
-    
-    const res = await fetch(url.toString(), { headers: { ...authHeaders() } })
-    if (!res.ok) return []
-    return await res.json()
+    const response = await api.get('/api/v1/visualizations/', { params });
+    return response.data || [];
   } catch {
     return []
   }
@@ -68,12 +61,8 @@ export async function uploadPlan(projectId: number, category: VisualizationCateg
   }
 
   try {
-    const res = await fetch('/api/v1/visualizations/upload-plan', {
-      method: 'POST',
-      headers: { ...authHeaders() },
-      body: form,
-    })
-    return res.ok
+    await api.post('/api/v1/visualizations/upload-plan', form);
+    return true;
   } catch {
     return false
   }
@@ -149,24 +138,15 @@ export async function smartUploadDocuments(projectId: number, files: File[]): Pr
         }
       }
 
-      const response = await fetch('/api/v1/documents/smart-upload', {
-        method: 'POST',
-        headers: { ...authHeaders() },
-        body: formData,
+      const response = await api.post('/api/v1/documents/smart-upload', formData);
+      
+      results.processed++;
+      results.results.push({
+        fileName: file.name,
+        category: response.data.category,
+        subcategory: response.data.subcategory,
+        success: true
       });
-
-      if (response.ok) {
-        const result = await response.json();
-        results.processed++;
-        results.results.push({
-          fileName: file.name,
-          category: result.category,
-          subcategory: result.subcategory,
-          success: true
-        });
-      } else {
-        throw new Error(`Upload failed: ${response.statusText}`);
-      }
     } catch (error) {
       results.failed++;
       results.success = false;

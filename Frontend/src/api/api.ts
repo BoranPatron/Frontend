@@ -19,12 +19,12 @@ export const getApiBaseUrl = () => {
     // Production: try to construct API URL from hostname
     if (hostname.includes('onrender.com')) {
       // Render: replace frontend subdomain with api subdomain
-      const apiUrl = `https://buildwise-api.onrender.com/api/v1`;
+      const apiUrl = `https://buildwise-api.onrender.com`;
       console.log('🚀 Production mode (Render):', apiUrl);
       return apiUrl;
     } else {
       // Custom domain: assume API is on same domain with /api path
-      const apiUrl = `${window.location.protocol}//${hostname}/api/v1`;
+      const apiUrl = `${window.location.protocol}//${hostname}`;
       console.log('🚀 Production mode (Custom domain):', apiUrl);
       return apiUrl;
     }
@@ -32,13 +32,13 @@ export const getApiBaseUrl = () => {
   
   // 3. Development fallback
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    const baseUrl = 'http://localhost:8000/api/v1';
+    const baseUrl = 'http://localhost:8000';
     console.log('💻 Development mode (localhost):', baseUrl);
     return baseUrl;
   }
   
   // 4. Local network (mobile testing)
-  const baseUrl = `http://${hostname}:8000/api/v1`;
+  const baseUrl = `http://${hostname}:8000`;
   console.log('📱 Local network mode:', baseUrl);
   return baseUrl;
 };
