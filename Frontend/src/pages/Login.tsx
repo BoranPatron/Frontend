@@ -188,7 +188,7 @@ export default function Login() {
 
     try {
       // Generiere OAuth-URL vom Backend
-      const response = await fetch(`${getApiBaseUrl()}/auth/oauth/google/url`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/auth/oauth/google/url`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -218,7 +218,7 @@ export default function Login() {
 
     try {
       // Generiere OAuth-URL vom Backend
-      const response = await fetch(`${getApiBaseUrl()}/auth/oauth/microsoft/url`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/auth/oauth/microsoft/url`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

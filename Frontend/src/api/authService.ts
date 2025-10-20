@@ -99,7 +99,7 @@ class AuthService {
     const params = new URLSearchParams();
     if (state) params.append('state', state);
     
-    const response = await api.get(`${this.baseUrl}/oauth/${provider}/url`, { params });
+    const response = await api.get(`/api/v1/auth/oauth/${provider}/url`, { params });
     return response.data;
   }
 
@@ -108,13 +108,13 @@ class AuthService {
     const data: any = { code };
     if (state) data.state = state;
 
-    const response = await api.post(`${this.baseUrl}/oauth/${provider}/callback`, data);
+    const response = await api.post(`/api/v1/auth/oauth/${provider}/callback`, data);
     return response.data;
   }
 
   // Social-Account verknüpfen
   async linkSocialAccount(provider: 'google' | 'microsoft', code: string): Promise<{ message: string }> {
-    const response = await api.post(`${this.baseUrl}/link-social-account/${provider}`, { code });
+    const response = await api.post(`/api/v1/auth/link-social-account/${provider}`, { code });
     return response.data;
   }
 
