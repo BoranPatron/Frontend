@@ -167,7 +167,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
       setLoading(true);
       const { api } = await import('../api/api');
       
-      let url = showArchived ? '/tasks/archived' : '/tasks';
+      let url = showArchived ? '/api/v1/tasks/archived' : '/api/v1/tasks';
       
       const params = new URLSearchParams();
       if (projectId) params.append('project_id', projectId.toString());
@@ -251,7 +251,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         milestone_id: newTask.milestone_id || null
       };
       
-      const response = await api.post('/tasks', taskData);
+      const response = await api.post('/api/v1/tasks', taskData);
       await loadTasks();
       setShowCreateModal(false);
       setNewTask({

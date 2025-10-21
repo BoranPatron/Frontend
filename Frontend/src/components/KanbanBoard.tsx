@@ -250,7 +250,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
           params.append('assigned_to', user.id.toString());
         }
         
-        const url = `/tasks/${params.toString() ? `?${params.toString()}` : ''}`;
+        const url = `/api/v1/tasks/${params.toString() ? `?${params.toString()}` : ''}`;
         const response = await api.get(url);
         const data = response.data || response;
         
@@ -385,7 +385,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         status: 'todo'
       };
       
-      const response = await api.post('/tasks/', taskData);
+      const response = await api.post('/api/v1/tasks/', taskData);
       const createdTask = response.data || response;
       
       setTasks(prev => [...prev, createdTask]);

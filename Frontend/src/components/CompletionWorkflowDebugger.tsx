@@ -109,11 +109,11 @@ export default function CompletionWorkflowDebugger({
       category: 'acceptance'
     };
 
-    await testApiEndpoint('/tasks/', 'POST', taskData);
-    await testApiEndpoint('/tasks/', 'GET');
+    await testApiEndpoint('/api/v1/tasks/', 'POST', taskData);
+    await testApiEndpoint('/api/v1/tasks/', 'GET');
 
     // 3. Test Alternative Endpunkte
-    await testApiEndpoint('/tasks', 'GET'); // ohne trailing slash
+    await testApiEndpoint('/api/v1/tasks', 'GET'); // ohne trailing slash
     await testApiEndpoint('/notifications', 'GET'); // ohne trailing slash
 
     setTesting(false);

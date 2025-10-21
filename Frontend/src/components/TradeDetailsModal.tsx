@@ -3934,7 +3934,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         estimated_hours: 2
       };
 
-      const response = await apiCall('/tasks', {
+      const response = await apiCall('/api/v1/tasks', {
         method: 'POST',
         body: JSON.stringify(taskData)
       });
