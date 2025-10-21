@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { getApiBaseUrl } from '../api/api';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -76,12 +77,12 @@ export default function FinancialCharts({
         };
 
         // Lade alle Finanzdaten parallel
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+        const baseUrl = getApiBaseUrl();
         const [timelineResponse, volumeResponse, categoryResponse, summaryResponse] = await Promise.all([
-          fetch(`${baseUrl}/financial-charts/project/${projectId}/timeline-data?months=12`, { headers }),
-          fetch(`${baseUrl}/financial-charts/project/${projectId}/volume-data?limit=10`, { headers }),
-          fetch(`${baseUrl}/financial-charts/project/${projectId}/category-data`, { headers }),
-          fetch(`${baseUrl}/financial-charts/project/${projectId}/summary`, { headers })
+          fetch(`${baseUrl}/api/v1/financial-charts/project/${projectId}/timeline-data?months=12`, { headers }),
+          fetch(`${baseUrl}/api/v1/financial-charts/project/${projectId}/volume-data?limit=10`, { headers }),
+          fetch(`${baseUrl}/api/v1/financial-charts/project/${projectId}/category-data`, { headers }),
+          fetch(`${baseUrl}/api/v1/financial-charts/project/${projectId}/summary`, { headers })
         ]);
 
         if (!timelineResponse.ok || !volumeResponse.ok || !categoryResponse.ok || !summaryResponse.ok) {

@@ -44,7 +44,7 @@ export interface ExpenseSummary {
 }
 
 class ExpenseService {
-  private baseUrl = '/expenses';
+  private baseUrl = '/api/v1/expenses';
 
   async getExpenses(projectId: number): Promise<Expense[]> {
     try {
