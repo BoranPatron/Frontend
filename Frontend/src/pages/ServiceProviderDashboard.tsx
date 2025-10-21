@@ -58,6 +58,7 @@ import {
   type TradeSearchRequest, 
   type TradeSearchResult
 } from '../api/geoService';
+import { getApiBaseUrl } from '../api/api';
 import { createQuote, getQuotesForMilestone, acceptQuote, rejectQuote, withdrawQuote, getQuotes } from '../api/quoteService';
 import { getMilestones, getAllMilestones } from '../api/milestoneService';
 import { getProjects } from '../api/projectService';
@@ -430,7 +431,7 @@ export default function ServiceProviderDashboard() {
       }
       
       // Lade Trade-Informationen
-      const tradeResponse = await fetch(`http://localhost:8000/api/v1/milestones/${allocation.trade_id}`, {
+      const tradeResponse = await fetch(`${getApiBaseUrl()}/api/v1/milestones/${allocation.trade_id}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
@@ -443,7 +444,7 @@ export default function ServiceProviderDashboard() {
         // Lade Projekt-Informationen (mit Fehlerbehandlung für 403)
         if (trade.project_id && trade.project_id !== 0) {
           try {
-            const projectResponse = await fetch(`http://localhost:8000/api/v1/projects/${trade.project_id}`, {
+            const projectResponse = await fetch(`${getApiBaseUrl()}/api/v1/projects/${trade.project_id}`, {
               headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`,
                 'Content-Type': 'application/json'
@@ -455,7 +456,7 @@ export default function ServiceProviderDashboard() {
               
               // Lade Bauträger-Informationen
               if (project.owner_id) {
-                const userResponse = await fetch(`http://localhost:8000/api/v1/users/${project.owner_id}`, {
+                const userResponse = await fetch(`${getApiBaseUrl()}/api/v1/users/${project.owner_id}`, {
                   headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`,
                     'Content-Type': 'application/json'
