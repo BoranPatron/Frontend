@@ -118,9 +118,15 @@ const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ onDocumentClick }) =>
     
     try {
       const token = localStorage.getItem('token');
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       
-      const response = await fetch(`${baseUrl}/documents/bautraeger/overview?project_id=${selectedProject.id}`, {
+      // Determine endpoint based on user role
+      const isBautraeger = user?.user_type === 'bautraeger';
+      const endpoint = isBautraeger 
+        ? `${baseUrl}/api/v1/documents/bautraeger/overview?project_id=${selectedProject.id}`
+        : `${baseUrl}/api/v1/documents/dienstleister/overview?project_id=${selectedProject.id}`;
+      
+      const response = await fetch(endpoint, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
