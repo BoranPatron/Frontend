@@ -16,8 +16,8 @@ export async function getMilestones(project_id: number) {
 
     // Schritt 2: Versuche primären Endpoint
     try {
-      console.log(`📡 [ROBUST] Versuche primären Endpoint: /api/v1/milestones?project_id=${project_id}`);
-      const response = await api.get('/api/v1/milestones', { params: { project_id } });
+      console.log(`📡 [ROBUST] Versuche primären Endpoint: /api/v1/milestones/?project_id=${project_id}`);
+      const response = await api.get('/api/v1/milestones/', { params: { project_id } });
       
       if (response.data && Array.isArray(response.data)) {
         console.log(`✅ [ROBUST] Primärer Endpoint erfolgreich: ${response.data.length} Milestones erhalten`);
