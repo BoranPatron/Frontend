@@ -44,11 +44,11 @@ export interface ExpenseSummary {
 }
 
 class ExpenseService {
-  private baseUrl = '/api/v1/expenses';
+  private baseUrl = '/api/v1/expenses/';
 
   async getExpenses(projectId: number): Promise<Expense[]> {
     try {
-      const response = await api.get(`${this.baseUrl}/project/${projectId}`);
+      const response = await api.get(`${this.baseUrl}project/${projectId}`);
       return response.data;
     } catch (error: any) {
       console.error('❌ Fehler beim Laden der Ausgaben:', error);
@@ -58,7 +58,7 @@ class ExpenseService {
 
   async getExpense(expenseId: number): Promise<Expense> {
     try {
-      const response = await api.get(`${this.baseUrl}/${expenseId}`);
+      const response = await api.get(`${this.baseUrl}${expenseId}`);
       return response.data;
     } catch (error: any) {
       console.error('❌ Fehler beim Laden der Ausgabe:', error);
@@ -78,7 +78,7 @@ class ExpenseService {
 
   async updateExpense(expenseId: number, expenseData: ExpenseUpdate): Promise<Expense> {
     try {
-      const response = await api.put(`${this.baseUrl}/${expenseId}`, expenseData);
+      const response = await api.put(`${this.baseUrl}${expenseId}`, expenseData);
       return response.data;
     } catch (error: any) {
       console.error('❌ Fehler beim Aktualisieren der Ausgabe:', error);
@@ -88,7 +88,7 @@ class ExpenseService {
 
   async deleteExpense(expenseId: number): Promise<void> {
     try {
-      await api.delete(`${this.baseUrl}/${expenseId}`);
+      await api.delete(`${this.baseUrl}${expenseId}`);
       } catch (error: any) {
       console.error('❌ Fehler beim Löschen der Ausgabe:', error);
       throw this.handleError(error);
@@ -97,7 +97,7 @@ class ExpenseService {
 
   async getExpenseSummary(projectId: number): Promise<ExpenseSummary> {
     try {
-      const response = await api.get(`${this.baseUrl}/project/${projectId}/summary`);
+      const response = await api.get(`${this.baseUrl}project/${projectId}/summary`);
       return response.data;
     } catch (error: any) {
       console.error('❌ Fehler beim Laden der Ausgaben-Zusammenfassung:', error);
