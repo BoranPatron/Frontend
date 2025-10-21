@@ -70,7 +70,7 @@ export async function getDocuments(project_id: number, params?: Partial<Document
       return res.data;
     }
     
-    const res = await api.get('/api/v1/documents', { params: searchParams });
+    const res = await api.get('/api/v1/documents/', { params: searchParams });
     return res.data;
   } catch (error: any) {
     console.error('❌ Error fetching documents:', error);

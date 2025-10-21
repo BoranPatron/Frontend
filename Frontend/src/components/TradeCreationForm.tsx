@@ -254,7 +254,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
         if (!token) return;
 
         const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
-        const response = await fetch(`${baseUrl}/documents?project_id=${projectId}&limit=100`, {
+        const response = await fetch(`${baseUrl}/documents/?project_id=${projectId}&limit=100`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'

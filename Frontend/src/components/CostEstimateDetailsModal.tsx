@@ -715,7 +715,7 @@ export default function CostEstimateDetailsModal({
       // NEU: Lade alle DMS-Dokumente des Projekts und merge sie ein
       try {
         if (trade?.project_id) {
-          const docsResp = await fetch(`${baseUrl}/documents?project_id=${trade.project_id}`, {
+          const docsResp = await fetch(`${baseUrl}/documents/?project_id=${trade.project_id}`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
