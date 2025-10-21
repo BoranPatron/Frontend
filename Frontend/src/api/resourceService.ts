@@ -237,7 +237,7 @@ export interface SubmitQuoteFromAllocationData {
 // ============================================
 
 class ResourceService {
-  private baseUrl = '/resources';
+  private baseUrl = '/api/v1/resources';
 
   // ==================== Resources CRUD ====================
   
