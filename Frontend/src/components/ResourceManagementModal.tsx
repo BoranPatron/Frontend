@@ -190,6 +190,8 @@ const ResourceManagementModal: React.FC<ResourceManagementModalProps> = ({
 
       const resourceData: Resource = {
         ...formData as Resource,
+        start_date: formData.start_date ? `${formData.start_date}T00:00:00` : '',
+        end_date: formData.end_date ? `${formData.end_date}T23:59:59` : '',
         total_hours: totalHours,
         service_provider_id: user.id
       };
