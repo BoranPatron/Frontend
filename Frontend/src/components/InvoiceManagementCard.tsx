@@ -196,7 +196,7 @@ const InvoiceManagementCard: React.FC<InvoiceManagementCardProps> = ({
     try {
       // 1. Rechnung-PDF vom Backend holen
       const { api } = await import('../api/api');
-      const response = await api.get(`/invoices/${invoice.id}/download`, { 
+      const response = await api.get(`/api/v1/invoices/${invoice.id}/download`, { 
         responseType: 'blob' 
       });
       
@@ -265,7 +265,7 @@ const InvoiceManagementCard: React.FC<InvoiceManagementCardProps> = ({
       setDmsSuccess(true);
 
       // 6. Invoice als "DMS-integriert" markieren
-      await api.post(`/invoices/${invoice.id}/mark-dms-integrated`, {
+      await api.post(`/api/v1/invoices/${invoice.id}/mark-dms-integrated`, {
         dms_document_id: uploadResult.id,
         category: categoryData.mainCategory,
         subcategory: categoryData.subCategory,
@@ -302,7 +302,7 @@ const InvoiceManagementCard: React.FC<InvoiceManagementCardProps> = ({
         const { api } = await import('../api/api');
         
         // Mark as viewed
-        await api.post(`/invoices/${invoice.id}/mark-viewed`);
+        await api.post(`/api/v1/invoices/${invoice.id}/mark-viewed`);
         
         // Open PDF in new window
         const token = localStorage.getItem('token');
@@ -332,7 +332,7 @@ const InvoiceManagementCard: React.FC<InvoiceManagementCardProps> = ({
     try {
       const { api } = await import('../api/api');
       
-      const response = await api.get(`/invoices/${invoice.id}/download`, { 
+      const response = await api.get(`/api/v1/invoices/${invoice.id}/download`, { 
         responseType: 'blob' 
       });
       

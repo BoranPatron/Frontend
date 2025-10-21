@@ -59,7 +59,7 @@ const ArchivedTrades: React.FC<ArchivedTradesProps> = ({ className = '' }) => {
     setError(null);
     
     try {
-      const response = await api.get('/milestones/archived');
+      const response = await api.get('/api/v1/milestones/archived');
       setArchivedTrades(response.data || []);
       } catch (err: any) {
       console.error('❌ Fehler beim Laden archivierter Gewerke:', err);

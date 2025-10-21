@@ -66,7 +66,7 @@ const InvoiceManagementModal: React.FC<InvoiceManagementModalProps> = ({ isOpen,
     setError(null);
     
     try {
-      const response = await api.get('/invoices/my-invoices');
+      const response = await api.get('/api/v1/invoices/my-invoices');
       setInvoices(response.data || []);
       } catch (err: any) {
       console.error('❌ Fehler beim Laden der Rechnungen:', err);
@@ -175,7 +175,7 @@ const InvoiceManagementModal: React.FC<InvoiceManagementModalProps> = ({ isOpen,
   const handleViewInvoice = async (invoice: Invoice) => {
     try {
       // Markiere als angesehen
-      await api.post(`/invoices/${invoice.id}/mark-viewed`);
+      await api.post(`/api/v1/invoices/${invoice.id}/mark-viewed`);
       
       // Öffne PDF in neuem Tab
       window.open(`/api/v1/invoices/${invoice.id}/download`, '_blank');
@@ -187,7 +187,7 @@ const InvoiceManagementModal: React.FC<InvoiceManagementModalProps> = ({ isOpen,
   const handleDownloadInvoice = async (invoice: Invoice) => {
     try {
       // Markiere als angesehen und lade dann herunter
-      await api.post(`/invoices/${invoice.id}/mark-viewed`);
+      await api.post(`/api/v1/invoices/${invoice.id}/mark-viewed`);
       window.open(`/api/v1/invoices/${invoice.id}/download`, '_blank');
     } catch (error) {
       console.error('❌ Fehler beim Herunterladen der Rechnung:', error);

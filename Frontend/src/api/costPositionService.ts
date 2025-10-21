@@ -194,7 +194,7 @@ export const costPositionService = {
 
   // Get cost position statistics for accepted quotes only
   getCostPositionStatisticsAcceptedQuotesOnly: async (projectId: number): Promise<CostPositionStatistics> => {
-    const response = await api.get(`/cost-positions/project/${projectId}/statistics?accepted_quotes_only=true`);
+    const response = await api.get(`/api/v1/cost-positions/project/${projectId}/statistics?accepted_quotes_only=true`);
     return response.data;
   }
 }; 

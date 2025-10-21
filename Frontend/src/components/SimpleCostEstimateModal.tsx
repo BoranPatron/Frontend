@@ -1047,7 +1047,7 @@ export default function SimpleCostEstimateModal({
       const { api } = await import('../api/api');
       
       // Erstelle eine neue Abnahme oder aktualisiere eine bestehende
-      const response = await api.post('/acceptance/complete', {
+      const response = await api.post('/api/v1/acceptance/complete', {
         accepted: acceptanceData.accepted,
         acceptanceNotes: acceptanceData.acceptanceNotes,
         defects: acceptanceData.defects || [],
@@ -1112,7 +1112,7 @@ export default function SimpleCostEstimateModal({
       setLoading(true);
       const { api } = await import('../api/api');
       
-      const response = await api.post('/acceptance/final', {
+      const response = await api.post('/api/v1/acceptance/final', {
         trade_id: trade.id,
         accepted: finalAccepted,
         notes: finalNotes,
@@ -1352,7 +1352,7 @@ export default function SimpleCostEstimateModal({
       
       // Lade zuerst die Abnahme-Informationen mit verbesserter Fehlerbehandlung
       try {
-        const acceptanceResponse = await api.get(`/acceptance/milestone/${trade.id}`);
+        const acceptanceResponse = await api.get(`/api/v1/acceptance/milestone/${trade.id}`);
         if (acceptanceResponse.data && acceptanceResponse.data.length > 0) {
           const latestAcceptance = acceptanceResponse.data[acceptanceResponse.data.length - 1];
           setAcceptanceId(latestAcceptance.id);
@@ -1372,7 +1372,7 @@ export default function SimpleCostEstimateModal({
       
       // Lade dann die Mängel (alle, auch bereits erledigte für finale Abnahme)
       try {
-        const defectsResponse = await api.get(`/acceptance/milestone/${trade.id}/defects?include_resolved=true`);
+        const defectsResponse = await api.get(`/api/v1/acceptance/milestone/${trade.id}/defects?include_resolved=true`);
         setAcceptanceDefects(defectsResponse.data || []);
         console.log('✅ Abnahme-Mängel geladen (inkl. erledigte):', defectsResponse.data);
       } catch (defectsError: any) {
@@ -1401,7 +1401,7 @@ export default function SimpleCostEstimateModal({
     
     try {
       const { api } = await import('../api/api');
-      const response = await api.get(`/invoices/milestone/${trade.id}`);
+      const response = await api.get(`/api/v1/invoices/milestone/${trade.id}`);
       
       if (response.data) {
         // TIEFGREIFENDE ANALYSE: Logge alle Rechnung-Details
@@ -1508,7 +1508,7 @@ export default function SimpleCostEstimateModal({
       const { api } = await import('../api/api');
       
       // Mark as viewed (löst automatische DMS-Integration im Backend aus)
-      await api.post(`/invoices/${existingInvoice.id}/mark-viewed`);
+      await api.post(`/api/v1/invoices/${existingInvoice.id}/mark-viewed`);
       
       // Open PDF in new window
       const token = localStorage.getItem('token');
@@ -1553,7 +1553,7 @@ export default function SimpleCostEstimateModal({
     try {
       const { api } = await import('../api/api');
       
-      const response = await api.post(`/invoices/${existingInvoice.id}/mark-paid`, {
+      const response = await api.post(`/api/v1/invoices/${existingInvoice.id}/mark-paid`, {
         paid_at: new Date().toISOString(),
         payment_reference: `Bauträger-Zahlung-${Date.now()}`
       });
@@ -1596,9 +1596,9 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
       const { api } = await import('../api/api');
       
       // Zuerst mark-viewed aufrufen, damit DMS-Dokument erstellt wird falls noch nicht vorhanden
-      await api.post(`/invoices/${existingInvoice.id}/mark-viewed`);
+      await api.post(`/api/v1/invoices/${existingInvoice.id}/mark-viewed`);
       
-      const response = await api.get(`/invoices/${existingInvoice.id}/download`, { 
+      const response = await api.get(`/api/v1/invoices/${existingInvoice.id}/download`, { 
         responseType: 'blob' 
       });
       
@@ -1959,7 +1959,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
     
     try {
       const { api } = await import('../api/api');
-      const response = await api.get(`/appointments/responses/${trade.id}`);
+      const response = await api.get(`/api/v1/appointments/responses/${trade.id}`);
       setAppointmentResponses(response.data || []);
       console.log('✅ Appointment-Responses geladen:', response.data);
     } catch (error) {
@@ -1994,7 +1994,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
     setCommunicationLoading(true);
     try {
       const { api } = await import('../api/api');
-      const response = await api.get(`/messages/trade/${trade.id}`);
+      const response = await api.get(`/api/v1/messages/trade/${trade.id}`);
       setMessages(response.data || []);
       console.log('✅ Nachrichten geladen:', response.data);
     } catch (error) {
@@ -2011,7 +2011,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
     setCommunicationLoading(true);
     try {
       const { api } = await import('../api/api');
-      const response = await api.post('/messages', {
+      const response = await api.post('/api/v1/messages', {
         trade_id: trade.id,
         message: newMessage.trim(),
         sender_type: 'bautraeger',

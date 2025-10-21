@@ -189,7 +189,7 @@ export async function getQuoteStatistics(project_id: number) {
 
 export async function createQuoteWithPdf(formData: FormData) {
   // Erwartet: alle Angebotsdaten + 'pdf' als Datei im FormData
-  const response = await api.post('/quotes/', formData, {
+  const response = await api.post('/api/v1/quotes/', formData, {
     headers: {
       'Content-Type': 'multipart/form-data'
     }

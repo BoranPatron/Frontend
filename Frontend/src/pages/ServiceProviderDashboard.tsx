@@ -1134,7 +1134,7 @@ export default function ServiceProviderDashboard() {
       const invoicePromises = completedTrades.map(async (trade) => {
         try {
           const { api } = await import('../api/api');
-          const response = await api.get(`/invoices/milestone/${trade.id}`);
+          const response = await api.get(`/api/v1/invoices/milestone/${trade.id}`);
           return { tradeId: trade.id, invoice: response.data };
         } catch (error: any) {
           if (error.response?.status === 404) {
@@ -1224,7 +1224,7 @@ export default function ServiceProviderDashboard() {
         const tradePromises = uniqueTradeIds.map(async (tradeId) => {
           try {
             const { api } = await import('../api/api');
-            const response = await api.get(`/milestones/${tradeId}`);
+            const response = await api.get(`/api/v1/milestones/${tradeId}`);
             console.log('🔍 Geladene Trade-Daten für ID', tradeId, ':', response.data);
             return response.data;
           } catch (error) {
@@ -1553,7 +1553,7 @@ export default function ServiceProviderDashboard() {
       
       // Lade aktuelle Trade-Daten vom Backend
       const { api } = await import('../api/api');
-      const response = await api.get(`/milestones/${tradeId}`);
+      const response = await api.get(`/api/v1/milestones/${tradeId}`);
       const updatedTrade = response.data;
       
       console.log('✅ Aktualisierte Trade-Daten erhalten:', updatedTrade);

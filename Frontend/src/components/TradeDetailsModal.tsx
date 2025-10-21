@@ -3049,7 +3049,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       
       try {
         const { api } = await import('../api/api');
-        const response = await api.get(`/invoices/milestone/${trade.id}`);
+        const response = await api.get(`/api/v1/invoices/milestone/${trade.id}`);
         
         if (response.data) {
           setExistingInvoice(response.data);
@@ -3090,7 +3090,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         
         try {
           // Lade vollständige Milestone-Daten
-          const milestoneResponse = await api.get(`/milestones/${trade.id}`);
+          const milestoneResponse = await api.get(`/api/v1/milestones/${trade.id}`);
           console.log('📡 DEBUG: Milestone API Response:', milestoneResponse);
           console.log('📡 DEBUG: Milestone Response Data:', milestoneResponse.data);
           console.log('📡 DEBUG: Milestone created_by:', milestoneResponse.data?.created_by);
@@ -3106,7 +3106,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               // Korrekter Endpoint: /users/profile/{id}
               try {
                 console.log('🔄 DEBUG: Versuche /users/profile/{id}');
-                const userResponse = await api.get(`/users/profile/${userId}`);
+                const userResponse = await api.get(`/api/v1/users/profile/${userId}`);
                 console.log('📡 DEBUG: User API Response (/users/profile/{id}):', userResponse);
                 
                 if (userResponse.data) {
@@ -3190,7 +3190,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               const ownerId = projectResponse.data.owner_id;
               
               try {
-                const userResponse = await api.get(`/users/profile/${ownerId}`);
+                const userResponse = await api.get(`/api/v1/users/profile/${ownerId}`);
                 if (userResponse.data) {
                   setBautraegerContact(userResponse.data);
                   console.log('✅ Bauträger-Kontaktdaten über Projekt-Owner geladen:', userResponse.data);
@@ -3473,7 +3473,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       
       // Lade zuerst die Abnahme-ID
       try {
-        const acceptanceResponse = await api.get(`/acceptance/milestone/${trade.id}`);
+        const acceptanceResponse = await api.get(`/api/v1/acceptance/milestone/${trade.id}`);
         if (acceptanceResponse.data && acceptanceResponse.data.length > 0) {
           const latestAcceptance = acceptanceResponse.data[acceptanceResponse.data.length - 1];
           setAcceptanceId(latestAcceptance.id);
@@ -3490,7 +3490,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       // Lade dann die Mängel (nur wenn Abnahme-Daten verfügbar)
       if (hasAcceptanceData) {
         try {
-          const response = await api.get(`/acceptance/milestone/${trade.id}/defects`);
+          const response = await api.get(`/api/v1/acceptance/milestone/${trade.id}/defects`);
           setAcceptanceDefects(response.data || []);
           console.log('✅ Abnahme-Mängel geladen:', response.data);
         } catch (defectsError: any) {

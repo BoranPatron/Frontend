@@ -266,7 +266,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
         user_role: isServiceProvider() ? 'service_provider' : 'bautraeger'  // Füge User-Rolle für Backend-Validierung hinzu
       };
 
-      const response = await api.post('/invoices/create', invoiceData);
+      const response = await api.post('/api/v1/invoices/create', invoiceData);
       
       // Sichere Behandlung der Antwort
       if (response.data && typeof response.data === 'object') {
@@ -363,7 +363,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
       formData.append('notes', uploadData.notes);
       formData.append('type', 'upload');
 
-      const response = await api.post('/invoices/upload', formData, {
+      const response = await api.post('/api/v1/invoices/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

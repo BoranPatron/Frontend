@@ -153,39 +153,39 @@ class AuthService {
 
   // DSGVO-Funktionen
   async updateConsent(consentType: string, granted: boolean): Promise<{ message: string; consent_type: string; granted: boolean }> {
-    const response = await api.post('/gdpr/consent', { consent_type: consentType, granted });
+    const response = await api.post('/api/v1/gdpr/consent', { consent_type: consentType, granted });
     return response.data;
   }
 
   async getConsentStatus(): Promise<ConsentStatus> {
-    const response = await api.get('/gdpr/consent-status');
+    const response = await api.get('/api/v1/gdpr/consent-status');
     return response.data;
   }
 
   async requestDataDeletion(): Promise<{ message: string; deletion_requested_at: string; estimated_deletion_date: string }> {
-    const response = await api.post('/gdpr/data-deletion-request');
+    const response = await api.post('/api/v1/gdpr/data-deletion-request');
     return response.data;
   }
 
   async anonymizeData(): Promise<{ message: string; anonymized_at: string }> {
-    const response = await api.post('/gdpr/data-anonymization');
+    const response = await api.post('/api/v1/gdpr/data-anonymization');
     return response.data;
   }
 
   async exportData(): Promise<Blob> {
-    const response = await api.get('/gdpr/data-export', {
+    const response = await api.get('/api/v1/gdpr/data-export', {
       responseType: 'blob',
     });
     return response.data;
   }
 
   async generateExportToken(): Promise<{ message: string; token_expires_in_hours: number }> {
-    const response = await api.post('/gdpr/data-export-token');
+    const response = await api.post('/api/v1/gdpr/data-export-token');
     return response.data;
   }
 
   async downloadDataWithToken(token: string): Promise<Blob> {
-    const response = await api.get(`/gdpr/data-export/${token}`, {
+    const response = await api.get(`/api/v1/gdpr/data-export/${token}`, {
       responseType: 'blob',
     });
     return response.data;

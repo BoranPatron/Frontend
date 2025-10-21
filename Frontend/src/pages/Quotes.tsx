@@ -1500,7 +1500,7 @@ function QuotesWithCreditAnimation() {
       }
 
       // Lösche das Gewerk
-      await api.delete(`/milestones/${tradeId}`);
+      await api.delete(`/api/v1/milestones/${tradeId}`);
       
       setSuccess('Gewerk erfolgreich gelöscht');
       
@@ -1554,28 +1554,28 @@ function QuotesWithCreditAnimation() {
     
     try {
       // 1. Lösche alle Rechnungen zuerst (abhängig von Gewerken)
-      await api.delete('/invoices/debug/delete-all-invoices');
+      await api.delete('/api/v1/invoices/debug/delete-all-invoices');
       
       // 2. Lösche alle Abnahmen (abhängig von Gewerken)
       await api.delete('/acceptance/debug/delete-all-acceptances');
       
       // 3. Lösche alle Bewertungen (abhängig von Gewerken)
-      await api.delete('/ratings/debug/delete-all-ratings');
+      await api.delete('/api/v1/ratings/debug/delete-all-ratings');
       
       // 4. Lösche alle Termine (abhängig von Gewerken)
       await api.delete('/appointments/debug/delete-all-appointments');
       
       // 5. Lösche alle Dokumente (abhängig von Gewerken)
-      await api.delete('/documents/debug/delete-all-documents');
+      await api.delete('/api/v1/documents/debug/delete-all-documents');
       
       // 6. Lösche alle Kostenpositionen (abhängig von Gewerken)
-      await api.delete('/cost-positions/debug/delete-all-cost-positions');
+      await api.delete('/api/v1/cost-positions/debug/delete-all-cost-positions');
       
       // 7. Lösche alle Angebote (abhängig von Gewerken)
-      await api.delete('/quotes/debug/delete-all-quotes');
+      await api.delete('/api/v1/quotes/debug/delete-all-quotes');
       
       // 8. Lösche alle Gewerke (Milestones) - zuletzt
-      await api.delete('/milestones/debug/delete-all-milestones');
+      await api.delete('/api/v1/milestones/debug/delete-all-milestones');
       
       alert('✅ Alle Gewerke samt ALLEN Abhängigkeiten wurden erfolgreich gelöscht!\n\nGelöscht wurden:\n• Alle Gewerke (Milestones)\n• Alle Angebote (Quotes)\n• Alle Kostenpositionen (Cost Positions)\n• Alle Rechnungen (Invoices)\n• Alle Abnahmen (Acceptances)\n• Alle Bewertungen (Ratings)\n• Alle Termine (Appointments)\n• Alle Dokumente (Documents)');
       

@@ -24,7 +24,7 @@ const InvoiceManagement: React.FC<InvoiceManagementProps> = ({
   const loadInvoice = async () => {
     setLoading(true);
     try {
-      const response = await api.get(`/invoices/milestone/${milestoneId}`);
+      const response = await api.get(`/api/v1/invoices/milestone/${milestoneId}`);
       if (response.data) {
         setInvoice(response.data);
       }
@@ -40,7 +40,7 @@ const InvoiceManagement: React.FC<InvoiceManagementProps> = ({
   const handleViewInvoice = async () => {
     try {
       // Mark as viewed (löst automatische DMS-Integration im Backend aus)
-      await api.post(`/invoices/${invoice.id}/mark-viewed`);
+      await api.post(`/api/v1/invoices/${invoice.id}/mark-viewed`);
       
       // Open PDF in new window - KORRIGIERT: Mit Authorization Header
       const token = localStorage.getItem('token');
@@ -84,9 +84,9 @@ const InvoiceManagement: React.FC<InvoiceManagementProps> = ({
   const handleDownloadInvoice = async () => {
     try {
       // Zuerst mark-viewed aufrufen, damit DMS-Dokument erstellt wird falls noch nicht vorhanden
-      await api.post(`/invoices/${invoice.id}/mark-viewed`);
+      await api.post(`/api/v1/invoices/${invoice.id}/mark-viewed`);
       
-      const response = await api.get(`/invoices/${invoice.id}/download`, { 
+      const response = await api.get(`/api/v1/invoices/${invoice.id}/download`, { 
         responseType: 'blob' 
       });
       
@@ -114,7 +114,7 @@ const InvoiceManagement: React.FC<InvoiceManagementProps> = ({
 
   const handleMarkAsPaid = async () => {
     try {
-      const response = await api.post(`/invoices/${invoice.id}/mark-paid`, {
+      const response = await api.post(`/api/v1/invoices/${invoice.id}/mark-paid`, {
         paid_at: new Date().toISOString()
       });
       

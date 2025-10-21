@@ -118,7 +118,7 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
         // Überspringe bereits behobene Mängel um Konflikte zu vermeiden
         if (defect && !defect.resolved) {
           console.log('🔧 Quittiere Mangel (mit Bewertung):', defectId);
-          await api.put(`/acceptance/defects/${defectId}`, {
+          await api.put(`/api/v1/acceptance/defects/${defectId}`, {
             resolved: true,
             resolved_at: new Date().toISOString()
           });
@@ -133,7 +133,7 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
         console.log('🔧 Keine gültige acceptanceId - lade Abnahme vom Backend');
         
         // Lade die automatisch erstellte Abnahme vom Backend
-        const acceptanceResponse = await api.get(`/acceptance/milestone/${milestoneId}`);
+        const acceptanceResponse = await api.get(`/api/v1/acceptance/milestone/${milestoneId}`);
         if (acceptanceResponse.data && acceptanceResponse.data.length > 0) {
           const latestAcceptance = acceptanceResponse.data[acceptanceResponse.data.length - 1];
           finalAcceptanceId = latestAcceptance.id;
@@ -144,7 +144,7 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
       }
 
       // Schließe die finale Abnahme ab (mit Bewertung für Bauträger)
-      await api.post(`/acceptance/${finalAcceptanceId}/final-complete`, {
+      await api.post(`/api/v1/acceptance/${finalAcceptanceId}/final-complete`, {
         accepted: true,
         qualityRating: ratings.qualityRating,
         timelinessRating: ratings.timelinessRating,
@@ -175,7 +175,7 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
         // Überspringe bereits behobene Mängel um Konflikte zu vermeiden
         if (defect && !defect.resolved) {
           console.log('🔧 Quittiere Mangel (ohne Bewertung):', defectId);
-          await api.put(`/acceptance/defects/${defectId}`, {
+          await api.put(`/api/v1/acceptance/defects/${defectId}`, {
             resolved: true,
             resolved_at: new Date().toISOString()
           });
@@ -190,7 +190,7 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
         console.log('🔧 Keine gültige acceptanceId - lade Abnahme vom Backend (ohne Bewertung)');
         
         // Lade die automatisch erstellte Abnahme vom Backend
-        const acceptanceResponse = await api.get(`/acceptance/milestone/${milestoneId}`);
+        const acceptanceResponse = await api.get(`/api/v1/acceptance/milestone/${milestoneId}`);
         if (acceptanceResponse.data && acceptanceResponse.data.length > 0) {
           const latestAcceptance = acceptanceResponse.data[acceptanceResponse.data.length - 1];
           finalAcceptanceId = latestAcceptance.id;
@@ -201,7 +201,7 @@ const FinalAcceptanceModal: React.FC<FinalAcceptanceModalProps> = ({
       }
 
       // Schließe die finale Abnahme ab (ohne Bewertung für Dienstleister)
-      await api.post(`/acceptance/${finalAcceptanceId}/final-complete`, {
+      await api.post(`/api/v1/acceptance/${finalAcceptanceId}/final-complete`, {
         accepted: true,
         milestone_id: milestoneId
         // Keine Bewertungen für Dienstleister

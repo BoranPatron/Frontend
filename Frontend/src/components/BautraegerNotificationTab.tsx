@@ -289,7 +289,7 @@ export default function BautraegerNotificationTab({ userId, onResponseHandled }:
           if (error.response?.status === 500) {
             console.log('🔄 BautraegerNotificationTab: Versuche mit reduzierten Parametern...');
             try {
-              const fallbackResponse = await api.get('/notifications/', {
+              const fallbackResponse = await api.get('/api/v1/notifications/', {
                 params: {
                   limit: 10,
                   unacknowledged_only: false

@@ -94,7 +94,7 @@ const DefectDocumentationModal: React.FC<DefectDocumentationModalProps> = ({
         formData.append('milestone_id', milestoneId.toString());
         formData.append('file_type', 'defect_photo');
 
-        const response = await api.post('/files/upload', formData, {
+        const response = await api.post('/api/v1/files/upload', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
@@ -134,7 +134,7 @@ const DefectDocumentationModal: React.FC<DefectDocumentationModalProps> = ({
 
     try {
       // Erstelle zuerst eine Abnahme-Eintrag
-      const acceptanceResponse = await api.post('/acceptance', {
+      const acceptanceResponse = await api.post('/api/v1/acceptance', {
         milestone_id: milestoneId,
         status: 'under_review',
         notes: `Mängel dokumentiert von ${user?.first_name} ${user?.last_name}`
@@ -144,7 +144,7 @@ const DefectDocumentationModal: React.FC<DefectDocumentationModalProps> = ({
 
       // Erstelle dann die Mängel
       const defectPromises = defects.map(async (defect) => {
-        const defectResponse = await api.post('/acceptance/defects', {
+        const defectResponse = await api.post('/api/v1/acceptance/defects', {
           acceptance_id: acceptanceId,
           title: defect.title,
           description: defect.description,
@@ -160,7 +160,7 @@ const DefectDocumentationModal: React.FC<DefectDocumentationModalProps> = ({
       const createdDefects = await Promise.all(defectPromises);
 
       // Aktualisiere den Milestone-Status
-      await api.put(`/milestones/${milestoneId}/progress/completion`, {
+      await api.put(`/api/v1/milestones/${milestoneId}/progress/completion`, {
         status: 'completed_with_defects',
         message: 'Mängel wurden dokumentiert. Abnahme unter Vorbehalt erforderlich.'
       });

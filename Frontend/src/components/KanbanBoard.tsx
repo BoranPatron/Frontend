@@ -410,7 +410,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const updateTaskStatus = useCallback(async (taskId: number, newStatus: Task['status']) => {
     try {
       const { api } = await import('../api/api');
-      await api.post(`/tasks/${taskId}/status`, { status: newStatus });
+      await api.post(`/api/v1/tasks/${taskId}/status`, { status: newStatus });
       
       setTasks(prev => prev.map(task => 
         task.id === taskId ? { ...task, status: newStatus } : task
@@ -428,7 +428,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
     try {
       const { api } = await import('../api/api');
-      await api.delete(`/tasks/${taskId}`);
+      await api.delete(`/api/v1/tasks/${taskId}`);
       
       setTasks(prev => prev.filter(task => task.id !== taskId));
     } catch (err) {
@@ -476,7 +476,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     if (draggedTask.status !== newStatus) {
       try {
         const { api } = await import('../api/api');
-        await api.post(`/tasks/${draggedTask.id}/status`, { status: newStatus });
+        await api.post(`/api/v1/tasks/${draggedTask.id}/status`, { status: newStatus });
         
         setTasks(prev => prev.map(task => 
           task.id === draggedTask.id ? { ...task, status: newStatus } : task
@@ -546,7 +546,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     params.append('assigned_to', user.id.toString());
                   }
                   
-                  const url = `/tasks/${params.toString() ? `?${params.toString()}` : ''}`;
+                  const url = `/api/v1/tasks/${params.toString() ? `?${params.toString()}` : ''}`;
                   const response = await api.get(url);
                   const data = response.data || response;
                   

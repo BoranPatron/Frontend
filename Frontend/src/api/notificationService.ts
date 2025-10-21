@@ -36,7 +36,7 @@ export const notificationService = {
   // Benachrichtigung erstellen
   async createNotification(data: NotificationData): Promise<NotificationData> {
     try {
-      const response = await api.post('/notifications', data);
+      const response = await api.post('/api/v1/notifications', data);
       console.log('✅ Benachrichtigung erstellt:', response.data);
       return response.data;
     } catch (error) {
@@ -98,7 +98,7 @@ export const notificationService = {
   // Benachrichtigung löschen
   async deleteNotification(notificationId: number): Promise<void> {
     try {
-      await api.delete(`/notifications/${notificationId}`);
+      await api.delete(`/api/v1/notifications/${notificationId}`);
       console.log('✅ Benachrichtigung gelöscht:', notificationId);
     } catch (error) {
       console.error('❌ Fehler beim Löschen der Benachrichtigung:', error);
@@ -109,7 +109,7 @@ export const notificationService = {
   // E-Mail-Benachrichtigung senden
   async sendEmailNotification(data: EmailNotificationData): Promise<void> {
     try {
-      const response = await api.post('/notifications/email', data);
+      const response = await api.post('/api/v1/notifications/email', data);
       console.log('✅ E-Mail-Benachrichtigung gesendet:', response.data);
     } catch (error) {
       console.error('❌ Fehler beim Senden der E-Mail-Benachrichtigung:', error);

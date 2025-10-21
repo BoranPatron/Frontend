@@ -140,7 +140,7 @@ const AcceptanceModal: React.FC<AcceptanceModalProps> = ({
           formData.append('type', 'defect_photo');
           
           const { api } = await import('../api/api');
-          const response = await api.post('/acceptance/upload-photo', formData, {
+          const response = await api.post('/api/v1/acceptance/upload-photo', formData, {
             headers: {
               'Content-Type': 'multipart/form-data'
             }

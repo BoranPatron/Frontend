@@ -103,13 +103,13 @@ export interface QuoteRevisionRead {
 
 // Besichtigung erstellen
 export const createInspection = async (inspectionData: InspectionCreate): Promise<InspectionRead> => {
-  const response = await api.post('/inspections/', inspectionData);
+  const response = await api.post('/api/v1/inspections/', inspectionData);
   return response.data;
 };
 
 // Dienstleister zur Besichtigung einladen
 export const inviteServiceProviders = async (inspectionId: number, quoteIds: number[]): Promise<{ message: string; invitations_count: number }> => {
-  const response = await api.post(`/inspections/${inspectionId}/invitations`, quoteIds);
+  const response = await api.post(`/api/v1/inspections/${inspectionId}/invitations`, quoteIds);
   return response.data;
 };
 
@@ -128,13 +128,13 @@ export const getMyInvitations = async (): Promise<InspectionInvitationRead[]> =>
 
 // Auf Einladung antworten
 export const respondToInvitation = async (invitationId: number, responseData: InspectionInvitationUpdate): Promise<{ message: string }> => {
-  const response = await api.put(`/inspections/invitations/${invitationId}/respond`, responseData);
+  const response = await api.put(`/api/v1/inspections/invitations/${invitationId}/respond`, responseData);
   return response.data;
 };
 
 // Quote-Revision erstellen
 export const createQuoteRevision = async (inspectionId: number, revisionData: QuoteRevisionCreate): Promise<QuoteRevisionRead> => {
-  const response = await api.post(`/inspections/${inspectionId}/quote-revisions`, revisionData);
+  const response = await api.post(`/api/v1/inspections/${inspectionId}/quote-revisions`, revisionData);
   return response.data;
 };
 
@@ -146,25 +146,25 @@ export const getQuoteRevisions = async (inspectionId: number): Promise<QuoteRevi
 
 // Quote-Revision bestätigen
 export const confirmQuoteRevision = async (revisionId: number): Promise<{ message: string }> => {
-  const response = await api.post(`/inspections/quote-revisions/${revisionId}/confirm`);
+  const response = await api.post(`/api/v1/inspections/quote-revisions/${revisionId}/confirm`);
   return response.data;
 };
 
 // Quote-Revision ablehnen
 export const rejectQuoteRevision = async (revisionId: number, rejectionReason?: string): Promise<{ message: string }> => {
-  const response = await api.post(`/inspections/quote-revisions/${revisionId}/reject`, { rejection_reason: rejectionReason });
+  const response = await api.post(`/api/v1/inspections/quote-revisions/${revisionId}/reject`, { rejection_reason: rejectionReason });
   return response.data;
 };
 
 // Besichtigung abschließen
 export const completeInspection = async (inspectionId: number, completionNotes?: string): Promise<{ message: string }> => {
-  const response = await api.post(`/inspections/${inspectionId}/complete`, { completion_notes: completionNotes });
+  const response = await api.post(`/api/v1/inspections/${inspectionId}/complete`, { completion_notes: completionNotes });
   return response.data;
 };
 
 // Besichtigung abbrechen
 export const cancelInspection = async (inspectionId: number, cancellationReason?: string): Promise<{ message: string }> => {
-  const response = await api.post(`/inspections/${inspectionId}/cancel`, { cancellation_reason: cancellationReason });
+  const response = await api.post(`/api/v1/inspections/${inspectionId}/cancel`, { cancellation_reason: cancellationReason });
   return response.data;
 };
 

@@ -278,7 +278,7 @@ export default function CostEstimateDetailsModal({
     
     try {
       const { api } = await import('../api/api');
-      const response = await api.get(`/invoices/milestone/${trade.id}`);
+      const response = await api.get(`/api/v1/invoices/milestone/${trade.id}`);
       
       if (response.data) {
         setExistingInvoice(response.data);
@@ -300,7 +300,7 @@ export default function CostEstimateDetailsModal({
     try {
       console.log('🔍 Lade Mängel für Trade ID:', trade.id);
       const { api } = await import('../api/api');
-      const response = await api.get(`/acceptance/milestone/${trade.id}/defects`);
+      const response = await api.get(`/api/v1/acceptance/milestone/${trade.id}/defects`);
       
       console.log('🔍 API Response für Mängel:', response);
       
@@ -488,7 +488,7 @@ export default function CostEstimateDetailsModal({
       const proposedDateTime = new Date(`${proposedDate}T${proposedTime}`);
       const { api } = await import('../api/api');
       
-      const response = await api.post('/acceptance/schedule-appointment', {
+      const response = await api.post('/api/v1/acceptance/schedule-appointment', {
         milestone_id: trade.id,
         proposed_date: proposedDateTime.toISOString(),
         notes: scheduleNotes
@@ -1075,7 +1075,7 @@ export default function CostEstimateDetailsModal({
       const { api } = await import('../api/api');
       
       // Erstelle eine neue Abnahme oder aktualisiere eine bestehende
-      const response = await api.post('/acceptance/complete', {
+      const response = await api.post('/api/v1/acceptance/complete', {
         accepted: acceptanceData.accepted,
         acceptanceNotes: acceptanceData.acceptanceNotes,
         contractorNotes: acceptanceData.contractorNotes,
@@ -2518,7 +2518,7 @@ function FinalAcceptanceButton({ milestoneId, onFinalAcceptance }: FinalAcceptan
       setDefectResolutionStatus(prev => ({ ...prev, loading: true, error: null }));
       
       const { api } = await import('../api/api');
-      const response = await api.get(`/acceptance/${milestoneId}/defects/status`);
+      const response = await api.get(`/api/v1/acceptance/${milestoneId}/defects/status`);
       
       const status = response.data || response;
       console.log('✅ Mängelbehebungsstatus geladen:', status);
@@ -2545,7 +2545,7 @@ function FinalAcceptanceButton({ milestoneId, onFinalAcceptance }: FinalAcceptan
   const loadDefects = async () => {
     try {
       const { api } = await import('../api/api');
-      const response = await api.get(`/acceptance/${milestoneId}/defects`);
+      const response = await api.get(`/api/v1/acceptance/${milestoneId}/defects`);
       
       if (response.data && Array.isArray(response.data)) {
         setDefects(response.data);

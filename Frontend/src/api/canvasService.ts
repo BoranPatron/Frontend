@@ -173,22 +173,22 @@ export class CanvasService {
   }
 
   async createCanvas(projectId: number, canvasData: any): Promise<Canvas> {
-    const response = await api.post(`/canvas/${projectId}`, canvasData);
+    const response = await api.post(`/api/v1/canvas/${projectId}`, canvasData);
     return response.data;
   }
 
   async updateCanvas(canvasId: number, canvasData: any): Promise<Canvas> {
-    const response = await api.put(`/canvas/${canvasId}`, canvasData);
+    const response = await api.put(`/api/v1/canvas/${canvasId}`, canvasData);
     return response.data;
   }
 
   async deleteCanvas(canvasId: number): Promise<void> {
-    await api.delete(`/canvas/${canvasId}`);
+    await api.delete(`/api/v1/canvas/${canvasId}`);
   }
 
   // Canvas State Management
   async saveCanvasState(canvasId: number, state: CanvasState): Promise<void> {
-    await api.post(`/canvas/${canvasId}/save`, state);
+    await api.post(`/api/v1/canvas/${canvasId}/save`, state);
   }
 
   async loadCanvasState(canvasId: number): Promise<CanvasState> {
@@ -198,40 +198,40 @@ export class CanvasService {
 
   // Canvas Objects
   async createCanvasObject(canvasId: number, objectData: CanvasObjectCreate): Promise<CanvasObject> {
-    const response = await api.post(`/canvas/${canvasId}/objects`, objectData);
+    const response = await api.post(`/api/v1/canvas/${canvasId}/objects`, objectData);
     return response.data;
   }
 
   async updateCanvasObject(objectId: string, objectData: CanvasObjectUpdate): Promise<CanvasObject> {
-    const response = await api.put(`/canvas/objects/${objectId}`, objectData);
+    const response = await api.put(`/api/v1/canvas/objects/${objectId}`, objectData);
     return response.data;
   }
 
   async deleteCanvasObject(objectId: string): Promise<void> {
-    await api.delete(`/canvas/objects/${objectId}`);
+    await api.delete(`/api/v1/canvas/objects/${objectId}`);
   }
 
   // Collaboration Areas
   async createCollaborationArea(canvasId: number, areaData: CollaborationAreaCreate): Promise<CollaborationArea> {
-    const response = await api.post(`/canvas/${canvasId}/areas`, areaData);
+    const response = await api.post(`/api/v1/canvas/${canvasId}/areas`, areaData);
     return response.data;
   }
 
   async updateCollaborationArea(areaId: string, areaData: CollaborationAreaUpdate): Promise<CollaborationArea> {
-    const response = await api.put(`/canvas/areas/${areaId}`, areaData);
+    const response = await api.put(`/api/v1/canvas/areas/${areaId}`, areaData);
     return response.data;
   }
 
   async deleteCollaborationArea(areaId: string): Promise<void> {
-    await api.delete(`/canvas/areas/${areaId}`);
+    await api.delete(`/api/v1/canvas/areas/${areaId}`);
   }
 
   async assignUserToArea(areaId: string, userId: number): Promise<void> {
-    await api.post(`/canvas/areas/${areaId}/assign/${userId}`);
+    await api.post(`/api/v1/canvas/areas/${areaId}/assign/${userId}`);
   }
 
   async removeUserFromArea(areaId: string, userId: number): Promise<void> {
-    await api.delete(`/canvas/areas/${areaId}/assign/${userId}`);
+    await api.delete(`/api/v1/canvas/areas/${areaId}/assign/${userId}`);
   }
 
   // Active Users
@@ -242,7 +242,7 @@ export class CanvasService {
 
   // Export
   async exportCanvas(canvasId: number, exportRequest: CanvasExportRequest): Promise<CanvasExportResponse> {
-    const response = await api.post(`/canvas/${canvasId}/export`, exportRequest);
+    const response = await api.post(`/api/v1/canvas/${canvasId}/export`, exportRequest);
     return response.data;
   }
 

@@ -102,7 +102,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     setError(null);
     
     try {
-      const response = await api.put(`/tasks/${task.id}`, editedTask);
+      const response = await api.put(`/api/v1/tasks/${task.id}`, editedTask);
       const updatedTask = response.data;
       
       onTaskUpdate(updatedTask);
@@ -127,7 +127,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     setError(null);
     
     try {
-      await api.delete(`/tasks/${task.id}`);
+      await api.delete(`/api/v1/tasks/${task.id}`);
       onTaskDelete(task.id);
       onClose();
       
