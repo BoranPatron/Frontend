@@ -157,7 +157,7 @@ export interface UserLocation {
 // Geocoding-Funktionen
 export async function geocodeAddress(address: Address): Promise<GeocodingResult> {
   return safeApiCall(async () => {
-    const response = await fetch(`${getApiBaseUrl()}/geo/geocode`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/geo/geocode`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -176,7 +176,7 @@ export async function geocodeAddress(address: Address): Promise<GeocodingResult>
 
 export async function reverseGeocode(location: Location): Promise<Address> {
   return safeApiCall(async () => {
-    const response = await fetch(`${getApiBaseUrl()}/geo/reverse-geocode`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/geo/reverse-geocode`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -196,7 +196,7 @@ export async function reverseGeocode(location: Location): Promise<Address> {
 // Projekt-Suche
 export async function searchProjectsInRadius(searchRequest: ProjectSearchRequest): Promise<ProjectSearchResult[]> {
   return safeApiCall(async () => {
-    const response = await fetch(`${getApiBaseUrl()}/geo/search-projects`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/geo/search-projects`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -216,7 +216,7 @@ export async function searchProjectsInRadius(searchRequest: ProjectSearchRequest
 // Gewerk-Suche (für Dienstleister)
 export async function searchTradesInRadius(searchRequest: TradeSearchRequest): Promise<TradeSearchResult[]> {
   return safeApiCall(async () => {
-    const response = await fetch(`${getApiBaseUrl()}/geo/search-trades`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/geo/search-trades`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -236,7 +236,7 @@ export async function searchTradesInRadius(searchRequest: TradeSearchRequest): P
 // Dienstleister-Suche
 export async function searchServiceProvidersInRadius(searchRequest: ServiceProviderSearchRequest): Promise<ServiceProviderSearchResult[]> {
   return safeApiCall(async () => {
-    const response = await fetch(`${getApiBaseUrl()}/geo/search-service-providers`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/geo/search-service-providers`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -256,7 +256,7 @@ export async function searchServiceProvidersInRadius(searchRequest: ServiceProvi
 // Geocoding-Updates
 export async function updateUserGeocoding(userId: number): Promise<{ message: string }> {
   return safeApiCall(async () => {
-    const response = await fetch(`${getApiBaseUrl()}/geo/update-user-geocoding/${userId}`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/geo/update-user-geocoding/${userId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -274,7 +274,7 @@ export async function updateUserGeocoding(userId: number): Promise<{ message: st
 
 export async function updateProjectGeocoding(projectId: number): Promise<{ message: string }> {
   return safeApiCall(async () => {
-    const response = await fetch(`${getApiBaseUrl()}/geo/update-project-geocoding/${projectId}`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/geo/update-project-geocoding/${projectId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -293,7 +293,7 @@ export async function updateProjectGeocoding(projectId: number): Promise<{ messa
 // Aktuelle Position abrufen
 export async function getCurrentLocation(): Promise<UserLocation> {
   return safeApiCall(async () => {
-    const response = await fetch(`${getApiBaseUrl()}/geo/get-current-location`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/geo/get-current-location`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
