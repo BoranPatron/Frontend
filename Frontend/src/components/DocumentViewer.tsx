@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { getApiBaseUrl } from '../api/api';
 import {
   X,
   Download,
@@ -142,7 +143,7 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
       setImageLoading(fileType === 'image');
       setImageError(null);
       
-      const response = await fetch(`http://localhost:8000/api/v1/documents/${document.id}/content`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/documents/${document.id}/content`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -181,7 +182,7 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
 
   const loadComments = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/documents/${document.id}/comments`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/documents/${document.id}/comments`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -200,7 +201,7 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
     if (!newComment.trim()) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/documents/${document.id}/comments`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/documents/${document.id}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -226,7 +227,7 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
     if (!window.confirm('Kommentar löschen?')) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/documents/comments/${commentId}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/documents/comments/${commentId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -243,7 +244,7 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
 
   const downloadDocument = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/documents/${document.id}/download`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/documents/${document.id}/download`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -677,7 +678,7 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ document, onClose }) =>
                     <button
                       onClick={async () => {
                         try {
-                          const response = await fetch(`http://localhost:8000/api/v1/documents/${document.id}/download`, {
+                          const response = await fetch(`${getApiBaseUrl()}/api/v1/documents/${document.id}/download`, {
                             headers: {
                               'Authorization': `Bearer ${localStorage.getItem('token')}`
                             }

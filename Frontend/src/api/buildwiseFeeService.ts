@@ -110,7 +110,7 @@ export async function createFeeFromQuote(
   feePercentage: number = 1.0
 ): Promise<BuildWiseFee> {
   return safeApiCall(async () => {
-    const url = `${getApiBaseUrl()}/buildwise-fees/create-from-quote/${quoteId}/${costPositionId}`;
+    const url = `${getApiBaseUrl()}/api/v1/buildwise-fees/create-from-quote/${quoteId}/${costPositionId}`;
     const res = await api.post(url, null, {
       params: { fee_percentage: feePercentage }
     });
@@ -135,7 +135,7 @@ export async function getBuildWiseFees(
     if (month) params.append('month', month.toString());
     if (year) params.append('year', year.toString());
     
-    const url = `${getApiBaseUrl()}/buildwise-fees/?${params.toString()}`;
+    const url = `${getApiBaseUrl()}/api/v1/buildwise-fees/?${params.toString()}`;
     const response = await api.get(url);
     // Debug: Zeige Details der ersten 3 Gebühren
     if (response.data.length > 0) {
@@ -151,7 +151,7 @@ export async function getBuildWiseFees(
     // Fallback: Versuche ohne Filter
     if (month || year || projectId || status) {
       try {
-        const fallbackResponse = await api.get(`${getApiBaseUrl()}/buildwise-fees/?skip=${skip}&limit=${limit}`);
+        const fallbackResponse = await api.get(`${getApiBaseUrl()}/api/v1/buildwise-fees/?skip=${skip}&limit=${limit}`);
         return fallbackResponse.data;
       } catch (fallbackError: any) {
         console.error('❌ Fallback fehlgeschlagen:', fallbackError);
@@ -165,7 +165,7 @@ export async function getBuildWiseFees(
 
 export async function getBuildWiseFeeStatistics(): Promise<BuildWiseFeeStatistics> {
   return safeApiCall(async () => {
-    const url = `${getApiBaseUrl()}/buildwise-fees/statistics`;
+    const url = `${getApiBaseUrl()}/api/v1/buildwise-fees/statistics`;
     const res = await api.get(url);
     return res.data;
   });
@@ -173,7 +173,7 @@ export async function getBuildWiseFeeStatistics(): Promise<BuildWiseFeeStatistic
 
 export async function getBuildWiseFee(feeId: number): Promise<BuildWiseFee> {
   return safeApiCall(async () => {
-    const url = `${getApiBaseUrl()}/buildwise-fees/${feeId}`;
+    const url = `${getApiBaseUrl()}/api/v1/buildwise-fees/${feeId}`;
     const res = await api.get(url);
     return res.data;
   });
@@ -181,7 +181,7 @@ export async function getBuildWiseFee(feeId: number): Promise<BuildWiseFee> {
 
 export async function updateFee(feeId: number, feeData: BuildWiseFeeUpdate): Promise<BuildWiseFee> {
   return safeApiCall(async () => {
-    const url = `${getApiBaseUrl()}/buildwise-fees/${feeId}`;
+    const url = `${getApiBaseUrl()}/api/v1/buildwise-fees/${feeId}`;
     const res = await api.put(url, feeData);
     return res.data;
   });
@@ -192,7 +192,7 @@ export async function markFeeAsPaid(feeId: number, paymentDate?: string): Promis
     const params: any = {};
     if (paymentDate) params.payment_date = paymentDate;
     
-    const url = `${getApiBaseUrl()}/buildwise-fees/${feeId}/mark-as-paid`;
+    const url = `${getApiBaseUrl()}/api/v1/buildwise-fees/${feeId}/mark-as-paid`;
     const res = await api.post(url, null, { params });
     return res.data;
   });
@@ -200,7 +200,7 @@ export async function markFeeAsPaid(feeId: number, paymentDate?: string): Promis
 
 export async function generateInvoice(feeId: number): Promise<{ message: string }> {
   return safeApiCall(async () => {
-    const url = `${getApiBaseUrl()}/buildwise-fees/${feeId}/generate-invoice`;
+    const url = `${getApiBaseUrl()}/api/v1/buildwise-fees/${feeId}/generate-invoice`;
     const res = await api.post(url);
     return res.data;
   });
@@ -213,7 +213,7 @@ export async function generateGewerkInvoice(feeId: number): Promise<{
   document_path?: string; 
 }> {
   return safeApiCall(async () => {
-    const url = `${getApiBaseUrl()}/buildwise-fees/${feeId}/generate-gewerk-invoice`;
+    const url = `${getApiBaseUrl()}/api/v1/buildwise-fees/${feeId}/generate-gewerk-invoice`;
     const res = await api.post(url);
     return res.data;
   });
@@ -221,7 +221,7 @@ export async function generateGewerkInvoice(feeId: number): Promise<{
 
 export async function downloadInvoice(feeId: number): Promise<{ download_url: string; filename: string }> {
   return safeApiCall(async () => {
-    const url = `${getApiBaseUrl()}/buildwise-fees/${feeId}/download-invoice`;
+    const url = `${getApiBaseUrl()}/api/v1/buildwise-fees/${feeId}/download-invoice`;
     const res = await api.get(url);
     return res.data;
   });
@@ -229,7 +229,7 @@ export async function downloadInvoice(feeId: number): Promise<{ download_url: st
 
 export async function getMonthlyFees(month: number, year: number): Promise<BuildWiseFee[]> {
   return safeApiCall(async () => {
-    const url = `${getApiBaseUrl()}/buildwise-fees/monthly/${month}/${year}`;
+    const url = `${getApiBaseUrl()}/api/v1/buildwise-fees/monthly/${month}/${year}`;
     const res = await api.get(url);
     return res.data;
   });
@@ -237,7 +237,7 @@ export async function getMonthlyFees(month: number, year: number): Promise<Build
 
 export async function checkOverdueFees(): Promise<{ message: string; overdue_count: number }> {
   return safeApiCall(async () => {
-    const url = `${getApiBaseUrl()}/buildwise-fees/check-overdue`;
+    const url = `${getApiBaseUrl()}/api/v1/buildwise-fees/check-overdue`;
     const res = await api.post(url);
     return res.data;
   });
@@ -245,7 +245,7 @@ export async function checkOverdueFees(): Promise<{ message: string; overdue_cou
 
 export async function deleteFee(feeId: number): Promise<{ message: string }> {
   return safeApiCall(async () => {
-    const url = `${getApiBaseUrl()}/buildwise-fees/${feeId}`;
+    const url = `${getApiBaseUrl()}/api/v1/buildwise-fees/${feeId}`;
     const res = await api.delete(url);
     return res.data;
   });
@@ -312,7 +312,7 @@ export interface AccountStatus {
 export async function checkAccountStatus(): Promise<AccountStatus> {
   return safeApiCall(async () => {
     try {
-      const url = `${getApiBaseUrl()}/buildwise-fees/check-account-status`;
+      const url = `${getApiBaseUrl()}/api/v1/buildwise-fees/check-account-status`;
       const res = await api.get(url);
       return res.data;
     } catch (error: any) {

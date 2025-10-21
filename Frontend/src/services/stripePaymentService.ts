@@ -44,7 +44,7 @@ export async function createPaymentLink(feeId: number): Promise<PaymentLinkRespo
 
     console.log(`[StripeService] Erstelle Payment Link für Gebühr ${feeId}`);
 
-    const response = await fetch(`${getApiBaseUrl()}/buildwise-fees/${feeId}/create-payment-link`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/buildwise-fees/${feeId}/create-payment-link`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -79,7 +79,7 @@ export async function getPaymentStatus(feeId: number): Promise<PaymentStatusResp
       throw new Error('Nicht authentifiziert');
     }
 
-    const response = await fetch(`${getApiBaseUrl()}/buildwise-fees/${feeId}/payment-status`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/buildwise-fees/${feeId}/payment-status`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -153,7 +153,7 @@ export async function markFeeAsPaidManually(feeId: number): Promise<void> {
 
     console.log(`[StripeService] Markiere Gebühr ${feeId} manuell als bezahlt`);
 
-    const response = await fetch(`${getApiBaseUrl()}/buildwise-fees/${feeId}/mark-as-paid`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/buildwise-fees/${feeId}/mark-as-paid`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

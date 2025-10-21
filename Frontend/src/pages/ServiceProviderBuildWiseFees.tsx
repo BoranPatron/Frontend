@@ -215,7 +215,7 @@ export default function ServiceProviderBuildWiseFees() {
       }
       
       // Direkter PDF-Download ohne separate Metadaten-Abfrage
-      const pdfResponse = await fetch(`${getApiBaseUrl()}/buildwise-fees/${feeId}/invoice.pdf`, {
+      const pdfResponse = await fetch(`${getApiBaseUrl()}/api/v1/buildwise-fees/${feeId}/invoice.pdf`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
