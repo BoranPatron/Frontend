@@ -101,7 +101,7 @@ const ImageViewer: React.FC<{ url: string; filename: string; onError: (error: st
       
       if (documentId) {
         const baseUrl = getApiBaseUrl();
-        const response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
+        const response = await fetch(`${baseUrl}/api/v1/documents/${documentId}/content`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -237,7 +237,7 @@ const ExcelViewer: React.FC<{ url: string; filename: string; onError: (error: st
       
       if (documentId) {
         const baseUrl = getApiBaseUrl();
-        response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
+        response = await fetch(`${baseUrl}/api/v1/documents/${documentId}/content`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -331,7 +331,7 @@ const PDFViewer: React.FC<{ url: string; filename: string; onError: (error: stri
       const documentId = extractDocumentIdFromUrl(url);
       if (documentId) {
         const baseUrl = getApiBaseUrl();
-        const response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
+        const response = await fetch(`${baseUrl}/api/v1/documents/${documentId}/content`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -1053,7 +1053,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                         const documentId = extractDocumentIdFromUrl(doc.url || doc.file_path || '');
                         if (documentId) {
                           const baseUrl = getApiBaseUrl();
-                          const response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
+                          const response = await fetch(`${baseUrl}/api/v1/documents/${documentId}/content`, {
                             headers: {
                               'Authorization': `Bearer ${token}`
                             }
@@ -1776,7 +1776,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         const token = localStorage.getItem('token');
         if (!token) return;
         
-        const response = await fetch(`${getApiBaseUrl()}/milestones/${trade.id}`, {
+        const response = await fetch(`${getApiBaseUrl()}/api/v1/milestones/${trade.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -2001,7 +2001,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         
         console.log('ðŸ” TradeDetailsModal - Lade vollstÃ¤ndige Trade-Daten fÃ¼r ID:', trade.id);
         
-        const response = await fetch(`${baseUrl}/milestones/${trade.id}`, {
+        const response = await fetch(`${baseUrl}/api/v1/milestones/${trade.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -2244,7 +2244,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         console.log('🔄 Dokumente sind nur IDs, lade vollständige Dokumente:', documentsData);
         const docPromises = documentsData.map(async (docId: number) => {
                             try {
-                    const docResponse = await fetch(`${baseUrl}/documents/${docId}/info`, {
+                    const docResponse = await fetch(`${baseUrl}/api/v1/documents/${docId}/info`, {
                       headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
@@ -2395,7 +2395,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       if (isBautraeger()) {
         console.log('ðŸ—ï¸ BautrÃ¤ger-Modus: Lade Dokumente direkt vom Milestone-Endpoint');
         
-        const response = await fetch(`${baseUrl}/milestones/${tradeId}`, {
+        const response = await fetch(`${baseUrl}/api/v1/milestones/${tradeId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -2451,7 +2451,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               // Lade die geteilten Dokumente
               const sharedDocsPromises = sharedDocIds.map(async (docId: number) => {
                 try {
-                  const docResponse = await fetch(`${baseUrl}/documents/${docId}`, {
+                  const docResponse = await fetch(`${baseUrl}/api/v1/documents/${docId}`, {
                     headers: {
                       'Authorization': `Bearer ${token}`,
                       'Content-Type': 'application/json'
@@ -2587,7 +2587,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         console.log('ðŸ”§ Dienstleister-Modus: Verwende Geo-Suche fÃ¼r Dokumente');
         
         // Lade das vollstÃ¤ndige Milestone mit Dokumenten vom Backend
-        const response = await fetch(`${baseUrl}/milestones/${tradeId}`, {
+        const response = await fetch(`${baseUrl}/api/v1/milestones/${tradeId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -2637,7 +2637,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               // Lade die geteilten Dokumente
               const sharedDocsPromises = sharedDocIds.map(async (docId: number) => {
                 try {
-                  const docResponse = await fetch(`${baseUrl}/documents/${docId}`, {
+                  const docResponse = await fetch(`${baseUrl}/api/v1/documents/${docId}`, {
                     headers: {
                       'Authorization': `Bearer ${token}`,
                       'Content-Type': 'application/json'
@@ -2832,7 +2832,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       if (!token) return;
       
       const baseUrl = getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/milestones/${tradeId}`, {
+      const response = await fetch(`${baseUrl}/api/v1/milestones/${tradeId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

@@ -628,7 +628,7 @@ export default function CostEstimateDetailsModal({
         : '/api/v1';
       
       // Lade das vollständige Milestone mit Dokumenten vom Backend
-      const response = await fetch(`${baseUrl}/milestones/${tradeId}`, {
+      const response = await fetch(`${baseUrl}/api/v1/milestones/${tradeId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -669,7 +669,7 @@ export default function CostEstimateDetailsModal({
             // Lade die geteilten Dokumente
             const sharedDocsPromises = sharedDocIds.map(async (docId: number) => {
               try {
-                const docResponse = await fetch(`${baseUrl}/documents/${docId}`, {
+                const docResponse = await fetch(`${baseUrl}/api/v1/documents/${docId}`, {
                   headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -715,7 +715,7 @@ export default function CostEstimateDetailsModal({
       // NEU: Lade alle DMS-Dokumente des Projekts und merge sie ein
       try {
         if (trade?.project_id) {
-          const docsResp = await fetch(`${baseUrl}/documents/?project_id=${trade.project_id}`, {
+          const docsResp = await fetch(`${baseUrl}/api/v1/documents/?project_id=${trade.project_id}`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
