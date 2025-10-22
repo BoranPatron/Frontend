@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { updateMe, getMe } from '../api/userService';
+import { getApiBaseUrl } from '../api/api';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import { 
   User, 
@@ -169,7 +170,7 @@ export default function Profile() {
       
       // Setze Logo-Vorschau wenn vorhanden
       if (userData.company_logo) {
-        setCompanyLogoPreview(`/${userData.company_logo}`);
+        setCompanyLogoPreview(`${getApiBaseUrl()}/${userData.company_logo}`);
       }
     } catch (error) {
       console.error('❌ Fehler beim Laden des Profils:', error);

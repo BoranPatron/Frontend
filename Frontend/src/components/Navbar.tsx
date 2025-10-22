@@ -46,6 +46,7 @@ import {
   Users
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getApiBaseUrl } from '../api/api';
 import { useProject } from '../context/ProjectContext';
 import { getProject } from '../api/projectService';
 import { createProject } from '../api/projectService';
@@ -1022,7 +1023,7 @@ export default function Navbar() {
                 {user?.company_logo ? (
                   <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-[#ffbd59]/30 shadow-lg shadow-[#ffbd59]/20 hover:shadow-xl hover:shadow-[#ffbd59]/30 transition-all duration-300 group">
                     <img 
-                      src={`/${user.company_logo}`} 
+                      src={`${getApiBaseUrl()}/${user.company_logo}`} 
                       alt="Company Logo" 
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                       onLoad={() => console.log('✅ Logo erfolgreich geladen:', user.company_logo)}
@@ -1069,7 +1070,7 @@ export default function Navbar() {
                         {user?.company_logo ? (
                           <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#ffbd59]/30 shadow-lg shadow-[#ffbd59]/20 hover:shadow-xl hover:shadow-[#ffbd59]/30 transition-all duration-300 group">
                             <img 
-                              src={`/${user.company_logo}`} 
+                              src={`${getApiBaseUrl()}/${user.company_logo}`} 
                               alt="Company Logo" 
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                               onLoad={() => console.log('✅ Logo im Dropdown erfolgreich geladen:', user.company_logo)}
