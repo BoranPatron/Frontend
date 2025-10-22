@@ -359,7 +359,9 @@ class ResourceService {
       const userId = user?.id;
       
       // Add user_id as query parameter if available
-      const url = userId ? `${this.baseUrl}/my?user_id=${userId}` : `${this.baseUrl}/my`;
+      // Ensure no double slashes by using proper URL construction
+      const baseUrl = this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;
+      const url = userId ? `${baseUrl}/my?user_id=${userId}` : `${baseUrl}/my`;
       
       const response = await apiCall<Resource[]>(url);
       return response;
