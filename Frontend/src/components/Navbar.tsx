@@ -1011,11 +1011,37 @@ export default function Navbar() {
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-3 p-2 hover:bg-white/10 rounded-lg transition-colors"
               >
-                <div className="w-8 h-8 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-full flex items-center justify-center">
-                  <span className="text-[#2c3539] font-semibold text-sm">
-                    {user?.first_name?.[0]}{user?.last_name?.[0]}
-                  </span>
-                </div>
+                {/* Logo oder Initialen */}
+                {user?.company_logo ? (
+                  <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-[#ffbd59]/30 shadow-lg shadow-[#ffbd59]/20 hover:shadow-xl hover:shadow-[#ffbd59]/30 transition-all duration-300 group">
+                    <img 
+                      src={`/${user.company_logo}`} 
+                      alt="Company Logo" 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      onError={(e) => {
+                        // Fallback zu Initialen bei Fehler
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.innerHTML = `
+                            <div class="w-full h-full bg-gradient-to-br from-[#ffbd59] to-[#ffa726] flex items-center justify-center">
+                              <span class="text-[#2c3539] font-semibold text-sm">
+                                ${user?.first_name?.[0] || ''}${user?.last_name?.[0] || ''}
+                              </span>
+                            </div>
+                          `;
+                        }
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="w-8 h-8 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-full flex items-center justify-center hover:scale-110 transition-transform duration-300">
+                    <span className="text-[#2c3539] font-semibold text-sm">
+                      {user?.first_name?.[0]}{user?.last_name?.[0]}
+                    </span>
+                  </div>
+                )}
                 <div className="hidden sm:block text-left">
                   <div className="text-sm font-medium text-white">
                     {user?.first_name} {user?.last_name}
@@ -1029,10 +1055,45 @@ export default function Navbar() {
                 <div className="absolute right-0 top-full mt-2 w-64 bg-[#3d4952] rounded-xl shadow-2xl border border-white/20 z-50">
                   <div className="p-2">
                     <div className="p-3 border-b border-white/10">
-                      <div className="font-medium text-white">
-                        {user?.first_name} {user?.last_name}
+                      <div className="flex items-center gap-3">
+                        {/* Logo oder Initialen im Dropdown */}
+                        {user?.company_logo ? (
+                          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#ffbd59]/30 shadow-lg shadow-[#ffbd59]/20 hover:shadow-xl hover:shadow-[#ffbd59]/30 transition-all duration-300 group">
+                            <img 
+                              src={`/${user.company_logo}`} 
+                              alt="Company Logo" 
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                              onError={(e) => {
+                                // Fallback zu Initialen bei Fehler
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  parent.innerHTML = `
+                                    <div class="w-full h-full bg-gradient-to-br from-[#ffbd59] to-[#ffa726] flex items-center justify-center">
+                                      <span class="text-[#2c3539] font-semibold text-sm">
+                                        ${user?.first_name?.[0] || ''}${user?.last_name?.[0] || ''}
+                                      </span>
+                                    </div>
+                                  `;
+                                }
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-10 h-10 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-full flex items-center justify-center hover:scale-110 transition-transform duration-300">
+                            <span className="text-[#2c3539] font-semibold text-sm">
+                              {user?.first_name?.[0]}{user?.last_name?.[0]}
+                            </span>
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-medium text-white">
+                            {user?.first_name} {user?.last_name}
+                          </div>
+                          <div className="text-sm text-gray-300">{user?.email}</div>
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-300">{user?.email}</div>
                     </div>
                     
                     <div className="p-2 space-y-1">

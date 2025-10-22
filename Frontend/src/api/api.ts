@@ -116,7 +116,7 @@ export const getAuthenticatedFileUrl = (filePath: string): string => {
   }
   
   // Fallback: Verwende files/serve mit Token als Query-Parameter
-  const serveUrl = `${baseUrl}/files/serve/${cleanPath}?token=${encodeURIComponent(token)}`;
+  const serveUrl = `${baseUrl}/api/v1/files/serve/${cleanPath}?token=${encodeURIComponent(token)}`;
   return serveUrl;
 };
 
