@@ -4,12 +4,8 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [
     react({
-      // Ensure React is properly handled in production
-      jsxRuntime: 'automatic',
-      jsxImportSource: 'react',
-      babel: {
-        plugins: []
-      }
+      // Use classic runtime to ensure React is always in scope
+      jsxRuntime: 'classic'
     })
   ],
   publicDir: 'public',
