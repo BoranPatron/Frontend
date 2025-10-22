@@ -293,7 +293,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     
     try {
       const { api } = await import('../api/api');
-      const response = await api.get(`/api/v1/milestones?project_id=${projectId}`);
+      const response = await api.get(`/api/v1/milestones/?project_id=${projectId}`);
       const data = response.data || response;
       setMilestones(Array.isArray(data) ? data : []);
     } catch (err) {

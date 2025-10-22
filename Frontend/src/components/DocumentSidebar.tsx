@@ -58,7 +58,7 @@ const CATEGORY_CONFIG: Record<string, { icon: any; color: string; label: string 
 };
 
 const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ onDocumentClick }) => {
-  const { user } = useAuth();
+  const { user, isBautraeger } = useAuth();
   const { selectedProject } = useProject();
   const [isOpen, setIsOpen] = useState(false);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -120,11 +120,20 @@ const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ onDocumentClick }) =>
       const token = localStorage.getItem('token');
       const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       
-      // Determine endpoint based on user role
-      const isBautraeger = user?.user_type === 'bautraeger';
-      const endpoint = isBautraeger 
+      // Determine endpoint based on user role using AuthContext helper
+      const isBautraegerUser = isBautraeger();
+      const endpoint = isBautraegerUser 
         ? `${baseUrl}/api/v1/documents/bautraeger/overview?project_id=${selectedProject.id}`
         : `${baseUrl}/api/v1/documents/dienstleister/overview?project_id=${selectedProject.id}`;
+      
+      // Debug logging to help diagnose future issues
+      console.log('🔍 Document Sidebar User Check:', {
+        user_role: user?.user_role,
+        user_type: user?.user_type,
+        isBautraeger: isBautraegerUser,
+        selectedEndpoint: endpoint,
+        project_id: selectedProject.id
+      });
       
       const response = await fetch(endpoint, {
         headers: {
