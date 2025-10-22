@@ -63,7 +63,7 @@ export const notificationService = {
   // Benachrichtigung als gelesen markieren
   async markAsRead(notificationId: number): Promise<void> {
     try {
-      await api.patch(`/notifications/${notificationId}/read`);
+      await api.patch(`/api/v1/notifications/${notificationId}/read`);
       console.log('✅ Benachrichtigung als gelesen markiert:', notificationId);
     } catch (error) {
       console.error('❌ Fehler beim Markieren als gelesen:', error);
@@ -74,7 +74,7 @@ export const notificationService = {
   // Benachrichtigung als quittiert markieren (acknowledge)
   async acknowledgeNotification(notificationId: number): Promise<void> {
     try {
-      await api.patch(`/notifications/${notificationId}/acknowledge`);
+      await api.patch(`/api/v1/notifications/${notificationId}/acknowledge`);
       console.log('✅ Benachrichtigung quittiert:', notificationId);
     } catch (error) {
       console.error('❌ Fehler beim Quittieren der Benachrichtigung:', error);
@@ -85,7 +85,7 @@ export const notificationService = {
   // Mehrere Benachrichtigungen als gelesen markieren
   async markMultipleAsRead(notificationIds: number[]): Promise<void> {
     try {
-      await api.patch('/notifications/mark-read', { 
+      await api.patch('/api/v1/notifications/mark-read', { 
         notification_ids: notificationIds 
       });
       console.log('✅ Mehrere Benachrichtigungen als gelesen markiert');

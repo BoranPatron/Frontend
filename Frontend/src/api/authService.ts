@@ -72,7 +72,7 @@ export interface SecurityReport {
 }
 
 class AuthService {
-  private baseUrl = '/auth';
+  private baseUrl = '/api/v1/auth';
 
   // Standard E-Mail/Passwort Login
   async login(credentials: LoginRequest): Promise<LoginResponse> {

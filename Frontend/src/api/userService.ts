@@ -28,7 +28,7 @@ export async function uploadCompanyLogo(file: File): Promise<{ file_path: string
   const formData = new FormData();
   formData.append('file', file);
   
-  const res = await api.post('/auth/upload-company-logo', formData, {
+  const res = await api.post('/api/v1/auth/upload-company-logo', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
@@ -43,7 +43,7 @@ export async function updateCompanyInfo(companyData: {
   company_logo?: string;
   company_logo_advertising_consent?: boolean;
 }) {
-  const res = await api.post('/auth/update-company-info', companyData);
+  const res = await api.post('/api/v1/auth/update-company-info', companyData);
   return res.data;
 }
 
