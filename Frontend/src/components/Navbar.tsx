@@ -1008,7 +1008,14 @@ export default function Navbar() {
             {/* Benutzer-Menü */}
             <div className="relative" data-tour-id="navbar-profile">
               <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
+                onClick={() => {
+                  console.log('🔍 User-Objekt Debug:', {
+                    hasCompanyLogo: !!user?.company_logo,
+                    companyLogo: user?.company_logo,
+                    fullUser: user
+                  });
+                  setShowUserMenu(!showUserMenu);
+                }}
                 className="flex items-center gap-3 p-2 hover:bg-white/10 rounded-lg transition-colors"
               >
                 {/* Logo oder Initialen */}
@@ -1018,7 +1025,9 @@ export default function Navbar() {
                       src={`/${user.company_logo}`} 
                       alt="Company Logo" 
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      onLoad={() => console.log('✅ Logo erfolgreich geladen:', user.company_logo)}
                       onError={(e) => {
+                        console.error('❌ Logo konnte nicht geladen werden:', user.company_logo, e);
                         // Fallback zu Initialen bei Fehler
                         const target = e.target as HTMLImageElement;
                         target.style.display = 'none';
@@ -1063,7 +1072,9 @@ export default function Navbar() {
                               src={`/${user.company_logo}`} 
                               alt="Company Logo" 
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                              onLoad={() => console.log('✅ Logo im Dropdown erfolgreich geladen:', user.company_logo)}
                               onError={(e) => {
+                                console.error('❌ Logo im Dropdown konnte nicht geladen werden:', user.company_logo, e);
                                 // Fallback zu Initialen bei Fehler
                                 const target = e.target as HTMLImageElement;
                                 target.style.display = 'none';
