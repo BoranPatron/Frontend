@@ -50,7 +50,7 @@ export default function Login() {
       formData.append('username', email); // Backend erwartet 'username' statt 'email'
       formData.append('password', password);
 
-      const response = await fetch(`${getApiBaseUrl()}/auth/login`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -128,7 +128,7 @@ export default function Login() {
       formData.append('username', 'test-dienstleister@buildwise.de');
       formData.append('password', 'Dienstleister123!');
 
-      const response = await fetch(`${getApiBaseUrl()}/auth/login`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
