@@ -111,7 +111,7 @@ export const getAuthenticatedFileUrl = (filePath: string): string => {
   // Verwende den documents/content Endpoint mit Token als Query-Parameter
   const documentId = extractDocumentIdFromPath(cleanPath);
   if (documentId) {
-    const contentUrl = `${baseUrl}/documents/${documentId}/content?token=${encodeURIComponent(token)}`;
+    const contentUrl = `${baseUrl}/api/v1/documents/${documentId}/content?token=${encodeURIComponent(token)}`;
     return contentUrl;
   }
   
