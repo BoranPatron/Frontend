@@ -1,8 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { reactNamespacePlugin } from './vite-plugin-react-namespace'
 
 export default defineConfig({
   plugins: [
+    reactNamespacePlugin(), // Convert named imports to React.xxx FIRST
     react({
       // Use classic runtime to ensure React is always in scope
       jsxRuntime: 'classic'
