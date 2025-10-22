@@ -2,26 +2,30 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  plugins: [react()],
-  publicDir: 'public', // Explicitly set public directory
+  plugins: [
+    react({
+      // Ensure React is properly handled in production
+      jsxRuntime: 'automatic',
+      jsxImportSource: 'react',
+      babel: {
+        plugins: []
+      }
+    })
+  ],
+  publicDir: 'public',
   
   // Development server configuration
   server: {
     port: 5173,
-    host: true  // Allow network access
+    host: true
   },
   
   // Production build optimizations
   build: {
     outDir: 'dist',
-    sourcemap: false,  // Disable sourcemaps in production for smaller bundle
-    minify: 'terser',  // Use terser for better minification
-    terserOptions: {
-      compress: {
-        drop_console: true,  // Remove console.log in production
-        drop_debugger: true
-      }
-    },
+    sourcemap: false,
+    minify: 'esbuild', // Use esbuild instead of terser - faster and safer for React
+    target: 'es2015',
     rollupOptions: {
       output: {
         manualChunks: {
@@ -36,8 +40,7 @@ export default defineConfig({
         }
       }
     },
-    // Chunk size warnings
-    chunkSizeWarningLimit: 1000  // 1MB
+    chunkSizeWarningLimit: 1000
   },
   
   // Dependency optimization
@@ -62,7 +65,17 @@ export default defineConfig({
       '@dnd-kit/core',
       '@dnd-kit/sortable',
       '@dnd-kit/utilities'
-    ]
+    ],
+    // Force pre-bundling of React and related packages
+    force: false,
+    esbuildOptions: {
+      target: 'es2015'
+    }
+  },
+  
+  // Ensure proper resolution of React
+  resolve: {
+    dedupe: ['react', 'react-dom']
   },
   
   // Preview server (for testing production build)
