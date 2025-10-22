@@ -20,8 +20,13 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    minify: 'esbuild', // Use esbuild instead of terser - faster and safer for React
+    minify: true,
     target: 'es2015',
+    // Ensure React hooks are preserved during minification
+    esbuild: {
+      keepNames: true,  // Preserve function names (important for React hooks)
+      minifyIdentifiers: false  // Don't minify variable names that could break React
+    },
     rollupOptions: {
       output: {
         manualChunks: {
@@ -36,7 +41,11 @@ export default defineConfig({
         }
       }
     },
-    chunkSizeWarningLimit: 1000
+    chunkSizeWarningLimit: 1000,
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true
+    }
   },
   
   // Dependency optimization
