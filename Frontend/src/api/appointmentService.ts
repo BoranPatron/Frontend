@@ -203,7 +203,18 @@ export const appointmentService = {
     link.download = `appointment_${appointmentId}.ics`;
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    
+    // Safe cleanup with timeout
+    setTimeout(() => {
+      try {
+        if (link.parentNode === document.body) {
+          document.body.removeChild(link);
+        }
+      } catch (error) {
+        console.warn('Failed to remove download link:', error);
+      }
+    }, 100);
+    
     window.URL.revokeObjectURL(url);
   },
 

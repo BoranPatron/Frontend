@@ -112,7 +112,17 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      
+      // Safe cleanup with timeout
+      setTimeout(() => {
+        try {
+          if (a.parentNode === document.body) {
+            document.body.removeChild(a);
+          }
+        } catch (error) {
+          console.warn('Failed to remove download link:', error);
+        }
+      }, 100);
     } catch (err: any) {
       console.error('❌ Download-Fehler:', err);
       alert('Fehler beim Herunterladen: ' + err.message);

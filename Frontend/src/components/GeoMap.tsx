@@ -28,10 +28,23 @@ export default function GeoMap({
     link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
     link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
     link.crossOrigin = '';
-    document.head.appendChild(link);
+    link.setAttribute('data-component', 'GeoMap-CSS');
+    
+    try {
+      document.head.appendChild(link);
+    } catch (error) {
+      console.error('Failed to append Leaflet CSS:', error);
+    }
 
     return () => {
-      document.head.removeChild(link);
+      try {
+        if (link.parentNode === document.head) {
+          document.head.removeChild(link);
+        }
+      } catch (error) {
+        // Silent fail - Element wurde bereits entfernt oder ist nicht mehr im DOM
+        console.warn('Failed to remove Leaflet CSS link:', error);
+      }
     };
   }, []);
 
@@ -41,15 +54,27 @@ export default function GeoMap({
     script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
     script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
     script.crossOrigin = '';
+    script.setAttribute('data-component', 'GeoMap-Script');
     
     script.onload = () => {
       setIsMapLoaded(true);
     };
     
-    document.head.appendChild(script);
+    try {
+      document.head.appendChild(script);
+    } catch (error) {
+      console.error('Failed to append Leaflet script:', error);
+    }
 
     return () => {
-      document.head.removeChild(script);
+      try {
+        if (script.parentNode === document.head) {
+          document.head.removeChild(script);
+        }
+      } catch (error) {
+        // Silent fail - Element wurde bereits entfernt oder ist nicht mehr im DOM
+        console.warn('Failed to remove Leaflet script:', error);
+      }
     };
   }, []);
 

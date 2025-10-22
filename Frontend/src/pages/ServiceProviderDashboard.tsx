@@ -78,6 +78,7 @@ export default function ServiceProviderDashboard() {
   // CSS for blinking glow effect
   React.useEffect(() => {
     const style = document.createElement('style');
+    style.setAttribute('data-component', 'ServiceProviderDashboard');
     style.textContent = `
       @keyframes glow-blink {
         0% {
@@ -90,10 +91,20 @@ export default function ServiceProviderDashboard() {
         }
       }
     `;
-    document.head.appendChild(style);
+    
+    try {
+      document.head.appendChild(style);
+    } catch (error) {
+      console.error('Failed to append ServiceProviderDashboard styles:', error);
+    }
+    
     return () => {
-      if (document.head.contains(style)) {
-        document.head.removeChild(style);
+      try {
+        if (style.parentNode === document.head) {
+          document.head.removeChild(style);
+        }
+      } catch (error) {
+        console.warn('Failed to remove ServiceProviderDashboard styles:', error);
       }
     };
   }, []);

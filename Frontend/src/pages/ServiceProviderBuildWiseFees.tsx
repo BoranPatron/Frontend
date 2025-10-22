@@ -234,7 +234,17 @@ export default function ServiceProviderBuildWiseFees() {
           document.body.appendChild(a);
           a.click();
           window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
+          
+          // Safe cleanup with timeout
+          setTimeout(() => {
+            try {
+              if (a.parentNode === document.body) {
+                document.body.removeChild(a);
+              }
+            } catch (error) {
+              console.warn('Failed to remove download link:', error);
+            }
+          }, 100);
           
           setSuccess('PDF-Rechnung erfolgreich heruntergeladen!');
           setTimeout(() => setSuccess(''), 5000);

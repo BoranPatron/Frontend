@@ -26,11 +26,36 @@ const styles = `
   }
 `;
 
-if (typeof document !== 'undefined' && !document.querySelector('#tour-styles')) {
-  const styleSheet = document.createElement('style');
-  styleSheet.id = 'tour-styles';
-  styleSheet.textContent = styles;
-  document.head.appendChild(styleSheet);
+// Inject styles with singleton pattern and cleanup
+function useTourStyles() {
+  useEffect(() => {
+    // Check if styles already exist
+    const existingStyles = document.querySelector('#tour-styles');
+    if (existingStyles) {
+      return; // Styles already injected
+    }
+    
+    const styleSheet = document.createElement('style');
+    styleSheet.id = 'tour-styles';
+    styleSheet.setAttribute('data-component', 'FinalGuidedTour');
+    styleSheet.textContent = styles;
+    
+    try {
+      document.head.appendChild(styleSheet);
+    } catch (error) {
+      console.error('Failed to append tour styles:', error);
+    }
+    
+    return () => {
+      try {
+        if (styleSheet.parentNode === document.head) {
+          document.head.removeChild(styleSheet);
+        }
+      } catch (error) {
+        console.warn('Failed to remove tour styles:', error);
+      }
+    };
+  }, []);
 }
 
 interface TourStep {
@@ -94,6 +119,8 @@ export default function FinalGuidedTour({
   onCompleted,
   userRole = 'BAUTRAEGER'
 }: FinalGuidedTourProps) {
+  useTourStyles(); // Initialize styles with cleanup
+  
   const { completeTour } = useOnboarding();
   const [current, setCurrent] = useState(0);
   const mockupRef = useRef<HTMLDivElement>(null);

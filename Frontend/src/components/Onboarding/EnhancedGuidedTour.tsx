@@ -77,11 +77,30 @@ const customStyles = `
   }
 `;
 
-// Inject styles
-if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement('style');
-  styleSheet.textContent = customStyles;
-  document.head.appendChild(styleSheet);
+// Inject styles with cleanup
+function useEnhancedTourStyles() {
+  useEffect(() => {
+    const styleSheet = document.createElement('style');
+    styleSheet.id = 'enhanced-tour-styles';
+    styleSheet.setAttribute('data-component', 'EnhancedGuidedTour');
+    styleSheet.textContent = customStyles;
+    
+    try {
+      document.head.appendChild(styleSheet);
+    } catch (error) {
+      console.error('Failed to append enhanced tour styles:', error);
+    }
+    
+    return () => {
+      try {
+        if (styleSheet.parentNode === document.head) {
+          document.head.removeChild(styleSheet);
+        }
+      } catch (error) {
+        console.warn('Failed to remove enhanced tour styles:', error);
+      }
+    };
+  }, []);
 }
 
 type Pointer = 'auto' | 'top' | 'bottom' | 'left' | 'right';
@@ -285,6 +304,8 @@ export default function EnhancedGuidedTour({
   steps, 
   userRole = 'BAUTRAEGER' 
 }: EnhancedGuidedTourProps) {
+  useEnhancedTourStyles(); // Initialize styles with cleanup
+  
   const { completeTour } = useOnboarding();
   const [current, setCurrent] = useState(0);
   const [activeEl, setActiveEl] = useState<HTMLElement | null>(null);

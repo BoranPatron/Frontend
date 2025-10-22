@@ -90,11 +90,19 @@ export default function TradeMap({
         console.error('❌ Fehler beim Laden von Leaflet CSS');
       };
       
-      document.head.appendChild(link);
+      try {
+        document.head.appendChild(link);
+      } catch (error) {
+        console.error('Failed to append Leaflet CSS:', error);
+      }
       
       return () => {
-        if (document.head.contains(link)) {
-          document.head.removeChild(link);
+        try {
+          if (document.head.contains(link)) {
+            document.head.removeChild(link);
+          }
+        } catch (error) {
+          console.warn('Failed to remove Leaflet CSS:', error);
         }
       };
     }
@@ -125,11 +133,19 @@ export default function TradeMap({
         console.error('❌ Fehler beim Laden von Leaflet Script');
       };
       
-      document.head.appendChild(script);
+      try {
+        document.head.appendChild(script);
+      } catch (error) {
+        console.error('Failed to append Leaflet script:', error);
+      }
       
       return () => {
-        if (document.head.contains(script)) {
-          document.head.removeChild(script);
+        try {
+          if (document.head.contains(script)) {
+            document.head.removeChild(script);
+          }
+        } catch (error) {
+          console.warn('Failed to remove Leaflet script:', error);
         }
       };
     } else {

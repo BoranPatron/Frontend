@@ -10,11 +10,30 @@ const styles = `
   }
 `;
 
-// Inject styles
-if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement('style');
-  styleSheet.textContent = styles;
-  document.head.appendChild(styleSheet);
+// Inject styles with cleanup
+function useWorkingTourStyles() {
+  useEffect(() => {
+    const styleSheet = document.createElement('style');
+    styleSheet.id = 'working-tour-styles';
+    styleSheet.setAttribute('data-component', 'WorkingGuidedTour');
+    styleSheet.textContent = styles;
+    
+    try {
+      document.head.appendChild(styleSheet);
+    } catch (error) {
+      console.error('Failed to append working tour styles:', error);
+    }
+    
+    return () => {
+      try {
+        if (styleSheet.parentNode === document.head) {
+          document.head.removeChild(styleSheet);
+        }
+      } catch (error) {
+        console.warn('Failed to remove working tour styles:', error);
+      }
+    };
+  }, []);
 }
 
 interface TourStep {
@@ -74,6 +93,8 @@ export default function WorkingGuidedTour({
   onCompleted,
   userRole = 'BAUTRAEGER'
 }: SimpleTourProps) {
+  useWorkingTourStyles(); // Initialize styles with cleanup
+  
   const { completeTour } = useOnboarding();
   const [current, setCurrent] = useState(0);
   

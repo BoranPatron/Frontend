@@ -19,11 +19,30 @@ const animationStyles = `
   }
 `;
 
-// Inject CSS
-if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement('style');
-  styleSheet.textContent = animationStyles;
-  document.head.appendChild(styleSheet);
+// Inject CSS with cleanup
+function useKanbanStyles() {
+  useEffect(() => {
+    const styleSheet = document.createElement('style');
+    styleSheet.id = 'kanban-board-styles';
+    styleSheet.setAttribute('data-component', 'KanbanBoard');
+    styleSheet.textContent = animationStyles;
+    
+    try {
+      document.head.appendChild(styleSheet);
+    } catch (error) {
+      console.error('Failed to append Kanban styles:', error);
+    }
+    
+    return () => {
+      try {
+        if (styleSheet.parentNode === document.head) {
+          document.head.removeChild(styleSheet);
+        }
+      } catch (error) {
+        console.warn('Failed to remove Kanban styles:', error);
+      }
+    };
+  }, []);
 }
 
 interface Task {
@@ -206,6 +225,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   className = '',
   defaultExpanded = false
 }) => {
+  useKanbanStyles(); // Initialize styles with cleanup
+  
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);

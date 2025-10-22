@@ -39,11 +39,30 @@ const fadeInUpStyle = `
   }
 `;
 
-// Inject CSS
-if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement('style');
-  styleSheet.textContent = fadeInUpStyle;
-  document.head.appendChild(styleSheet);
+// Inject CSS with cleanup
+function useFinanceWidgetStyles() {
+  useEffect(() => {
+    const styleSheet = document.createElement('style');
+    styleSheet.id = 'finance-widget-styles';
+    styleSheet.setAttribute('data-component', 'FinanceWidget');
+    styleSheet.textContent = fadeInUpStyle;
+    
+    try {
+      document.head.appendChild(styleSheet);
+    } catch (error) {
+      console.error('Failed to append finance widget styles:', error);
+    }
+    
+    return () => {
+      try {
+        if (styleSheet.parentNode === document.head) {
+          document.head.removeChild(styleSheet);
+        }
+      } catch (error) {
+        console.warn('Failed to remove finance widget styles:', error);
+      }
+    };
+  }, []);
 }
 
 
@@ -87,6 +106,8 @@ interface FinanceWidgetProps {
 }
 
 export default function FinanceWidget({ projectId }: FinanceWidgetProps) {
+  useFinanceWidgetStyles(); // Initialize styles with cleanup
+  
   const { user } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [costPositions, setCostPositions] = useState<CostPosition[]>([]);

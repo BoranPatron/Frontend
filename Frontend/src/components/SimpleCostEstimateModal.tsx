@@ -636,7 +636,17 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                           a.download = doc.name || doc.title || doc.file_name || 'document';
                           document.body.appendChild(a);
                           a.click();
-                          document.body.removeChild(a);
+                          
+                          // Safe cleanup with timeout
+                          setTimeout(() => {
+                            try {
+                              if (a.parentNode === document.body) {
+                                document.body.removeChild(a);
+                              }
+                            } catch (error) {
+                              console.warn('Failed to remove download link:', error);
+                            }
+                          }, 100);
                           
                           // Cleanup
                           setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -1609,7 +1619,18 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
       link.download = `Rechnung_${existingInvoice.invoice_number}.pdf`;
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
+      
+      // Safe cleanup with timeout
+      setTimeout(() => {
+        try {
+          if (link.parentNode === document.body) {
+            document.body.removeChild(link);
+          }
+        } catch (error) {
+          console.warn('Failed to remove download link:', error);
+        }
+      }, 100);
+      
       window.URL.revokeObjectURL(url);
       
     } catch (error) {
