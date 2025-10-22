@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getApiBaseUrl } from '../api/api';
 import {
   X,
   Download,
@@ -65,7 +66,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
       // Versuche Document-ID aus verschiedenen Quellen zu extrahieren
       let documentId = document.id;
       
-      const response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/documents/${documentId}/content`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
