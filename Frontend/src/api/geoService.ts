@@ -3,7 +3,7 @@
  * Handhabt Umkreissuche, Geocoding und Standortverwaltung
  */
 
-import { getApiBaseUrl, safeApiCall } from './api';
+import { getApiBaseUrl, safeApiCall, apiCall } from './api';
 
 // Interfaces für Geo-basierte Suche
 export interface Address {
@@ -157,155 +157,89 @@ export interface UserLocation {
 // Geocoding-Funktionen
 export async function geocodeAddress(address: Address): Promise<GeocodingResult> {
   return safeApiCall(async () => {
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/geo/geocode`, {
+    const response = await apiCall<GeocodingResult>('/api/v1/geo/geocode', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
       body: JSON.stringify(address)
     });
 
-    if (!response.ok) {
-      throw new Error(`Geocoding fehlgeschlagen: ${response.statusText}`);
-    }
-
-    return response.json();
+    return response;
   });
 }
 
 export async function reverseGeocode(location: Location): Promise<Address> {
   return safeApiCall(async () => {
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/geo/reverse-geocode`, {
+    const response = await apiCall<Address>('/api/v1/geo/reverse-geocode', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
       body: JSON.stringify(location)
     });
 
-    if (!response.ok) {
-      throw new Error(`Reverse-Geocoding fehlgeschlagen: ${response.statusText}`);
-    }
-
-    return response.json();
+    return response;
   });
 }
 
 // Projekt-Suche
 export async function searchProjectsInRadius(searchRequest: ProjectSearchRequest): Promise<ProjectSearchResult[]> {
   return safeApiCall(async () => {
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/geo/search-projects`, {
+    const response = await apiCall<ProjectSearchResult[]>('/api/v1/geo/search-projects', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
       body: JSON.stringify(searchRequest)
     });
 
-    if (!response.ok) {
-      throw new Error(`Projekt-Suche fehlgeschlagen: ${response.statusText}`);
-    }
-
-    return response.json();
+    return response;
   });
 }
 
 // Gewerk-Suche (für Dienstleister)
 export async function searchTradesInRadius(searchRequest: TradeSearchRequest): Promise<TradeSearchResult[]> {
   return safeApiCall(async () => {
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/geo/search-trades`, {
+    const response = await apiCall<TradeSearchResult[]>('/api/v1/geo/search-trades', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
       body: JSON.stringify(searchRequest)
     });
 
-    if (!response.ok) {
-      throw new Error(`Gewerk-Suche fehlgeschlagen: ${response.statusText}`);
-    }
-
-    return response.json();
+    return response;
   });
 }
 
 // Dienstleister-Suche
 export async function searchServiceProvidersInRadius(searchRequest: ServiceProviderSearchRequest): Promise<ServiceProviderSearchResult[]> {
   return safeApiCall(async () => {
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/geo/search-service-providers`, {
+    const response = await apiCall<ServiceProviderSearchResult[]>('/api/v1/geo/search-service-providers', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
       body: JSON.stringify(searchRequest)
     });
 
-    if (!response.ok) {
-      throw new Error(`Dienstleister-Suche fehlgeschlagen: ${response.statusText}`);
-    }
-
-    return response.json();
+    return response;
   });
 }
 
 // Geocoding-Updates
 export async function updateUserGeocoding(userId: number): Promise<{ message: string }> {
   return safeApiCall(async () => {
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/geo/update-user-geocoding/${userId}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+    const response = await apiCall<{ message: string }>(`/api/v1/geo/update-user-geocoding/${userId}`, {
+      method: 'POST'
     });
 
-    if (!response.ok) {
-      throw new Error(`User-Geocoding-Update fehlgeschlagen: ${response.statusText}`);
-    }
-
-    return response.json();
+    return response;
   });
 }
 
 export async function updateProjectGeocoding(projectId: number): Promise<{ message: string }> {
   return safeApiCall(async () => {
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/geo/update-project-geocoding/${projectId}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+    const response = await apiCall<{ message: string }>(`/api/v1/geo/update-project-geocoding/${projectId}`, {
+      method: 'POST'
     });
 
-    if (!response.ok) {
-      throw new Error(`Projekt-Geocoding-Update fehlgeschlagen: ${response.statusText}`);
-    }
-
-    return response.json();
+    return response;
   });
 }
 
 // Aktuelle Position abrufen
 export async function getCurrentLocation(): Promise<UserLocation> {
   return safeApiCall(async () => {
-    const response = await fetch(`${getApiBaseUrl()}/api/v1/geo/get-current-location`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    });
+    const response = await apiCall<UserLocation>('/api/v1/geo/get-current-location');
 
-    if (!response.ok) {
-      throw new Error(`Aktuelle Position konnte nicht abgerufen werden: ${response.statusText}`);
-    }
-
-    return response.json();
+    return response;
   });
 }
 
