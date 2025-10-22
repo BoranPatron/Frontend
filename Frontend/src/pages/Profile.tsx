@@ -50,7 +50,7 @@ interface ProfileData {
 }
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, login } = useAuth();
   const [profileData, setProfileData] = useState<ProfileData>({
     first_name: '',
     last_name: '',
@@ -241,6 +241,16 @@ export default function Profile() {
 
       await updateMe(updateData);
       setMessage({ type: 'success', text: 'Profil erfolgreich gespeichert!' });
+      
+      // Aktualisiere das globale User-Objekt im AuthContext
+      try {
+        const updatedUserData = await getMe();
+        // Aktualisiere das User-Objekt im AuthContext mit dem neuen Logo
+        await login(localStorage.getItem('token') || '', updatedUserData, false);
+        console.log('✅ User-Objekt im AuthContext aktualisiert mit Logo:', updatedUserData.company_logo);
+      } catch (error) {
+        console.error('❌ Fehler beim Aktualisieren des User-Objekts:', error);
+      }
       
       // Profil nach dem Speichern neu laden
       setTimeout(() => {
