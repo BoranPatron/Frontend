@@ -246,7 +246,7 @@ export default function CostEstimateDocumentViewer({ documents, existingQuotes }
                         const documentId = extractDocumentIdFromUrl(doc.url || doc.file_path || '');
                         if (documentId) {
                           const baseUrl = getApiBaseUrl();
-                          const response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
+                          const response = await fetch(`${baseUrl}/api/v1/documents/${documentId}/content`, {
                             headers: {
                               'Authorization': `Bearer ${token}`
                             }

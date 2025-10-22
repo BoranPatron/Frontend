@@ -909,7 +909,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       const documentId = extractDocumentIdFromUrl(url);
       if (documentId) {
         const baseUrl = getApiBaseUrl();
-        return `${baseUrl}/documents/${documentId}/content`;
+        return `${baseUrl}/api/v1/documents/${documentId}/content`;
       }
       return getAuthenticatedFileUrl(url);
     }

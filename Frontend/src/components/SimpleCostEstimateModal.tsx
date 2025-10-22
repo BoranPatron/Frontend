@@ -252,7 +252,7 @@ const ImageViewer: React.FC<{ url: string; filename: string; onError: (error: st
       
       if (documentId) {
         const baseUrl = getApiBaseUrl();
-        const response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
+        const response = await fetch(`${baseUrl}/api/v1/documents/${documentId}/content`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -463,7 +463,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       const documentId = extractDocumentIdFromUrl(url);
       if (documentId) {
         const baseUrl = getApiBaseUrl();
-        return `${baseUrl}/documents/${documentId}/content`;
+        return `${baseUrl}/api/v1/documents/${documentId}/content`;
       }
       return getAuthenticatedFileUrl(url);
     }
@@ -510,7 +510,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       const documentId = extractDocumentIdFromUrl(doc.url || doc.file_path || '') || doc.id;
       const baseUrl = getApiBaseUrl();
       
-      const response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
+      const response = await fetch(`${baseUrl}/api/v1/documents/${documentId}/content`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -617,7 +617,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                           const documentId = extractDocumentIdFromUrl(doc.url || doc.file_path || '') || doc.id;
                           const baseUrl = getApiBaseUrl();
                           
-                          const response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
+                          const response = await fetch(`${baseUrl}/api/v1/documents/${documentId}/content`, {
                             headers: {
                               'Authorization': `Bearer ${token}`
                             }
@@ -670,7 +670,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                         const documentId = extractDocumentIdFromUrl(doc.url || doc.file_path || '') || doc.id;
                         const baseUrl = getApiBaseUrl();
                         
-                        const response = await fetch(`${baseUrl}/documents/${documentId}/content`, {
+                        const response = await fetch(`${baseUrl}/api/v1/documents/${documentId}/content`, {
                           headers: {
                             'Authorization': `Bearer ${token}`
                           }
