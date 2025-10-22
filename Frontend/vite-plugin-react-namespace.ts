@@ -26,6 +26,9 @@ export function reactNamespacePlugin(): Plugin {
         return null;
       }
 
+      // Debug logging
+      console.log(`🔧 React Namespace Plugin: Processing ${id}`);
+
       let transformedCode = code;
       
       // List of all React hooks and common exports
@@ -39,17 +42,31 @@ export function reactNamespacePlugin(): Plugin {
         'Fragment', 'StrictMode', 'Suspense', 'lazy'
       ];
 
-      // Find named imports from React
-      const namedImportRegex = /import\s+\{([^}]+)\}\s+from\s+['"]react['"]/g;
-      const matches = [...transformedCode.matchAll(namedImportRegex)];
+      // Find ALL React imports (both mixed and named-only)
+      const mixedImportRegex = /import\s+React\s*,\s*\{([^}]+)\}\s+from\s+['"]react['"]/g;
+      const namedOnlyImportRegex = /import\s+\{([^}]+)\}\s+from\s+['"]react['"]/g;
       
-      if (matches.length === 0) {
+      const mixedMatches = [...transformedCode.matchAll(mixedImportRegex)];
+      const namedMatches = [...transformedCode.matchAll(namedOnlyImportRegex)];
+      
+      if (mixedMatches.length === 0 && namedMatches.length === 0) {
         return null;
       }
 
-      // Extract all imported names
+      // Extract all imported names from both patterns
       const importedNames = new Set<string>();
-      matches.forEach(match => {
+      
+      // Handle mixed imports: import React, { useState, useEffect } from 'react'
+      mixedMatches.forEach(match => {
+        const imports = match[1].split(',').map(s => {
+          const parts = s.trim().split(/\s+as\s+/);
+          return parts[0].trim();
+        });
+        imports.forEach(name => importedNames.add(name));
+      });
+      
+      // Handle named-only imports: import { useState, useEffect } from 'react'
+      namedMatches.forEach(match => {
         const imports = match[1].split(',').map(s => {
           const parts = s.trim().split(/\s+as\s+/);
           return parts[0].trim();
@@ -57,8 +74,11 @@ export function reactNamespacePlugin(): Plugin {
         imports.forEach(name => importedNames.add(name));
       });
 
-      // Remove named imports and ensure default import exists
-      transformedCode = transformedCode.replace(namedImportRegex, '');
+      // Remove named imports from mixed imports (keep React default)
+      transformedCode = transformedCode.replace(mixedImportRegex, 'import React from \'react\'');
+      
+      // Remove named-only imports completely
+      transformedCode = transformedCode.replace(namedOnlyImportRegex, '');
       
       // Add default React import if not present
       if (!transformedCode.match(/import\s+React\s+from\s+['"]react['"]/)) {
@@ -74,6 +94,8 @@ export function reactNamespacePlugin(): Plugin {
         }
       });
 
+      console.log(`✅ React Namespace Plugin: Transformed ${id} - Found ${importedNames.size} React exports`);
+      
       return {
         code: transformedCode,
         map: null
