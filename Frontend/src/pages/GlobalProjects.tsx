@@ -27,9 +27,10 @@ import {
   Grid,
   List,
   PieChart,
-  Activity
+  Activity,
+  Trash2
 } from 'lucide-react';
-import { getProjects } from '../api/projectService';
+import { getProjects, deleteProject } from '../api/projectService';
 import { getTasks } from '../api/taskService';
 import { getDocuments } from '../api/documentService';
 import { getQuotes, getQuoteStatistics } from '../api/quoteService';
@@ -397,6 +398,38 @@ export default function GlobalProjects() {
 
   const handleRefresh = () => {
     loadGlobalData();
+  };
+
+  const canDeleteProject = (projectId: number): boolean => {
+    const details = projectDetailsData[projectId];
+    if (!details || details.loading) return false;
+    
+    // Check if any quotes are accepted or submitted
+    const hasProtectedQuotes = details.quotes?.some((quote: any) => 
+      ['accepted', 'submitted', 'ACCEPTED', 'SUBMITTED'].includes(
+        String(quote.status).toLowerCase()
+      )
+    ) || false;
+    
+    return !hasProtectedQuotes;
+  };
+
+  const handleDeleteProject = async (projectId: number, projectName: string) => {
+    const confirmed = window.confirm(
+      `Möchten Sie das Projekt "${projectName}" wirklich löschen?`
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      await deleteProject(projectId);
+      setProjects(projects.filter(p => p.id !== projectId));
+      // Reload global data to update statistics
+      loadGlobalData();
+    } catch (error: any) {
+      console.error('Error deleting project:', error);
+      setError(error.message || 'Fehler beim Löschen des Projekts');
+    }
   };
 
   const filteredProjects = getFilteredAndSortedProjects();
@@ -1084,6 +1117,23 @@ export default function GlobalProjects() {
                         )}
                       </div>
                     </button>
+                    
+                    {/* Delete Button - only show if project details are loaded and deletion is allowed */}
+                    {showProjectDetails[project.id] && canDeleteProject(project.id) && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteProject(project.id, project.name);
+                        }}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-red-500/20 backdrop-blur-xl text-red-300 rounded-xl hover:bg-red-500/30 transition-all duration-500 text-sm font-medium hover:shadow-[0_0_25px_rgba(239,68,68,0.4)] hover:border-red-400/50 border border-red-500/30 hover:scale-105 transform relative overflow-hidden group/btn"
+                        style={{ zIndex: 30 }}
+                        title="Projekt löschen"
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-r from-red-500/10 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity duration-500"></div>
+                        <Trash2 size={16} className="relative z-10 group-hover/btn:scale-110 transition-transform duration-300" />
+                      </button>
+                    )}
+                    
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
