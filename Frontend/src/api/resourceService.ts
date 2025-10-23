@@ -240,11 +240,11 @@ class ResourceService {
   private baseUrl = '/api/v1/resources';
 
   // Helper method to construct URLs properly
-  private buildUrl(path: string = ''): string {
+  private buildUrl(path: string = '', needsTrailingSlash: boolean = false): string {
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;
     if (!cleanPath) {
-      // For empty path (like createResource), add trailing slash
-      return `${this.baseUrl}/`;
+      // For empty path, check if trailing slash is needed
+      return needsTrailingSlash ? `${this.baseUrl}/` : this.baseUrl;
     }
     return `${this.baseUrl}/${cleanPath}`;
   }
@@ -253,7 +253,7 @@ class ResourceService {
   
   async createResource(resource: Resource): Promise<Resource> {
     try {
-      const response = await apiCall<Resource>(this.buildUrl(), {
+      const response = await apiCall<Resource>(this.buildUrl('', true), {
         method: 'POST',
         body: JSON.stringify(resource),
       });
@@ -560,16 +560,17 @@ class ResourceService {
     serviceProviderId: number,
     startDate: string,
     endDate: string
-  ): Promise<ResourceCalendarEntry[]> {
+  ): Promise<Resource[]> {
     try {
+      // Use listResources with service_provider_id filter instead of non-existent calendar endpoint
       const params = new URLSearchParams({
         service_provider_id: String(serviceProviderId),
         start_date: startDate,
         end_date: endDate,
       });
       
-      const response = await apiCall<ResourceCalendarEntry[]>(
-        `${this.buildUrl('calendar')}?${params.toString()}`
+      const response = await apiCall<Resource[]>(
+        `${this.buildUrl()}?${params.toString()}`
       );
       return response;
     } catch (error) {
@@ -579,7 +580,8 @@ class ResourceService {
 
   async createCalendarEntry(entry: ResourceCalendarEntry): Promise<ResourceCalendarEntry> {
     try {
-      const response = await apiCall<ResourceCalendarEntry>(this.buildUrl('calendar'), {
+      // Calendar entries are actually resources, so use createResource instead
+      const response = await apiCall<ResourceCalendarEntry>(this.buildUrl('', true), {
         method: 'POST',
         body: JSON.stringify(entry),
       });
@@ -591,7 +593,8 @@ class ResourceService {
 
   async updateCalendarEntry(id: number, entry: Partial<ResourceCalendarEntry>): Promise<ResourceCalendarEntry> {
     try {
-      const response = await apiCall<ResourceCalendarEntry>(this.buildUrl(`calendar/${id}`), {
+      // Calendar entries are actually resources, so use updateResource instead
+      const response = await apiCall<ResourceCalendarEntry>(this.buildUrl(`${id}`), {
         method: 'PUT',
         body: JSON.stringify(entry),
       });
