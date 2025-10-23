@@ -2,6 +2,7 @@
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
+import { setupChartErrorHandling } from './utils/chartErrorHandling'
 
 // KRITISCH: Mache React global verfügbar BEVOR irgendetwas anderes geladen wird
 // Dies verhindert "useEffect is not defined" Fehler in Production
@@ -52,6 +53,9 @@ if (typeof window !== 'undefined') {
   (window as any).useRef = React.useRef;
   (window as any).useCallback = React.useCallback;
   (window as any).useMemo = React.useMemo;
+  
+  // Setup Chart Error Handling global
+  setupChartErrorHandling();
 }
 
 import { BrowserRouter } from 'react-router-dom'

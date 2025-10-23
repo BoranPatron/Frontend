@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { getApiBaseUrl } from '../api/api';
 import { 
   TrendingUp, 
@@ -59,6 +59,16 @@ export default function FinancialCharts({
   const [summaryData, setSummaryData] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Refs für bessere Performance und Cleanup
+  const isMountedRef = useRef(true);
+
+  // Cleanup beim Unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const loadFinancialData = async (isRefresh = false) => {
       if (isRefresh) {
         setRefreshing(true);
@@ -96,21 +106,29 @@ export default function FinancialCharts({
           summaryResponse.json()
         ]);
 
-        setTimelineData(timelineData);
-        setVolumeData(volumeData);
-        setCategoryData(categoryData);
-        setSummaryData(summaryData);
-        setError(null);
+        // Nur State aktualisieren wenn Komponente noch gemountet ist
+        if (isMountedRef.current) {
+          setTimelineData(timelineData);
+          setVolumeData(volumeData);
+          setCategoryData(categoryData);
+          setSummaryData(summaryData);
+          setError(null);
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Fehler beim Laden der Finanzdaten');
-        console.error('Error loading financial data:', err);
+        if (isMountedRef.current) {
+          setError(err instanceof Error ? err.message : 'Fehler beim Laden der Finanzdaten');
+          console.error('Error loading financial data:', err);
+        }
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (isMountedRef.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     };
 
-    if (projectId) {
+  useEffect(() => {
+    if (projectId && isMountedRef.current) {
       loadFinancialData();
     }
   }, [projectId]);

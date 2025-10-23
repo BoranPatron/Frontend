@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { financeAnalyticsService } from '../api/financeAnalyticsService';
 import type {
   FinanceSummary,
@@ -11,6 +11,8 @@ import type {
 } from '../api/financeAnalyticsService';
 import { useProject } from '../context/ProjectContext';
 import { useSwipeable } from 'react-swipeable';
+import ChartErrorBoundary from './ChartErrorBoundary';
+import { setupChartErrorHandling, globalChartManager, safeChartDestroy } from '../utils/chartErrorHandling';
 
 // Chart.js Imports
 import {
@@ -60,6 +62,15 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
   const [milestoneCosts, setMilestoneCosts] = useState<MilestoneCosts | null>(null);
   const [paymentTimeline, setPaymentTimeline] = useState<PaymentTimeline | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Refs für Chart-Instanzen zur ordnungsgemäßen Bereinigung
+  const chartRefs = useRef<{ [key: string]: ChartJS | null }>({});
+  const isMountedRef = useRef(true);
+
+  // Setup Chart Error Handling beim Mount
+  useEffect(() => {
+    setupChartErrorHandling();
+  }, []);
 
   // Moderne Chart-Konfigurationen mit CI-Farben
   const chartOptions = {
@@ -189,9 +200,30 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
     trackMouse: true
   });
 
+  // Cleanup-Funktion für Chart-Instanzen
+  const cleanupCharts = useCallback(() => {
+    Object.entries(chartRefs.current).forEach(([key, chart]) => {
+      if (chart) {
+        globalChartManager.destroyChart(key);
+        safeChartDestroy(chart);
+      }
+    });
+    chartRefs.current = {};
+  }, []);
+
+  // Cleanup beim Unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      cleanupCharts();
+    };
+  }, [cleanupCharts]);
+
   // Lade Daten beim Komponenten-Mount
   useEffect(() => {
-    loadData();
+    if (isMountedRef.current) {
+      loadData();
+    }
   }, [projectId, timePeriod, months]);
 
   const loadData = async (isRefresh = false) => {
@@ -203,6 +235,9 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
       }
       setError(null);
 
+      // Cleanup bestehende Charts vor dem Laden neuer Daten
+      cleanupCharts();
+
       // Lade alle Daten parallel
       const [summaryData, costsOverTimeData, milestoneCostsData, paymentTimelineData] = await Promise.all([
         financeAnalyticsService.getFinanceSummary(projectId),
@@ -211,16 +246,23 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
         financeAnalyticsService.getPaymentTimeline(projectId, months)
       ]);
 
-      setSummary(summaryData);
-      setCostsOverTime(costsOverTimeData);
-      setMilestoneCosts(milestoneCostsData);
-      setPaymentTimeline(paymentTimelineData);
+      // Nur State aktualisieren wenn Komponente noch gemountet ist
+      if (isMountedRef.current) {
+        setSummary(summaryData);
+        setCostsOverTime(costsOverTimeData);
+        setMilestoneCosts(milestoneCostsData);
+        setPaymentTimeline(paymentTimelineData);
+      }
     } catch (err) {
       console.error('Fehler beim Laden der Finance-Analytics:', err);
-      setError('Fehler beim Laden der Finanzdaten');
+      if (isMountedRef.current) {
+        setError('Fehler beim Laden der Finanzdaten');
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   };
 
@@ -832,7 +874,18 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
                       </h3>
                       <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
                         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                          <Doughnut data={getPhasesChartData()} options={chartOptions} />
+                          <ChartErrorBoundary>
+                            <Doughnut 
+                              data={getPhasesChartData()} 
+                              options={chartOptions}
+                              ref={(ref) => {
+                                if (ref) {
+                                  chartRefs.current['phases'] = ref;
+                                  globalChartManager.registerChart('phases', ref);
+                                }
+                              }}
+                            />
+                          </ChartErrorBoundary>
                         </div>
                       </div>
                     </div>
@@ -887,7 +940,18 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
                   </h3>
                   <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
                     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                      <Line data={getCostsOverTimeChartData()} options={chartOptions} />
+                      <ChartErrorBoundary>
+                        <Line 
+                          data={getCostsOverTimeChartData()} 
+                          options={chartOptions}
+                          ref={(ref) => {
+                            if (ref) {
+                              chartRefs.current['timeline'] = ref;
+                              globalChartManager.registerChart('timeline', ref);
+                            }
+                          }}
+                        />
+                      </ChartErrorBoundary>
                     </div>
                   </div>
                 </div>
@@ -905,7 +969,18 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
                 </h3>
                 <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
                   <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                    <Bar data={getPhasesChartData()} options={chartOptions} />
+                    <ChartErrorBoundary>
+                      <Bar 
+                        data={getPhasesChartData()} 
+                        options={chartOptions}
+                        ref={(ref) => {
+                          if (ref) {
+                            chartRefs.current['phases-bar'] = ref;
+                            globalChartManager.registerChart('phases-bar', ref);
+                          }
+                        }}
+                      />
+                    </ChartErrorBoundary>
                   </div>
                 </div>
               </div>
@@ -922,7 +997,18 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
                 </h3>
                 <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
                   <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                    <Pie data={getCategoriesChartData()} options={chartOptions} />
+                    <ChartErrorBoundary>
+                      <Pie 
+                        data={getCategoriesChartData()} 
+                        options={chartOptions}
+                        ref={(ref) => {
+                          if (ref) {
+                            chartRefs.current['categories'] = ref;
+                            globalChartManager.registerChart('categories', ref);
+                          }
+                        }}
+                      />
+                    </ChartErrorBoundary>
                   </div>
                 </div>
               </div>
@@ -939,7 +1025,18 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
                 </h3>
                 <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
                   <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                    <Bar data={getMilestonesChartData()} options={chartOptions} />
+                    <ChartErrorBoundary>
+                      <Bar 
+                        data={getMilestonesChartData()} 
+                        options={chartOptions}
+                        ref={(ref) => {
+                          if (ref) {
+                            chartRefs.current['milestones'] = ref;
+                            globalChartManager.registerChart('milestones', ref);
+                          }
+                        }}
+                      />
+                    </ChartErrorBoundary>
                   </div>
                 </div>
               </div>
@@ -956,7 +1053,18 @@ const FinanceAnalytics: React.FC<FinanceAnalyticsProps> = ({ projectId }) => {
                 </h3>
                 <div className="h-80 w-full overflow-hidden" style={{ maxWidth: '100%', position: 'relative' }}>
                   <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                    <Doughnut data={getStatusChartData()} options={chartOptions} />
+                    <ChartErrorBoundary>
+                      <Doughnut 
+                        data={getStatusChartData()} 
+                        options={chartOptions}
+                        ref={(ref) => {
+                          if (ref) {
+                            chartRefs.current['status'] = ref;
+                            globalChartManager.registerChart('status', ref);
+                          }
+                        }}
+                      />
+                    </ChartErrorBoundary>
                   </div>
                 </div>
               </div>

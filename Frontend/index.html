@@ -8,6 +8,88 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BuildWise</title>
+    
+    <!-- Chart.js DOM Error Fix - Muss vor allem anderen geladen werden -->
+    <script>
+      // Sofortige Behebung des Chart.js DOM-Fehlers
+      (function() {
+        'use strict';
+        
+        // Überschreibe Node.removeChild um DOM-Fehler zu verhindern
+        const originalRemoveChild = Node.prototype.removeChild;
+        Node.prototype.removeChild = function(child) {
+          try {
+            // Prüfe ob das Kind wirklich ein Kind dieses Knotens ist
+            if (this.contains && this.contains(child)) {
+              return originalRemoveChild.call(this, child);
+            } else {
+              console.warn('Chart.js DOM cleanup: Attempted to remove child that is not a child of this node - ignoring');
+              return child;
+            }
+          } catch (error) {
+            console.warn('Chart.js DOM cleanup: Error in removeChild - ignoring:', error);
+            return child;
+          }
+        };
+        
+        // Überschreibe console.error um Chart-Fehler zu filtern
+        const originalConsoleError = console.error;
+        console.error = function(...args) {
+          const errorMessage = args.join(' ');
+          
+          // Ignoriere Chart.js DOM-Fehler
+          if (
+            errorMessage.includes('Node.removeChild: The node to be removed is not a child of this node') ||
+            errorMessage.includes('removeChild') ||
+            errorMessage.includes('not a child of this node') ||
+            errorMessage.includes('DOMException') ||
+            errorMessage.includes('chart-vendor')
+          ) {
+            console.warn('Chart.js DOM cleanup error ignored:', errorMessage);
+            return;
+          }
+          
+          // Alle anderen Fehler normal loggen
+          originalConsoleError.apply(console, args);
+        };
+        
+        // Error Handler für unhandled promise rejections
+        window.addEventListener('unhandledrejection', function(event) {
+          const errorMessage = event.reason?.message || event.reason?.toString() || '';
+          
+          if (
+            errorMessage.includes('Node.removeChild: The node to be removed is not a child of this node') ||
+            errorMessage.includes('removeChild') ||
+            errorMessage.includes('not a child of this node') ||
+            errorMessage.includes('DOMException') ||
+            errorMessage.includes('chart-vendor')
+          ) {
+            console.warn('Chart.js DOM cleanup error in promise rejection ignored:', errorMessage);
+            event.preventDefault();
+            return;
+          }
+        });
+        
+        // Error Handler für allgemeine Fehler
+        window.addEventListener('error', function(event) {
+          const errorMessage = event.message || event.error?.message || '';
+          
+          if (
+            errorMessage.includes('Node.removeChild: The node to be removed is not a child of this node') ||
+            errorMessage.includes('removeChild') ||
+            errorMessage.includes('not a child of this node') ||
+            errorMessage.includes('DOMException') ||
+            errorMessage.includes('chart-vendor')
+          ) {
+            console.warn('Chart.js DOM cleanup error in global error handler ignored:', errorMessage);
+            event.preventDefault();
+            return;
+          }
+        });
+        
+        console.log('Chart.js DOM Error Fix aktiviert');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

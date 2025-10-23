@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getApiBaseUrl } from '../api/api';
 import { 
   DollarSign, 
@@ -70,6 +70,16 @@ export default function ProjectFinancialAnalysis({
   const [selectedChart, setSelectedChart] = useState<'categories' | 'timeline' | 'breakdown' | 'analysis'>('categories');
   const [refreshing, setRefreshing] = useState(false);
 
+  // Refs für bessere Performance und Cleanup
+  const isMountedRef = useRef(true);
+
+  // Cleanup beim Unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const loadFinancialData = async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
@@ -118,29 +128,36 @@ export default function ProjectFinancialAnalysis({
           analysis: analysisData
         });
         
-        setFinancialData({
-          totalExpenses: summaryData.total_expenses,
-          remainingBudget: summaryData.remaining_budget,
-          budgetPercentage: summaryData.budget_percentage,
-          isOverBudget: summaryData.is_over_budget,
-          categories: categoryData.categories || [],
-          timelineData: timelineData.data || [],
-          costBreakdown: breakdownData.costs || [],
-          costAnalysis: analysisData
-        });
+        // Nur State aktualisieren wenn Komponente noch gemountet ist
+        if (isMountedRef.current) {
+          setFinancialData({
+            totalExpenses: summaryData.total_expenses,
+            remainingBudget: summaryData.remaining_budget,
+            budgetPercentage: summaryData.budget_percentage,
+            isOverBudget: summaryData.is_over_budget,
+            categories: categoryData.categories || [],
+            timelineData: timelineData.data || [],
+            costBreakdown: breakdownData.costs || [],
+            costAnalysis: analysisData
+          });
 
-        setError(null);
+          setError(null);
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Fehler beim Laden der Finanzdaten');
-        console.error('Error loading financial data:', err);
+        if (isMountedRef.current) {
+          setError(err instanceof Error ? err.message : 'Fehler beim Laden der Finanzdaten');
+          console.error('Error loading financial data:', err);
+        }
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (isMountedRef.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     };
 
   useEffect(() => {
-    if (projectId) {
+    if (projectId && isMountedRef.current) {
       loadFinancialData();
     }
   }, [projectId]);

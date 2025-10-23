@@ -749,6 +749,11 @@ export default function ServiceProviderDashboard() {
             console.log('🎯 Öffne CostEstimateForm für Trade:', trade.id, trade.title);
             setSelectedTradeForQuote(trade);
             setShowCostEstimateForm(true);
+            // Schließe das TradeDetailsModal, wenn es geöffnet ist
+            if (showTradeDetails) {
+              setShowTradeDetails(false);
+              setDetailTrade(null);
+            }
           } else {
             console.log('🎯 CostEstimateForm nicht geöffnet (URL-Parameter) - User hat bereits ein Angebot für Trade:', trade.id);
             // Öffne stattdessen das TradeDetailsModal
@@ -826,6 +831,11 @@ export default function ServiceProviderDashboard() {
             console.log('🎯 Öffne CostEstimateForm für Trade:', trade.id, trade.title);
             setSelectedTradeForQuote(trade);
             setShowCostEstimateForm(true);
+            // Schließe das TradeDetailsModal, wenn es geöffnet ist
+            if (showTradeDetails) {
+              setShowTradeDetails(false);
+              setDetailTrade(null);
+            }
           } else {
             console.log('🎯 CostEstimateForm nicht geöffnet - User hat bereits ein Angebot für Trade:', trade.id);
             // Öffne stattdessen das TradeDetailsModal
@@ -1828,6 +1838,11 @@ export default function ServiceProviderDashboard() {
   const handleCreateQuote = (trade: TradeSearchResult) => {
     setSelectedTradeForQuote(trade);
     setShowCostEstimateForm(true);
+    // Schließe das TradeDetailsModal, wenn es geöffnet ist
+    if (showTradeDetails) {
+      setShowTradeDetails(false);
+      setDetailTrade(null);
+    }
   };
 
   const handleTradeDetails = (trade: TradeSearchResult) => {
@@ -2804,6 +2819,11 @@ export default function ServiceProviderDashboard() {
                                   onClick={() => {
                                     setSelectedTradeForQuote(trade);
                                     setShowCostEstimateForm(true);
+                                    // Schließe das TradeDetailsModal, wenn es geöffnet ist
+                                    if (showTradeDetails) {
+                                      setShowTradeDetails(false);
+                                      setDetailTrade(null);
+                                    }
                                   }}
                                   className="flex-1 px-3 py-2 bg-yellow-500/20 text-yellow-300 rounded-lg hover:bg-yellow-500/30 transition-colors text-xs font-medium"
                                 >
