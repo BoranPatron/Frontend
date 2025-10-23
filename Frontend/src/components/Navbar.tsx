@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// Force fresh build to fix useEffect import issue - Version 3 - Build Timestamp: 2025-10-22T20:25
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 

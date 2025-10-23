@@ -1,39 +1,31 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { reactNamespacePlugin } from './vite-plugin-react-namespace'
 
 export default defineConfig({
-  plugins: [
-    reactNamespacePlugin(), // Convert named imports to React.xxx FIRST
-    react({
-      // Use classic runtime to ensure React is always in scope
-      jsxRuntime: 'classic'
-    })
-  ],
-  publicDir: 'public',
+  plugins: [react()],
+  publicDir: 'public', // Explicitly set public directory
   
   // Development server configuration
   server: {
     port: 5173,
-    host: true
+    host: true  // Allow network access
   },
   
   // Production build optimizations
   build: {
     outDir: 'dist',
-    sourcemap: false,
-    minify: true,
-    target: 'es2015',
-    // Ensure React hooks are preserved during minification
-    esbuild: {
-      keepNames: true,  // Preserve function names (important for React hooks)
-      minifyIdentifiers: false  // Don't minify variable names that could break React
+    sourcemap: false,  // Disable sourcemaps in production for smaller bundle
+    minify: 'terser',  // Use terser for better minification
+    terserOptions: {
+      compress: {
+        drop_console: true,  // Remove console.log in production
+        drop_debugger: true
+      }
     },
     rollupOptions: {
       output: {
         manualChunks: {
-          // Split vendor code for better caching
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          // Split vendor code for better caching - React-Core bleibt zusammen für Hook-Kompatibilität
           'ui-vendor': ['lucide-react', 'framer-motion'],
           'chart-vendor': ['chart.js', 'react-chartjs-2', 'recharts'],
           'utils-vendor': ['axios', 'dayjs', 'date-fns'],
@@ -43,11 +35,8 @@ export default defineConfig({
         }
       }
     },
-    chunkSizeWarningLimit: 1000,
-    commonjsOptions: {
-      include: [/node_modules/],
-      transformMixedEsModules: true
-    }
+    // Chunk size warnings
+    chunkSizeWarningLimit: 1000  // 1MB
   },
   
   // Dependency optimization
@@ -72,17 +61,7 @@ export default defineConfig({
       '@dnd-kit/core',
       '@dnd-kit/sortable',
       '@dnd-kit/utilities'
-    ],
-    // Force pre-bundling of React and related packages
-    force: false,
-    esbuildOptions: {
-      target: 'es2015'
-    }
-  },
-  
-  // Ensure proper resolution of React
-  resolve: {
-    dedupe: ['react', 'react-dom']
+    ]
   },
   
   // Preview server (for testing production build)
