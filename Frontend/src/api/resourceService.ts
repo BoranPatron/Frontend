@@ -237,13 +237,19 @@ export interface SubmitQuoteFromAllocationData {
 // ============================================
 
 class ResourceService {
-  private baseUrl = '/api/v1/resources/';
+  private baseUrl = '/api/v1/resources';
+
+  // Helper method to construct URLs properly
+  private buildUrl(path: string = ''): string {
+    const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+    return cleanPath ? `${this.baseUrl}/${cleanPath}` : this.baseUrl;
+  }
 
   // ==================== Resources CRUD ====================
   
   async createResource(resource: Resource): Promise<Resource> {
     try {
-      const response = await apiCall<Resource>(this.baseUrl, {
+      const response = await apiCall<Resource>(this.buildUrl(), {
         method: 'POST',
         body: JSON.stringify(resource),
       });
@@ -255,7 +261,7 @@ class ResourceService {
 
   async getResource(id: number): Promise<Resource> {
     try {
-      const response = await apiCall<Resource>(`${this.baseUrl}/${id}`);
+      const response = await apiCall<Resource>(this.buildUrl(`${id}`));
       return response;
     } catch (error) {
       throw handleApiError(error);
@@ -264,7 +270,7 @@ class ResourceService {
 
   async updateResource(id: number, resource: Partial<Resource>): Promise<Resource> {
     try {
-      const response = await apiCall<Resource>(`${this.baseUrl}/${id}`, {
+      const response = await apiCall<Resource>(this.buildUrl(`${id}`), {
         method: 'PUT',
         body: JSON.stringify(resource),
       });
@@ -293,7 +299,7 @@ class ResourceService {
         updateData.builder_date_range_notes = builderDateRangeNotes;
       }
       
-      const response = await apiCall<Resource>(`${this.baseUrl}/${id}`, {
+      const response = await apiCall<Resource>(this.buildUrl(`${id}`), {
         method: 'PUT',
         body: JSON.stringify(updateData),
       });
@@ -305,7 +311,7 @@ class ResourceService {
 
   async deleteResource(id: number): Promise<void> {
     try {
-      await apiCall(`${this.baseUrl}/${id}`, {
+      await apiCall(this.buildUrl(`${id}`), {
         method: 'DELETE',
       });
     } catch (error) {
@@ -329,8 +335,8 @@ class ResourceService {
       }
       
       const url = queryParams.toString() 
-        ? `${this.baseUrl}?${queryParams.toString()}`
-        : this.baseUrl;
+        ? `${this.buildUrl()}?${queryParams.toString()}`
+        : this.buildUrl();
         
       const response = await apiCall<Resource[]>(url);
       return response;
@@ -341,7 +347,7 @@ class ResourceService {
 
   async searchResourcesGeo(params: ResourceSearchParams): Promise<Resource[]> {
     try {
-      const response = await apiCall<Resource[]>(`${this.baseUrl}/search/geo`, {
+      const response = await apiCall<Resource[]>(this.buildUrl('search/geo'), {
         method: 'POST',
         body: JSON.stringify(params),
       });
@@ -359,9 +365,7 @@ class ResourceService {
       const userId = user?.id;
       
       // Add user_id as query parameter if available
-      // Ensure no double slashes by using proper URL construction
-      const baseUrl = this.baseUrl.endsWith('/') ? this.baseUrl.slice(0, -1) : this.baseUrl;
-      const url = userId ? `${baseUrl}/my?user_id=${userId}` : `${baseUrl}/my`;
+      const url = userId ? `${this.buildUrl('my')}?user_id=${userId}` : this.buildUrl('my');
       
       const response = await apiCall<Resource[]>(url);
       return response;
@@ -374,7 +378,7 @@ class ResourceService {
 
   async createAllocation(allocation: ResourceAllocation): Promise<ResourceAllocation> {
     try {
-      const response = await apiCall<ResourceAllocation>(`${this.baseUrl}/allocations`, {
+      const response = await apiCall<ResourceAllocation>(this.buildUrl('allocations'), {
         method: 'POST',
         body: JSON.stringify(allocation),
       });
@@ -386,7 +390,7 @@ class ResourceService {
 
   async updateAllocation(id: number, allocation: Partial<ResourceAllocation>): Promise<ResourceAllocation> {
     try {
-      const response = await apiCall<ResourceAllocation>(`${this.baseUrl}/allocations/${id}`, {
+      const response = await apiCall<ResourceAllocation>(this.buildUrl(`allocations/${id}`), {
         method: 'PUT',
         body: JSON.stringify(allocation),
       });
@@ -398,7 +402,7 @@ class ResourceService {
 
   async deleteAllocation(id: number): Promise<void> {
     try {
-      await apiCall(`${this.baseUrl}/allocations/${id}`, {
+      await apiCall(this.buildUrl(`allocations/${id}`), {
         method: 'DELETE',
       });
     } catch (error) {
@@ -408,7 +412,7 @@ class ResourceService {
 
   async getAllocationsByTrade(tradeId: number): Promise<ResourceAllocation[]> {
     try {
-      const response = await apiCall<ResourceAllocation[]>(`${this.baseUrl}/allocations/trade/${tradeId}`);
+      const response = await apiCall<ResourceAllocation[]>(this.buildUrl(`allocations/trade/${tradeId}`));
       return response;
     } catch (error) {
       throw handleApiError(error);
@@ -423,7 +427,7 @@ class ResourceService {
       const userId = user?.id;
       
       // Add user_id as query parameter if available
-      const url = userId ? `${this.baseUrl}/allocations/my?user_id=${userId}` : `${this.baseUrl}/allocations/my`;
+      const url = userId ? `${this.buildUrl('allocations/my')}?user_id=${userId}` : this.buildUrl('allocations/my');
       
       const response = await apiCall<ResourceAllocation[]>(url);
       return response;
@@ -434,7 +438,7 @@ class ResourceService {
 
   async getMyPendingAllocations(): Promise<ResourceAllocation[]> {
     try {
-      const response = await apiCall<ResourceAllocation[]>(`${this.baseUrl}/allocations/my-pending`);
+      const response = await apiCall<ResourceAllocation[]>(this.buildUrl('allocations/my-pending'));
       return response;
     } catch (error) {
       throw handleApiError(error);
@@ -443,7 +447,7 @@ class ResourceService {
 
   async getAllocationsByResource(resourceId: number): Promise<ResourceAllocation[]> {
     try {
-      const response = await apiCall<ResourceAllocation[]>(`${this.baseUrl}/allocations/resource/${resourceId}`);
+      const response = await apiCall<ResourceAllocation[]>(this.buildUrl(`allocations/resource/${resourceId}`));
       return response;
     } catch (error) {
       throw handleApiError(error);
@@ -456,7 +460,7 @@ class ResourceService {
     notes?: string
   ): Promise<ResourceAllocation> {
     try {
-      const response = await apiCall<ResourceAllocation>(`${this.baseUrl}/allocations/${id}/status`, {
+      const response = await apiCall<ResourceAllocation>(this.buildUrl(`allocations/${id}/status`), {
         method: 'PUT',
         body: JSON.stringify({ status, notes }),
       });
@@ -472,7 +476,7 @@ class ResourceService {
   ): Promise<{ message: string; quote_id: number; allocation_id: number; status: string }> {
     try {
       const response = await apiCall<{ message: string; quote_id: number; allocation_id: number; status: string }>(
-        `${this.baseUrl}/allocations/${allocationId}/submit-quote`,
+        this.buildUrl(`allocations/${allocationId}/submit-quote`),
         {
           method: 'POST',
           body: JSON.stringify(quoteData),
@@ -490,7 +494,7 @@ class ResourceService {
   ): Promise<{ message: string; allocation_id: number; status: string }> {
     try {
       const response = await apiCall<{ message: string; allocation_id: number; status: string }>(
-        `${this.baseUrl}/allocations/${allocationId}/reject`,
+        this.buildUrl(`allocations/${allocationId}/reject`),
         {
           method: 'POST',
           body: JSON.stringify({ rejection_reason: rejectionReason }),
@@ -506,7 +510,7 @@ class ResourceService {
 
   async createRequest(request: ResourceRequest): Promise<ResourceRequest> {
     try {
-      const response = await apiCall<ResourceRequest>(`${this.baseUrl}/requests`, {
+      const response = await apiCall<ResourceRequest>(this.buildUrl('requests'), {
         method: 'POST',
         body: JSON.stringify(request),
       });
@@ -518,7 +522,7 @@ class ResourceService {
 
   async updateRequest(id: number, request: Partial<ResourceRequest>): Promise<ResourceRequest> {
     try {
-      const response = await apiCall<ResourceRequest>(`${this.baseUrl}/requests/${id}`, {
+      const response = await apiCall<ResourceRequest>(this.buildUrl(`requests/${id}`), {
         method: 'PUT',
         body: JSON.stringify(request),
       });
@@ -530,7 +534,7 @@ class ResourceService {
 
   async getRequestsByTrade(tradeId: number): Promise<ResourceRequest[]> {
     try {
-      const response = await apiCall<ResourceRequest[]>(`${this.baseUrl}/requests/trade/${tradeId}`);
+      const response = await apiCall<ResourceRequest[]>(this.buildUrl(`requests/trade/${tradeId}`));
       return response;
     } catch (error) {
       throw handleApiError(error);
@@ -539,7 +543,7 @@ class ResourceService {
 
   async matchResourcesForRequest(requestId: number): Promise<Resource[]> {
     try {
-      const response = await apiCall<Resource[]>(`${this.baseUrl}/requests/${requestId}/match`);
+      const response = await apiCall<Resource[]>(this.buildUrl(`requests/${requestId}/match`));
       return response;
     } catch (error) {
       throw handleApiError(error);
@@ -561,7 +565,7 @@ class ResourceService {
       });
       
       const response = await apiCall<ResourceCalendarEntry[]>(
-        `${this.baseUrl}/calendar?${params.toString()}`
+        `${this.buildUrl('calendar')}?${params.toString()}`
       );
       return response;
     } catch (error) {
@@ -571,7 +575,7 @@ class ResourceService {
 
   async createCalendarEntry(entry: ResourceCalendarEntry): Promise<ResourceCalendarEntry> {
     try {
-      const response = await apiCall<ResourceCalendarEntry>(`${this.baseUrl}/calendar`, {
+      const response = await apiCall<ResourceCalendarEntry>(this.buildUrl('calendar'), {
         method: 'POST',
         body: JSON.stringify(entry),
       });
@@ -583,7 +587,7 @@ class ResourceService {
 
   async updateCalendarEntry(id: number, entry: Partial<ResourceCalendarEntry>): Promise<ResourceCalendarEntry> {
     try {
-      const response = await apiCall<ResourceCalendarEntry>(`${this.baseUrl}/calendar/${id}`, {
+      const response = await apiCall<ResourceCalendarEntry>(this.buildUrl(`calendar/${id}`), {
         method: 'PUT',
         body: JSON.stringify(entry),
       });
@@ -609,7 +613,7 @@ class ResourceService {
       if (periodEnd) params.append('period_end', periodEnd);
       
       const response = await apiCall<ResourceKPIs>(
-        `${this.baseUrl}/kpis?${params.toString()}`
+        `${this.buildUrl('kpis')}?${params.toString()}`
       );
       return response;
     } catch (error) {
@@ -619,7 +623,7 @@ class ResourceService {
 
   async calculateKPIs(serviceProviderId: number): Promise<ResourceKPIs> {
     try {
-      const response = await apiCall<ResourceKPIs>(`${this.baseUrl}/kpis/calculate`, {
+      const response = await apiCall<ResourceKPIs>(this.buildUrl('kpis/calculate'), {
         method: 'POST',
         body: JSON.stringify({ service_provider_id: serviceProviderId }),
       });
@@ -633,7 +637,7 @@ class ResourceService {
 
   async bulkCreateAllocations(allocations: ResourceAllocation[]): Promise<ResourceAllocation[]> {
     try {
-      const response = await apiCall<ResourceAllocation[]>(`${this.baseUrl}/allocations/bulk`, {
+      const response = await apiCall<ResourceAllocation[]>(this.buildUrl('allocations/bulk'), {
         method: 'POST',
         body: JSON.stringify({ allocations }),
       });
@@ -648,7 +652,7 @@ class ResourceService {
     status: ResourceAllocation['allocation_status']
   ): Promise<void> {
     try {
-      await apiCall(`${this.baseUrl}/allocations/bulk/status`, {
+      await apiCall(this.buildUrl('allocations/bulk/status'), {
         method: 'PUT',
         body: JSON.stringify({ allocation_ids: allocationIds, status }),
       });
@@ -661,7 +665,7 @@ class ResourceService {
 
   async sendInvitationNotification(allocationId: number): Promise<void> {
     try {
-      await apiCall(`${this.baseUrl}/allocations/${allocationId}/invite`, {
+      await apiCall(this.buildUrl(`allocations/${allocationId}/invite`), {
         method: 'POST',
       });
     } catch (error) {
@@ -671,7 +675,7 @@ class ResourceService {
 
   async markInvitationViewed(allocationId: number): Promise<void> {
     try {
-      await apiCall(`${this.baseUrl}/allocations/${allocationId}/view`, {
+      await apiCall(this.buildUrl(`allocations/${allocationId}/view`), {
         method: 'POST',
       });
     } catch (error) {
@@ -687,7 +691,7 @@ class ResourceService {
         ? `?service_provider_id=${serviceProviderId}`
         : '';
       
-      const response = await apiCall(`${this.baseUrl}/statistics${params}`);
+      const response = await apiCall(`${this.buildUrl('statistics')}${params}`);
       return response;
     } catch (error) {
       throw handleApiError(error);
@@ -705,7 +709,7 @@ class ResourceService {
       if (periodStart) params.append('period_start', periodStart);
       if (periodEnd) params.append('period_end', periodEnd);
       
-      const url = `${this.baseUrl}/kpis/detailed?${params.toString()}`;
+      const url = `${this.buildUrl('kpis/detailed')}?${params.toString()}`;
       console.log('🌐 API Call:', url);
       console.log('📊 Params:', { serviceProviderId, periodStart, periodEnd });
       
@@ -731,7 +735,7 @@ class ResourceService {
       });
       
       const response = await apiCall(
-        `${this.baseUrl}/availability-matrix?${params.toString()}`
+        `${this.buildUrl('availability-matrix')}?${params.toString()}`
       );
       return response;
     } catch (error) {
