@@ -1694,7 +1694,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
     try {
       console.log('🔍 SimpleCostEstimateModal - Sende Abnahme-Anfrage für Trade:', trade?.id);
       
-      const response = await apiCall(`/milestones/${trade?.id}/progress/completion`, {
+      const response = await apiCall(`/api/v1/milestones/${trade?.id}/progress/completion`, {
         method: 'POST',
         body: JSON.stringify({
           message: 'Gewerk fertiggestellt. Bitte um Abnahme.',
@@ -1724,7 +1724,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
         deadline
       });
       
-      const response = await apiCall(`/milestones/${trade?.id}/progress/completion/response`, {
+      const response = await apiCall(`/api/v1/milestones/${trade?.id}/progress/completion/response`, {
         method: 'POST',
         body: JSON.stringify({
           accepted,

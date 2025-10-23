@@ -46,7 +46,7 @@ import {
 import ReviseQuoteModal from './ReviseQuoteModal';
 import type { TradeSearchResult } from '../api/geoService';
 import { useAuth } from '../context/AuthContext';
-import { getAuthenticatedFileUrl, getApiBaseUrl, apiCall } from '../api/api';
+import { getAuthenticatedFileUrl, getApiBaseUrl, apiCall, api } from '../api/api';
 import { getUserCompanyLogo } from '../api/userService';
 import { getMe } from '../api/userService';
 import TradeProgress from './TradeProgress';
@@ -1887,9 +1887,9 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         return;
       }
 
-      console.log(`📧 Sende POST-Request an: http://localhost:8000/api/v1/milestones/${trade.id}/mark-messages-read`);
+      console.log(`📧 Sende POST-Request an: ${getApiBaseUrl()}/api/v1/milestones/${trade.id}/mark-messages-read`);
 
-      const response = await fetch(`http://localhost:8000/api/v1/milestones/${trade.id}/mark-messages-read`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/milestones/${trade.id}/mark-messages-read`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -2018,7 +2018,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         if (!token) return;
         
         const baseUrl = window.location.hostname === 'localhost' 
-          ? 'http://localhost:8000/api/v1' 
+          ? `${getApiBaseUrl()}/api/v1` 
           : '/api/v1';
         
         console.log('ðŸ” TradeDetailsModal - Lade vollstÃ¤ndige Trade-Daten fÃ¼r ID:', trade.id);
@@ -3003,7 +3003,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
               } else {
                 // Versuche den neuen API-Endpoint für andere User
                 try {
-                  const directResponse = await fetch(`http://localhost:8000/api/v1/users/${logoUserId}/company-logo`, {
+                  const directResponse = await fetch(`${getApiBaseUrl()}/api/v1/users/${logoUserId}/company-logo`, {
                     headers: {
                       'Authorization': `Bearer ${localStorage.getItem('token')}`,
                       'Content-Type': 'application/json'
@@ -3687,7 +3687,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     try {
       console.log('ðŸ” TradeDetailsModal - Sende Abnahme-Anfrage fÃ¼r Trade:', trade?.id);
       
-      const response = await apiCall(`/milestones/${trade?.id}/progress/completion`, {
+      const response = await apiCall(`/api/v1/milestones/${trade?.id}/progress/completion`, {
         method: 'POST',
         body: JSON.stringify({
           message: 'Ausschreibung fertiggestellt. Bitte um Abnahme.'
@@ -4077,7 +4077,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         deadline
       });
       
-      const response = await apiCall(`/milestones/${trade?.id}/progress/completion/response`, {
+      const response = await apiCall(`/api/v1/milestones/${trade?.id}/progress/completion/response`, {
         method: 'POST',
         body: JSON.stringify({
           accepted,
@@ -4472,14 +4472,14 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             {companyLogo && !companyLogoLoading ? (
               <div className={`rounded-xl overflow-hidden shadow-lg border border-gray-600/30 bg-white flex items-center justify-center flex-shrink-0 ${isMobile ? 'w-10 h-10' : 'w-12 h-12'}`}>
                 <img 
-                  src={`http://localhost:8000/${companyLogo}`}
+                  src={`${getApiBaseUrl()}/${companyLogo}`}
                   alt="Firmenlogo"
                   className="w-full h-full object-contain p-1"
                   onLoad={() => {
                     console.log('✅ Logo erfolgreich geladen:', companyLogo);
                   }}
                   onError={(e) => {
-                    console.error('❌ Logo konnte nicht geladen werden:', `http://localhost:8000/${companyLogo}`);
+                    console.error('❌ Logo konnte nicht geladen werden:', `${getApiBaseUrl()}/${companyLogo}`);
                     // Fallback zum Icon
                     const parent = e.currentTarget.parentElement;
                     if (parent) {

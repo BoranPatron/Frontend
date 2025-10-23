@@ -119,7 +119,7 @@ export default function TradeProgress({
 
   const loadProgressUpdates = async () => {
     try {
-      const response = await apiCall(`/milestones/${milestoneId}/progress/`);
+      const response = await apiCall(`/api/v1/milestones/${milestoneId}/progress/`);
       setUpdates(response);
     } catch (error) {
       console.error('Fehler beim Laden der Updates:', error);
@@ -150,7 +150,7 @@ export default function TradeProgress({
       }
 
              console.log('🔍 Sende Progress Update:', JSON.stringify(updateData, null, 2));
-       const response = await apiCall(`/milestones/${milestoneId}/progress/`, {
+       const response = await apiCall(`/api/v1/milestones/${milestoneId}/progress/`, {
          method: 'POST',
          body: JSON.stringify(updateData)
        });
@@ -168,7 +168,7 @@ export default function TradeProgress({
            
            try {
              // Jetzt den echten Attachment-Endpoint verwenden
-             const uploadResponse = await apiCall(`/milestones/${milestoneId}/progress/${responseId}/attachments/`, {
+             const uploadResponse = await apiCall(`/api/v1/milestones/${milestoneId}/progress/${responseId}/attachments/`, {
                method: 'POST',
                body: formData,
                headers: {} // Lasse Content-Type automatisch setzen

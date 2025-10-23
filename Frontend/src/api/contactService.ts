@@ -57,7 +57,7 @@ export interface CreateContactData {
 }
 
 class ContactService {
-  private baseUrl = '/contacts';
+  private baseUrl = '/api/v1/contacts';
 
   async getAllContacts(): Promise<Contact[]> {
     try {
