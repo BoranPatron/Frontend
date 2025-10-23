@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// Importiere sichere Hooks für SES-Umgebungen
-import { safeUseState, safeUseEffect, safeUseRef, safeUseCallback, safeUseMemo } from '../utils/reactHookFallback';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
