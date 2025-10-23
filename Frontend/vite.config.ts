@@ -18,7 +18,7 @@ export default defineConfig({
     minify: 'terser',  // Use terser for better minification
     terserOptions: {
       compress: {
-        drop_console: true,  // Remove console.log in production
+        drop_console: false,  // Keep console.log for debugging React hook issues
         drop_debugger: true
       }
     },
