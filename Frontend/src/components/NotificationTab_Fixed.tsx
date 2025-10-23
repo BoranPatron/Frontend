@@ -73,7 +73,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
     try {
       let notifications: NotificationData[] = [];
       
-      const response = await fetch('http://localhost:8000/api/v1/appointments/my-appointments-simple', {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/appointments/my-appointments-simple`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'

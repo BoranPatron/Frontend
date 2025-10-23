@@ -92,7 +92,7 @@ const InspectionManagement: React.FC<InspectionManagementProps> = ({
   const fetchInspections = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/inspections/?milestone_id=${milestoneId}`, {
+      const response = await fetch(`/api/v1/inspections/?milestone_id=${milestoneId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -111,7 +111,7 @@ const InspectionManagement: React.FC<InspectionManagementProps> = ({
   const fetchQuotes = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/quotes/milestone/${milestoneId}`, {
+      const response = await fetch(`/api/v1/quotes/milestone/${milestoneId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -141,7 +141,7 @@ const InspectionManagement: React.FC<InspectionManagementProps> = ({
         scheduled_date: new Date(formData.scheduled_date).toISOString()
       };
 
-      const response = await fetch('/api/inspections/', {
+      const response = await fetch('/api/v1/inspections/', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

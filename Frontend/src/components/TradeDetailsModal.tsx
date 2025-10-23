@@ -3768,7 +3768,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       if (!bautraegerId && trade?.id) {
         console.log('🔍 Versuche Bauträger-ID über Milestone-API zu ermitteln für Milestone:', trade.id);
         try {
-          const milestoneResponse = await apiCall(`/milestones/${trade.id}`, {
+          const milestoneResponse = await apiCall(`/api/v1/milestones/${trade.id}`, {
             method: 'GET'
           });
           console.log('🔍 Milestone-API Response erhalten:', milestoneResponse);
@@ -3855,7 +3855,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
       if (!bautraegerId && trade?.id) {
         console.log('🔍 Versuche Bauträger-ID über Milestone-API zu ermitteln für Milestone:', trade.id);
         try {
-          const milestoneResponse = await apiCall(`/milestones/${trade.id}`, {
+          const milestoneResponse = await apiCall(`/api/v1/milestones/${trade.id}`, {
             method: 'GET'
           });
           console.log('🔍 Milestone-API Response erhalten:', milestoneResponse);

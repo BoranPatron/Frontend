@@ -220,7 +220,7 @@ export default function GeoSearch() {
 
   const handleCompletionSubmit = async (completionData: any) => {
     try {
-      const response = await fetch('/api/milestones/completion/request', {
+      const response = await fetch('/api/v1/milestones/completion/request', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

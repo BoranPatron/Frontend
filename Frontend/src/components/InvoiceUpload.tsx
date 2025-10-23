@@ -41,7 +41,7 @@ export default function InvoiceUpload({
       formData.append('amount', amount);
       formData.append('due_date', dueDate);
 
-      await apiCall(`/milestones/${milestoneId}/invoice`, {
+      await apiCall(`/api/v1/milestones/${milestoneId}/invoice`, {
         method: 'POST',
         body: formData,
         headers: {} // Lasse Content-Type automatisch setzen

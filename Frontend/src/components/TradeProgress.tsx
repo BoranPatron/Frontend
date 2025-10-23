@@ -201,7 +201,7 @@ export default function TradeProgress({
       if (true) { // Temporär: Immer Benachrichtigung senden
         try {
           console.log('📧 [NOTIFICATION] Sende Benachrichtigung...');
-          await apiCall(`/milestones/${milestoneId}/mark-messages-unread`, {
+          await apiCall(`/api/v1/milestones/${milestoneId}/mark-messages-unread`, {
             method: 'POST'
           });
           const recipient = isBautraeger ? 'Dienstleister' : 'Bauträger';

@@ -112,7 +112,7 @@ const QuoteRevisionModal: React.FC<QuoteRevisionModalProps> = ({
   const fetchRevisions = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/inspections/quotes/${quote.id}/revisions`, {
+      const response = await fetch(`/api/v1/inspections/quotes/${quote.id}/revisions`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -141,7 +141,7 @@ const QuoteRevisionModal: React.FC<QuoteRevisionModalProps> = ({
         completion_date: formData.completion_date ? new Date(formData.completion_date).toISOString() : null
       };
 
-      const response = await fetch(`/api/inspections/quotes/${quote.id}/revisions`, {
+      const response = await fetch(`/api/v1/inspections/quotes/${quote.id}/revisions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -51,7 +51,7 @@ const MilestoneCompletionModal: React.FC<MilestoneCompletionModalProps> = ({
 
   const loadChecklistTemplate = async (category: string) => {
     try {
-      const response = await fetch(`/api/milestones/completion/checklist/${category}`);
+      const response = await fetch(`/api/v1/milestones/completion/checklist/${category}`);
       const data = await response.json();
       
       setChecklist({
@@ -88,7 +88,7 @@ const MilestoneCompletionModal: React.FC<MilestoneCompletionModalProps> = ({
         formData.append('milestone_id', milestone.id.toString());
         formData.append('category', 'overview');
 
-        const response = await fetch('/api/milestones/photos/upload', {
+        const response = await fetch('/api/v1/milestones/photos/upload', {
           method: 'POST',
           body: formData
         });
@@ -121,7 +121,7 @@ const MilestoneCompletionModal: React.FC<MilestoneCompletionModalProps> = ({
         formData.append('milestone_id', milestone.id.toString());
         formData.append('document_type', 'certificate');
 
-        const response = await fetch('/api/milestones/documents/upload', {
+        const response = await fetch('/api/v1/milestones/documents/upload', {
           method: 'POST',
           body: formData
         });

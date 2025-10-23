@@ -79,9 +79,9 @@ export default function OAuthCallback() {
 
         try {
           const apiUrl = getApiBaseUrl();
-          console.log(`🌐 Sende OAuth-Callback an: ${apiUrl}/auth/oauth/${provider}/callback`);
+          console.log(`🌐 Sende OAuth-Callback an: ${apiUrl}/api/v1/auth/oauth/${provider}/callback`);
           
-          const response = await fetch(`${apiUrl}/auth/oauth/${provider}/callback`, {
+          const response = await fetch(`${apiUrl}/api/v1/auth/oauth/${provider}/callback`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
