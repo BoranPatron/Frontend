@@ -1770,7 +1770,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
           // Dokument-ID - lade vollständige Daten
           const docId = Number(doc);
           try {
-            const docResponse = await fetch(`${baseUrl}/documents/${docId}/info`, {
+            const docResponse = await fetch(`${baseUrl}/api/v1/documents/${docId}/info`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -1904,7 +1904,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
       const baseUrl = getApiBaseUrl();
       
       // Lade das vollständige Milestone mit Dokumenten vom Backend
-      const response = await fetch(`${baseUrl}/milestones/${tradeId}`, {
+      const response = await fetch(`${baseUrl}/api/v1/milestones/${tradeId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -2079,9 +2079,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
       const token = localStorage.getItem('token');
       if (!token) return;
       
-      const baseUrl = window.location.hostname === 'localhost' 
-        ? 'http://localhost:8000/api/v1' 
-        : '/api/v1';
+      const baseUrl = getApiBaseUrl();
       
       const ratings: {[key: number]: number} = {};
       
@@ -2089,7 +2087,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
       for (const quote of quotes) {
         if (quote.service_provider_id) {
           try {
-            const response = await fetch(`${baseUrl}/ratings/service-provider/${quote.service_provider_id}/aggregated`, {
+            const response = await fetch(`${baseUrl}/api/v1/ratings/service-provider/${quote.service_provider_id}/aggregated`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -2122,13 +2120,11 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
         const token = localStorage.getItem('token');
         if (!token) return;
         
-        const baseUrl = window.location.hostname === 'localhost' 
-          ? 'http://localhost:8000/api/v1' 
-          : '/api/v1';
+        const baseUrl = getApiBaseUrl();
         
         console.log('🔍 SimpleCostEstimateModal - Lade vollständige Trade-Daten für ID:', trade.id);
         
-        const response = await fetch(`${baseUrl}/milestones/${trade.id}`, {
+        const response = await fetch(`${baseUrl}/api/v1/milestones/${trade.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
