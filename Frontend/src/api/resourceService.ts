@@ -242,7 +242,11 @@ class ResourceService {
   // Helper method to construct URLs properly
   private buildUrl(path: string = ''): string {
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;
-    return cleanPath ? `${this.baseUrl}/${cleanPath}` : this.baseUrl;
+    if (!cleanPath) {
+      // For empty path (like createResource), add trailing slash
+      return `${this.baseUrl}/`;
+    }
+    return `${this.baseUrl}/${cleanPath}`;
   }
 
   // ==================== Resources CRUD ====================
