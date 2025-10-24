@@ -15,6 +15,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useResponsiveViewer } from '../hooks/useResponsiveViewer';
+import AdaptiveFileViewer from './AdaptiveFileViewer';
 import type { DocumentItem } from './DocumentSidebar';
 
 interface DocumentViewerModalProps {
@@ -35,6 +37,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   canNavigateNext = false
 }) => {
   const { user } = useAuth();
+  const { isMobile, isTablet } = useResponsiveViewer();
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -178,6 +181,18 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   }, [isOpen, canNavigatePrev, canNavigateNext]);
 
   if (!isOpen || !document) return null;
+
+  // Use adaptive viewer for mobile and tablet
+  if (isMobile || isTablet) {
+    return (
+      <AdaptiveFileViewer
+        fileUrl={pdfUrl || ''}
+        fileName={document.filename}
+        title={document.title}
+        onClose={onClose}
+      />
+    );
+  }
 
   return (
     <AnimatePresence>

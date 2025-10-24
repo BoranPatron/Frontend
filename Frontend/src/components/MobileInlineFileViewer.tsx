@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { X, Download, ZoomIn, ZoomOut, RotateCw, Maximize2, Minimize2, ExternalLink, Move, RotateCcw } from 'lucide-react';
+import { X, Download, ZoomIn, ZoomOut, RotateCw, ExternalLink, RotateCcw, Move } from 'lucide-react';
 import { getAuthenticatedFileUrl } from '../api/api';
 
-interface InlineFileViewerProps {
+interface MobileInlineFileViewerProps {
   fileUrl: string;
   fileName?: string;
   title?: string;
@@ -17,23 +17,20 @@ function inferType(fileUrl: string): 'pdf' | 'image' | 'unknown' {
   return 'unknown';
 }
 
-
-const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, title, onClose }) => {
+const MobileInlineFileViewer: React.FC<MobileInlineFileViewerProps> = ({ fileUrl, fileName, title, onClose }) => {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [blobUrl, setBlobUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Mobile/Tablet specific states
-  const [isMobile, setIsMobile] = useState(false);
-  const [isTablet, setIsTablet] = useState(false);
+  // Mobile specific states
   const [touchStart, setTouchStart] = useState<{ x: number; y: number; distance: number } | null>(null);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
-  const [showMobileControls, setShowMobileControls] = useState(true);
+  const [showControls, setShowControls] = useState(true);
   const [lastTouchTime, setLastTouchTime] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -41,19 +38,6 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
   // Verwende getAuthenticatedFileUrl für alle URLs
   const authenticatedUrl = getAuthenticatedFileUrl(fileUrl);
   const fileType = inferType(authenticatedUrl);
-
-  // Check for mobile/tablet on mount and resize
-  useEffect(() => {
-    const checkDevice = () => {
-      const width = window.innerWidth;
-      setIsMobile(width < 768);
-      setIsTablet(width >= 768 && width < 1024);
-    };
-    
-    checkDevice();
-    window.addEventListener('resize', checkDevice);
-    return () => window.removeEventListener('resize', checkDevice);
-  }, []);
 
   // Lade Datei mit Authentifizierung und erstelle Blob-URL
   useEffect(() => {
@@ -67,9 +51,8 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
           throw new Error('Kein Authentifizierungstoken verfügbar');
         }
         
-        console.log('🔄 Lade Datei für Inline-Viewer:', authenticatedUrl);
+        console.log('🔄 Lade Datei für Mobile Inline-Viewer:', authenticatedUrl);
         
-        // Verwende fetch mit Authorization-Header
         const response = await fetch(authenticatedUrl, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -96,7 +79,6 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
     
     loadFile();
     
-    // Cleanup bei Unmount
     return () => {
       if (blobUrl) {
         URL.revokeObjectURL(blobUrl);
@@ -106,11 +88,14 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
 
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();
-    if ((e.ctrlKey || e.metaKey) && e.key === '+') { e.preventDefault(); setZoom(z => Math.min(z + 0.25, 3)); }
-    if ((e.ctrlKey || e.metaKey) && (e.key === '-' || e.key === '_')) { e.preventDefault(); setZoom(z => Math.max(z - 0.25, 0.5)); }
   }, [onClose]);
 
-  // Touch gesture handlers for mobile
+  useEffect(() => {
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [handleKey]);
+
+  // Touch gesture handlers
   const getDistance = (touches: TouchList) => {
     if (touches.length < 2) return 0;
     const dx = touches[0].clientX - touches[1].clientX;
@@ -119,15 +104,19 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
   };
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (!isMobile && !isTablet) return;
-    
     const now = Date.now();
     const timeDiff = now - lastTouchTime;
     
     // Single tap to toggle controls
     if (e.touches.length === 1 && timeDiff < 300) {
-      setShowMobileControls(prev => !prev);
+      setShowControls(prev => !prev);
       setLastTouchTime(now);
+      return;
+    }
+    
+    // Double tap to toggle fullscreen
+    if (e.touches.length === 1 && timeDiff < 300 && timeDiff > 100) {
+      setIsFullscreen(prev => !prev);
       return;
     }
     
@@ -148,10 +137,10 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
       });
       setIsPanning(false);
     }
-  }, [isMobile, isTablet, lastTouchTime]);
+  }, [lastTouchTime]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isMobile && !isTablet || !touchStart) return;
+    if (!touchStart) return;
     e.preventDefault();
     
     if (e.touches.length === 1 && isPanning) {
@@ -183,7 +172,7 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
         distance
       });
     }
-  }, [isMobile, isTablet, touchStart, isPanning, zoom]);
+  }, [touchStart, isPanning, zoom]);
 
   const handleTouchEnd = useCallback(() => {
     setTouchStart(null);
@@ -197,14 +186,8 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
     }
   }, [zoom]);
 
-  useEffect(() => {
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [handleKey]);
-
   const download = () => {
     const a = document.createElement('a');
-    // Verwende Blob-URL falls verfügbar, sonst authenticatedUrl
     a.href = blobUrl || authenticatedUrl;
     a.download = fileName || title || 'datei';
     a.rel = 'noreferrer';
@@ -214,47 +197,37 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
   };
 
   return (
-    <div className={`fixed inset-0 z-50 ${isFullscreen ? '' : (isMobile ? 'p-2' : 'p-4')} bg-black/90 backdrop-blur-sm`}>
-      <div className={`bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] ${isFullscreen ? 'rounded-none' : (isMobile ? 'rounded-xl' : 'rounded-2xl')} shadow-2xl h-full flex flex-col`}>
-        {/* Toolbar */}
-        <div className={`flex items-center justify-between ${isMobile ? 'p-2' : 'p-3'} border-b border-gray-700`}>
-          <div className="min-w-0">
-            <div className={`text-white font-semibold truncate ${isMobile ? 'max-w-[50vw] text-sm' : 'max-w-[60vw]'}`}>
+    <div className={`fixed inset-0 z-50 ${isFullscreen ? '' : 'p-2'} bg-black/95 backdrop-blur-sm`}>
+      <div className={`bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] ${isFullscreen ? 'rounded-none' : 'rounded-xl'} shadow-2xl h-full flex flex-col`}>
+        
+        {/* Header */}
+        <div className={`flex items-center justify-between ${isFullscreen ? 'p-2' : 'p-3'} border-b border-gray-700`}>
+          <div className="min-w-0 flex-1">
+            <div className="text-white font-semibold truncate text-sm">
               {title || fileName || 'Dokument'}
             </div>
-            {!isMobile && (
-              <div className="text-xs text-gray-400 truncate max-w-[60vw]">{fileName || fileUrl}</div>
+            {!isFullscreen && (
+              <div className="text-xs text-gray-400 truncate">
+                {fileName || fileUrl}
+              </div>
             )}
           </div>
           
-          {/* Desktop Controls */}
-          {!isMobile && (
-            <div className="flex items-center gap-2">
-              <button onClick={() => setZoom(z => Math.max(z - 0.25, 0.5))} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Verkleinern"><ZoomOut size={18} /></button>
-              <span className="text-white text-sm w-12 text-center">{Math.round(zoom * 100)}%</span>
-              <button onClick={() => setZoom(z => Math.min(z + 0.25, 3))} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Vergrößern"><ZoomIn size={18} /></button>
-              <button onClick={() => setRotation(r => (r + 90) % 360)} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Drehen"><RotateCw size={18} /></button>
-              <a href={blobUrl || authenticatedUrl} target="_blank" rel="noreferrer" className="p-2 rounded-lg hover:bg-white/10 text-white" title="In neuem Tab öffnen"><ExternalLink size={18} /></a>
-              <button onClick={download} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Download"><Download size={18} /></button>
-              <button onClick={() => setIsFullscreen(v => !v)} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Vollbild">
-                {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-              </button>
-              <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Schließen"><X size={18} /></button>
-            </div>
-          )}
-          
-          {/* Mobile Controls */}
-          {isMobile && (
-            <div className="flex items-center gap-1">
-              <button onClick={download} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Download"><Download size={16} /></button>
-              <a href={blobUrl || authenticatedUrl} target="_blank" rel="noreferrer" className="p-2 rounded-lg hover:bg-white/10 text-white" title="In neuem Tab öffnen"><ExternalLink size={16} /></a>
-              <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Schließen"><X size={16} /></button>
-            </div>
-          )}
+          <div className="flex items-center gap-1">
+            <button onClick={download} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Download">
+              <Download size={16} />
+            </button>
+            <a href={blobUrl || authenticatedUrl} target="_blank" rel="noreferrer" className="p-2 rounded-lg hover:bg-white/10 text-white" title="In neuem Tab öffnen">
+              <ExternalLink size={16} />
+            </a>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 text-white" title="Schließen">
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
-        {/* Mobile/Tablet Controls Panel */}
-        {(isMobile || isTablet) && showMobileControls && (
+        {/* Mobile Controls Panel */}
+        {showControls && !isFullscreen && (
           <div className="bg-[#2a2a2a] border-b border-gray-700 p-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-white text-sm font-medium">Zoom: {Math.round(zoom * 100)}%</span>
@@ -266,37 +239,37 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
               </button>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button 
                 onClick={() => setZoom(z => Math.max(z - 0.25, 0.5))} 
-                className="flex-1 bg-[#333] hover:bg-[#444] text-white py-2 px-3 rounded-lg text-sm flex items-center justify-center gap-1"
+                className="flex-1 bg-[#333] hover:bg-[#444] text-white py-2 px-2 rounded-lg text-xs flex items-center justify-center gap-1"
               >
-                <ZoomOut size={14} />
+                <ZoomOut size={12} />
                 <span>Kleiner</span>
               </button>
               
               <button 
                 onClick={() => setZoom(z => Math.min(z + 0.25, 3))} 
-                className="flex-1 bg-[#333] hover:bg-[#444] text-white py-2 px-3 rounded-lg text-sm flex items-center justify-center gap-1"
+                className="flex-1 bg-[#333] hover:bg-[#444] text-white py-2 px-2 rounded-lg text-xs flex items-center justify-center gap-1"
               >
-                <ZoomIn size={14} />
+                <ZoomIn size={12} />
                 <span>Größer</span>
               </button>
               
               <button 
                 onClick={() => setRotation(r => (r + 90) % 360)} 
-                className="bg-[#333] hover:bg-[#444] text-white py-2 px-3 rounded-lg text-sm flex items-center justify-center"
+                className="bg-[#333] hover:bg-[#444] text-white py-2 px-2 rounded-lg text-xs flex items-center justify-center"
                 title="Drehen"
               >
-                <RotateCw size={14} />
+                <RotateCw size={12} />
               </button>
               
               <button 
                 onClick={() => setRotation(0)} 
-                className="bg-[#333] hover:bg-[#444] text-white py-2 px-3 rounded-lg text-sm flex items-center justify-center"
+                className="bg-[#333] hover:bg-[#444] text-white py-2 px-2 rounded-lg text-xs flex items-center justify-center"
                 title="Reset Rotation"
               >
-                <RotateCcw size={14} />
+                <RotateCcw size={12} />
               </button>
             </div>
             
@@ -309,7 +282,7 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
         {/* Content */}
         <div 
           ref={containerRef}
-          className="flex-1 flex items-center justify-center overflow-auto p-4 relative"
+          className="flex-1 flex items-center justify-center overflow-auto p-2 relative"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -337,13 +310,13 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
               ref={imageRef}
               src={blobUrl}
               alt={title || fileName || 'Bild'}
-              className={`max-w-none ${isMobile || isTablet ? 'cursor-grab active:cursor-grabbing' : ''}`}
+              className="max-w-none cursor-grab active:cursor-grabbing"
               style={{ 
                 transform: `scale(${zoom}) rotate(${rotation}deg) translate(${panOffset.x}px, ${panOffset.y}px)`, 
                 transformOrigin: 'center', 
                 transition: isPanning ? 'none' : 'transform 0.2s ease',
-                maxWidth: isMobile ? '100vw' : 'none',
-                maxHeight: isMobile ? '100vh' : 'none'
+                maxWidth: '100vw',
+                maxHeight: '100vh'
               }}
               draggable={false}
             />
@@ -361,7 +334,7 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
               <iframe 
                 src={`${blobUrl}#toolbar=0`} 
                 title={title || fileName || 'PDF'} 
-                className={`border-0 ${isMobile ? 'w-[95vw] h-[70vh]' : isTablet ? 'w-[90vw] h-[75vh]' : 'w-[900px] h-[80vh]'}`}
+                className="w-[95vw] h-[70vh] border-0"
                 style={{ pointerEvents: isPanning ? 'none' : 'auto' }}
               />
             </div>
@@ -382,6 +355,4 @@ const InlineFileViewer: React.FC<InlineFileViewerProps> = ({ fileUrl, fileName, 
   );
 };
 
-export default InlineFileViewer;
-
-
+export default MobileInlineFileViewer;
