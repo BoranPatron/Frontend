@@ -1872,23 +1872,23 @@ function DashboardWithCreditAnimation() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-6">
+    <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-4 md:p-6">
       {/* Header mit Projekt-Informationen */}
-      <div className="mb-8">
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2">
+      <div className="mb-6 md:mb-8">
+        <div className="mb-4 md:mb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex-1">
+              <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
                 Willkommen zurück, {user?.first_name || user?.name || 'Bauträger'}! 👋
               </h1>
-              <p className="text-gray-300 text-lg md:block hidden md:whitespace-normal">
+              <p className="text-gray-300 text-base md:text-lg md:block hidden md:whitespace-normal">
                 Hier ist dein Dashboard - verwalte deine Bauprojekte effizient und behalte den Überblick über alle wichtigen Aspekte deiner Bauvorhaben.
               </p>
-              <p className="text-gray-300 text-lg md:hidden block whitespace-nowrap overflow-hidden text-ellipsis">
+              <p className="text-gray-300 text-base md:hidden block whitespace-nowrap overflow-hidden text-ellipsis">
                 Dein Dashboard - Bauprojekte verwalten.
               </p>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 md:ml-4">
               <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-400' : 'bg-red-400'}`}></div>
               <span className="text-sm text-gray-300">{isOnline ? 'Online' : 'Offline'}</span>
             </div>
@@ -1896,11 +1896,11 @@ function DashboardWithCreditAnimation() {
         </div>
 
         {/* Fixierte Schnellzugriff-Kacheln */}
-        <div className="sticky top-0 z-40 bg-gradient-to-br from-[#1a1a2e]/95 via-[#16213e]/95 to-[#0f3460]/95 backdrop-blur-lg border-b border-white/10 mb-6 -mx-6 px-6 py-4">
-          <div className="grid grid-cols-4 gap-2 md:gap-3 lg:gap-4" data-tour-id="dashboard-projects">
+        <div className="sticky top-0 z-40 bg-gradient-to-br from-[#1a1a2e]/95 via-[#16213e]/95 to-[#0f3460]/95 backdrop-blur-lg border-b border-white/10 mb-4 md:mb-6 -mx-4 md:-mx-6 px-4 md:px-6 py-3 md:py-4">
+          <div className="grid grid-cols-4 gap-3 md:gap-4 lg:gap-6" data-tour-id="dashboard-projects">
             {/* Quick Stats */}
             <div 
-              className={`backdrop-blur-lg rounded-xl p-2 md:p-3 lg:p-4 border shadow-lg transition-all duration-300 group transform ${
+              className={`backdrop-blur-lg rounded-xl p-3 md:p-4 lg:p-5 border shadow-lg transition-all duration-300 group transform ${
                 projects.length === 0 
                   ? 'bg-white/5 border-gray-600/30 cursor-not-allowed opacity-50' 
                   : 'bg-white/10 border-[#ffbd59]/30 hover:border-[#ffbd59]/60 shadow-[#ffbd59]/20 hover:shadow-[#ffbd59]/40 hover:bg-white/15 cursor-pointer hover:scale-105'
@@ -1913,17 +1913,17 @@ function DashboardWithCreditAnimation() {
               }}
               title={projects.length === 0 ? "Erstellen Sie zuerst ein Projekt" : "Zu den Gewerken scrollen"}
             >
-              <div className="flex items-center justify-between mb-1 md:mb-2">
-                <Users size={16} className={`md:w-5 md:h-5 transition-transform duration-200 ${
+              <div className="flex items-center justify-between mb-2 md:mb-3">
+                <Users size={18} className={`md:w-6 md:h-6 transition-transform duration-200 ${
                   projects.length === 0 ? 'text-gray-500' : 'text-[#ffbd59] group-hover:scale-110'
                 }`} />
-                  <span className="text-lg md:text-xl lg:text-2xl font-bold text-white">{projectStats.activeTrades}</span>
+                  <span className="text-xl md:text-2xl lg:text-3xl font-bold text-white">{projectStats.activeTrades}</span>
               </div>
-                <p className="text-xs md:text-sm text-gray-300">Aktive Ausschreibungen</p>
+                <p className="text-sm md:text-base text-gray-300">Aktive Ausschreibungen</p>
             </div>
             
             <div 
-              className={`backdrop-blur-lg rounded-xl p-2 md:p-3 lg:p-4 border shadow-lg transition-all duration-300 group transform ${
+              className={`backdrop-blur-lg rounded-xl p-3 md:p-4 lg:p-5 border shadow-lg transition-all duration-300 group transform ${
                 projects.length === 0 
                   ? 'bg-white/5 border-gray-600/30 cursor-not-allowed opacity-50' 
                   : 'bg-white/10 border-[#ffbd59]/30 hover:border-[#ffbd59]/60 shadow-[#ffbd59]/20 hover:shadow-[#ffbd59]/40 hover:bg-white/15 cursor-pointer hover:scale-105'
@@ -1931,17 +1931,17 @@ function DashboardWithCreditAnimation() {
               onClick={projects.length === 0 ? undefined : scrollToTodoSection}
               title={projects.length === 0 ? "Erstellen Sie zuerst ein Projekt" : "Zu den To-Do Aufgaben scrollen"}
             >
-              <div className="flex items-center justify-between mb-1 md:mb-2">
-                <CheckSquare size={16} className={`md:w-5 md:h-5 transition-transform duration-200 ${
+              <div className="flex items-center justify-between mb-2 md:mb-3">
+                <CheckSquare size={18} className={`md:w-6 md:h-6 transition-transform duration-200 ${
                   projects.length === 0 ? 'text-gray-500' : 'text-green-400 group-hover:scale-110'
                 }`} />
-                  <span className="text-lg md:text-xl lg:text-2xl font-bold text-white">{projectStats.openTasks}</span>
+                  <span className="text-xl md:text-2xl lg:text-3xl font-bold text-white">{projectStats.openTasks}</span>
               </div>
-              <p className="text-xs md:text-sm text-gray-300">Offene Aufgaben</p>
+              <p className="text-sm md:text-base text-gray-300">Offene Aufgaben</p>
             </div>
             
             <div 
-              className={`backdrop-blur-lg rounded-xl p-2 md:p-3 lg:p-4 border shadow-lg transition-all duration-300 group transform ${
+              className={`backdrop-blur-lg rounded-xl p-3 md:p-4 lg:p-5 border shadow-lg transition-all duration-300 group transform ${
                 projects.length === 0 
                   ? 'bg-white/5 border-gray-600/30 cursor-not-allowed opacity-50' 
                   : 'bg-white/10 border-[#ffbd59]/30 hover:border-[#ffbd59]/60 shadow-[#ffbd59]/20 hover:shadow-[#ffbd59]/40 hover:bg-white/15 cursor-pointer hover:scale-105'
@@ -1949,17 +1949,17 @@ function DashboardWithCreditAnimation() {
               onClick={projects.length === 0 ? undefined : () => navigate('/documents')}
               title={projects.length === 0 ? "Erstellen Sie zuerst ein Projekt" : "Zum intelligenten DMS"}
             >
-              <div className="flex items-center justify-between mb-1 md:mb-2">
-                <FileText size={16} className={`md:w-5 md:h-5 transition-transform duration-200 ${
+              <div className="flex items-center justify-between mb-2 md:mb-3">
+                <FileText size={18} className={`md:w-6 md:h-6 transition-transform duration-200 ${
                   projects.length === 0 ? 'text-gray-500' : 'text-blue-400 group-hover:scale-110'
                 }`} />
-                  <span className="text-lg md:text-xl lg:text-2xl font-bold text-white">{projectStats.documentsTotal}</span>
+                  <span className="text-xl md:text-2xl lg:text-3xl font-bold text-white">{projectStats.documentsTotal}</span>
               </div>
-                <p className="text-xs md:text-sm text-gray-300">Dokumente</p>
+                <p className="text-sm md:text-base text-gray-300">Dokumente</p>
             </div>
             
             <div 
-              className={`backdrop-blur-lg rounded-xl p-2 md:p-3 lg:p-4 border shadow-lg transition-all duration-300 group transform ${
+              className={`backdrop-blur-lg rounded-xl p-3 md:p-4 lg:p-5 border shadow-lg transition-all duration-300 group transform ${
                 projects.length === 0 
                   ? 'bg-white/5 border-gray-600/30 cursor-not-allowed opacity-50' 
                   : 'bg-white/10 border-[#ffbd59]/30 hover:border-[#ffbd59]/60 shadow-[#ffbd59]/20 hover:shadow-[#ffbd59]/40 hover:bg-white/15 cursor-pointer hover:scale-105'
@@ -1972,11 +1972,11 @@ function DashboardWithCreditAnimation() {
               }}
               title={projects.length === 0 ? "Erstellen Sie zuerst ein Projekt" : "Zu den Finanzen scrollen"}
             >
-              <div className="flex items-center justify-between mb-1 md:mb-2">
-                <DollarSign size={16} className={`md:w-5 md:h-5 transition-transform duration-200 ${
+              <div className="flex items-center justify-between mb-2 md:mb-3">
+                <DollarSign size={18} className={`md:w-6 md:h-6 transition-transform duration-200 ${
                   projects.length === 0 ? 'text-gray-500' : 'text-green-400 group-hover:scale-110'
                 }`} />
-                  <span className="text-lg md:text-xl lg:text-2xl font-bold text-white">
+                  <span className="text-xl md:text-2xl lg:text-3xl font-bold text-white">
                     {(() => {
                       // Verwende die gleiche Berechnung wie in ProjectFinancialAnalysis
                       if (!currentProject.budget) return 'N/A';
@@ -1985,7 +1985,7 @@ function DashboardWithCreditAnimation() {
                     })()}
                   </span>
               </div>
-              <p className="text-xs md:text-sm text-gray-300">Finanzen</p>
+              <p className="text-sm md:text-base text-gray-300">Finanzen</p>
             </div>
           </div>
         </div>
@@ -1996,7 +1996,7 @@ function DashboardWithCreditAnimation() {
         {projects.length > 0 && (
           <div 
             {...swipeHandlers}
-            className="relative bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 transition-all duration-300 hover:bg-white/15"
+            className="relative bg-white/10 backdrop-blur-lg rounded-2xl p-4 md:p-6 border border-white/20 transition-all duration-300 hover:bg-white/15"
           >
             <div className="mb-4">
               <div className="flex items-center space-x-3 mb-4">
@@ -2005,7 +2005,7 @@ function DashboardWithCreditAnimation() {
               </div>
               
               {/* Desktop: Projektnavigation mit Dots */}
-              <div className="hidden md:flex justify-center mb-4">
+              <div className="hidden lg:flex justify-center mb-4">
                 {/* Dot-Indikatoren */}
                 <div className="flex items-center gap-3">
                   {projects.map((_, index) => (
@@ -2023,25 +2023,25 @@ function DashboardWithCreditAnimation() {
                 </div>
               </div>
 
-              {/* Mobile: Projektnavigation mit Dots */}
-              <div className="md:hidden mb-4">
+              {/* Tablet/Mobile: Projektnavigation mit Dots */}
+              <div className="lg:hidden mb-4">
                 <div className="text-center mb-3">
                   <div className="text-xs text-gray-400">
                     Wischen oder Punkt antippen zum Wechseln
                   </div>
                 </div>
                 
-                {/* Dot-Indikatoren für Mobile */}
-                <div className="flex items-center justify-center gap-3">
+                {/* Dot-Indikatoren für Tablet/Mobile */}
+                <div className="flex items-center justify-center gap-4">
                   {projects.map((_, index) => (
                     <button
-                      key={`mobile-dot-${index}`}
+                      key={`tablet-dot-${index}`}
                       onClick={() => setSelectedProjectIndex(index)}
                       className={`transition-all duration-300 ${
                         index === selectedProjectIndex
-                          ? 'w-4 h-4 bg-[#ffbd59] shadow-lg shadow-[#ffbd59]/50 ring-2 ring-[#ffbd59]/30'
-                          : 'w-3 h-3 bg-white/30 hover:bg-white/50'
-                      } rounded-full hover:scale-125 active:scale-110`}
+                          ? 'w-5 h-5 bg-[#ffbd59] shadow-lg shadow-[#ffbd59]/50 ring-2 ring-[#ffbd59]/30'
+                          : 'w-4 h-4 bg-white/30 hover:bg-white/50'
+                      } rounded-full hover:scale-125 active:scale-110 touch-manipulation`}
                       title={`Zu Projekt ${index + 1} wechseln`}
                     />
                   ))}
@@ -2050,12 +2050,12 @@ function DashboardWithCreditAnimation() {
             </div>
 
             <div className="mb-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-2xl font-bold text-white">{currentProject.name}</h2>
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-3 gap-3">
+                <h2 className="text-xl md:text-2xl font-bold text-white">{currentProject.name}</h2>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleOpenEditProjectModal}
-                    className="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white"
+                    className="px-3 md:px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-sm md:text-base"
                     title="Projekt bearbeiten"
                   >
                     <Edit size={16} />
@@ -2063,7 +2063,7 @@ function DashboardWithCreditAnimation() {
                   </button>
                   <button
                     onClick={handleProjectDetailsClick}
-                    className="bg-[#ffbd59] text-[#2c3539] px-4 py-2 rounded-lg font-medium hover:bg-[#ffa726] transition-colors flex items-center gap-2"
+                    className="bg-[#ffbd59] text-[#2c3539] px-3 md:px-4 py-2 rounded-lg font-medium hover:bg-[#ffa726] transition-colors flex items-center gap-2 text-sm md:text-base"
                     data-tour-id="project-details"
                   >
                     <Eye size={16} />
@@ -2073,8 +2073,8 @@ function DashboardWithCreditAnimation() {
               </div>
               
               {/* Prominente Start- und Enddaten unter dem Titel */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 mb-4">
-                <div className="group relative flex items-center gap-3 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 shadow-lg shadow-green-500/20 hover:bg-green-500/20 hover:border-green-500/50 hover:shadow-xl hover:shadow-green-500/30 transition-all duration-300 cursor-pointer">
+              <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-6 mb-4">
+                <div className="group relative flex items-center gap-3 px-3 md:px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 shadow-lg shadow-green-500/20 hover:bg-green-500/20 hover:border-green-500/50 hover:shadow-xl hover:shadow-green-500/30 transition-all duration-300 cursor-pointer">
                   <div className="w-3 h-3 bg-green-400 rounded-full shadow-lg shadow-green-400/50 group-hover:shadow-green-400/80 transition-all duration-300"></div>
                   <span className="text-sm font-semibold text-green-300 group-hover:text-green-200 transition-colors duration-300">Start:</span>
                   <span className="text-sm font-bold text-green-100 group-hover:text-white transition-colors duration-300">{formatDate(currentProject.start_date || '')}</span>
@@ -2097,7 +2097,7 @@ function DashboardWithCreditAnimation() {
                   </div>
                 </div>
                 
-                <div className="group relative flex items-center gap-3 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/30 shadow-lg shadow-red-500/20 hover:bg-red-500/20 hover:border-red-500/50 hover:shadow-xl hover:shadow-red-500/30 transition-all duration-300 cursor-pointer">
+                <div className="group relative flex items-center gap-3 px-3 md:px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/30 shadow-lg shadow-red-500/20 hover:bg-red-500/20 hover:border-red-500/50 hover:shadow-xl hover:shadow-red-500/30 transition-all duration-300 cursor-pointer">
                   <div className="w-3 h-3 bg-red-400 rounded-full shadow-lg shadow-red-400/50 group-hover:shadow-red-400/80 transition-all duration-300"></div>
                   <span className="text-sm font-semibold text-red-300 group-hover:text-red-200 transition-colors duration-300">Ende:</span>
                   <span className="text-sm font-bold text-red-100 group-hover:text-white transition-colors duration-300">{formatDate(currentProject.end_date || '')}</span>
@@ -2352,7 +2352,7 @@ function DashboardWithCreditAnimation() {
 
       {/* Kanban-Board für To-Do Aufgaben - ÜBER den Ausschreibungen */}
       {selectedProject && (
-        <div ref={todoSectionRef} className="mb-8">
+        <div ref={todoSectionRef} className="mb-6 md:mb-8">
           <KanbanBoard 
             showOnlyAssignedToMe={false}
             showArchived={false}
@@ -2364,9 +2364,9 @@ function DashboardWithCreditAnimation() {
 
       {/* Ausschreibungen für aktuelles Projekt - Zweigeteiltes Layout */}
       {selectedProject && (
-        <div className="mb-8" data-section="trades">
+        <div className="mb-6 md:mb-8" data-section="trades">
           {/* Header mit Buttons in einer Zeile */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4 md:mb-6">
             <div className="flex items-center space-x-3">
               <div className="w-3 h-3 bg-[#ffbd59] rounded-full"></div>
               <span className="text-lg font-semibold text-white">Ausschreibungen</span>
@@ -2392,15 +2392,15 @@ function DashboardWithCreditAnimation() {
           
           {/* Festes Layout: Immer 2 Spalten, dritter Bereich in zweiter Reihe */}
           {/* Mobile: Gestapelt | Tablet/Desktop: 2 Spalten mit Bereich in zweiter Reihe */}
-          <div className="space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-6 items-start auto-rows-max">
+          <div className="space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-4 lg:gap-6 items-start auto-rows-max">
             {/* Linke Spalte: Offene Ausschreibungen */}
             <div className="space-y-4 w-full h-auto min-h-fit">
               <div className="flex items-center justify-between">
-                <h3 className="text-base md:text-lg font-semibold text-white flex items-center gap-2 md:gap-3">
+                <h3 className="text-lg md:text-xl font-semibold text-white flex items-center gap-2 md:gap-3">
                   <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
                   <span className="hidden sm:inline">Offene Ausschreibungen</span>
                   <span className="sm:hidden">Offen</span>
-                  <span className="text-xs md:text-sm text-gray-400 bg-white/10 px-2 py-1 rounded-full">
+                  <span className="text-sm md:text-base text-gray-400 bg-white/10 px-2 py-1 rounded-full">
                     {(() => {
                       const openTrades = projectTrades.filter(trade => {
                         const quotes = allTradeQuotes[trade.id] || [];
@@ -2414,7 +2414,7 @@ function DashboardWithCreditAnimation() {
               </div>
               
               <div className="mobile-card bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 overflow-hidden relative h-auto min-h-fit">
-                <div className="mobile-spacing p-4 md:p-6 space-y-3 relative z-10 h-auto min-h-fit">
+                <div className="mobile-spacing p-4 md:p-5 lg:p-6 space-y-3 relative z-10 h-auto min-h-fit">
                   {(() => {
                     const openTrades = projectTrades.filter(trade => {
                       const quotes = allTradeQuotes[trade.id] || [];
@@ -2487,11 +2487,11 @@ function DashboardWithCreditAnimation() {
             {/* Rechte Spalte: Angenommene Ausschreibungen */}
             <div className="space-y-4 w-full h-auto min-h-fit">
               <div className="flex items-center justify-between">
-                <h3 className="text-base md:text-lg font-semibold text-white flex items-center gap-2 md:gap-3">
+                <h3 className="text-lg md:text-xl font-semibold text-white flex items-center gap-2 md:gap-3">
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                   <span className="hidden sm:inline">Angenommene Ausschreibungen</span>
                   <span className="sm:hidden">Angenommen</span>
-                  <span className="text-xs md:text-sm text-gray-400 bg-white/10 px-2 py-1 rounded-full">
+                  <span className="text-sm md:text-base text-gray-400 bg-white/10 px-2 py-1 rounded-full">
                     {(() => {
                       const acceptedTrades = projectTrades.filter(trade => {
                         const quotes = allTradeQuotes[trade.id] || [];
@@ -2506,7 +2506,7 @@ function DashboardWithCreditAnimation() {
               </div>
               
               <div className="mobile-card bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 overflow-hidden relative h-auto min-h-fit">
-                <div className="mobile-spacing p-4 md:p-6 space-y-3 relative z-10 h-auto min-h-fit">
+                <div className="mobile-spacing p-4 md:p-5 lg:p-6 space-y-3 relative z-10 h-auto min-h-fit">
                   {(() => {
                     const acceptedTrades = projectTrades.filter(trade => {
                       const quotes = allTradeQuotes[trade.id] || [];
@@ -2578,7 +2578,7 @@ function DashboardWithCreditAnimation() {
             </div>
             
             {/* Dritter Bereich: Abgeschlossene Ausschreibungen - Elegante Timeline-Ansicht */}
-            <div className="space-y-4 w-full h-auto min-h-fit md:col-span-2 md:mt-6 md:pt-6 md:border-t md:border-white/10">
+            <div className="space-y-4 w-full h-auto min-h-fit md:col-span-2 md:mt-4 md:pt-4 md:border-t md:border-white/10">
               {/* Header mit modernem Design */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -2586,7 +2586,7 @@ function DashboardWithCreditAnimation() {
                     <div className="w-3 h-3 bg-gradient-to-r from-emerald-400 to-green-500 rounded-full animate-pulse"></div>
                     <div className="absolute inset-0 w-3 h-3 bg-emerald-400/30 rounded-full animate-ping"></div>
                   </div>
-                  <h3 className="text-base md:text-lg font-semibold text-white">
+                  <h3 className="text-lg md:text-xl font-semibold text-white">
                     <span className="hidden sm:inline">Abgeschlossene Ausschreibungen</span>
                     <span className="sm:hidden">Abgeschlossen</span>
                   </h3>
@@ -2802,7 +2802,7 @@ function DashboardWithCreditAnimation() {
 
       {/* Finanz-Analyse - für alle Benutzer */}
       {selectedProject && (
-        <div className="mb-8" data-section="financial-analysis">
+        <div className="mb-6 md:mb-8" data-section="financial-analysis">
           <ProjectFinancialAnalysis 
             projectId={selectedProject.id}
             projectName={selectedProject.name}
@@ -2813,14 +2813,14 @@ function DashboardWithCreditAnimation() {
 
       {/* Finance Widget - unter den Gewerken */}
       {selectedProject && (
-        <div className="mb-8">
+        <div className="mb-6 md:mb-8">
           <FinanceWidget projectId={selectedProject.id} />
         </div>
       )}
 
 
       {selectedProject && (
-        <div className="mb-8" data-section="trades-continued">
+        <div className="mb-6 md:mb-8" data-section="trades-continued">
           {/* Intelligente Modal-Auswahl wie in Quotes.tsx */}
           {(() => {
             console.log('🔧 Modal Render Check:', {
