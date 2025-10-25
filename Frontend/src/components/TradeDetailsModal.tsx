@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import QuoteDocumentUpload from './QuoteDocumentUpload';
 import AddToContactBookButton from './AddToContactBookButton';
 import ContactBook from './ContactBook';
@@ -1233,7 +1234,8 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   const swipeGestures = useSwipeGesture();
   
   // Auth hook - MUST be called before early returns
-  const { user, isBautraeger } = useAuth();
+  const { user, isBautraeger, isServiceProvider } = useAuth();
+  const navigate = useNavigate();
   
   // All useState hooks
   const [isExpanded, setIsExpanded] = useState(false);
@@ -4709,7 +4711,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                   <button
                     onClick={() => {
                       // Navigiere zum ServiceProviderDashboard mit Quote-Parameter
-                      window.location.href = `/service-provider?quote=${trade.id}`;
+                      navigate(`/service-provider?quote=${trade.id}`);
                     }}
                     className={`bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2 shadow-lg ${isMobile ? 'mobile-touch-button px-3 py-2 text-sm' : 'px-4 py-2'}`}
                   >

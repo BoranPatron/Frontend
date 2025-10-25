@@ -71,7 +71,7 @@ import TradeCreationForm from '../components/TradeCreationForm';
 export default function ServiceProviderDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, userRole, isAuthenticated } = useAuth();
+  const { user, userRole, isAuthenticated, isServiceProvider } = useAuth();
   const { showTour, setShowTour, shouldDisableUI, userRole: onboardingUserRole, completeTour } = useOnboarding();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -896,11 +896,11 @@ export default function ServiceProviderDashboard() {
       return;
     }
     
-    if (userRole !== 'dienstleister' && user?.user_role !== 'DIENSTLEISTER') {
+    if (!isServiceProvider()) {
       navigate('/');
       return;
     }
-  }, [isAuthenticated, userRole, user, navigate]);
+  }, [isAuthenticated, isServiceProvider, navigate]);
 
   // Geo-Search Functions
   const useOwnLocation = () => {
