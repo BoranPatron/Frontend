@@ -2017,9 +2017,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         const token = localStorage.getItem('token');
         if (!token) return;
         
-        const baseUrl = window.location.hostname === 'localhost' 
-          ? `${getApiBaseUrl()}/api/v1` 
-          : '/api/v1';
+        const baseUrl = `${getApiBaseUrl()}/api/v1`;
         
         console.log('ðŸ” TradeDetailsModal - Lade vollstÃ¤ndige Trade-Daten fÃ¼r ID:', trade.id);
         

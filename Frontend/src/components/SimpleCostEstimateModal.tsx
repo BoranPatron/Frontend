@@ -2120,7 +2120,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
         const token = localStorage.getItem('token');
         if (!token) return;
         
-        const baseUrl = getApiBaseUrl();
+        const baseUrl = `${getApiBaseUrl()}/api/v1`;
         
         console.log('🔍 SimpleCostEstimateModal - Lade vollständige Trade-Daten für ID:', trade.id);
         
