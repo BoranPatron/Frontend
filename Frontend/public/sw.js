@@ -3,8 +3,8 @@
  * Verhindert STRG+R-Probleme durch strategisches Asset-Caching
  */
 
-const CACHE_NAME = 'buildwise-v2';
-const RUNTIME_CACHE = 'buildwise-runtime-v2';
+const CACHE_NAME = 'buildwise-v3';
+const RUNTIME_CACHE = 'buildwise-runtime-v3';
 
 // Assets die gecacht werden sollen
 const STATIC_ASSETS = [
