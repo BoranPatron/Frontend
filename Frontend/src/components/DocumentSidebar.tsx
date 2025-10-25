@@ -118,13 +118,17 @@ const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ onDocumentClick }) =>
     
     try {
       const token = localStorage.getItem('token');
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      // Ensure baseUrl includes /api/v1 prefix
+      let baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+      if (!baseUrl.includes('/api/v1')) {
+        baseUrl = baseUrl.endsWith('/') ? `${baseUrl}api/v1` : `${baseUrl}/api/v1`;
+      }
       
       // Determine endpoint based on user role using AuthContext helper
       const isBautraegerUser = isBautraeger();
       const endpoint = isBautraegerUser 
-        ? `${baseUrl}/api/v1/documents/bautraeger/overview?project_id=${selectedProject.id}`
-        : `${baseUrl}/api/v1/documents/dienstleister/overview?project_id=${selectedProject.id}`;
+        ? `${baseUrl}/documents/bautraeger/overview?project_id=${selectedProject.id}`
+        : `${baseUrl}/documents/dienstleister/overview?project_id=${selectedProject.id}`;
       
       // Debug logging to help diagnose future issues
       console.log('🔍 Document Sidebar User Check:', {
