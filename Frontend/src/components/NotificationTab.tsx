@@ -372,26 +372,54 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
             } else if (notificationType === 'tender_invitation') {
               console.log('🔔 NotificationTab: Adding tender_invitation notification');
               const data = notification.data ? JSON.parse(notification.data) : {};
-              notifications.push({
-                id: notification.id,
-                type: 'tender_invitation',
-                title: notification.title,
-                message: notification.message,
-                timestamp: notification.created_at,
-                isNew: !notification.is_acknowledged,
-                notification: notification,
-                priority: notification.priority,
-                allocationId: data.allocation_id,
-                resourceId: data.resource_id,
-                tradeId: notification.trade_id || data.trade_id,
-                tradeTitle: data.tradeTitle || data.trade_title,
-                projectName: data.projectName || data.project_name,
-                bautraegerName: data.bautraegerName || data.bautraeger_name,
-                deadline: data.deadline,
-                allocatedStartDate: data.allocated_start_date,
-                allocatedEndDate: data.allocated_end_date,
-                allocatedPersonCount: data.allocated_person_count
-              });
+              
+              // Check if this is an inspection invitation (has appointment_id)
+              if (data.appointment_id) {
+                console.log('🔔 NotificationTab: Treating tender_invitation as appointment_invitation for inspection');
+                // Treat as appointment_invitation to show response modal
+                notifications.push({
+                  id: notification.id,
+                  type: 'appointment_invitation', // Changed from 'tender_invitation'
+                  title: notification.title,
+                  message: notification.message,
+                  timestamp: notification.created_at,
+                  isNew: !notification.is_acknowledged,
+                  notification: notification,
+                  priority: notification.priority,
+                  appointmentId: data.appointment_id,
+                  scheduledDate: data.scheduled_date,
+                  duration_minutes: 120, // Default duration for inspections
+                  location: data.location_address || data.location,
+                  location_details: '',
+                  contact_person: data.contact_person,
+                  contact_phone: data.contact_phone,
+                  preparation_notes: data.preparation_notes,
+                  myResponse: null,
+                  responses: []
+                });
+              } else {
+                // Keep existing tender_invitation logic for actual tender invitations
+                notifications.push({
+                  id: notification.id,
+                  type: 'tender_invitation',
+                  title: notification.title,
+                  message: notification.message,
+                  timestamp: notification.created_at,
+                  isNew: !notification.is_acknowledged,
+                  notification: notification,
+                  priority: notification.priority,
+                  allocationId: data.allocation_id,
+                  resourceId: data.resource_id,
+                  tradeId: notification.trade_id || data.trade_id,
+                  tradeTitle: data.tradeTitle || data.trade_title,
+                  projectName: data.projectName || data.project_name,
+                  bautraegerName: data.bautraegerName || data.bautraeger_name,
+                  deadline: data.deadline,
+                  allocatedStartDate: data.allocated_start_date,
+                  allocatedEndDate: data.allocated_end_date,
+                  allocatedPersonCount: data.allocated_person_count
+                });
+              }
             } else if (notificationType === 'acceptance_with_defects') {
               console.log('🔔 NotificationTab: Adding acceptance_with_defects notification');
               const data = notification.data ? JSON.parse(notification.data) : {};
@@ -924,48 +952,6 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
                             tradeId: notification.tradeId,
                             allocationId: notification.allocationId,
                             source: 'resource_allocation_notification',
-                            showQuoteForm: true
-                          }
-                        }));
-                        
-                        // Schließe Benachrichtigungs-Panel
-                        setIsExpanded(false);
-                      } else if (userRole === 'DIENSTLEISTER' && notification.type === 'tender_invitation') {
-                        // Öffne die betroffene Ausschreibung für Angebotsabgabe
-                        console.log('📋 Öffne Ausschreibung für Angebotsabgabe:', notification.tradeId);
-                        
-                        // Markiere Benachrichtigung als quittiert (acknowledge) im Backend
-                        if (notification.notification?.id) {
-                          try {
-                            await apiCall(`/api/v1/notifications/${notification.notification.id}/acknowledge`, {
-                              method: 'PATCH'
-                            });
-                            console.log('✅ Benachrichtigung als quittiert markiert:', notification.notification.id);
-                            
-                            // Lade Benachrichtigungen sofort neu, um UI zu aktualisieren
-                            setTimeout(() => {
-                              loadNotifications();
-                            }, 500);
-                          } catch (error) {
-                            console.error('❌ Fehler beim Quittieren der Benachrichtigung:', error);
-                          }
-                        }
-                        
-                        // Markiere auch lokal als gesehen
-                        markAsSeen([notification.id]);
-                        
-                        // Prüfe ob tradeId gültig ist
-                        if (!notification.tradeId || notification.tradeId === 0) {
-                          console.error('❌ NotificationTab: Ungültige tradeId für Ausschreibungseinladung:', notification.tradeId);
-                          alert('Die Ausschreibung konnte nicht gefunden werden. Die Benachrichtigung enthält ungültige Daten.');
-                          return;
-                        }
-                        
-                        // Event für ServiceProviderDashboard auslösen, um TradeDetailsModal zu öffnen
-                        window.dispatchEvent(new CustomEvent('openTradeDetails', {
-                          detail: {
-                            tradeId: notification.tradeId,
-                            source: 'tender_invitation_notification',
                             showQuoteForm: true
                           }
                         }));
