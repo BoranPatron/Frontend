@@ -1345,6 +1345,12 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
   const sendInvitations = async () => {
     if (selectedResourceIds.length === 0) return;
 
+    // Validate tradeId before proceeding
+    if (!tradeId || tradeId === 0) {
+      alert('Fehler: Keine gültige Gewerk-ID verfügbar. Bitte speichern Sie das Gewerk zuerst, bevor Sie Ressourcen zuweisen.');
+      return;
+    }
+
     setLoading(true);
     try {
       const allocations: ResourceAllocation[] = selectedResourceIds.map((resourceId, index) => {
@@ -1821,6 +1827,18 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                 animate={{ y: 0 }}
                 className="p-4 border-t border-gray-700 bg-[#2a2a2a]"
               >
+                {/* Trade ID Validation Warning */}
+                {(!tradeId || tradeId === 0) && (
+                  <div className="mb-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                    <div className="flex items-center space-x-2 text-red-400">
+                      <AlertCircle className="w-4 h-4" />
+                      <span className="text-sm font-medium">Gewerk-ID ungültig</span>
+                    </div>
+                    <p className="text-xs text-red-300 mt-1">
+                      Bitte speichern Sie das Gewerk zuerst, bevor Sie Ressourcen zuweisen.
+                    </p>
+                  </div>
+                )}
                 <div className="mb-3 text-sm">
                   <Tooltip content={`${selectedResourceIds.length} Ressourcen für Zuweisung ausgewählt`}>
                     <div className="flex items-center justify-between mb-1 cursor-help">
@@ -1874,10 +1892,10 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                       Auswahl aufheben
                     </button>
                   </Tooltip>
-                  <Tooltip content={`Ressourcen an ${selectedResourceIds.length} ausgewählte Dienstleister zuweisen`}>
+                  <Tooltip content={(!tradeId || tradeId === 0) ? "Gewerk-ID ungültig - speichern Sie das Gewerk zuerst" : `Ressourcen an ${selectedResourceIds.length} ausgewählte Dienstleister zuweisen`}>
                     <button
                       onClick={sendInvitations}
-                      disabled={loading}
+                      disabled={loading || !tradeId || tradeId === 0}
                       className="flex-1 px-4 py-2 bg-[#ffbd59] text-black rounded-lg hover:bg-[#f59e0b] transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 cursor-help"
                     >
                       <Send className="w-4 h-4" />
