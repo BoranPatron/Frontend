@@ -3820,7 +3820,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
 
       console.log('🔔 Sende Benachrichtigungsdaten:', notificationData);
 
-      const response = await apiCall('/notifications', {
+      const response = await apiCall('/api/v1/notifications', {
         method: 'POST',
         body: JSON.stringify(notificationData)
       });
@@ -3907,7 +3907,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
 
       console.log('🔧 Sende Benachrichtigungsdaten:', notificationData);
 
-      const response = await apiCall('/notifications', {
+      const response = await apiCall('/api/v1/notifications', {
         method: 'POST',
         body: JSON.stringify(notificationData)
       });
@@ -3989,7 +3989,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
         }
       };
 
-      const response = await apiCall('/notifications/email', {
+      const response = await apiCall('/api/v1/notifications/email', {
         method: 'POST',
         body: JSON.stringify(emailData)
       });
