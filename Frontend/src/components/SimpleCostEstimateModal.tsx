@@ -2124,7 +2124,7 @@ Das Dokument ist jetzt im Projektarchiv verfügbar und kann jederzeit abgerufen 
         
         console.log('🔍 SimpleCostEstimateModal - Lade vollständige Trade-Daten für ID:', trade.id);
         
-        const response = await fetch(`${baseUrl}/api/v1/milestones/${trade.id}`, {
+        const response = await fetch(`${baseUrl}/milestones/${trade.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'

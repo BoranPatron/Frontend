@@ -131,9 +131,13 @@ export default function TradeProgress({
 
     setIsLoading(true);
     try {
+      // Normalisiere Enum-Werte zu lowercase
+      const normalizedType = type.toLowerCase();
+      const normalizedDefectSeverity = defectSeverity?.toLowerCase();
+      
       // Erstelle das Update
       const updateData: any = {
-        update_type: type,
+        update_type: normalizedType,
         message: newMessage,
         is_internal: false
       };
@@ -145,8 +149,8 @@ export default function TradeProgress({
       if (replyTo) {
         updateData.parent_id = replyTo;
       }
-      if (type === 'defect' && defectSeverity) {
-        updateData.defect_severity = defectSeverity;
+      if (type === 'defect' && normalizedDefectSeverity) {
+        updateData.defect_severity = normalizedDefectSeverity;
       }
 
              console.log('🔍 Sende Progress Update:', JSON.stringify(updateData, null, 2));
