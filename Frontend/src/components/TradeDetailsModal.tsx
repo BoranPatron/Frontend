@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import QuoteDocumentUpload from './QuoteDocumentUpload';
 import AddToContactBookButton from './AddToContactBookButton';
 import ContactBook from './ContactBook';
@@ -61,6 +61,7 @@ import { updateMilestone, deleteMilestone } from '../api/milestoneService';
 import { TRADE_CATEGORIES } from '../constants/tradeCategories';
 import { resourceService, type ResourceAllocation } from '../api/resourceService';
 import HelpTab from './HelpTab';
+import AdaptiveFileViewer from './AdaptiveFileViewer';
 
 // Image Viewer Komponente
 const ImageViewer: React.FC<{ url: string; filename: string; onError: (error: string) => void }> = ({ url, filename, onError }) => {
@@ -324,7 +325,7 @@ const ExcelViewer: React.FC<{ url: string; filename: string; onError: (error: st
 };
 
 // PDF Viewer Komponente
-const PDFViewer: React.FC<{ url: string; filename: string; onError: (error: string) => void }> = ({ url, filename, onError }) => {
+const AdaptiveFileViewer: React.FC<{ url: string; filename: string; onError: (error: string) => void }> = ({ url, filename, onError }) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -1138,16 +1139,14 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                       return fileName.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i) || 
                              (type && type.includes('image/'));
                     })() ? (
-                      <ImageViewer 
-                        url={doc.url || doc.file_path || ''} 
-                        filename={doc.name || doc.title || doc.file_name || 'image'}
-                        onError={(error: string) => {
-                          console.error(`❌ Image Viewer Fehler:`, error);
-                          setViewerError('Bild konnte nicht geladen werden');
-                        }}
+                      <AdaptiveFileViewer 
+                        fileUrl={doc.url || doc.file_path || ''} 
+                        fileName={doc.name || doc.title || doc.file_name || 'image'}
+                        title={doc.name || doc.title || doc.file_name || 'image'}
+                        onClose={() => setViewerError(null)}
                       />
                     ) : doc.type && doc.type.includes('pdf') ? (
-                      <PDFViewer 
+                      <AdaptiveFileViewer 
                         url={doc.url || doc.file_path || ''} 
                         filename={doc.name || doc.title || doc.file_name || 'document'}
                         onError={(error: string) => {
