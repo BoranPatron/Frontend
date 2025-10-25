@@ -2064,6 +2064,7 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
     };
     
     if (isOpen) {
+      console.log('🔄 TradeDetailsModal: isOpen=true, lade Daten für trade:', trade?.id);
       loadFullTradeData();
       loadAppointments();
       loadResourceAllocations();
@@ -4791,10 +4792,14 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
             isBautraeger: isBautraeger(),
             totalAppointments: appointmentsForTrade.length,
             relevantAppointments: relevantAppointments.length,
+            inspectionCompleted: inspectionCompleted,
+            willShowBanner: relevantAppointments.length > 0 && !inspectionCompleted,
             appointmentDetails: relevantAppointments.map(apt => ({
               id: apt.id,
               title: apt.title,
+              appointment_type: apt.appointment_type,
               created_by: apt.created_by,
+              scheduled_date: apt.scheduled_date,
               responses: apt.responses,
               invited_service_providers: apt.invited_service_providers
             }))
