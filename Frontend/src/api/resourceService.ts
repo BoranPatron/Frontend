@@ -240,7 +240,7 @@ class ResourceService {
   private baseUrl = '/api/v1/resources';
 
   // Helper method to construct URLs properly
-  private buildUrl(path: string = '', needsTrailingSlash: boolean = false): string {
+  private buildUrl(path: string = '', needsTrailingSlash: boolean = true): string {
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;
     if (!cleanPath) {
       // For empty path, check if trailing slash is needed
@@ -253,7 +253,7 @@ class ResourceService {
   
   async createResource(resource: Resource): Promise<Resource> {
     try {
-      const response = await apiCall<Resource>(this.buildUrl('', true), {
+      const response = await apiCall<Resource>(this.buildUrl(''), {
         method: 'POST',
         body: JSON.stringify(resource),
       });
@@ -581,7 +581,7 @@ class ResourceService {
   async createCalendarEntry(entry: ResourceCalendarEntry): Promise<ResourceCalendarEntry> {
     try {
       // Calendar entries are actually resources, so use createResource instead
-      const response = await apiCall<ResourceCalendarEntry>(this.buildUrl('', true), {
+      const response = await apiCall<ResourceCalendarEntry>(this.buildUrl(''), {
         method: 'POST',
         body: JSON.stringify(entry),
       });
