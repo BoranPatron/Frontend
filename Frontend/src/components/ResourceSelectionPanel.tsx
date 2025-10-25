@@ -1345,12 +1345,45 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
   const sendInvitations = async () => {
     if (selectedResourceIds.length === 0) return;
 
-    // Validate tradeId before proceeding
+    // Check if this is a creation form (tradeId = 0) or existing trade
     if (!tradeId || tradeId === 0) {
-      alert('Fehler: Keine gültige Gewerk-ID verfügbar. Bitte speichern Sie das Gewerk zuerst, bevor Sie Ressourcen zuweisen.');
+      // For creation forms, just prepare the allocations for later submission
+      const allocations: ResourceAllocation[] = selectedResourceIds.map((resourceId, index) => {
+        const resource = resources.find(r => r.id?.toString() === resourceId);
+        const individualRange = individualDateRanges.get(parseInt(resourceId));
+        
+        // Verwende individuellen Zeitraum falls vorhanden, sonst den globalen
+        const startDate = individualRange?.startDate || dateRange.start;
+        const endDate = individualRange?.endDate || dateRange.end;
+        
+        return {
+          resource_id: parseInt(resourceId),
+          trade_id: 0, // Will be updated when trade is created
+          allocated_person_count: resource?.person_count || 1,
+          allocated_start_date: startDate,
+          allocated_end_date: endDate,
+          allocation_status: 'pre_selected' as const,
+          priority: index,
+          notes: individualRange?.notes || `Gewünschter Zeitraum: ${startDate} - ${endDate}`
+        };
+      });
+
+      // Sammle die vollständigen Resource-Daten für die ausgewählten Ressourcen
+      const selectedResourcesData = selectedResourceIds.map(resourceId => 
+        resources.find(r => r.id?.toString() === resourceId)
+      ).filter(Boolean) as Resource[];
+
+      onResourcesSelected?.(allocations, selectedResourcesData);
+      
+      // Reset
+      setSelectedResourceIds([]);
+      
+      // Success feedback
+      alert(`${selectedResourceIds.length} Ressourcen für Zuweisung vorbereitet. Sie werden beim Speichern des Gewerks zugewiesen.`);
       return;
     }
 
+    // For existing trades, create allocations immediately
     setLoading(true);
     try {
       const allocations: ResourceAllocation[] = selectedResourceIds.map((resourceId, index) => {
@@ -1829,13 +1862,13 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
               >
                 {/* Trade ID Validation Warning */}
                 {(!tradeId || tradeId === 0) && (
-                  <div className="mb-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                    <div className="flex items-center space-x-2 text-red-400">
-                      <AlertCircle className="w-4 h-4" />
-                      <span className="text-sm font-medium">Gewerk-ID ungültig</span>
+                  <div className="mb-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                    <div className="flex items-center space-x-2 text-blue-400">
+                      <Info className="w-4 h-4" />
+                      <span className="text-sm font-medium">Ressourcen-Vorauswahl</span>
                     </div>
-                    <p className="text-xs text-red-300 mt-1">
-                      Bitte speichern Sie das Gewerk zuerst, bevor Sie Ressourcen zuweisen.
+                    <p className="text-xs text-blue-300 mt-1">
+                      Ressourcen werden beim Speichern des Gewerks automatisch zugewiesen.
                     </p>
                   </div>
                 )}
@@ -1892,14 +1925,14 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
                       Auswahl aufheben
                     </button>
                   </Tooltip>
-                  <Tooltip content={(!tradeId || tradeId === 0) ? "Gewerk-ID ungültig - speichern Sie das Gewerk zuerst" : `Ressourcen an ${selectedResourceIds.length} ausgewählte Dienstleister zuweisen`}>
+                  <Tooltip content={(!tradeId || tradeId === 0) ? "Ressourcen für spätere Zuweisung vorbereiten" : `Ressourcen an ${selectedResourceIds.length} ausgewählte Dienstleister zuweisen`}>
                     <button
                       onClick={sendInvitations}
-                      disabled={loading || !tradeId || tradeId === 0}
+                      disabled={loading}
                       className="flex-1 px-4 py-2 bg-[#ffbd59] text-black rounded-lg hover:bg-[#f59e0b] transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 cursor-help"
                     >
                       <Send className="w-4 h-4" />
-                      <span>Zuweisen</span>
+                      <span>{(!tradeId || tradeId === 0) ? 'Vorbereiten' : 'Zuweisen'}</span>
                     </button>
                   </Tooltip>
                 </div>
