@@ -794,52 +794,35 @@ Ihr BuildWise Team
   return (
     <>
       {/* Bauträger Notification Tab - rechts am Bildschirmrand */}
-      <div 
-        ref={notificationTabRef}
-        className={`fixed right-0 top-[100px] h-screen z-[9999] transition-all duration-300 ${
-          isExpanded ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
+      <div ref={notificationTabRef} className="fixed right-0 z-[9999]">
         
-        {/* Tab Handle - Der "Griff" der Lasche (links) */}
-        <div 
-          className={`absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-full cursor-pointer transition-all duration-300 ${
+        {/* Tab Handle - Independent fixed position */}
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          data-tour-id="notification-tab-bautraeger"
+          className={`fixed right-0 lg:top-[100px] md:top-[80px] sm:bottom-[20px] sm:right-[20px] z-[9999] 
+                     w-14 h-14 rounded-l-lg sm:rounded-full transition-all duration-300 hover:scale-105
+                     flex flex-col items-center justify-center ${
             hasUnhandled 
               ? 'bg-gradient-to-r from-blue-500/80 to-cyan-500/80 animate-pulse shadow-lg shadow-blue-500/50' 
               : 'bg-gradient-to-r from-blue-500/60 to-cyan-500/60'
-          } rounded-l-lg px-3 py-4 text-white hover:from-blue-500/80 hover:to-cyan-500/80 hover:shadow-xl`}
-          onClick={() => setIsExpanded(!isExpanded)}
-          data-tour-id="notification-tab-bautraeger"
+          } text-white hover:from-blue-500/80 hover:to-cyan-500/80 hover:shadow-xl`}
         >
-          <div className="flex flex-col items-center gap-2">
-            {/* Bauträger Icon */}
-            <div className={`${hasUnhandled ? 'animate-bounce' : ''}`}>
-              <Calendar size={20} />
+          {/* Bauträger Icon */}
+          <Calendar size={18} className={hasUnhandled ? 'animate-bounce' : ''} />
+          
+          {/* Anzahl unbehandelte Benachrichtigungen */}
+          {hasUnhandled && (
+            <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold shadow-lg">
+              {unhandledCount}
             </div>
-            
-            {/* Anzahl unbehandelte Benachrichtigungen */}
-            {hasUnhandled && (
-              <div className="bg-white text-green-600 rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold animate-pulse shadow-lg">
-                {unhandledCount}
-              </div>
-            )}
-            
-            {/* Zeige Anzahl auch wenn behandelt */}
-            {!hasUnhandled && notifications.length > 0 && (
-              <div className="bg-white bg-opacity-90 text-gray-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-medium">
-                {notifications.length}
-              </div>
-            )}
-            
-            {/* Pfeil */}
-            <div className={`transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-              <ChevronLeft size={16} />
-            </div>
-          </div>
-        </div>
+          )}
+        </button>
 
         {/* Notification Panel */}
-        <div className="bg-white shadow-2xl rounded-l-xl w-96 max-h-[80vh] overflow-hidden border-l-4 border-green-500">
+        <div className={`fixed right-0 top-0 h-screen w-96 z-[9998] transition-transform duration-300 ${
+          isExpanded ? 'translate-x-0' : 'translate-x-full'
+        } bg-white shadow-2xl overflow-hidden border-l-4 border-blue-500 flex flex-col`}>
           
           {/* Header */}
           <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-4">

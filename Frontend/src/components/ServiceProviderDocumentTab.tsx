@@ -404,44 +404,34 @@ export default function ServiceProviderDocumentTab({ userId }: ServiceProviderDo
   return (
     <>
       {/* Service Provider Document Tab - rechts am Bildschirmrand */}
-      <div 
-        ref={documentTabRef}
-        className={`fixed right-0 top-[250px] h-screen z-[9999] transition-all duration-300 ${
-          isExpanded ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
+      <div ref={documentTabRef} className="fixed right-0 z-[9999]">
         
-        {/* Tab Handle - Der "Griff" der Lasche (links) */}
-        <div 
-          className={`absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-full cursor-pointer transition-all duration-300 ${
+        {/* Tab Handle - Independent fixed position */}
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={`fixed right-0 lg:top-[220px] md:top-[180px] sm:bottom-[90px] sm:right-[20px] z-[9999] 
+                     w-14 h-14 rounded-l-lg sm:rounded-full transition-all duration-300 hover:scale-105
+                     flex flex-col items-center justify-center ${
             hasDocuments 
               ? 'bg-gradient-to-r from-[#ffbd59]/80 to-[#ffa726]/80 shadow-lg shadow-[#ffbd59]/50' 
               : 'bg-gradient-to-r from-[#ffbd59]/60 to-[#ffa726]/60'
-          } rounded-l-lg px-3 py-4 text-white hover:from-[#ffbd59]/80 hover:to-[#ffa726]/80 hover:shadow-xl backdrop-blur-sm border border-white/20`}
-          onClick={() => setIsExpanded(!isExpanded)}
+          } text-white hover:from-[#ffbd59]/80 hover:to-[#ffa726]/80 hover:shadow-xl backdrop-blur-sm border border-white/20`}
         >
-          <div className="flex flex-col items-center gap-2">
-            {/* Document Icon */}
-            <div>
-              <FileText size={20} />
+          {/* Document Icon */}
+          <FileText size={18} />
+          
+          {/* Anzahl Dokumente */}
+          {hasDocuments && (
+            <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold shadow-lg">
+              {documentCount}
             </div>
-            
-            {/* Anzahl Dokumente */}
-            {hasDocuments && (
-              <div className="bg-white text-[#ffbd59] rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold shadow-lg">
-                {documentCount}
-              </div>
-            )}
-            
-            {/* Pfeil */}
-            <div className={`transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-              <ChevronLeft size={16} />
-            </div>
-          </div>
-        </div>
+          )}
+        </button>
 
         {/* Document Panel */}
-        <div className="bg-gradient-to-br from-slate-900/95 to-gray-900/95 backdrop-blur-xl shadow-2xl w-96 h-full overflow-hidden border-l-4 border-[#ffbd59] border border-gray-700/50 flex flex-col">
+        <div className={`fixed right-0 top-0 h-screen w-96 z-[9998] transition-transform duration-300 ${
+          isExpanded ? 'translate-x-0' : 'translate-x-full'
+        } bg-gradient-to-br from-slate-900/95 to-gray-900/95 backdrop-blur-xl shadow-2xl overflow-hidden border-l-4 border-[#ffbd59] flex flex-col`}>
           
           {/* Header */}
           <div className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white p-4">

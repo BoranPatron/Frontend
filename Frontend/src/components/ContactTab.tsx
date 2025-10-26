@@ -223,53 +223,34 @@ export default function ContactTab({ userRole, userId }: ContactTabProps) {
   return (
     <>
       {/* Contact Tab - Fixed Position */}
-      <div 
-        ref={contactTabRef}
-        className={`fixed right-0 top-[400px] h-screen z-[9997] transition-all duration-300 ${
-          isExpanded ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
+      <div ref={contactTabRef} className="fixed right-0 z-[9997]">
         
-        {/* Tab Handle - Der "Griff" der Lasche (links) */}
-        <div 
-          className={`absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-full cursor-pointer transition-all duration-300 ${
+        {/* Tab Handle - Independent fixed position */}
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={`fixed right-0 lg:top-[340px] md:top-[280px] sm:bottom-[160px] sm:right-[20px] z-[9997] 
+                     w-14 h-14 rounded-l-lg sm:rounded-full transition-all duration-300 hover:scale-105
+                     flex flex-col items-center justify-center ${
             hasContacts 
               ? 'bg-gradient-to-r from-green-500/80 to-emerald-500/80 shadow-lg shadow-green-500/50' 
               : 'bg-gradient-to-r from-green-500/60 to-emerald-500/60'
-          } rounded-l-lg px-3 py-4 text-white hover:from-green-500/80 hover:to-emerald-500/80 hover:shadow-xl`}
-          onClick={() => {
-            setIsExpanded(!isExpanded);
-          }}
+          } text-white hover:from-green-500/80 hover:to-emerald-500/80 hover:shadow-xl`}
         >
-          <div className="flex flex-col items-center gap-2">
-            {/* Kontakte Icon */}
-            <div>
-              <Users size={20} />
+          {/* Kontakte Icon */}
+          <Users size={18} />
+          
+          {/* Anzahl Kontakte */}
+          {contactCount > 0 && (
+            <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold shadow-lg">
+              {contactCount}
             </div>
-            
-            {/* Anzahl Kontakte */}
-            {hasContacts && (
-              <div className="bg-white text-green-600 rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold shadow-lg">
-                {contactCount}
-              </div>
-            )}
-            
-            {/* Zeige Anzahl auch wenn keine Kontakte */}
-            {!hasContacts && (
-              <div className="bg-white bg-opacity-90 text-gray-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-medium">
-                0
-              </div>
-            )}
-            
-            {/* Pfeil */}
-            <div className={`transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-              <ChevronLeft size={16} />
-            </div>
-          </div>
-        </div>
+          )}
+        </button>
 
         {/* Contact Panel */}
-        <div className="bg-gradient-to-br from-[#1a1a2e]/95 to-[#2c3539]/95 backdrop-blur-xl shadow-[0_0_60px_rgba(255,189,89,0.15)] w-96 h-full overflow-hidden border-l-4 border-[#ffbd59]/50 flex flex-col">
+        <div className={`fixed right-0 top-0 h-screen w-96 z-[9996] transition-transform duration-300 ${
+          isExpanded ? 'translate-x-0' : 'translate-x-full'
+        } bg-gradient-to-br from-[#1a1a2e]/95 to-[#2c3539]/95 backdrop-blur-xl shadow-[0_0_60px_rgba(255,189,89,0.15)] overflow-hidden border-l-4 border-[#ffbd59]/50 flex flex-col`}>
           
           {/* Header */}
           <div className="relative bg-gradient-to-r from-[#3d4952]/95 to-[#51646f]/95 backdrop-blur-lg text-white p-4">
