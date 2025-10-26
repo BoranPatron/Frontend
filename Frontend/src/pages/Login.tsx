@@ -305,7 +305,7 @@ export default function Login() {
         </div>
 
         {/* Divider */}
-        <div className="relative mb-6">
+        <div className="relative mb-6 hidden">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-white/20"></div>
           </div>
@@ -314,7 +314,7 @@ export default function Login() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 hidden">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               E-Mail-Adresse
@@ -378,7 +378,7 @@ export default function Login() {
         </form>
 
         {/* Dienstleister-Test Button */}
-        <div className="mt-6 pt-6 border-t border-white/20">
+        <div className="mt-6 pt-6 border-t border-white/20 hidden">
           <button
             onClick={handleServiceProviderTest}
             disabled={loading}
