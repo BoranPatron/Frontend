@@ -68,7 +68,8 @@ import {
   DollarSign,
   TrendingUp,
   TrendingDown,
-  BarChart3
+  BarChart3,
+  RefreshCw
 } from 'lucide-react';
 import GuidedTourOverlay from '../components/Onboarding/GuidedTourOverlay';
 import FinalGuidedTour from '../components/Onboarding/FinalGuidedTour';
@@ -1256,6 +1257,7 @@ function DashboardWithCreditAnimation() {
   const [projectTrades, setProjectTrades] = useState<any[]>([]);
   const [isLoadingTrades, setIsLoadingTrades] = useState(false);
   const [tradesError, setTradesError] = useState<string | null>(null);
+  const [isRefreshingTrades, setIsRefreshingTrades] = useState(false);
   
   // Hilfsfunktion zum Filtern archivierter Gewerke
   const filterActiveTradesOnly = (trades: any[]) => {
@@ -1490,6 +1492,24 @@ function DashboardWithCreditAnimation() {
     
     loadProjectTrades();
   }, [selectedProject?.id]);
+
+  // Handler zum Aktualisieren der Ausschreibungen
+  const handleRefreshTrades = async () => {
+    if (!selectedProject || isRefreshingTrades) return;
+    
+    setIsRefreshingTrades(true);
+    try {
+      const activeTrades = await loadAndFilterTrades(selectedProject.id);
+      setProjectTrades(activeTrades);
+      await loadQuotesForTrades(activeTrades);
+      await loadAppointmentsForTrades(activeTrades);
+      console.log('✅ Ausschreibungen erfolgreich aktualisiert');
+    } catch (error) {
+      console.error('❌ Fehler beim Aktualisieren der Ausschreibungen:', error);
+    } finally {
+      setIsRefreshingTrades(false);
+    }
+  };
 
   useEffect(() => {
     console.log('🔄 useEffect projectTrades triggered:', {
@@ -2372,6 +2392,14 @@ function DashboardWithCreditAnimation() {
               <span className="text-lg font-semibold text-white">Ausschreibungen</span>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={handleRefreshTrades}
+                disabled={isRefreshingTrades}
+                className="p-2 rounded-lg hover:bg-white/10 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Ausschreibungen aktualisieren"
+              >
+                <RefreshCw size={18} className={`text-white ${isRefreshingTrades ? 'animate-spin' : ''}`} />
+              </button>
               <button
                 onClick={() => navigate('/archive')}
                 className="flex items-center gap-2 px-4 py-2 bg-gray-600/20 hover:bg-gray-600/30 text-gray-300 hover:text-white rounded-lg transition-all duration-200 border border-gray-500/30 hover:border-gray-400/50"
