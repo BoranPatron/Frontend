@@ -205,30 +205,29 @@ const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ onDocumentClick }) =>
   return (
     <>
       {/* Tab/Toggle Button */}
-      <motion.button
+      <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed right-0 z-40 transition-all duration-300 ${
+        className={`fixed right-0 lg:top-[220px] md:top-[180px] sm:bottom-[90px] sm:right-[20px] z-40 transition-all duration-300 ${
           isOpen ? 'right-[420px]' : 'right-0'
-        }`}
-        style={{ top: 'calc(50% + 20px)' }}
-        whileHover={{ scale: 1.05, x: isOpen ? 0 : -5 }}
-        whileTap={{ scale: 0.95 }}
+        } w-14 h-20 rounded-l-xl hover:shadow-2xl flex flex-col items-center justify-center gap-1 ${
+          documents.length > 0
+            ? 'bg-gradient-to-r from-[#ffbd59]/90 to-[#ffa726]/90 shadow-lg shadow-[#ffbd59]/50'
+            : 'bg-gradient-to-r from-[#ffbd59]/80 to-[#ffa726]/80'
+        } text-white hover:from-[#ffbd59] hover:to-[#ffa726] backdrop-blur-sm border-l border-t border-b border-white/30`}
       >
-        <div className="bg-gradient-to-br from-[#ffbd59]/60 to-[#f59e0b]/60 backdrop-blur-sm text-white px-3 py-4 rounded-l-lg shadow-xl border border-white/20 flex flex-col items-center gap-2 hover:from-[#ffbd59]/80 hover:to-[#f59e0b]/80 transition-all">
-          {isOpen ? (
-            <ChevronRight className="w-4 h-4" />
-          ) : (
-            <>
-              <Files className="w-5 h-5" />
-              {documents.length > 0 && (
-                <div className="bg-white/95 text-[#f59e0b] rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold shadow-sm">
-                  {documents.length}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </motion.button>
+        {isOpen ? (
+          <ChevronRight className="w-5 h-5" />
+        ) : (
+          <>
+            <Files size={20} />
+            {documents.length > 0 && (
+              <div className="bg-white text-[#ffbd59] rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold">
+                {documents.length}
+              </div>
+            )}
+          </>
+        )}
+      </button>
 
       {/* Sidebar Panel */}
       <AnimatePresence>

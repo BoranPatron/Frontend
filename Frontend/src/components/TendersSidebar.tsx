@@ -171,9 +171,9 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
   return (
     <>
        {/* Tab/Toggle Button */}
-       <motion.button
+       <button
          onClick={() => setIsOpen(!isOpen)}
-         className={`fixed right-0 top-[10%] transform -translate-y-1/2 z-40 transition-all duration-300 ${
+         className={`fixed right-0 lg:top-[460px] md:top-[380px] sm:bottom-[230px] sm:right-[20px] z-40 transition-all duration-300 ${
            isOpen && !isExpanded 
              ? isMobile 
                ? 'right-0' 
@@ -181,25 +181,25 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
                ? 'right-0'
                : 'right-[90vw] sm:right-[85vw] md:right-[80vw] lg:right-[75vw] xl:right-[70vw]'
              : 'right-0'
-         } ${isMobile ? 'bottom-24' : ''}`}
-         whileHover={{ scale: 1.05, x: isOpen && !isExpanded ? 0 : -5 }}
-         whileTap={{ scale: 0.95 }}
+         } w-14 h-20 rounded-l-xl hover:shadow-2xl flex flex-col items-center justify-center gap-1 ${
+           combinedTrades.length > 0
+             ? 'bg-gradient-to-r from-emerald-500/90 to-green-600/90 shadow-lg shadow-emerald-500/50'
+             : 'bg-gradient-to-r from-emerald-500/80 to-green-600/80'
+         } text-white hover:from-emerald-500 hover:to-green-600 border-l border-t border-b border-white/30`}
        >
-        <div className="bg-gradient-to-br from-[#10b981]/60 to-[#059669]/60 backdrop-blur-sm text-white px-4 py-5 rounded-l-lg shadow-xl border border-white/20 flex flex-col items-center gap-2 hover:from-[#10b981]/80 hover:to-[#059669]/80 transition-all">
-          {isOpen && !isExpanded ? (
-            <ChevronRight className="w-5 h-5" />
-          ) : (
-            <>
-              <MapPin className="w-6 h-6" />
-              {combinedTrades.length > 0 && (
-                <div className="bg-white/95 text-[#059669] rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-sm">
-                  {combinedTrades.length}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </motion.button>
+        {isOpen && !isExpanded ? (
+          <ChevronRight className="w-5 h-5" />
+        ) : (
+          <>
+            <MapPin size={20} />
+            {combinedTrades.length > 0 && (
+              <div className="bg-white text-emerald-600 rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold">
+                {combinedTrades.length}
+              </div>
+            )}
+          </>
+        )}
+      </button>
 
       {/* Sidebar Panel */}
       <AnimatePresence>
