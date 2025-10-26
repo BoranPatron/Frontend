@@ -225,7 +225,7 @@ export default function ContactTab({ userRole, userId }: ContactTabProps) {
       {/* Contact Tab - Fixed Position */}
       <div 
         ref={contactTabRef}
-        className={`fixed right-0 top-[70%] transform -translate-y-1/2 z-[9997] transition-all duration-300 ${
+        className={`fixed right-0 top-0 h-screen z-[9997] transition-all duration-300 ${
           isExpanded ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
