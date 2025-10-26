@@ -413,7 +413,7 @@ export default function ServiceProviderDocumentTab({ userId }: ServiceProviderDo
         
         {/* Tab Handle - Der "Griff" der Lasche (links) */}
         <div 
-          className={`absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-full cursor-pointer transition-all duration-300 ${
+          className={`absolute left-0 top-0 -translate-x-full cursor-pointer transition-all duration-300 ${
             hasDocuments 
               ? 'bg-gradient-to-r from-[#ffbd59]/80 to-[#ffa726]/80 shadow-lg shadow-[#ffbd59]/50' 
               : 'bg-gradient-to-r from-[#ffbd59]/60 to-[#ffa726]/60'
