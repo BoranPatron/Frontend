@@ -37,7 +37,7 @@ export interface Contact {
 }
 
 export interface CreateContactData {
-  company_name: string;
+  company_name?: string;
   contact_person?: string;
   email?: string;
   phone?: string;
@@ -219,9 +219,15 @@ class ContactService {
 
   async createContact(contactData: CreateContactData): Promise<Contact> {
     try {
+      // Ensure company_name is never empty
+      const sanitizedData = {
+        ...contactData,
+        company_name: contactData.company_name?.trim() || contactData.contact_person?.trim() || "Unbekanntes Unternehmen"
+      };
+      
       const response = await apiCall(this.baseUrl, {
         method: 'POST',
-        body: JSON.stringify(contactData)
+        body: JSON.stringify(sanitizedData)
       });
       console.log('✅ Kontakt erstellt:', response);
       
@@ -539,7 +545,13 @@ class ContactService {
         }
       }
       
-      const response = await this.createContact(enrichedData);
+      // Ensure company_name is never empty
+      const finalEnrichedData = {
+        ...enrichedData,
+        company_name: enrichedData.company_name?.trim() || enrichedData.contact_person?.trim() || "Unbekanntes Unternehmen"
+      };
+      
+      const response = await this.createContact(finalEnrichedData);
       console.log('✅ Kontakt mit User-Daten-Integration erstellt:', response);
       
       return response;

@@ -46,8 +46,11 @@ export default function AddToContactBookButton({
     setIsAdding(true);
     
     try {
+      // Ensure company_name is never empty - use fallback logic
+      const finalCompanyName = companyName?.trim() || contactPerson?.trim() || "Unbekanntes Unternehmen";
+      
       const contactData = {
-        company_name: companyName,
+        company_name: finalCompanyName,
         contact_person: contactPerson,
         email: email,
         phone: phone,
