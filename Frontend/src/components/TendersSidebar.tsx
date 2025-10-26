@@ -186,14 +186,14 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
          whileHover={{ scale: 1.05, x: isOpen && !isExpanded ? 0 : -5 }}
          whileTap={{ scale: 0.95 }}
        >
-        <div className="bg-gradient-to-br from-[#10b981]/60 to-[#059669]/60 backdrop-blur-sm text-white px-3 py-4 rounded-l-lg shadow-xl border border-white/20 flex flex-col items-center gap-2 hover:from-[#10b981]/80 hover:to-[#059669]/80 transition-all">
+        <div className="bg-gradient-to-br from-[#10b981]/60 to-[#059669]/60 backdrop-blur-sm text-white px-4 py-5 rounded-l-lg shadow-xl border border-white/20 flex flex-col items-center gap-2 hover:from-[#10b981]/80 hover:to-[#059669]/80 transition-all">
           {isOpen && !isExpanded ? (
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-5 h-5" />
           ) : (
             <>
-              <MapPin className="w-5 h-5" />
+              <MapPin className="w-6 h-6" />
               {combinedTrades.length > 0 && (
-                <div className="bg-white/95 text-[#059669] rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold shadow-sm">
+                <div className="bg-white/95 text-[#059669] rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-sm">
                   {combinedTrades.length}
                 </div>
               )}
@@ -249,70 +249,62 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
                    : 'w-[90vw] sm:w-[85vw] md:w-[80vw] lg:w-[75vw] xl:w-[70vw]'
                } bg-[#1a1a1a] shadow-2xl flex flex-col overflow-hidden`}
              >
-              {/* Header */}
-              <div className="bg-gradient-to-r from-[#10b981] to-[#059669] p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <MapPin className="w-7 h-7 text-white" />
+              {/* Header - Kompakter */}
+              <div className="bg-gradient-to-r from-[#10b981] to-[#059669] p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-white" />
                     <div>
-                      <h2 className="text-2xl font-bold text-white">Ausschreibungen</h2>
-                      <p className="text-white/80 text-sm font-medium">
-                        In deiner Nähe
-                      </p>
+                      <h2 className="text-lg font-bold text-white">Ausschreibungen</h2>
+                      <div className="flex items-center gap-2 text-white/90 text-xs">
+                        <span className="text-emerald-300 font-semibold">
+                          {combinedTrades.length} gefunden
+                        </span>
+                        {currentLocation && (
+                          <>
+                            <span>·</span>
+                            <span>{radiusKm}km Radius</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
-                   <div className="flex items-center gap-2">
+                   <div className="flex items-center gap-1">
                      {!isExpanded && !isMobile && !isTablet && (
                        <button
                          onClick={handleExpand}
-                         className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                         className="p-1.5 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
                          title="Vollbild"
                        >
-                         <ExternalLink className="w-5 h-5 text-white" />
+                         <ExternalLink className="w-4 h-4 text-white" />
                        </button>
                      )}
                      {isExpanded && (
                        <button
                          onClick={handleCollapse}
-                         className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                         className="p-1.5 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
                          title="Verkleinern"
                        >
-                         <XCircle className="w-5 h-5 text-white" />
+                         <XCircle className="w-4 h-4 text-white" />
                        </button>
                      )}
                      <button
                        onClick={handleClose}
-                       className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                       className="p-1.5 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
                      >
-                       <X className="w-5 h-5 text-white" />
+                       <X className="w-4 h-4 text-white" />
                      </button>
                    </div>
                 </div>
-                
-                <div className="flex items-center gap-2 text-white/90 text-sm">
-                  <div className="flex items-center bg-white/10 border border-white/20 rounded-lg px-3 py-1">
-                    <span className="text-emerald-300 font-semibold mr-1">
-                      {combinedTrades.length}
-                    </span>
-                    <span>gefunden</span>
-                    {currentLocation && (
-                      <>
-                        <span className="mx-2">·</span>
-                        <span>{radiusKm}km Radius</span>
-                      </>
-                    )}
-                  </div>
-                </div>
               </div>
 
-              {/* Location Input Section */}
-              <div className="p-4 border-b border-gray-700 space-y-3">
-                <label className="text-white text-sm font-medium block">📍 Standort festlegen</label>
-                <div className="flex items-center gap-3">
+              {/* Location Input Section - Kompakter */}
+              <div className="p-3 border-b border-gray-700 space-y-2">
+                <div className="flex items-center gap-2">
                   <div className="flex-1">
                     <AddressAutocomplete
                       label=""
-                      placeholder="Straße, PLZ Ort eingeben..."
+                      placeholder="📍 Standort eingeben..."
                       value={selectedAddress}
                       onChange={(next) => setSelectedAddress({
                         address_street: next.address_street,
@@ -327,38 +319,33 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
                   <button
                     onClick={handleSelectedAddressGeocode}
                     disabled={isGeocoding || !selectedAddress.address_street.trim()}
-                    className="px-4 py-3 bg-gradient-to-r from-[#10b981] to-[#059669] text-white rounded-xl hover:from-[#059669] hover:to-[#047857] disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
+                    className="px-3 py-2 bg-gradient-to-r from-[#10b981] to-[#059669] text-white rounded-lg hover:from-[#059669] hover:to-[#047857] disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-300"
                   >
                     {isGeocoding ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
                     ) : (
-                      <Search size={16} />
+                      <Search size={14} />
                     )}
                   </button>
                   
                   <button
                     onClick={useOwnLocation}
                     disabled={isLoading}
-                    className={`p-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl hover:from-emerald-600 hover:to-green-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-300 transform hover:scale-105 hover:shadow-lg ${
-                      !currentLocation ? 'animate-bounce scale-110' : ''
+                    className={`p-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-lg hover:from-emerald-600 hover:to-green-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-300 ${
+                      !currentLocation ? 'animate-bounce' : ''
                     }`}
-                    style={!currentLocation ? {
-                      animation: 'bounce 1s infinite',
-                      boxShadow: '0 0 20px rgba(16, 185, 129, 0.8)',
-                      border: '2px solid rgba(16, 185, 129, 0.8)'
-                    } : {}}
                     title="Aktuellen Standort verwenden"
                   >
-                    <MapPin size={16} />
+                    <MapPin size={14} />
                   </button>
                 </div>
 
-                {/* Radius Slider */}
-                <div className="bg-[#2a2a2a] rounded-xl p-4 border border-gray-700">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-white text-sm font-medium">🎯 Suchradius</span>
-                    <span className="px-3 py-1 bg-gradient-to-r from-[#10b981] to-[#059669] text-white rounded-full text-sm font-bold shadow-lg">
-                      {radiusKm} km
+                {/* Radius Slider - Kompakter */}
+                <div className="bg-[#2a2a2a] rounded-lg p-3 border border-gray-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-white text-xs font-medium">🎯 Radius</span>
+                    <span className="px-2 py-0.5 bg-gradient-to-r from-[#10b981] to-[#059669] text-white rounded-full text-xs font-bold">
+                      {radiusKm}km
                     </span>
                   </div>
                   <input
@@ -372,22 +359,17 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
                       background: `linear-gradient(to right, #10b981 0%, #10b981 ${(radiusKm/50)*100}%, rgba(255,255,255,0.15) ${(radiusKm/50)*100}%, rgba(255,255,255,0.15) 100%)`
                     }}
                   />
-                  <div className="flex justify-between mt-2">
-                    <span className="text-gray-500 text-xs">1 km</span>
-                    <span className="text-gray-500 text-xs">25 km</span>
-                    <span className="text-gray-500 text-xs">50 km</span>
-                  </div>
                 </div>
               </div>
 
-              {/* Filter & View Tabs */}
-              <div className="p-4 border-b border-gray-700 space-y-3">
-                <div className="flex items-center justify-between gap-3">
+              {/* Filter & View Tabs - Kompakter */}
+              <div className="p-3 border-b border-gray-700 space-y-2">
+                <div className="flex items-center gap-2">
                   {/* Category Filter */}
                   <select
                     value={geoTradeCategory || ''}
                     onChange={(e) => setGeoTradeCategory(e.target.value)}
-                    className="flex-1 px-4 py-2.5 bg-[#2a2a2a] text-white rounded-xl text-sm border border-gray-600 focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-[#10b981] transition-all duration-300 cursor-pointer hover:bg-gray-700"
+                    className="flex-1 px-3 py-2 bg-[#2a2a2a] text-white rounded-lg text-xs border border-gray-600 focus:outline-none focus:border-[#10b981] transition-all duration-300 cursor-pointer hover:bg-gray-700"
                   >
                     <option value="">Alle Kategorien</option>
                     {TRADE_CATEGORIES.map(category => (
@@ -401,27 +383,27 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
                   <button
                     onClick={performGeoSearch}
                     disabled={isLoading || !currentLocation}
-                    className="p-2.5 rounded-lg bg-gradient-to-r from-[#10b981] to-[#059669] text-white hover:from-[#059669] hover:to-[#047857] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-md hover:shadow-xl"
+                    className="p-2 rounded-lg bg-gradient-to-r from-[#10b981] to-[#059669] text-white hover:from-[#059669] hover:to-[#047857] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                   >
                     {isLoading ? (
-                      <div className="animate-spin rounded-full border-b-2 border-white h-5 w-5"></div>
+                      <div className="animate-spin rounded-full border-b-2 border-white h-4 w-4"></div>
                     ) : (
-                      <Search size={18} />
+                      <Search size={14} />
                     )}
                   </button>
                 </div>
 
                 {/* View Tabs */}
-                <div className="flex items-center p-1 bg-[#2a2a2a] rounded-xl">
+                <div className="flex items-center p-0.5 bg-[#2a2a2a] rounded-lg">
                   <button
                     onClick={() => setActiveTab('rows')}
-                    className={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                    className={`flex-1 px-3 py-2 rounded-md font-medium text-xs transition-all duration-300 flex items-center justify-center gap-1 ${
                       activeTab === 'rows'
-                        ? 'bg-gradient-to-r from-[#10b981] to-[#059669] text-white shadow-lg transform scale-[1.02]'
+                        ? 'bg-gradient-to-r from-[#10b981] to-[#059669] text-white shadow-lg'
                         : 'text-gray-300 hover:text-white hover:bg-white/10'
                     }`}
                   >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/>
                     </svg>
                     {!isMobile && <span>Zeilen</span>}
@@ -429,13 +411,13 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
                   {!isMobile && (
                     <button
                       onClick={() => setActiveTab('cards')}
-                      className={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                      className={`flex-1 px-3 py-2 rounded-md font-medium text-xs transition-all duration-300 flex items-center justify-center gap-1 ${
                         activeTab === 'cards'
-                          ? 'bg-gradient-to-r from-[#10b981] to-[#059669] text-white shadow-lg transform scale-[1.02]'
+                          ? 'bg-gradient-to-r from-[#10b981] to-[#059669] text-white shadow-lg'
                           : 'text-gray-300 hover:text-white hover:bg-white/10'
                       }`}
                     >
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/>
                       </svg>
                       <span>Kacheln</span>
@@ -443,20 +425,20 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
                   )}
                   <button
                     onClick={() => setActiveTab('map')}
-                    className={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+                    className={`flex-1 px-3 py-2 rounded-md font-medium text-xs transition-all duration-300 flex items-center justify-center gap-1 ${
                       activeTab === 'map'
-                        ? 'bg-gradient-to-r from-[#10b981] to-[#059669] text-white shadow-lg transform scale-[1.02]'
+                        ? 'bg-gradient-to-r from-[#10b981] to-[#059669] text-white shadow-lg'
                         : 'text-gray-300 hover:text-white hover:bg-white/10'
                     }`}
                   >
-                    <Map size={16} />
+                    <Map size={12} />
                     {!isMobile && <span>Karte</span>}
                   </button>
                 </div>
               </div>
 
-              {/* Content Area */}
-              <div className="flex-1 overflow-y-auto p-4">
+              {/* Content Area - Maximaler Platz für Karte */}
+              <div className="flex-1 overflow-y-auto p-2">
                 {isLoading ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
@@ -689,23 +671,23 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
                 )}
               </div>
 
-              {/* Footer Stats */}
+              {/* Footer Stats - Kompakter */}
               {!isLoading && !error && combinedTrades.length > 0 && (
-                <div className="p-4 border-t border-gray-700 bg-[#222]">
-                  <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-2 border-t border-gray-700 bg-[#222]">
+                  <div className="grid grid-cols-3 gap-1 text-center">
                     <div>
-                      <div className="text-xl font-bold text-[#10b981]">{combinedTrades.length}</div>
-                      <div className="text-xs text-gray-400">Gefunden</div>
+                      <div className="text-lg font-bold text-[#10b981]">{combinedTrades.length}</div>
+                      <div className="text-[10px] text-gray-400">Gefunden</div>
                     </div>
                     <div>
-                      <div className="text-xl font-bold text-white">{radiusKm}km</div>
-                      <div className="text-xs text-gray-400">Radius</div>
+                      <div className="text-lg font-bold text-white">{radiusKm}km</div>
+                      <div className="text-[10px] text-gray-400">Radius</div>
                     </div>
                     <div>
-                      <div className="text-xl font-bold text-yellow-400">
+                      <div className="text-lg font-bold text-yellow-400">
                         {combinedTrades.filter(t => !hasServiceProviderQuote(t.id)).length}
                       </div>
-                      <div className="text-xs text-gray-400">Verfügbar</div>
+                      <div className="text-[10px] text-gray-400">Verfügbar</div>
                     </div>
                   </div>
                 </div>
