@@ -801,19 +801,19 @@ Ihr BuildWise Team
           onClick={() => setIsExpanded(!isExpanded)}
           data-tour-id="notification-tab-bautraeger"
           className={`fixed right-0 lg:top-[100px] md:top-[80px] sm:bottom-[20px] sm:right-[20px] z-[9999] 
-                     w-14 h-14 rounded-l-lg sm:rounded-full transition-all duration-300 hover:scale-105
-                     flex flex-col items-center justify-center ${
+                     w-14 h-20 rounded-l-xl transition-all duration-300 hover:shadow-2xl
+                     flex flex-col items-center justify-center gap-1 ${
             hasUnhandled 
-              ? 'bg-gradient-to-r from-blue-500/80 to-cyan-500/80 animate-pulse shadow-lg shadow-blue-500/50' 
-              : 'bg-gradient-to-r from-blue-500/60 to-cyan-500/60'
-          } text-white hover:from-blue-500/80 hover:to-cyan-500/80 hover:shadow-xl`}
+              ? 'bg-gradient-to-r from-blue-500/90 to-cyan-500/90 animate-pulse shadow-lg shadow-blue-500/50' 
+              : 'bg-gradient-to-r from-blue-500/80 to-cyan-500/80'
+          } text-white hover:from-blue-500 hover:to-cyan-500 border-l border-t border-b border-white/30`}
         >
           {/* Bauträger Icon */}
-          <Calendar size={18} className={hasUnhandled ? 'animate-bounce' : ''} />
+          <Calendar size={20} className={hasUnhandled ? 'animate-bounce' : ''} />
           
           {/* Anzahl unbehandelte Benachrichtigungen */}
           {hasUnhandled && (
-            <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold shadow-lg">
+            <div className="bg-white text-blue-600 rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold">
               {unhandledCount}
             </div>
           )}

@@ -791,19 +791,19 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
             }
           }}
           className={`fixed right-0 lg:top-[100px] md:top-[80px] sm:bottom-[20px] sm:right-[20px] z-[9999] 
-                     w-14 h-14 rounded-l-lg sm:rounded-full transition-all duration-300 hover:scale-105
-                     flex flex-col items-center justify-center ${
+                     w-14 h-20 rounded-l-xl transition-all duration-300 hover:shadow-2xl
+                     flex flex-col items-center justify-center gap-1 ${
             hasNewNotifications 
-              ? 'bg-gradient-to-r from-[#ffbd59]/80 to-[#ffa726]/80 animate-pulse shadow-lg shadow-[#ffbd59]/50' 
-              : 'bg-gradient-to-r from-[#ffbd59]/60 to-[#ffa726]/60'
-          } text-white hover:from-[#ffbd59]/80 hover:to-[#ffa726]/80 hover:shadow-xl backdrop-blur-sm border border-white/20`}
+              ? 'bg-gradient-to-r from-[#ffbd59]/90 to-[#ffa726]/90 animate-pulse shadow-lg shadow-[#ffbd59]/50' 
+              : 'bg-gradient-to-r from-[#ffbd59]/80 to-[#ffa726]/80'
+          } text-white hover:from-[#ffbd59] hover:to-[#ffa726] backdrop-blur-sm border-l border-t border-b border-white/30`}
         >
           {/* Dienstleister Icon */}
-          <Bell size={18} className={hasNewNotifications ? 'animate-bounce' : ''} />
+          <Bell size={20} className={hasNewNotifications ? 'animate-bounce' : ''} />
           
           {/* Anzahl neue Benachrichtigungen */}
           {hasNewNotifications && (
-            <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold shadow-lg">
+            <div className="bg-white text-[#ffbd59] rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold">
               {newCount}
             </div>
           )}
