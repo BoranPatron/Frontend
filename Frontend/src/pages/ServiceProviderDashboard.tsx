@@ -3665,50 +3665,40 @@ export default function ServiceProviderDashboard() {
                           // }
                         }}
                       >
-                        {/* Optimierter Kachel-Inhalt - Balance zwischen kompakt und lesbar */}
+                        {/* Optimierter Kachel-Inhalt - Balance zwischen kompakt und lesbar mit verbessertem responsive Layout */}
                         
-                        {/* Header mit Titel und Status */}
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex items-center gap-3 flex-1">
-                            <div className="relative">
-                              <div className="p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg">
+                        {/* Header mit Titel und Status - Verbessert für lange Titel */}
+                        <div className="mb-4">
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="relative flex-shrink-0">
+                              <div className="p-2 sm:p-3 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-xl shadow-lg">
                                 {getCategoryIcon(trade.category || '')}
                               </div>
                               {/* Brief-Symbol für ungelesene Nachrichten - DIENSTLEISTER-SPEZIFISCH */}
                               {trade.has_unread_messages_dienstleister && (
                                 <Mail 
-                                  size={24} 
-                                  className="absolute -top-3 -right-3 text-green-500" 
+                                  size={20} 
+                                  className="absolute -top-2 -right-2 text-green-500 sm:size-[24px]" 
                                   style={{
                                     animation: 'mail-flash 0.5s linear infinite !important',
-                                    animationName: 'mail-flash !important',
-                                    animationDuration: '0.5s !important',
-                                    animationTimingFunction: 'linear !important',
-                                    animationIterationCount: 'infinite !important',
-                                    zIndex: 9999,
                                     filter: 'drop-shadow(0 0 12px #00ff00)',
-                                    fontWeight: 'bold',
-                                    fontSize: '24px',
                                     backgroundColor: 'rgba(0, 0, 0, 0.3)',
                                     borderRadius: '50%',
-                                    padding: '4px',
+                                    padding: '2px',
                                     willChange: 'opacity',
-                                    display: 'inline-block'
                                   }}
                                 />
                               )}
-                              {/* Debug: Zeige has_unread_messages Status */}
-                              {console.log(`🔍 Trade ${trade.id} (${trade.title}): has_unread_messages_dienstleister = ${trade.has_unread_messages_dienstleister}`)}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h3 className="text-white font-bold text-lg leading-tight mb-1">
+                              <h3 className="text-white font-bold text-base sm:text-lg leading-tight mb-1 line-clamp-2">
                                 {trade.title}
                               </h3>
-                              <div className="flex items-center gap-2">
-                                <span className="text-gray-300 text-sm font-medium">{trade.category || 'Unbekannt'}</span>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-gray-300 text-xs sm:text-sm font-medium">{trade.category || 'Unbekannt'}</span>
                                 {trade.isGeoResult && (
-                                  <span className="text-blue-400 text-sm flex items-center gap-1 bg-blue-500/20 px-2 py-1 rounded-full">
-                                    <MapPin size={12} />
+                                  <span className="text-blue-400 text-xs bg-blue-500/20 px-2 py-1 rounded-full flex items-center gap-1">
+                                    <MapPin size={10} />
                                     {trade.distance_km?.toFixed(1)}km
                                   </span>
                                 )}
@@ -3716,13 +3706,13 @@ export default function ServiceProviderDashboard() {
                             </div>
                           </div>
                           
-                          {/* Status Badge - rechts oben */}
-                          <div className="flex flex-col items-end gap-2">
-                            <span className={`px-3 py-1.5 rounded-lg text-sm font-medium ${getCompletionStatusColor(actualCompletionStatus)}`}>
+                          {/* Status Badges - Optimiert für mobile Wrapping */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium ${getCompletionStatusColor(actualCompletionStatus)}`}>
                               {getCompletionStatusLabel(actualCompletionStatus)}
                             </span>
                             {hasQuote && (
-                              <span className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                              <span className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium ${
                                 quoteStatus === 'accepted' ? 'bg-green-500/30 text-green-300 border border-green-500/50' :
                                 quoteStatus === 'under_review' ? 'bg-yellow-500/30 text-yellow-300 border border-yellow-500/50' :
                                 quoteStatus === 'rejected' ? 'bg-red-500/30 text-red-300 border border-red-500/50' :
@@ -3757,18 +3747,18 @@ export default function ServiceProviderDashboard() {
                           </div>
                         </div>
 
-                        {/* Angebots-Bereich - bleibt am unteren Rand */}
+                        {/* Angebots-Bereich - bleibt am unteren Rand mit verbesserter Mobilität */}
                         <div className="mt-auto pt-4 border-t border-white/10">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm text-gray-400">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 flex-wrap flex-1">
+                              <span className="text-xs sm:text-sm text-gray-400">
                                 📊 {(() => {
                                   const quoteCount = trade.quote_stats?.total_quotes ?? (allTradeQuotes[trade.id] || []).length;
                                   return `${quoteCount} Angebote`;
                                 })()} 
                               </span>
                               {!hasQuote && (
-                                <span className="text-sm px-3 py-1 bg-orange-500/20 text-orange-300 rounded-full border border-orange-500/30 animate-pulse">
+                                <span className="text-xs sm:text-sm px-2.5 sm:px-3 py-1 bg-orange-500/20 text-orange-300 rounded-full border border-orange-500/30 animate-pulse whitespace-nowrap">
                                   ⚡ Verfügbar
                                 </span>
                               )}
@@ -3780,18 +3770,18 @@ export default function ServiceProviderDashboard() {
                                   e.stopPropagation();
                                   handleCreateQuote(trade);
                                 }}
-                                className="px-4 py-2.5 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-colors text-sm font-medium flex items-center gap-2 shadow-lg hover:shadow-xl"
+                                className="w-full sm:w-auto px-4 py-2.5 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-colors text-sm font-medium flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
                               >
                                 <Plus size={16} />
-                                Angebot abgeben
+                                <span className="whitespace-nowrap">Angebot abgeben</span>
                               </button>
                             ) : (
-                              <div className="text-right">
-                                <div className={`text-sm font-medium mb-1 ${getQuoteStatusColor(quoteStatus || '')}`}>
+                              <div className="text-left sm:text-right w-full sm:w-auto">
+                                <div className={`text-xs sm:text-sm font-medium mb-1 ${getQuoteStatusColor(quoteStatus || '')}`}>
                                   {getQuoteStatusLabel(quoteStatus || '')}
                                 </div>
                                 {userQuote && (
-                                  <div className="text-[#ffbd59] text-lg font-bold">
+                                  <div className="text-[#ffbd59] text-base sm:text-lg font-bold">
                                     {formatCurrency(userQuote.total_amount)}
                                   </div>
                                 )}
@@ -3801,7 +3791,7 @@ export default function ServiceProviderDashboard() {
                         </div>
                       </div>
                     ) : (
-                      // Zeilenansicht - kompakte Darstellung
+                      // Zeilenansicht - kompakte Darstellung mit verbessertem responsive Layout
                       <div 
                         key={`trade-row-${trade.id}-${index}`}
                         className={`group relative bg-gradient-to-r from-white/5 to-white/10 backdrop-blur-xl rounded-xl p-4 border border-white/20 hover:border-[#ffbd59]/50 hover:shadow-[0_0_20px_rgba(255,189,89,0.15)] transition-all duration-300 cursor-pointer ${
@@ -3829,40 +3819,142 @@ export default function ServiceProviderDashboard() {
                           setShowTradeDetails(true);
                         }}
                       >
-                        <div className="flex items-center justify-between">
+                        {/* Desktop/Large Tablet: Horizontal Layout */}
+                        <div className="hidden lg:flex items-center justify-between gap-4">
                           {/* Linke Seite: Hauptinformationen */}
-                          <div className="flex items-center gap-4 flex-1">
+                          <div className="flex items-center gap-4 flex-1 min-w-0">
                             {/* Icon */}
-                            <div className="relative">
-                              <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg shadow-lg shadow-[#ffbd59]/20 flex-shrink-0">
+                            <div className="relative flex-shrink-0">
+                              <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg shadow-lg shadow-[#ffbd59]/20">
                                 {getCategoryIcon(trade.category || '')}
                               </div>
                             </div>
                             
                             {/* Titel und Beschreibung */}
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-white font-semibold truncate">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <h3 className="text-white font-semibold text-base lg:text-lg line-clamp-2">
                                   {trade.title}
-                                  {trade.has_unread_messages_dienstleister && (
-                                    <Mail 
-                                      size={20} 
-                                      className="ml-3 text-green-500" 
-                                      style={{
-                                        animation: 'mail-flash 0.5s linear infinite !important',
-                                        animationName: 'mail-flash !important',
-                                        animationDuration: '0.5s !important',
-                                        animationTimingFunction: 'linear !important',
-                                        animationIterationCount: 'infinite !important',
-                                        filter: 'drop-shadow(0 0 8px #00ff00)',
-                                        fontWeight: 'bold',
-                                        fontSize: '20px',
-                                        willChange: 'opacity',
-                                        display: 'inline-block'
-                                      }}
-                                    />
-                                  )}
                                 </h3>
+                                {trade.has_unread_messages_dienstleister && (
+                                  <Mail 
+                                    size={18} 
+                                    className="text-green-500 flex-shrink-0" 
+                                    style={{
+                                      animation: 'mail-flash 0.5s linear infinite !important',
+                                      filter: 'drop-shadow(0 0 8px #00ff00)',
+                                      willChange: 'opacity'
+                                    }}
+                                  />
+                                )}
+                                {trade.isGeoResult && (
+                                  <span className="text-blue-400 text-xs bg-blue-500/20 px-2 py-1 rounded-full flex items-center gap-1 flex-shrink-0">
+                                    <MapPin size={10} />
+                                    {trade.distance_km?.toFixed(1)}km
+                                  </span>
+                                )}
+                                {hasQuote && (
+                                  <span className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 font-medium shadow-lg flex-shrink-0 ${
+                                    quoteStatus === 'accepted' ? 'bg-green-500/30 text-green-300 border border-green-500/50' :
+                                    quoteStatus === 'under_review' ? 'bg-yellow-500/30 text-yellow-300 border border-yellow-500/50' :
+                                    quoteStatus === 'rejected' ? 'bg-red-500/30 text-red-300 border border-red-500/50' :
+                                    'bg-blue-500/30 text-blue-300 border border-blue-500/50'
+                                  }`}>
+                                    <div className={`w-1.5 h-1.5 rounded-full ${
+                                      quoteStatus === 'accepted' ? 'bg-green-300 animate-pulse' :
+                                      quoteStatus === 'under_review' ? 'bg-yellow-300 animate-pulse' :
+                                      quoteStatus === 'rejected' ? 'bg-red-300' :
+                                      'bg-blue-300 animate-pulse'
+                                    }`}></div>
+                                    {quoteStatus === 'accepted' ? '✓ Gewonnen' :
+                                     quoteStatus === 'under_review' ? '⏳ In Prüfung' :
+                                     quoteStatus === 'rejected' ? '✗ Abgelehnt' :
+                                     '📋 Angebot abgegeben'}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 lg:gap-4 text-sm text-gray-400 flex-wrap">
+                                <span className="whitespace-nowrap">{trade.category || 'Unbekannt'}</span>
+                                <span className="whitespace-nowrap">
+                                  ⏰ {trade.submission_deadline ? formatDate(trade.submission_deadline) : 'Eingabefrist n.a.'}
+                                </span>
+                                <span className="whitespace-nowrap">📅 {formatDate(trade.planned_date || trade.start_date)}</span>
+                                <span className="whitespace-nowrap">📊 {(() => {
+                                  const quoteCount = trade.quote_stats?.total_quotes ?? (allTradeQuotes[trade.id] || []).length;
+                                  return `${quoteCount} Angebote`;
+                                })()}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Rechte Seite: Status und Aktionen - Festbreite für bessere Sichtbarkeit */}
+                          <div className="flex items-center gap-3 flex-shrink-0 max-w-[300px]">
+                            {/* Status Badge */}
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getCompletionStatusColor(actualCompletionStatus)}`}>
+                              {getCompletionStatusLabel(actualCompletionStatus)}
+                            </span>
+                            
+                            {/* Angebot Button oder Status */}
+                            {hasQuote ? (
+                              <div className="text-right">
+                                <div className={`text-sm font-medium whitespace-nowrap ${getQuoteStatusColor(quoteStatus || '')}`}>
+                                  {getQuoteStatusLabel(quoteStatus || '')}
+                                </div>
+                                {userQuote && (
+                                  <div className="text-[#ffbd59] text-sm font-bold">
+                                    {formatCurrency(userQuote.total_amount)}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCreateQuote(trade);
+                                }}
+                                className="px-4 py-2.5 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-colors text-sm font-medium flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 whitespace-nowrap"
+                              >
+                                <Plus size={14} />
+                                <span className="hidden xl:inline">Angebot abgeben</span>
+                                <span className="xl:hidden">Abgeben</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Mobile & Tablet: Vertical Stacked Layout */}
+                        <div className="flex lg:hidden flex-col gap-3">
+                          {/* Top Row: Icon, Title, Badges */}
+                          <div className="flex items-start gap-3">
+                            {/* Icon */}
+                            <div className="relative flex-shrink-0">
+                              <div className="p-2 bg-gradient-to-br from-[#ffbd59] to-[#ffa726] rounded-lg shadow-lg shadow-[#ffbd59]/20">
+                                {getCategoryIcon(trade.category || '')}
+                              </div>
+                              {trade.has_unread_messages_dienstleister && (
+                                <Mail 
+                                  size={18} 
+                                  className="absolute -top-2 -right-2 text-green-500" 
+                                  style={{
+                                    animation: 'mail-flash 0.5s linear infinite !important',
+                                    filter: 'drop-shadow(0 0 8px #00ff00)',
+                                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                                    borderRadius: '50%',
+                                    padding: '2px',
+                                    willChange: 'opacity'
+                                  }}
+                                />
+                              )}
+                            </div>
+                            
+                            {/* Title and Key Info */}
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-white font-semibold text-base line-clamp-2 mb-2">
+                                {trade.title}
+                              </h3>
+                              
+                              {/* Badges Row - Wraps naturally */}
+                              <div className="flex items-center gap-2 flex-wrap">
                                 {trade.isGeoResult && (
                                   <span className="text-blue-400 text-xs bg-blue-500/20 px-2 py-1 rounded-full flex items-center gap-1">
                                     <MapPin size={10} />
@@ -3888,43 +3980,47 @@ export default function ServiceProviderDashboard() {
                                      '📋 Angebot abgegeben'}
                                   </span>
                                 )}
-                              </div>
-                              <div className="flex items-center gap-4 text-sm text-gray-400">
-                                <span>{trade.category || 'Unbekannt'}</span>
-                                <span>
-                                  ⏰ {trade.submission_deadline ? formatDate(trade.submission_deadline) : 'Eingabefrist n.a.'}
+                                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getCompletionStatusColor(actualCompletionStatus)}`}>
+                                  {getCompletionStatusLabel(actualCompletionStatus)}
                                 </span>
-                                <span>📅 {formatDate(trade.planned_date || trade.start_date)}</span>
-                                <span>📊 {(() => {
-                                  const quoteCount = trade.quote_stats?.total_quotes ?? (allTradeQuotes[trade.id] || []).length;
-                                  return `${quoteCount} Angebote`;
-                                })()}</span>
                               </div>
                             </div>
                           </div>
-                          
-                          {/* Rechte Seite: Status und Aktionen */}
-                          <div className="flex items-center gap-3 flex-shrink-0">
-                            {/* Status Badge */}
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${getCompletionStatusColor(actualCompletionStatus)}`}>
-                              {getCompletionStatusLabel(actualCompletionStatus)}
+
+                          {/* Middle Row: Details */}
+                          <div className="flex items-center gap-3 text-sm text-gray-400 flex-wrap">
+                            <span className="whitespace-nowrap">{trade.category || 'Unbekannt'}</span>
+                            <span className="whitespace-nowrap">
+                              ⏰ {trade.submission_deadline ? formatDate(trade.submission_deadline) : 'Eingabefrist n.a.'}
                             </span>
-                            
-                            {/* Angebot Button oder Status */}
+                            <span className="whitespace-nowrap">📅 {formatDate(trade.planned_date || trade.start_date)}</span>
+                            <span className="whitespace-nowrap">📊 {(() => {
+                              const quoteCount = trade.quote_stats?.total_quotes ?? (allTradeQuotes[trade.id] || []).length;
+                              return `${quoteCount} Angebote`;
+                            })()}</span>
+                          </div>
+
+                          {/* Bottom Row: Action Button - Always Visible */}
+                          <div className="flex items-center justify-end pt-2 border-t border-white/10">
                             {hasQuote ? (
-                              <div className="text-right">
-                                <div className={`text-sm font-medium ${getQuoteStatusColor(quoteStatus || '')}`}>
-                                  {getQuoteStatusLabel(quoteStatus || '')}
-                                </div>
-                                {userQuote && (
-                                  <div className="text-[#ffbd59] text-sm font-bold">
-                                    {formatCurrency(userQuote.total_amount)}
+                              <div className="flex items-center gap-3 w-full justify-between">
+                                <div className="text-left">
+                                  <div className={`text-sm font-medium ${getQuoteStatusColor(quoteStatus || '')}`}>
+                                    {getQuoteStatusLabel(quoteStatus || '')}
                                   </div>
-                                )}
+                                  {userQuote && (
+                                    <div className="text-[#ffbd59] text-base font-bold">
+                                      {formatCurrency(userQuote.total_amount)}
+                                    </div>
+                                  )}
+                                </div>
+                                <span className="text-xs px-2 py-1 bg-orange-500/20 text-orange-400 rounded-full border border-orange-500/30">
+                                  ⚡ Angebot vorhanden
+                                </span>
                               </div>
                             ) : (
-                              <div className="flex flex-col items-end gap-2">
-                                <span className="text-xs px-2 py-1 bg-orange-500/20 text-orange-400 rounded-full border border-orange-500/30 animate-pulse">
+                              <div className="flex items-center gap-2 w-full">
+                                <span className="text-xs px-2 py-1 bg-orange-500/20 text-orange-400 rounded-full border border-orange-500/30 animate-pulse flex-shrink-0">
                                   ⚡ Verfügbar
                                 </span>
                                 <button
@@ -3932,9 +4028,9 @@ export default function ServiceProviderDashboard() {
                                     e.stopPropagation();
                                     handleCreateQuote(trade);
                                   }}
-                                  className="px-3 py-2 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-colors text-sm font-medium flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
+                                  className="flex-1 px-4 py-2.5 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-colors text-sm font-medium flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
                                 >
-                                  <Plus size={14} />
+                                  <Plus size={16} />
                                   Angebot abgeben
                                 </button>
                               </div>
