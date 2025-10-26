@@ -533,202 +533,71 @@ export default function TradeMap({
 
   const createSingleTradePopup = (trade: TradeSearchResult) => {
     const categoryInfo = getCategoryIcon(trade.category);
-    const description = trade.description || 'Keine Beschreibung';
-    const maxDescriptionLength = 100;
-    const isLongDescription = description.length > maxDescriptionLength;
-    const shortDescription = isLongDescription ? description.substring(0, maxDescriptionLength) + '...' : description;
-    const popupId = `popup-${trade.id}`;
-    
-    // Quote-Status prüfen
-    const hasQuote = hasQuoteForTrade ? hasQuoteForTrade(trade.id) : false;
-    const quoteStatus = getQuoteStatusForTrade ? getQuoteStatusForTrade(trade.id) : null;
-    
-    let quoteStatusBadge = '';
-    if (hasQuote && quoteStatus) {
-      const statusConfig = {
-        'accepted': { color: 'bg-green-100 text-green-800', icon: '✓', text: 'Gewonnen' },
-        'under_review': { color: 'bg-yellow-100 text-yellow-800', icon: '⏳', text: 'In Prüfung' },
-        'rejected': { color: 'bg-red-100 text-red-800', icon: '✗', text: 'Abgelehnt' },
-        'submitted': { color: 'bg-blue-100 text-blue-800', icon: '📋', text: 'Angebot abgegeben' }
-      };
-      const config = statusConfig[quoteStatus as keyof typeof statusConfig] || statusConfig['submitted'];
-      
-      quoteStatusBadge = `
-        <div class="mb-2">
-          <span class="inline-block ${config.color} text-xs px-2 py-1 rounded font-medium">
-            ${config.icon} ${config.text}
-          </span>
-        </div>
-      `;
-    }
+    const startDate = trade.start_date ? new Date(trade.start_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : 'Flexibel';
+    const endDate = trade.end_date ? new Date(trade.end_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';
     
     return `
-      <div class="p-3 min-w-[280px] max-w-[350px]">
-        <div class="flex items-center gap-2 mb-2">
-          <span style="font-size: 18px;">${categoryInfo.icon}</span>
-          <h3 class="font-bold text-lg leading-tight">${trade.title}</h3>
+      <div class="p-2 min-w-[180px] max-w-[220px]">
+        <div class="flex items-center gap-1 mb-1">
+          <span style="font-size: 14px;">${categoryInfo.icon}</span>
+          <h3 class="font-semibold text-sm leading-tight">${trade.title}</h3>
         </div>
-        ${quoteStatusBadge}
         
-        <div class="mb-3 flex flex-wrap gap-1">
-          <span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+        <div class="mb-2 flex flex-wrap gap-1">
+          <span class="inline-block bg-blue-100 text-blue-800 text-xs px-1.5 py-0.5 rounded">
             ${trade.category}
           </span>
-          <span class="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
+          <span class="inline-block bg-green-100 text-green-800 text-xs px-1.5 py-0.5 rounded">
             ${trade.status}
           </span>
-          ${trade.requires_inspection ? '<span class="inline-block bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">🔍 Besichtigung</span>' : ''}
         </div>
         
-        <!-- Beschreibung mit Einklapp-Funktion -->
-        <div class="mb-3">
-          <div id="desc-short-${popupId}" class="text-sm text-gray-600 leading-relaxed">
-            ${shortDescription}
-            ${isLongDescription ? `
-              <button 
-                onclick="document.getElementById('desc-short-${popupId}').style.display='none'; document.getElementById('desc-full-${popupId}').style.display='block';"
-                class="text-blue-600 hover:text-blue-800 font-medium ml-1 underline cursor-pointer"
-              >
-                Mehr anzeigen
-              </button>
-            ` : ''}
-          </div>
-          
-          ${isLongDescription ? `
-            <div id="desc-full-${popupId}" class="text-sm text-gray-600 leading-relaxed" style="display: none;">
-              ${description}
-              <button 
-                onclick="document.getElementById('desc-full-${popupId}').style.display='none'; document.getElementById('desc-short-${popupId}').style.display='block';"
-                class="text-blue-600 hover:text-blue-800 font-medium ml-1 underline cursor-pointer"
-              >
-                Weniger anzeigen
-              </button>
-            </div>
-          ` : ''}
-        </div>
-        
-        <div class="space-y-1 text-sm mb-4 bg-gray-50 p-2 rounded-lg">
-          <p><strong>Projekt:</strong> <span class="text-gray-700">${trade.project_name}</span></p>
-          <p><strong>Adresse:</strong> <span class="text-gray-700">${trade.address_street}, ${trade.address_zip} ${trade.address_city}</span></p>
+        <div class="space-y-0.5 text-xs mb-2">
+          <p><strong>Start:</strong> <span class="text-gray-700">${startDate}</span></p>
+          ${endDate ? `<p><strong>Ende:</strong> <span class="text-gray-700">${endDate}</span></p>` : ''}
           <p><strong>Entfernung:</strong> <span class="text-blue-600 font-medium">${trade.distance_km.toFixed(1)} km</span></p>
-          ${trade.budget ? `<p><strong>Budget:</strong> <span class="text-green-600 font-medium">${trade.budget.toLocaleString('de-DE')} €</span></p>` : ''}
-          ${trade.planned_date ? `<p><strong>Geplant:</strong> <span class="text-gray-700">${new Date(trade.planned_date).toLocaleDateString('de-DE')}</span></p>` : ''}
         </div>
         
-        <div class="flex gap-2">
-          <button 
-            onclick="window.dispatchEvent(new CustomEvent('tradeMarkerClick', {detail: ${JSON.stringify(trade).replace(/"/g, '&quot;')}}))"
-            class="flex-1 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300 shadow-md"
-          >
-            🎯 Angebot abgeben
-          </button>
-          <button 
-            onclick="window.dispatchEvent(new CustomEvent('tradeMarkerClick', {detail: ${JSON.stringify(trade).replace(/"/g, '&quot;')}}))"
-            class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
-            title="Details anzeigen"
-          >
-            📋
-          </button>
-        </div>
+        <button 
+          onclick="window.dispatchEvent(new CustomEvent('tradeMarkerClick', {detail: ${JSON.stringify(trade).replace(/"/g, '&quot;')}}))"
+          class="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-2 py-1 rounded text-xs font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all shadow-sm"
+        >
+          Details
+        </button>
       </div>
     `;
   };
 
   const createClusterPopup = (cluster: TradeSearchResult[]) => {
     const firstTrade = cluster[0];
-    const categoryCounts = cluster.reduce((acc, trade) => {
-      acc[trade.category] = (acc[trade.category] || 0) + 1;
-      return acc;
-    }, {} as { [key: string]: number });
-
-    const categoryList = Object.entries(categoryCounts)
-      .map(([category, count]) => {
-        const categoryInfo = getCategoryIcon(category);
-        return `
-          <div class="flex items-center gap-2 text-sm">
-            <span style="font-size: 14px;">${categoryInfo.icon}</span>
-            <span>${category} (${count})</span>
-          </div>
-        `;
-      }).join('');
-
-    const tradesList = cluster.map((trade, index) => {
+    
+    const tradesList = cluster.map((trade) => {
       const categoryInfo = getCategoryIcon(trade.category);
-      const description = trade.description || 'Keine Beschreibung';
-      const maxDescriptionLength = 80;
-      const isLongDescription = description.length > maxDescriptionLength;
-      const shortDescription = isLongDescription ? description.substring(0, maxDescriptionLength) + '...' : description;
-      const clusterItemId = `cluster-item-${trade.id}-${index}`;
       
       return `
-        <div class="border-b border-gray-200 pb-3 mb-3 last:border-b-0 last:pb-0 last:mb-0">
-          <div class="flex items-center gap-2 mb-2">
-            <span style="font-size: 14px;">${categoryInfo.icon}</span>
-            <h4 class="font-medium text-gray-800 leading-tight">${trade.title}</h4>
-          </div>
-          
-          <div class="mb-2">
-            <div id="desc-short-${clusterItemId}" class="text-xs text-gray-600 leading-relaxed">
-              ${shortDescription}
-              ${isLongDescription ? `
-                <button 
-                  onclick="document.getElementById('desc-short-${clusterItemId}').style.display='none'; document.getElementById('desc-full-${clusterItemId}').style.display='block';"
-                  class="text-blue-600 hover:text-blue-800 font-medium ml-1 underline cursor-pointer"
-                >
-                  Mehr
-                </button>
-              ` : ''}
-            </div>
-            
-            ${isLongDescription ? `
-              <div id="desc-full-${clusterItemId}" class="text-xs text-gray-600 leading-relaxed" style="display: none;">
-                ${description}
-                <button 
-                  onclick="document.getElementById('desc-full-${clusterItemId}').style.display='none'; document.getElementById('desc-short-${clusterItemId}').style.display='block';"
-                  class="text-blue-600 hover:text-blue-800 font-medium ml-1 underline cursor-pointer"
-                >
-                  Weniger
-                </button>
-              </div>
-            ` : ''}
-          </div>
-          
-          <div class="flex items-center justify-between">
-            <div class="flex flex-col">
-              <span class="text-xs text-gray-500">${trade.project_name}</span>
-              ${trade.budget ? `<span class="text-xs text-green-600 font-medium">${trade.budget.toLocaleString('de-DE')} €</span>` : ''}
-            </div>
-            <button 
-              onclick="window.dispatchEvent(new CustomEvent('tradeMarkerClick', {detail: ${JSON.stringify(trade).replace(/"/g, '&quot;')}}))"
-              class="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300 shadow-sm"
-            >
-              🎯 Angebot
-            </button>
-          </div>
+        <div class="flex items-center gap-2 py-1">
+          <span style="font-size: 12px;">${categoryInfo.icon}</span>
+          <span class="text-xs text-gray-800 flex-1 truncate">${trade.title}</span>
+          <button 
+            onclick="window.dispatchEvent(new CustomEvent('tradeMarkerClick', {detail: ${JSON.stringify(trade).replace(/"/g, '&quot;')}}))"
+            class="text-xs px-2 py-0.5 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
+          >
+            Details
+          </button>
         </div>
       `;
     }).join('');
 
     return `
-      <div class="p-3 min-w-[300px] max-w-[400px]">
-        <div class="flex items-center gap-2 mb-3">
-          <div class="w-6 h-6 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
+      <div class="p-2 min-w-[200px] max-w-[250px]">
+        <div class="flex items-center gap-1 mb-2">
+          <span class="w-5 h-5 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
             ${cluster.length}
-          </div>
-          <h3 class="font-bold text-lg">Gewerke an dieser Adresse</h3>
+          </span>
+          <h3 class="font-semibold text-sm">${firstTrade.address_city}</h3>
         </div>
         
-        <div class="mb-3">
-          <p class="text-sm text-gray-600 mb-2">
-            <strong>Adresse:</strong> ${firstTrade.address_street}, ${firstTrade.address_zip} ${firstTrade.address_city}
-          </p>
-          <div class="space-y-1">
-            ${categoryList}
-          </div>
-        </div>
-        
-        <div class="max-h-64 overflow-y-auto">
-          <h4 class="font-medium text-gray-800 mb-2">Verfügbare Gewerke:</h4>
+        <div class="max-h-48 overflow-y-auto">
           ${tradesList}
         </div>
       </div>

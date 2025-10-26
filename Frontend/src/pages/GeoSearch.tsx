@@ -657,129 +657,75 @@ export default function GeoSearch() {
                   showAcceptedTrades={showAcceptedTrades}
                 />
 
-                {/* Modernes Trade-Popup auf der Karte */}
+                {/* Kompaktes Trade-Popup auf der Karte */}
                 {selectedMapTrade && (
                   <div className="absolute inset-x-4 bottom-4 z-20">
-                    <div className="bg-white/95 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20 max-w-2xl mx-auto">
-                      {/* Header */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-[#ffbd59]/20 rounded-lg">
-                            <Wrench size={24} className="text-[#ffbd59]" />
+                    <div className="bg-white/95 backdrop-blur-lg rounded-xl p-3 shadow-xl border border-white/20 max-w-md mx-auto">
+                      {/* Kompakter Header */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div className="p-1 bg-[#ffbd59]/20 rounded">
+                            <Wrench size={16} className="text-[#ffbd59]" />
                           </div>
-                          <div>
-                            <h3 className="text-xl font-bold text-gray-900">{selectedMapTrade.title}</h3>
-                            <p className="text-gray-600">{selectedMapTrade.project_name}</p>
-                          </div>
+                          <h3 className="text-sm font-semibold text-gray-900 truncate">{selectedMapTrade.title}</h3>
                         </div>
                         <button
                           onClick={() => setSelectedMapTrade(null)}
-                          className="text-gray-400 hover:text-gray-600 p-1"
+                          className="text-gray-400 hover:text-gray-600 p-1 flex-shrink-0"
                         >
-                          <X size={20} />
+                          <X size={14} />
                         </button>
                       </div>
 
-                      {/* Badges */}
-                      <div className="flex items-center gap-2 flex-wrap mb-4">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-600 text-white">
-                          <Tag size={12} className="mr-1" />
+                      {/* Kompakte Badges */}
+                      <div className="flex items-center gap-1 flex-wrap mb-2">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-600 text-white">
                           {getCategoryLabel(selectedMapTrade.category)}
                         </span>
-                        
-                        {selectedMapTrade.requires_inspection && (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-600 text-white">
-                            <Eye size={12} className="mr-1" />
-                            Besichtigung erforderlich
-                          </span>
-                        )}
-                        
-                        {selectedMapTrade.quote_stats && (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-600 text-white">
-                            <Users size={12} className="mr-1" />
-                            {selectedMapTrade.quote_stats.total_quotes || 0} Bewerber
-                          </span>
-                        )}
-                        
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedMapTrade.status)} text-white`}>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(selectedMapTrade.status)} text-white`}>
                           {getStatusLabel(selectedMapTrade.status)}
                         </span>
                       </div>
 
-                      {/* Informationen */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      {/* Kompakte Informationen */}
+                      <div className="grid grid-cols-3 gap-2 mb-2 text-xs">
                         <div className="text-center">
-                          <div className="text-gray-500 text-sm">Startdatum</div>
-                          <div className="font-semibold text-gray-900">
-                            {selectedMapTrade.start_date ? new Date(selectedMapTrade.start_date).toLocaleDateString('de-DE') : 'Flexibel'}
+                          <div className="text-gray-500 text-xs">Start</div>
+                          <div className="font-medium text-gray-900">
+                            {selectedMapTrade.start_date ? new Date(selectedMapTrade.start_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : 'Flexibel'}
                           </div>
                         </div>
                         
-                        {selectedMapTrade.budget && (
+                        {selectedMapTrade.end_date && (
                           <div className="text-center">
-                            <div className="text-gray-500 text-sm">Budget</div>
-                            <div className="font-bold text-[#ffbd59]">
-                              {new Intl.NumberFormat('de-DE', { 
-                                style: 'currency', 
-                                currency: 'EUR',
-                                maximumFractionDigits: 0
-                              }).format(selectedMapTrade.budget)}
+                            <div className="text-gray-500 text-xs">Ende</div>
+                            <div className="font-medium text-gray-900">
+                              {new Date(selectedMapTrade.end_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                             </div>
                           </div>
                         )}
                         
                         {selectedMapTrade.distance_km && (
                           <div className="text-center">
-                            <div className="text-gray-500 text-sm">Entfernung</div>
-                            <div className="font-semibold text-gray-900">
+                            <div className="text-gray-500 text-xs">Entfernung</div>
+                            <div className="font-medium text-blue-600">
                               {selectedMapTrade.distance_km.toFixed(1)} km
                             </div>
                           </div>
                         )}
                       </div>
 
-                      {/* Beschreibung */}
-                      {selectedMapTrade.description && (
-                        <div className="mb-4">
-                          <div className="text-gray-500 text-sm mb-2">Beschreibung</div>
-                          <div className="text-gray-700 text-sm line-clamp-3">
-                            {selectedMapTrade.description}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Action Buttons */}
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => {
-                            setSelectedMapTrade(null);
-                            // Navigiere zum ServiceProviderDashboard mit dem gewählten Trade
-                            window.location.href = `/service-provider?quote=${selectedMapTrade.id}`;
-                          }}
-                          className="flex-1 bg-green-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Package size={16} />
-                          Angebot abgeben
-                        </button>
-                        
-                        <button
-                          onClick={() => {
-                            setSelectedMapTrade(null);
-                            handleTradeClick(selectedMapTrade);
-                          }}
-                          className="flex-1 bg-[#ffbd59] text-[#2c3539] px-4 py-3 rounded-lg font-semibold hover:bg-[#ffa726] transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Eye size={16} />
-                          Details
-                        </button>
-                        
-                        <button
-                          onClick={() => setSelectedMapTrade(null)}
-                          className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
+                      {/* Kompakter Action Button */}
+                      <button
+                        onClick={() => {
+                          setSelectedMapTrade(null);
+                          handleTradeClick(selectedMapTrade);
+                        }}
+                        className="w-full bg-[#ffbd59] text-[#2c3539] px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#ffa726] transition-colors flex items-center justify-center gap-1"
+                      >
+                        <Eye size={12} />
+                        Details anzeigen
+                      </button>
                     </div>
                   </div>
                 )}
