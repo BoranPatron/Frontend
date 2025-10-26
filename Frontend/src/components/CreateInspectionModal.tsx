@@ -143,6 +143,15 @@ export default function CreateInspectionModal({
       
       console.log('✅ Appointment erfolgreich erstellt:', createdAppointment);
       
+      // Event für andere Komponenten (Navbar, NavbarCalendar) auslösen
+      window.dispatchEvent(new CustomEvent('appointmentCreated', {
+        detail: {
+          type: 'inspection',
+          appointment: createdAppointment,
+          milestoneId: trade?.id
+        }
+      }));
+      
       // Rufe Parent-Handler auf - aber fange Fehler ab
       try {
         const selectedQuoteIds = selectedQuotes.map(q => q.id);
