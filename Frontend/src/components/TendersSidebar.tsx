@@ -107,16 +107,19 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<'rows' | 'cards' | 'map'>('map');
   const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
 
-  // Check if mobile/tablet
+  // Check if mobile/tablet/desktop
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+    const checkScreenSize = () => {
+      const width = window.innerWidth;
+      setIsMobile(width < 768);
+      setIsTablet(width >= 768 && width < 1024);
     };
     
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
   // Mobile: force rows view
@@ -167,16 +170,22 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
 
   return (
     <>
-      {/* Tab/Toggle Button */}
-      <motion.button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`fixed right-0 z-40 transition-all duration-300 ${
-          isOpen && !isExpanded ? 'right-[420px]' : 'right-0'
-        } ${isMobile ? 'bottom-24' : ''}`}
-        style={{ top: isMobile ? 'auto' : 'calc(50% + 80px)' }}
-        whileHover={{ scale: 1.05, x: isOpen && !isExpanded ? 0 : -5 }}
-        whileTap={{ scale: 0.95 }}
-      >
+       {/* Tab/Toggle Button */}
+       <motion.button
+         onClick={() => setIsOpen(!isOpen)}
+         className={`fixed right-0 z-40 transition-all duration-300 ${
+           isOpen && !isExpanded 
+             ? isMobile 
+               ? 'right-0' 
+               : isTablet
+               ? 'right-0'
+               : 'right-[90vw] sm:right-[85vw] md:right-[80vw] lg:right-[75vw] xl:right-[70vw]'
+             : 'right-0'
+         } ${isMobile ? 'bottom-24' : ''}`}
+         style={{ top: isMobile ? 'auto' : 'calc(50% + 80px)' }}
+         whileHover={{ scale: 1.05, x: isOpen && !isExpanded ? 0 : -5 }}
+         whileTap={{ scale: 0.95 }}
+       >
         <div className="bg-gradient-to-br from-[#10b981]/60 to-[#059669]/60 backdrop-blur-sm text-white px-3 py-4 rounded-l-lg shadow-xl border border-white/20 flex flex-col items-center gap-2 hover:from-[#10b981]/80 hover:to-[#059669]/80 transition-all">
           {isOpen && !isExpanded ? (
             <ChevronRight className="w-4 h-4" />
@@ -208,26 +217,38 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
               }`}
             />
 
-            {/* Sidebar Content */}
-            <motion.div
-              initial={isMobile ? { y: '100%' } : { x: 420 }}
-              animate={
-                isExpanded
-                  ? { x: 0, y: 0, width: '100vw', height: '100vh' }
-                  : isMobile
-                  ? { y: 0, height: '85vh' }
-                  : { x: 0 }
-              }
-              exit={isMobile ? { y: '100%' } : { x: 420 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className={`fixed ${
-                isExpanded
-                  ? 'inset-0 z-[99999]'
-                  : isMobile
-                  ? 'bottom-0 left-0 right-0 rounded-t-3xl z-50'
-                  : 'right-0 top-0 h-full w-[420px] z-50'
-              } bg-[#1a1a1a] shadow-2xl flex flex-col overflow-hidden`}
-            >
+             {/* Sidebar Content */}
+             <motion.div
+               initial={isMobile ? { y: '100%' } : { x: '100vw' }}
+               animate={
+                 isExpanded
+                   ? { x: 0, y: 0, width: '100vw', height: '100vh' }
+                   : isMobile
+                   ? { y: 0, height: '85vh' }
+                   : isTablet
+                   ? { x: 0, width: '100vw', height: '100vh' }
+                   : { x: 0 }
+               }
+               exit={isMobile ? { y: '100%' } : { x: '100vw' }}
+               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+               className={`fixed ${
+                 isExpanded
+                   ? 'inset-0 z-[99999]'
+                   : isMobile
+                   ? 'bottom-0 left-0 right-0 rounded-t-3xl z-50'
+                   : isTablet
+                   ? 'inset-0 z-50'
+                   : 'right-0 top-0 h-full z-50'
+               } ${
+                 isExpanded
+                   ? 'w-full'
+                   : isMobile
+                   ? 'w-full'
+                   : isTablet
+                   ? 'w-full'
+                   : 'w-[90vw] sm:w-[85vw] md:w-[80vw] lg:w-[75vw] xl:w-[70vw]'
+               } bg-[#1a1a1a] shadow-2xl flex flex-col overflow-hidden`}
+             >
               {/* Header */}
               <div className="bg-gradient-to-r from-[#10b981] to-[#059669] p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -240,32 +261,32 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {!isExpanded && !isMobile && (
-                      <button
-                        onClick={handleExpand}
-                        className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
-                        title="Vollbild"
-                      >
-                        <ExternalLink className="w-5 h-5 text-white" />
-                      </button>
-                    )}
-                    {isExpanded && (
-                      <button
-                        onClick={handleCollapse}
-                        className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
-                        title="Verkleinern"
-                      >
-                        <XCircle className="w-5 h-5 text-white" />
-                      </button>
-                    )}
-                    <button
-                      onClick={handleClose}
-                      className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
-                    >
-                      <X className="w-5 h-5 text-white" />
-                    </button>
-                  </div>
+                   <div className="flex items-center gap-2">
+                     {!isExpanded && !isMobile && !isTablet && (
+                       <button
+                         onClick={handleExpand}
+                         className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                         title="Vollbild"
+                       >
+                         <ExternalLink className="w-5 h-5 text-white" />
+                       </button>
+                     )}
+                     {isExpanded && (
+                       <button
+                         onClick={handleCollapse}
+                         className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                         title="Verkleinern"
+                       >
+                         <XCircle className="w-5 h-5 text-white" />
+                       </button>
+                     )}
+                     <button
+                       onClick={handleClose}
+                       className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                     >
+                       <X className="w-5 h-5 text-white" />
+                     </button>
+                   </div>
                 </div>
                 
                 <div className="flex items-center gap-2 text-white/90 text-sm">
