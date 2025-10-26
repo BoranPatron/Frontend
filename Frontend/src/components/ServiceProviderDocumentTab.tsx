@@ -406,7 +406,7 @@ export default function ServiceProviderDocumentTab({ userId }: ServiceProviderDo
       {/* Service Provider Document Tab - rechts am Bildschirmrand */}
       <div 
         ref={documentTabRef}
-        className={`fixed right-0 top-0 bottom-0 transform z-[9999] transition-all duration-300 ${
+        className={`fixed right-0 top-[55%] transform -translate-y-1/2 z-[9999] transition-all duration-300 ${
           isExpanded ? 'translate-x-0' : 'translate-x-full'
         }`}
       >

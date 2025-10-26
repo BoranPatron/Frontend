@@ -173,7 +173,7 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
        {/* Tab/Toggle Button */}
        <motion.button
          onClick={() => setIsOpen(!isOpen)}
-         className={`fixed right-0 z-40 transition-all duration-300 ${
+         className={`fixed right-0 top-[10%] transform -translate-y-1/2 z-40 transition-all duration-300 ${
            isOpen && !isExpanded 
              ? isMobile 
                ? 'right-0' 
@@ -182,7 +182,6 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
                : 'right-[90vw] sm:right-[85vw] md:right-[80vw] lg:right-[75vw] xl:right-[70vw]'
              : 'right-0'
          } ${isMobile ? 'bottom-24' : ''}`}
-         style={{ top: isMobile ? 'auto' : 'calc(50% + 80px)' }}
          whileHover={{ scale: 1.05, x: isOpen && !isExpanded ? 0 : -5 }}
          whileTap={{ scale: 0.95 }}
        >

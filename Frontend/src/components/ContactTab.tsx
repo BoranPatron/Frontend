@@ -225,14 +225,14 @@ export default function ContactTab({ userRole, userId }: ContactTabProps) {
       {/* Contact Tab - Fixed Position */}
       <div 
         ref={contactTabRef}
-        className={`fixed right-0 top-0 transform z-[9997] transition-all duration-300 h-screen ${
+        className={`fixed right-0 top-[70%] transform -translate-y-1/2 z-[9997] transition-all duration-300 ${
           isExpanded ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         
         {/* Tab Handle - Der "Griff" der Lasche (links) */}
         <div 
-          className={`absolute left-0 top-2/3 transform -translate-y-1/2 -translate-x-full cursor-pointer transition-all duration-300 md:mt-20 ${
+          className={`absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-full cursor-pointer transition-all duration-300 ${
             hasContacts 
               ? 'bg-gradient-to-r from-green-500/80 to-emerald-500/80 shadow-lg shadow-green-500/50' 
               : 'bg-gradient-to-r from-green-500/60 to-emerald-500/60'

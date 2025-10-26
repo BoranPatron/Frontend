@@ -781,10 +781,9 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
       {/* Notification Tab - Fixed Position */}
       <div 
         ref={notificationTabRef}
-        className={`fixed right-0 transform z-[9999] transition-all duration-300 ${
+        className={`fixed right-0 top-[25%] transform -translate-y-1/2 z-[9999] transition-all duration-300 ${
           isExpanded ? 'translate-x-0' : 'translate-x-full'
         }`}
-        style={{ top: 'calc(15% - 50px)' }}
       >
         
         {/* Tab Handle - Der "Griff" der Lasche (links) */}
