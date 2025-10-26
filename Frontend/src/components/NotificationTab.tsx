@@ -788,7 +788,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
         
         {/* Tab Handle - Der "Griff" der Lasche (links) */}
         <div 
-          className={`absolute left-0 top-0 -translate-x-full cursor-pointer transition-all duration-300 ${
+          className={`absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-full cursor-pointer transition-all duration-300 ${
             hasNewNotifications 
               ? 'bg-gradient-to-r from-[#ffbd59]/80 to-[#ffa726]/80 animate-pulse shadow-lg shadow-[#ffbd59]/50' 
               : 'bg-gradient-to-r from-[#ffbd59]/60 to-[#ffa726]/60'

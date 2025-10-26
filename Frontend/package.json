@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "onboarding:help": "node scripts/onboarding-cli.js help",
+    "onboarding:status": "node scripts/onboarding-cli.js status",
+    "onboarding:reset": "node scripts/onboarding-cli.js reset",
+    "onboarding": "node scripts/onboarding-cli.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
