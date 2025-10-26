@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useOnboarding } from '../context/OnboardingContext';
-import EnhancedGuidedTour from '../components/Onboarding/EnhancedGuidedTour';
+import { useContextualOnboarding } from '../context/ContextualOnboardingContext';
+import DashboardOnboardingOverlay from '../components/Onboarding/DashboardOnboardingOverlay';
 import ResourceDetailsModal from '../components/ResourceDetailsModal';
 import { 
   FileText, 
@@ -3486,14 +3487,8 @@ export default function ServiceProviderDashboard() {
       </div>
     )}
 
-    {/* Enhanced Guided Tour for Service Providers */}
-    {showTour && (
-      <EnhancedGuidedTour
-        onClose={() => setShowTour(false)}
-        onCompleted={() => completeTour()}
-        userRole="DIENSTLEISTER"
-      />
-    )}
+    {/* Contextual Onboarding Overlay */}
+    <DashboardOnboardingOverlay />
 
     {/* Resource Details Modal */}
     {showResourceDetailsModal && selectedResourceForDetails && (

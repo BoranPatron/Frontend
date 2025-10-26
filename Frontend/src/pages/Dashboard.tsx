@@ -71,10 +71,9 @@ import {
   BarChart3,
   RefreshCw
 } from 'lucide-react';
-import GuidedTourOverlay from '../components/Onboarding/GuidedTourOverlay';
-import FinalGuidedTour from '../components/Onboarding/FinalGuidedTour';
 import { useOnboarding } from '../context/OnboardingContext';
-import DisableableButton from '../components/Onboarding/DisableableButton';
+import { useContextualOnboarding } from '../context/ContextualOnboardingContext';
+import DashboardOnboardingOverlay from '../components/Onboarding/DashboardOnboardingOverlay';
 import { DocumentCategorizer } from '../utils/documentCategorizer';
 import PageHeader from '../components/PageHeader';
 import AddressAutocomplete from '../components/AddressAutocomplete';
@@ -3960,13 +3959,8 @@ function DashboardWithCreditAnimation() {
 
       {/* Radial Menu wurde global in App.tsx eingebunden */}
 
-      {/* Final Guided Tour - Best of both worlds */}
-      <FinalGuidedTour
-        isOpen={showTour}
-        onClose={() => setShowTour(false)}
-        onCompleted={() => completeTour()}
-        userRole={onboardingUserRole || 'BAUTRAEGER'}
-      />
+      {/* Contextual Onboarding Overlay */}
+      <DashboardOnboardingOverlay />
 
       {/* DMS Upload Modal */}
       {showUploadModal && (

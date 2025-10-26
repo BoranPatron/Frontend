@@ -4,6 +4,11 @@ import { useProject } from './ProjectContext';
 import { OnboardingManager } from '../utils/OnboardingManager';
 import { updateMe } from '../api/userService';
 
+/**
+ * OnboardingContext - Legacy context for backward compatibility
+ * @deprecated Use ContextualOnboardingContext instead
+ * This context is kept for compatibility with existing code during migration
+ */
 interface OnboardingContextType {
   showTour: boolean;
   setShowTour: (show: boolean) => void;
@@ -25,8 +30,9 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const { user, isInitialized } = useAuth();
   const { projects } = useProject();
   
+  // DEPRECATED: Legacy tour state - kept for backward compatibility
   const [showTour, setShowTour] = useState(false);
-  const [tourCompleted, setTourCompleted] = useState(false);
+  const [tourCompleted, setTourCompleted] = useState(true); // Always true for new system
   const [isFirstLogin, setIsFirstLogin] = useState(false);
   const [showWelcomeNotification, setShowWelcomeNotification] = useState(false);
 
@@ -45,154 +51,40 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     });
   }, [showTour, tourCompleted, showWelcomeNotification, userRole, user?.id]);
 
-  // Check if tour has been completed
+  // DEPRECATED: Legacy tour check - contextual onboarding doesn't need this
   useEffect(() => {
     if (user) {
-      const consentFields = user.consent_fields || {};
-      const dashboardTour = consentFields.dashboard_tour;
-      const completed = dashboardTour?.completed === true;
-      
-      // Zusätzliche Sicherheitsprüfung: Lokale Speicherung
-      const localTourCompletedKey = `tour_completed_${user.id}`;
-      const localTourCompleted = localStorage.getItem(localTourCompletedKey) === 'true';
-      
-      // Tour ist abgeschlossen wenn entweder DB oder lokale Speicherung es bestätigt
-      const isTourCompleted = completed || localTourCompleted;
-      
-      console.log('🔍 Tour completion check:', {
-        userId: user.id,
-        consentFields,
-        dashboardTour,
-        dbCompleted: completed,
-        localCompleted: localTourCompleted,
-        finalCompleted: isTourCompleted,
-        userConsentFields: user.consent_fields
-      });
-      
-      setTourCompleted(isTourCompleted);
+      // Always mark tour as completed for new contextual onboarding system
+      setTourCompleted(true);
       
       // Check if this is a first login
       const isNew = OnboardingManager.isFirstTimeUser(user);
       setIsFirstLogin(isNew);
+      
+      console.log('🔍 Legacy onboarding context (deprecated):', {
+        userId: user.id,
+        tourCompleted: true,
+        contextualOnboarding: user.consent_fields?.contextual_onboarding
+      });
     }
   }, [user]);
 
-  // Determine if UI should be disabled
-  const shouldDisableUI = Boolean(
-    user && 
-    isInitialized && 
-    user.role_selected &&
-    !tourCompleted && 
-    !hasProjects && 
-    (userRole === 'BAUTRAEGER' || userRole === 'DIENSTLEISTER')
-  );
+  // DEPRECATED: UI is never disabled in contextual onboarding
+  const shouldDisableUI = false;
 
-  // Initialize tour when conditions are met
+  // DEPRECATED: No guided tour in contextual onboarding
   const initializeTour = () => {
-    if (user && OnboardingManager.canStartDashboardTour(user)) {
-      setShowTour(true);
-    }
+    console.log('⚠️ initializeTour called but is deprecated. Use contextual onboarding instead.');
   };
 
-  // Complete tour and re-enable UI
+  // DEPRECATED: Legacy completeTour - kept for compatibility
   const completeTour = async () => {
-    console.log('🎯 completeTour called');
+    console.log('⚠️ completeTour called but is deprecated. Contextual onboarding completes automatically.');
     setShowTour(false);
     setTourCompleted(true);
-    
-    // Aktualisiere die Datenbank
-    if (user) {
-      try {
-        const tourCompletionData = {
-          consent_fields: {
-            ...user.consent_fields, // Behalte bestehende consent_fields
-            dashboard_tour: {
-              completed: true,
-              version: '2.0',
-              completed_at: new Date().toISOString(),
-            }
-          }
-        };
-        
-        console.log('💾 Saving tour completion to database:', tourCompletionData);
-        
-        await updateMe(tourCompletionData);
-        
-        console.log('✅ Tour completion successfully saved to database');
-        
-        // Setze auch die lokale Speicherung als Backup
-        const localTourCompletedKey = `tour_completed_${user.id}`;
-        localStorage.setItem(localTourCompletedKey, 'true');
-        console.log('💾 Tour completion also saved locally as backup');
-        
-        // Aktualisiere den lokalen User-State
-        const updatedUser = {
-          ...user,
-          consent_fields: tourCompletionData.consent_fields
-        };
-        
-        // Trigger eine Aktualisierung des User-Objekts
-        // Dies wird durch den AuthContext gehandhabt, wenn der User beim nächsten Login neu geladen wird
-        
-      } catch (error) {
-        console.error('❌ Tour completion could not be saved to database:', error);
-        
-        // Fallback: Setze lokale Speicherung trotzdem, um die Tour zu beenden
-        const localTourCompletedKey = `tour_completed_${user.id}`;
-        localStorage.setItem(localTourCompletedKey, 'true');
-        console.log('💾 Tour completion saved locally as fallback due to DB error');
-        
-        // Setze tourCompleted trotzdem auf true, um die Tour zu beenden
-        // Der Benutzer kann die Tour manuell erneut starten, falls nötig
-      }
-    }
-    
-    // Zeige Willkommens-Notification für Bauträger nach Abschluss der Guided Tour
-    if (userRole === 'BAUTRAEGER' && user) {
-      // Prüfe ob dies der erste Login nach der Tour ist
-      const firstLoginAfterTourKey = `first_login_after_tour_${user.id}`;
-      const hasShownAfterTour = localStorage.getItem(firstLoginAfterTourKey);
-      
-      console.log('🎉 Tour completed, checking welcome notification:', {
-        userRole,
-        userId: user.id,
-        hasShownAfterTour,
-        willShow: !hasShownAfterTour
-      });
-      
-      if (!hasShownAfterTour) {
-        // Kleine Verzögerung, damit die Tour vollständig geschlossen ist
-        setTimeout(() => {
-          console.log('🎉 Showing welcome notification for user after tour:', user.id);
-          setShowWelcomeNotification(true);
-          localStorage.setItem(firstLoginAfterTourKey, 'true');
-        }, 500);
-      }
-    }
   };
 
-  // Auto-start tour for new users
-  useEffect(() => {
-    if (isInitialized && user && !tourCompleted && user.role_selected) {
-      // Small delay to ensure UI is ready
-      const timer = setTimeout(() => {
-        initializeTour();
-      }, 1000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [isInitialized, user, tourCompleted]);
-
-  // Listen for manual tour start event
-  useEffect(() => {
-    const handleStartTour = () => {
-      console.log('🎯 Manual tour start event received');
-      initializeTour();
-    };
-
-    window.addEventListener('startDashboardTour', handleStartTour);
-    return () => window.removeEventListener('startDashboardTour', handleStartTour);
-  }, [user]);
+  // DEPRECATED: Contextual onboarding doesn't need auto-start
 
   // Debug-Funktion zum manuellen Starten der Tour (nur für Entwicklung)
   const startTour = () => {

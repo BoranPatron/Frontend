@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectProvider } from './context/ProjectContext';
 import { OnboardingProvider, useOnboarding } from './context/OnboardingContext';
+import { ContextualOnboardingProvider } from './context/ContextualOnboardingContext';
 import CacheDebugPanel from './components/CacheDebugPanel';
 import './utils/serviceWorkerManager'; // Service Worker initialisieren
 import './styles/grid-optimizations.css'; // Grid-Optimierungen für dynamische Kachel-Größen
@@ -537,8 +538,10 @@ export default function App() {
       <AuthProvider>
         <ProjectProvider>
           <OnboardingProvider>
-            <AppContent />
-            <CacheDebugPanel />
+            <ContextualOnboardingProvider>
+              <AppContent />
+              <CacheDebugPanel />
+            </ContextualOnboardingProvider>
           </OnboardingProvider>
         </ProjectProvider>
       </AuthProvider>

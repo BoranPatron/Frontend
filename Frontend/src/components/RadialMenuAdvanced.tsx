@@ -1079,6 +1079,7 @@ export function RadialMenuAdvanced({
           type="button"
           aria-label={open ? "Menü schließen" : "Menü öffnen"}
           aria-expanded={open}
+          data-feature-id="radial-menu-fab"
           data-tour-id="radial-menu-fab"
           onClick={() => {
             if (!open) {
