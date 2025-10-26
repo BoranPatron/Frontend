@@ -779,20 +779,10 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
   return (
     <>
       {/* Notification Tab - Fixed Position */}
-      <div 
-        ref={notificationTabRef}
-        className={`fixed right-0 top-[100px] h-screen z-[9999] transition-all duration-300 ${
-          isExpanded ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
+      <div ref={notificationTabRef} className="fixed right-0 z-[9999]">
         
-        {/* Tab Handle - Der "Griff" der Lasche (links) */}
-        <div 
-          className={`absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-full cursor-pointer transition-all duration-300 ${
-            hasNewNotifications 
-              ? 'bg-gradient-to-r from-[#ffbd59]/80 to-[#ffa726]/80 animate-pulse shadow-lg shadow-[#ffbd59]/50' 
-              : 'bg-gradient-to-r from-[#ffbd59]/60 to-[#ffa726]/60'
-          } rounded-l-lg px-3 py-4 text-white hover:from-[#ffbd59]/80 hover:to-[#ffa726]/80 hover:shadow-xl backdrop-blur-sm border border-white/20`}
+        {/* Tab Handle - Independent fixed position */}
+        <button
           onClick={() => {
             setIsExpanded(!isExpanded);
             if (!isExpanded && hasNewNotifications) {
@@ -800,36 +790,29 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
               markAsSeen(notifications.filter(n => n.isNew).map(n => n.id));
             }
           }}
+          className={`fixed right-0 lg:top-[100px] md:top-[80px] sm:bottom-[20px] sm:right-[20px] z-[9999] 
+                     w-14 h-14 rounded-l-lg sm:rounded-full transition-all duration-300 hover:scale-105
+                     flex flex-col items-center justify-center ${
+            hasNewNotifications 
+              ? 'bg-gradient-to-r from-[#ffbd59]/80 to-[#ffa726]/80 animate-pulse shadow-lg shadow-[#ffbd59]/50' 
+              : 'bg-gradient-to-r from-[#ffbd59]/60 to-[#ffa726]/60'
+          } text-white hover:from-[#ffbd59]/80 hover:to-[#ffa726]/80 hover:shadow-xl backdrop-blur-sm border border-white/20`}
         >
-          <div className="flex flex-col items-center gap-2">
-            {/* Dienstleister Icon */}
-            <div className={`${hasNewNotifications ? 'animate-bounce' : ''}`}>
-              <Bell size={20} />
+          {/* Dienstleister Icon */}
+          <Bell size={18} className={hasNewNotifications ? 'animate-bounce' : ''} />
+          
+          {/* Anzahl neue Benachrichtigungen */}
+          {hasNewNotifications && (
+            <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold shadow-lg">
+              {newCount}
             </div>
-            
-            {/* Anzahl neue Benachrichtigungen */}
-            {hasNewNotifications && (
-              <div className="bg-white text-[#ffbd59] rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold animate-pulse shadow-lg">
-                {newCount}
-              </div>
-            )}
-            
-            {/* Zeige Anzahl auch wenn keine neuen */}
-            {!hasNewNotifications && notifications.length > 0 && (
-              <div className="bg-white bg-opacity-90 text-gray-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-medium">
-                {notifications.length}
-              </div>
-            )}
-            
-            {/* Pfeil */}
-            <div className={`transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-              <ChevronLeft size={16} />
-            </div>
-          </div>
-        </div>
+          )}
+        </button>
 
         {/* Notification Panel */}
-        <div className="bg-gradient-to-br from-[#1a1a2e]/95 to-[#2c3539]/95 backdrop-blur-xl shadow-2xl rounded-l-xl w-96 max-h-[80vh] overflow-hidden border-l-4 border-[#ffbd59] border border-white/20">
+        <div className={`fixed right-0 top-0 h-screen w-96 z-[9998] transition-transform duration-300 ${
+          isExpanded ? 'translate-x-0' : 'translate-x-full'
+        } bg-gradient-to-br from-[#1a1a2e]/95 to-[#2c3539]/95 backdrop-blur-xl shadow-2xl overflow-hidden border-l-4 border-[#ffbd59] flex flex-col`}>
           
           {/* Header */}
           <div className="bg-gradient-to-r from-[#ffbd59] to-[#ffa726] text-white p-4">

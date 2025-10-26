@@ -74,12 +74,23 @@ export default function InteractiveHotspot({
     };
   }, [targetElement, isVisible, position, size]);
 
+  // Debug logging
+  useEffect(() => {
+    if (isVisible && targetElement) {
+      console.log('✨ InteractiveHotspot rendered:', {
+        targetElement: targetElement.tagName,
+        coordinates,
+        isVisible
+      });
+    }
+  }, [isVisible, targetElement, coordinates]);
+
   if (!isVisible || !targetElement) return null;
 
   return (
     <div
       ref={hotspotRef}
-      className="fixed z-[9999] pointer-events-none"
+      className="fixed z-[99998] pointer-events-none"
       style={{
         top: `${coordinates.top}px`,
         left: `${coordinates.left}px`,

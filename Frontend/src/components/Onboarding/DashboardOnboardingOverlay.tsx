@@ -21,13 +21,47 @@ export default function DashboardOnboardingOverlay() {
     totalFeatures
   } = useContextualOnboarding();
 
+  // Debug: Log overlay mount
+  useEffect(() => {
+    console.log('🏗️ DashboardOnboardingOverlay mounted:', {
+      totalFeatures: features.length,
+      discoveredCount,
+      activeTooltip,
+      features: features.map(f => f.id)
+    });
+  }, []);
+
+  // Debug: Log when features change
+  useEffect(() => {
+    console.log('📊 Onboarding state update:', {
+      totalFeatures: features.length,
+      discoveredCount,
+      progress: `${discoveredCount}/${features.length}`,
+      activeTooltip
+    });
+  }, [features.length, discoveredCount, activeTooltip]);
+
   // Setup event listeners for all features
   useEffect(() => {
     const handlersMap: Map<string, {element: HTMLElement, handler: () => void, event: string}> = new Map();
 
+    console.log('🔧 Setting up event listeners for features:', features.map(f => f.id));
+
     features.forEach(feature => {
       const element = document.querySelector(`[data-feature-id="${feature.id}"]`) as HTMLElement;
-      if (!element || !shouldShowTooltip(feature.id)) return;
+      
+      if (!element) {
+        console.warn(`⚠️ Element not found for feature: ${feature.id}`);
+        return;
+      }
+      
+      if (!shouldShowTooltip(feature.id)) {
+        console.log(`ℹ️ Feature ${feature.id} already discovered, skipping`);
+        return;
+      }
+
+      console.log(`✅ Setting up listener for: ${feature.id} (trigger: ${feature.triggerOn})`);
+      
 
       const triggerType = feature.triggerOn || 'hover';
       const delay = feature.delay || 0;
@@ -93,7 +127,12 @@ export default function DashboardOnboardingOverlay() {
   // Render hotspots for all undiscovered features
   const hotspots = features.filter(f => f.showHotspot && shouldShowHotspot(f.id)).map(feature => {
     const element = document.querySelector(`[data-feature-id="${feature.id}"]`) as HTMLElement;
-    if (!element) return null;
+    if (!element) {
+      console.warn(`⚠️ Hotspot target not found: ${feature.id}`);
+      return null;
+    }
+    
+    console.log(`🔆 Rendering hotspot for: ${feature.id}`);
 
     return (
       <InteractiveHotspot
@@ -110,9 +149,21 @@ export default function DashboardOnboardingOverlay() {
     ? document.querySelector(`[data-feature-id="${activeTooltip}"]`) as HTMLElement
     : null;
 
+  // Debug active tooltip
+  useEffect(() => {
+    if (activeTooltip) {
+      console.log('🎨 Active tooltip:', {
+        id: activeTooltip,
+        feature: activeFeature?.title,
+        elementFound: !!activeElement
+      });
+    }
+  }, [activeTooltip, activeFeature, activeElement]);
+
   return (
     <>
       {/* Hotspots */}
+      {hotspots.length > 0 && console.log(`🔆 Rendering ${hotspots.length} hotspots`)}
       {hotspots}
 
       {/* Active Tooltip */}

@@ -176,12 +176,40 @@ export function ContextualOnboardingProvider({ children }: { children: React.Rea
     (window as any).checkOnboardingProgress = () => {
       console.log('📊 Onboarding Progress:', {
         role: userRole,
+        userId: user?.id,
         totalFeatures,
         discoveredCount,
         progressPercentage: `${progressPercentage}%`,
         discoveredFeatures: Array.from(discoveredFeatures),
-        isComplete: isOnboardingComplete
+        isComplete: isOnboardingComplete,
+        activeTooltip,
+        features: features.map(f => ({
+          id: f.id,
+          title: f.title,
+          discovered: discoveredFeatures.has(f.id),
+          showHotspot: f.showHotspot,
+          triggerOn: f.triggerOn
+        }))
       });
+    };
+    (window as any).showOnboardingFeature = (featureId: string) => {
+      console.log(`🎯 Manually triggering feature: ${featureId}`);
+      const feature = features.find(f => f.id === featureId);
+      if (feature) {
+        showFeatureTooltip(featureId);
+      } else {
+        console.error(`❌ Feature not found: ${featureId}`);
+      }
+    };
+    (window as any).listOnboardingFeatures = () => {
+      console.table(features.map(f => ({
+        ID: f.id,
+        Title: f.title,
+        Priority: f.priority,
+        Discovered: discoveredFeatures.has(f.id) ? '✅' : '❌',
+        Hotspot: f.showHotspot ? '🔆' : '-',
+        Trigger: f.triggerOn
+      })));
     };
   }
 

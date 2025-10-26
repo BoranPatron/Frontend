@@ -189,10 +189,21 @@ export default function ContextualTooltip({
     }
   };
 
+  // Debug logging
+  useEffect(() => {
+    console.log('🎯 ContextualTooltip mounted:', {
+      id,
+      isVisible,
+      targetElement: targetElement?.tagName,
+      position,
+      placement: actualPlacement
+    });
+  }, [id, isVisible, targetElement, position, actualPlacement]);
+
   return (
     <div
       ref={tooltipRef}
-      className={`fixed z-[10000] pointer-events-auto transition-all duration-300 ${
+      className={`fixed z-[99999] pointer-events-auto transition-all duration-300 ${
         isAnimating ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
       }`}
       style={{
