@@ -44,7 +44,7 @@ export const getCreditBalance = async (): Promise<CreditBalance> => {
 
 export const getCreditHistory = async (): Promise<CreditEvent[]> => {
   try {
-    const response = await api.get('/api/v1/credits/history');
+    const response = await api.get('/api/v1/credits/events');
     return response.data;
   } catch (error) {
     console.error('Fehler beim Abrufen der Credit-Historie:', error);

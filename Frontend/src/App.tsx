@@ -290,14 +290,66 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
               setShowCompanyAddressModal(false);
               setOnboardingChecked(true);
               
-              // Trigger Dashboard-Tour nach kurzer Verzögerung
-              setTimeout(() => {
-                const tourEvent = new CustomEvent('startDashboardTour');
-                window.dispatchEvent(tourEvent);
-              }, 1000);
-              
-              // User-Context aktualisieren (falls nötig)
-              window.location.reload(); // Einfache Lösung für User-Update
+              // ✨ NEU: Prüfe ob Welcome-Bonus vorhanden ist und zeige Notification
+              if (user?.user_role === 'BAUTRAEGER') {
+                const { getCreditHistory } = await import('./api/creditService');
+                try {
+                  const history = await getCreditHistory();
+                  const hasWelcomeBonus = history.some((event: any) => 
+                    event.description?.includes('[COMPLETE]') && 
+                    event.event_type === 'registration_bonus'
+                  );
+                  
+                  if (hasWelcomeBonus) {
+                    console.log('✅ Welcome-Bonus gefunden - zeige Notification');
+                    // Zeige Welcome Notification nach kurzer Verzögerung
+                    setTimeout(() => {
+                      setShowWelcomeNotification(true);
+                    }, 500);
+                    
+                    // Dashboard-Tour nach der Notification triggern
+                    setTimeout(() => {
+                      const tourEvent = new CustomEvent('startDashboardTour');
+                      window.dispatchEvent(tourEvent);
+                      
+                      // User-Context erst NACHLÄNDIGEREN VerzögerUNG aktualisieren
+                      setTimeout(() => {
+                        window.location.reload();
+                      }, 4000); // Reload nach Notification + Tour Start
+                    }, 2500); // Warte bis Notification erschienen ist
+                  } else {
+                    console.log('ℹ️ Kein Welcome-Bonus gefunden');
+                    // Dashboard-Tour sofort triggern
+                    setTimeout(() => {
+                      const tourEvent = new CustomEvent('startDashboardTour');
+                      window.dispatchEvent(tourEvent);
+                      // Reload nach kurzer Verzögerung
+                      setTimeout(() => {
+                        window.location.reload();
+                      }, 1000);
+                    }, 1000);
+                  }
+                } catch (error) {
+                  console.error('Fehler beim Prüfen der Credit-Historie:', error);
+                  // Fallback: Dashboard-Tour sofort triggern
+                  setTimeout(() => {
+                    const tourEvent = new CustomEvent('startDashboardTour');
+                    window.dispatchEvent(tourEvent);
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 1000);
+                  }, 1000);
+                }
+              } else {
+                // Dashboard-Tour für Nicht-Bauträger triggern
+                setTimeout(() => {
+                  const tourEvent = new CustomEvent('startDashboardTour');
+                  window.dispatchEvent(tourEvent);
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 1000);
+                }, 1000);
+              }
             } catch (error) {
               console.error('❌ Fehler beim Speichern der Firmeninformationen:', error);
             }
@@ -311,6 +363,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
             setTimeout(() => {
               const tourEvent = new CustomEvent('startDashboardTour');
               window.dispatchEvent(tourEvent);
+              
+              // Reload nach kurzer Verzögerung
+              setTimeout(() => {
+                window.location.reload();
+              }, 1000);
             }, 1000);
           }}
         />
