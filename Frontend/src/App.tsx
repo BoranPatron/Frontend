@@ -222,6 +222,27 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     }
   }, [user, isInitialized, onboardingChecked, sessionUserId]);
   
+  // ✨ NEU: Welcome Notification nach Reload anzeigen (überlebt window.location.reload)
+  useEffect(() => {
+    if (!user) return;
+    
+    const shouldShowWelcome = localStorage.getItem('show_welcome_notification');
+    const credits = localStorage.getItem('welcome_credits');
+    
+    if (shouldShowWelcome === 'true') {
+      console.log('🎉 Zeige Welcome Notification nach Reload');
+      
+      // Cleanup LocalStorage
+      localStorage.removeItem('show_welcome_notification');
+      localStorage.removeItem('welcome_credits');
+      
+      // Zeige Notification nach kurzer Verzögerung (damit UI fertig geladen ist)
+      setTimeout(() => {
+        setShowWelcomeNotification(true);
+      }, 1500);
+    }
+  }, [user, setShowWelcomeNotification]);
+  
   if (!isInitialized) {
     return <LoadingSpinner />;
   }
@@ -282,74 +303,33 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
           userRole={user.user_role === 'BAUTRAEGER' ? 'bautraeger' : 'dienstleister'}
           onComplete={async (companyData) => {
             try {
-              // API-Call zum Speichern der Firmenadresse
               const { updateCompanyInfo } = await import('./api/userService');
-              await updateCompanyInfo(companyData);
+              const response = await updateCompanyInfo(companyData);
               
-              // Modal schließen und Onboarding abschließen
+              console.log('✅ Company info saved:', response);
+              
+              // Modal schließen
               setShowCompanyAddressModal(false);
               setOnboardingChecked(true);
               
-              // ✨ NEU: Prüfe ob Welcome-Bonus vorhanden ist und zeige Notification
-              if (user?.user_role === 'BAUTRAEGER') {
-                const { getCreditHistory } = await import('./api/creditService');
-                try {
-                  const history = await getCreditHistory();
-                  const hasWelcomeBonus = history.some((event: any) => 
-                    event.description?.includes('[COMPLETE]') && 
-                    event.event_type === 'registration_bonus'
-                  );
-                  
-                  if (hasWelcomeBonus) {
-                    console.log('✅ Welcome-Bonus gefunden - zeige Notification');
-                    // Zeige Welcome Notification nach kurzer Verzögerung
-                    setTimeout(() => {
-                      setShowWelcomeNotification(true);
-                    }, 500);
-                    
-                    // Dashboard-Tour nach der Notification triggern
-                    setTimeout(() => {
-                      const tourEvent = new CustomEvent('startDashboardTour');
-                      window.dispatchEvent(tourEvent);
-                      
-                      // User-Context erst NACHLÄNDIGEREN VerzögerUNG aktualisieren
-                      setTimeout(() => {
-                        window.location.reload();
-                      }, 4000); // Reload nach Notification + Tour Start
-                    }, 2500); // Warte bis Notification erschienen ist
-                  } else {
-                    console.log('ℹ️ Kein Welcome-Bonus gefunden');
-                    // Dashboard-Tour sofort triggern
-                    setTimeout(() => {
-                      const tourEvent = new CustomEvent('startDashboardTour');
-                      window.dispatchEvent(tourEvent);
-                      // Reload nach kurzer Verzögerung
-                      setTimeout(() => {
-                        window.location.reload();
-                      }, 1000);
-                    }, 1000);
-                  }
-                } catch (error) {
-                  console.error('Fehler beim Prüfen der Credit-Historie:', error);
-                  // Fallback: Dashboard-Tour sofort triggern
-                  setTimeout(() => {
-                    const tourEvent = new CustomEvent('startDashboardTour');
-                    window.dispatchEvent(tourEvent);
-                    setTimeout(() => {
-                      window.location.reload();
-                    }, 1000);
-                  }, 1000);
-                }
-              } else {
-                // Dashboard-Tour für Nicht-Bauträger triggern
-                setTimeout(() => {
-                  const tourEvent = new CustomEvent('startDashboardTour');
-                  window.dispatchEvent(tourEvent);
-                  setTimeout(() => {
-                    window.location.reload();
-                  }, 1000);
-                }, 1000);
+              // Speichere Welcome-Flag in LocalStorage (überlebt Reload)
+              if (response.show_welcome_notification) {
+                localStorage.setItem('show_welcome_notification', 'true');
+                localStorage.setItem('welcome_credits', response.welcome_credits?.toString() || '90');
+                console.log('📦 Welcome notification flag gespeichert in LocalStorage');
               }
+              
+              // Dashboard-Tour nach kurzer Verzögerung triggern
+              setTimeout(() => {
+                const tourEvent = new CustomEvent('startDashboardTour');
+                window.dispatchEvent(tourEvent);
+              }, 1000);
+              
+              // Reload nach Tour-Start (gibt Zeit für Speicherung)
+              setTimeout(() => {
+                window.location.reload();
+              }, 2000);
+              
             } catch (error) {
               console.error('❌ Fehler beim Speichern der Firmeninformationen:', error);
             }

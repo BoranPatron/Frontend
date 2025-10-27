@@ -42,7 +42,14 @@ export async function updateCompanyInfo(companyData: {
   company_uid?: string;
   company_logo?: string;
   company_logo_advertising_consent?: boolean;
-}) {
+}): Promise<{
+  message: string;
+  company_name: string;
+  company_address: string;
+  company_uid?: string;
+  show_welcome_notification?: boolean;
+  welcome_credits?: number;
+}> {
   const res = await api.post('/api/v1/auth/update-company-info', companyData);
   return res.data;
 }
