@@ -152,14 +152,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               
               if (response.ok) {
                 const freshUserData = await response.json();
-                // Session-Wiederherstellung - kein echter Login
-                await login(storedToken, freshUserData, false);
+                
+                // Check if this is the first session after a real login today
+                const lastRealLogin = localStorage.getItem('lastRealLogin');
+                let shouldTreatAsRealLogin = false;
+                
+                if (lastRealLogin) {
+                  const lastLoginDate = new Date(lastRealLogin);
+                  const today = new Date();
+                  
+                  // Check if last real login was today
+                  const isSameDay = lastLoginDate.toDateString() === today.toDateString();
+                  
+                  // Check if we haven't processed daily deduction yet
+                  const hasProcessedToday = hasDailyCreditDeductionBeenProcessed();
+                  
+                  if (isSameDay && !hasProcessedToday) {
+                    shouldTreatAsRealLogin = true;
+                    console.log('✅ First session after real login today - will process daily deduction');
+                  } else {
+                    console.log('🔄 Session-Wiederherstellung - kein Credit-Abzug nötig');
+                  }
+                }
+                
+                await login(storedToken, freshUserData, shouldTreatAsRealLogin);
                 } else {
-                // Session-Wiederherstellung - kein echter Login
+                // Fallback - kein echter Login
                 await login(storedToken, userData, false);
               }
             } catch (error) {
-              // Session-Wiederherstellung - kein echter Login
+              // Fallback - kein echter Login
               await login(storedToken, userData, false);
             }
             
@@ -234,6 +256,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Persistiere sofort in localStorage (überschreibt alte Daten)
       localStorage.setItem('token', newToken);
       localStorage.setItem('user', JSON.stringify(newUser));
+      
+      // Mark real login session for daily deduction tracking
+      if (isRealLogin) {
+        localStorage.setItem('lastRealLogin', new Date().toISOString());
+      }
+      
       // Setze Rollen-Informationen sofort
       if (newUser?.user_role) {
         setUserRole(newUser.user_role);
@@ -297,9 +325,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } else if (isRealLogin) {
         console.log('👤 Nicht-Bauträger Login - kein Credit-Abzug nötig');
-      } else {
-        console.log('🔄 Session-Wiederherstellung - kein Credit-Abzug nötig');
       }
+      // Note: Console log for session restoration is now handled above in the session restore logic
       
       } catch (error) {
       console.error('❌ Fehler in login() Funktion:', error);
@@ -315,6 +342,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('sessionExpiry');
     // Lösche auch die tägliche Credit-Deduktion-Markierung beim Logout
     localStorage.removeItem('lastDailyCreditDeduction');
+    localStorage.removeItem('lastRealLogin');
     setToken(null);
     setUser(null);
   };
