@@ -11,6 +11,7 @@ import InteractiveHotspot from './InteractiveHotspot';
 export default function DashboardOnboardingOverlay() {
   const {
     features,
+    discoveredFeatures,
     shouldShowHotspot,
     shouldShowTooltip,
     showFeatureTooltip,
@@ -222,9 +223,19 @@ export default function DashboardOnboardingOverlay() {
       features.forEach(feature => {
         if (feature.triggerOn === 'mount' && !processedMountFeaturesRef.current.has(feature.id)) {
           const element = document.querySelector(`[data-feature-id="${feature.id}"]`) as HTMLElement;
-          if (element && shouldShowTooltip(feature.id)) {
-            console.log(`🔄 Poll check found mount element: ${feature.id}`);
-            triggerMountForFeature(feature.id, feature);
+          if (element) {
+            const shouldShow = shouldShowTooltip(feature.id);
+            console.log(`🔄 Poll check for ${feature.id}:`, {
+              elementFound: !!element,
+              shouldShow,
+              isVisible: element.offsetParent !== null || element.getBoundingClientRect().width > 0,
+              processed: processedMountFeaturesRef.current.has(feature.id)
+            });
+            
+            if (shouldShow) {
+              console.log(`🔄 Poll check found mount element: ${feature.id}`);
+              triggerMountForFeature(feature.id, feature);
+            }
           }
         }
       });
@@ -235,9 +246,18 @@ export default function DashboardOnboardingOverlay() {
       features.forEach(feature => {
         if (feature.triggerOn === 'mount' && !processedMountFeaturesRef.current.has(feature.id)) {
           const element = document.querySelector(`[data-feature-id="${feature.id}"]`) as HTMLElement;
-          if (element && shouldShowTooltip(feature.id)) {
-            console.log(`🔍 Immediate check found mount element: ${feature.id}`);
-            triggerMountForFeature(feature.id, feature);
+          if (element) {
+            const shouldShow = shouldShowTooltip(feature.id);
+            console.log(`🔍 Immediate check for ${feature.id}:`, {
+              elementFound: !!element,
+              shouldShow,
+              isVisible: element.offsetParent !== null || element.getBoundingClientRect().width > 0
+            });
+            
+            if (shouldShow) {
+              console.log(`🔍 Immediate check found mount element: ${feature.id}`);
+              triggerMountForFeature(feature.id, feature);
+            }
           }
         }
       });
@@ -278,16 +298,51 @@ export default function DashboardOnboardingOverlay() {
     ? document.querySelector(`[data-feature-id="${activeTooltip}"]`) as HTMLElement
     : null;
 
+  // Calculate current step based on priority
+  // Step number should reflect priority ordering (not discovery order)
+  const getCurrentStep = (feature: typeof activeFeature): number => {
+    if (!feature) return discoveredCount;
+    
+    // Get all features for the same role, sorted by priority
+    const roleFeatures = features
+      .filter(f => f.userRole === feature.userRole)
+      .sort((a, b) => a.priority - b.priority);
+    
+    // Count discovered features with priority less than current feature
+    let discoveredLowerPriority = 0;
+    for (const f of roleFeatures) {
+      if (f.priority < feature.priority && discoveredFeatures.has(f.id)) {
+        discoveredLowerPriority++;
+      }
+    }
+    
+    // If all lower priority features are discovered, use priority as step
+    // Otherwise, use discovered count + 1
+    const allLowerPriorityDiscovered = discoveredLowerPriority === (feature.priority - 1);
+    
+    if (allLowerPriorityDiscovered) {
+      // Use priority as step number
+      return feature.priority;
+    } else {
+      // Use discovery count (fallback if features not discovered in order)
+      return discoveredCount + 1;
+    }
+  };
+
   // Debug active tooltip
   useEffect(() => {
     if (activeTooltip) {
+      const currentStep = getCurrentStep(activeFeature || undefined);
       console.log('🎨 Active tooltip:', {
         id: activeTooltip,
         feature: activeFeature?.title,
+        priority: activeFeature?.priority,
+        currentStep,
+        totalSteps: totalFeatures,
         elementFound: !!activeElement
       });
     }
-  }, [activeTooltip, activeFeature, activeElement]);
+  }, [activeTooltip, activeFeature, activeElement, discoveredFeatures, features, totalFeatures]);
 
   return (
     <>
@@ -306,7 +361,7 @@ export default function DashboardOnboardingOverlay() {
           onDismiss={hideFeatureTooltip}
           onDismissForever={() => dismissFeatureForever(activeFeature.id)}
           showProgress={true}
-          currentStep={discoveredCount}
+          currentStep={getCurrentStep(activeFeature)}
           totalSteps={totalFeatures}
           isVisible={true}
         />

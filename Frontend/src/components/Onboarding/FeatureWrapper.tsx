@@ -7,7 +7,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useContextualOnboarding } from '../../context/ContextualOnboardingContext';
 import ContextualTooltip from './ContextualTooltip';
 import InteractiveHotspot from './InteractiveHotspot';
-import { getFeatureById } from '../../utils/onboardingFeatures';
+import { getFeatureById, OnboardingFeature } from '../../utils/onboardingFeatures';
 
 interface FeatureWrapperProps {
   featureId: string;
@@ -21,6 +21,8 @@ export default function FeatureWrapper({
   disabled = false 
 }: FeatureWrapperProps) {
   const {
+    features,
+    discoveredFeatures,
     shouldShowHotspot,
     shouldShowTooltip,
     showFeatureTooltip,
@@ -93,6 +95,36 @@ export default function FeatureWrapper({
     };
   }, [targetElement, disabled, feature, featureId, shouldShowTooltip, handleTrigger]);
 
+  // Calculate current step based on priority (same logic as DashboardOnboardingOverlay)
+  const getCurrentStep = (feature: OnboardingFeature | undefined): number => {
+    if (!feature) return discoveredCount;
+    
+    // Get all features for the same role, sorted by priority
+    const roleFeatures = features
+      .filter(f => f.userRole === feature.userRole)
+      .sort((a, b) => a.priority - b.priority);
+    
+    // Count discovered features with priority less than current feature
+    let discoveredLowerPriority = 0;
+    for (const f of roleFeatures) {
+      if (f.priority < feature.priority && discoveredFeatures.has(f.id)) {
+        discoveredLowerPriority++;
+      }
+    }
+    
+    // If all lower priority features are discovered, use priority as step
+    // Otherwise, use discovered count + 1
+    const allLowerPriorityDiscovered = discoveredLowerPriority === (feature.priority - 1);
+    
+    if (allLowerPriorityDiscovered) {
+      // Use priority as step number
+      return feature.priority;
+    } else {
+      // Use discovery count (fallback if features not discovered in order)
+      return discoveredCount + 1;
+    }
+  };
+
   if (!feature || disabled) return children;
 
   const showHotspot = shouldShowHotspot(featureId);
@@ -125,7 +157,7 @@ export default function FeatureWrapper({
             hideFeatureTooltip();
           }}
           showProgress={true}
-          currentStep={discoveredCount}
+          currentStep={getCurrentStep(feature)}
           totalSteps={totalFeatures}
           isVisible={true}
         />
