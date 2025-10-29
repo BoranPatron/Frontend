@@ -2371,7 +2371,7 @@ function DashboardWithCreditAnimation() {
 
       {/* Kanban-Board für To-Do Aufgaben - ÜBER den Ausschreibungen */}
       {selectedProject && (
-        <div ref={todoSectionRef} className="mb-6 md:mb-8">
+        <div ref={todoSectionRef} className="mb-6 md:mb-8" data-feature-id="kanban-board-tab">
           <KanbanBoard 
             showOnlyAssignedToMe={false}
             showArchived={false}
@@ -2840,7 +2840,7 @@ function DashboardWithCreditAnimation() {
 
       {/* Finance Widget - unter den Gewerken */}
       {selectedProject && (
-        <div className="mb-6 md:mb-8">
+        <div className="mb-6 md:mb-8" data-feature-id="finance-widget">
           <FinanceWidget projectId={selectedProject.id} />
         </div>
       )}
@@ -3964,7 +3964,7 @@ function DashboardWithCreditAnimation() {
 
       {/* DMS Upload Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" data-feature-id="document-upload-button">
           <div className="bg-gradient-to-br from-[#2c3539] to-[#1a1a2e] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden border border-gray-700">
             {/* Header */}
             <div className="p-6 border-b border-gray-700">

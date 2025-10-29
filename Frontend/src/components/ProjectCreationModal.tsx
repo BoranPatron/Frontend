@@ -351,7 +351,7 @@ export default function ProjectCreationModal({ isOpen, onClose, onSubmit }: Proj
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" data-feature-id="create-project-button">
       <div className="bg-gradient-to-br from-[#2c3539] to-[#3d4952] rounded-2xl shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden border border-[#ffbd59]/20 relative">
         
         {/* Seitlicher Datenschutz-Banner */}

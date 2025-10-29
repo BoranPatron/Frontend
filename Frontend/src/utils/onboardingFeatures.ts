@@ -36,8 +36,9 @@ export const BAUTRAEGER_FEATURES: OnboardingFeature[] = [
     priority: 2,
     userRole: 'BAUTRAEGER',
     placement: 'bottom',
-    showHotspot: true,
-    triggerOn: 'hover'
+    showHotspot: false,
+    triggerOn: 'mount',
+    delay: 500
   },
   {
     id: 'create-trade-button',
@@ -46,8 +47,9 @@ export const BAUTRAEGER_FEATURES: OnboardingFeature[] = [
     priority: 3,
     userRole: 'BAUTRAEGER',
     placement: 'bottom',
-    showHotspot: true,
-    triggerOn: 'hover'
+    showHotspot: false,
+    triggerOn: 'mount',
+    delay: 500
   },
   {
     id: 'document-upload-button',
@@ -57,7 +59,8 @@ export const BAUTRAEGER_FEATURES: OnboardingFeature[] = [
     userRole: 'BAUTRAEGER',
     placement: 'bottom',
     showHotspot: false,
-    triggerOn: 'hover'
+    triggerOn: 'mount',
+    delay: 500
   },
   {
     id: 'kanban-board-tab',

@@ -762,7 +762,7 @@ export default function TradeCreationForm({ isOpen, onClose, onSubmit, projectId
 
   return (
     <>
-      <div className="fixed inset-0 bg-gradient-to-br from-[#0f0f23]/95 via-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-lg flex items-center justify-center z-40">
+      <div className="fixed inset-0 bg-gradient-to-br from-[#0f0f23]/95 via-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-lg flex items-center justify-center z-40" data-feature-id="create-trade-button">
         {/* Drag & Drop Overlay */}
         {dragOver && (
           <div className="fixed inset-0 bg-[#ffbd59]/20 backdrop-blur-sm z-60 flex items-center justify-center">
