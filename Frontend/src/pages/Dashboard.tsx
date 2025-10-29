@@ -2169,7 +2169,8 @@ function DashboardWithCreditAnimation() {
               </div>
               
               {/* Desktop: Projektnavigation mit Dots */}
-              <div className="hidden lg:flex justify-center mb-4">
+              {projects.length > 1 && (
+              <div className="hidden lg:flex justify-center mb-4" data-feature-id="project-navigation-dots">
                 {/* Dot-Indikatoren */}
                 <div className="flex items-center gap-3">
                   {projects.map((_, index) => (
@@ -2186,9 +2187,11 @@ function DashboardWithCreditAnimation() {
                   ))}
                 </div>
               </div>
+              )}
 
               {/* Tablet/Mobile: Projektnavigation mit Dots */}
-              <div className="lg:hidden mb-4">
+              {projects.length > 1 && (
+              <div className="lg:hidden mb-4" data-feature-id="project-navigation-dots">
                 <div className="text-center mb-3">
                   <div className="text-xs text-gray-400">
                     Wischen oder Punkt antippen zum Wechseln
@@ -2211,6 +2214,7 @@ function DashboardWithCreditAnimation() {
                   ))}
                 </div>
               </div>
+              )}
             </div>
 
             <div className="mb-4">

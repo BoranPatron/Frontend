@@ -92,6 +92,17 @@ export const BAUTRAEGER_FEATURES: OnboardingFeature[] = [
     showHotspot: false,
     triggerOn: 'mount',
     delay: 3000
+  },
+  {
+    id: 'project-navigation-dots',
+    title: 'Zwischen Projekten wechseln 🔄',
+    description: 'Nutze die Punkte zum schnellen Wechseln zwischen deinen Projekten. Auf Mobilgeräten kannst du auch wischen.',
+    priority: 8,
+    userRole: 'BAUTRAEGER',
+    placement: 'bottom',
+    showHotspot: false,
+    triggerOn: 'mount',
+    delay: 4000
   }
 ];
 
