@@ -2317,7 +2317,7 @@ export default function ServiceProviderDashboard() {
       </div>
 
       {/* Ressourcenverwaltung Sektion - Einklappbar */}
-      <div className="mb-8 bg-gradient-to-br from-[#ffbd59]/10 to-[#ffa726]/5 backdrop-blur-xl rounded-2xl border border-[#ffbd59]/20 shadow-2xl hover:shadow-[0_0_30px_rgba(255,189,89,0.15)] transition-all duration-300" data-tour-id="resource-management-section">
+      <div className="mb-8 bg-gradient-to-br from-[#ffbd59]/10 to-[#ffa726]/5 backdrop-blur-xl rounded-2xl border border-[#ffbd59]/20 shadow-2xl hover:shadow-[0_0_30px_rgba(255,189,89,0.15)] transition-all duration-300" data-tour-id="resource-management-section" data-feature-id="resource-management-section">
         {/* Header mit Icon - Einklappbar */}
         <div className="p-6">
           <div className="flex items-center gap-4">
@@ -3226,6 +3226,7 @@ export default function ServiceProviderDashboard() {
       </div>
 
       {/* Tenders Sidebar */}
+      <div data-feature-id="search-trades-section">
       <TendersSidebar
         currentLocation={currentLocation}
         setCurrentLocation={setCurrentLocation}
@@ -3263,6 +3264,7 @@ export default function ServiceProviderDashboard() {
         isUserQuote={isUserQuote}
         user={user}
       />
+      </div>
 
       {/* Tipps für Dienstleister */}
       <div className="mobile-stack lg:grid lg:grid-cols-1 gap-6" data-tour-id="tips-section">
