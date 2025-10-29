@@ -873,12 +873,16 @@ function DashboardWithCreditAnimation() {
         };
 
       console.log('🚀 Erstelle neues Projekt mit Daten:', projectData);
+      console.log('📄 UploadFiles State beim Projekt-Erstellen:', uploadFiles);
       const newProject = await createProject(projectData);
       console.log('✅ Neues Projekt erstellt:', newProject);
 
       // Upload documents if any (aus lokalem uploadFiles State)
       if (uploadFiles.length > 0) {
+        console.log(`📤 Starte Upload von ${uploadFiles.length} Dokumenten für Projekt ${newProject.id}`);
         await uploadProjectDocuments(newProject.id, uploadFiles);
+      } else {
+        console.warn('⚠️ Keine Dokumente zum Hochladen gefunden');
       }
 
       // Schließe Modal und lade Projekte neu
@@ -1045,11 +1049,22 @@ function DashboardWithCreditAnimation() {
   };
 
   const confirmDocumentCategorization = () => {
-    // Markiere alle Dateien als kategorisiert
-    const allCategorized = uploadFiles.every(f => f.category);
+    // Prüfe ob alle Dateien vollständig kategorisiert sind (category UND subcategory)
+    const allCategorized = uploadFiles.every(f => f.category && f.subcategory);
     
     if (!allCategorized) {
-      alert('Bitte kategorisieren Sie alle Dokumente bevor Sie fortfahren.');
+      const uncategorized = uploadFiles.filter(f => !f.category || !f.subcategory);
+      const missingCategory = uncategorized.filter(f => !f.category);
+      const missingSubcategory = uncategorized.filter(f => f.category && !f.subcategory);
+      
+      let message = 'Bitte kategorisieren Sie alle Dokumente vollständig bevor Sie fortfahren.\n\n';
+      if (missingCategory.length > 0) {
+        message += `${missingCategory.length} Dokument${missingCategory.length > 1 ? 'e' : ''} ohne Kategorie.\n`;
+      }
+      if (missingSubcategory.length > 0) {
+        message += `${missingSubcategory.length} Dokument${missingSubcategory.length > 1 ? 'e' : ''} ohne Unterkategorie.`;
+      }
+      alert(message);
       return;
     }
 
@@ -1057,7 +1072,7 @@ function DashboardWithCreditAnimation() {
     setShowUploadModal(false);
     
     // Zeige Bestätigungsmeldung
-    console.log('✅ Dokumente kategorisiert und bereit zum Upload beim Projekt erstellen');
+    console.log('✅ Dokumente kategorisiert und bereit zum Upload beim Projekt erstellen', uploadFiles);
   };
 
   // Handler für Create-Actions (können vom RadialMenu oder anderen Komponenten genutzt werden)
@@ -4196,7 +4211,7 @@ function DashboardWithCreditAnimation() {
                 </button>
                 <button
                   onClick={confirmDocumentCategorization}
-                  disabled={uploadFiles.some(f => !f.category)}
+                  disabled={uploadFiles.some(f => !f.category || !f.subcategory)}
                   className="bg-[#ffbd59] hover:bg-[#ffa726] disabled:bg-[#2c3539] disabled:cursor-not-allowed text-[#1a1a2e] disabled:text-gray-400 px-6 py-2 rounded-lg font-medium transition-colors"
                 >
                   Kategorisierung bestätigen
