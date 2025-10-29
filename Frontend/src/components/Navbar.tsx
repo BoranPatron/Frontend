@@ -768,23 +768,33 @@ export default function Navbar() {
       };
 
       const newProject = await createProject(projectData);
-      // Upload documents if any
-      if (uploadFiles && uploadFiles.length > 0) {
-        // Setze project_id für alle Upload-Dateien
-        for (let i = 0; i < uploadFiles.length; i++) {
-          const uploadFile = uploadFiles[i];
-          
-          // Nur kategorisierte Dateien hochladen
-          if (!uploadFile.category) {
-            console.warn(`⚠️ Dokument ${uploadFile.file.name} wurde nicht kategorisiert und wird übersprungen`);
+      
+      // Helper-Funktion zum Hochladen von Dokumenten
+      const uploadProjectDocuments = async (projectId: number, documents: any[]) => {
+        if (!documents || documents.length === 0) {
+          return;
+        }
+
+        console.log('📄 Lade Dokumente ins DMS hoch...', documents.length);
+        
+        for (const uploadFile of documents) {
+          // Nur vollständig kategorisierte Dateien hochladen
+          if (!uploadFile.category || !uploadFile.subcategory) {
+            console.warn(`⚠️ Dokument ${uploadFile.file?.name || 'unbekannt'} wurde nicht vollständig kategorisiert und wird übersprungen`);
+            continue;
+          }
+
+          // Sicherstellen, dass File-Objekt vorhanden ist
+          if (!uploadFile.file) {
+            console.warn(`⚠️ Dokument ${uploadFile.id || 'unbekannt'} hat kein File-Objekt und wird übersprungen`);
             continue;
           }
           
           try {
             const formData = new FormData();
-            formData.append('project_id', newProject.id.toString());
+            formData.append('project_id', projectId.toString());
             formData.append('file', uploadFile.file);
-            formData.append('title', uploadFile.file.name.replace(/\.[^/.]+$/, ""));
+            formData.append('title', uploadFile.file.name.replace(/\.[^/.]+$/, "") || 'Dokument');
             formData.append('description', '');
             
             // Konvertiere Frontend-Kategorie zu Backend-Format (lowercase)
@@ -794,14 +804,23 @@ export default function Navbar() {
             if (uploadFile.subcategory) {
               formData.append('subcategory', uploadFile.subcategory);
             }
-            formData.append('document_type', getDocumentTypeFromFile(uploadFile.file.name));
+            
+            const documentType = uploadFile.document_type || getDocumentTypeFromFile(uploadFile.file.name);
+            formData.append('document_type', documentType);
 
-            const response = await uploadDocument(formData);
-            } catch (error) {
+            await uploadDocument(formData);
+            console.log(`✅ Dokument ${uploadFile.file.name} erfolgreich hochgeladen`);
+          } catch (error) {
             console.error(`❌ Fehler beim Upload von ${uploadFile.file.name}:`, error);
           }
         }
-        }
+        console.log('✅ Alle kategorisierten Dokumente wurden verarbeitet');
+      };
+      
+      // Upload documents if any (aus lokalem uploadFiles State)
+      if (uploadFiles && uploadFiles.length > 0) {
+        await uploadProjectDocuments(newProject.id, uploadFiles);
+      }
 
       // Schließe Modal und navigiere zur Startseite
       handleCloseCreateProjectModal();

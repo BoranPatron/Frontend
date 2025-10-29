@@ -28,6 +28,7 @@ import { RadialMenu } from '../components/RadialMenu';
 import { RadialMenuAdvanced } from '../components/RadialMenuAdvanced';
 import KanbanBoard from '../components/KanbanBoard';
 import TaskCreationModal from '../components/TaskCreationModal';
+import ProjectCreationModal from '../components/ProjectCreationModal';
 import { CreditAnimationProvider, useCreditAdditionAnimation } from '../context/CreditAnimationContext';
 import { 
   Users, 
@@ -760,6 +761,90 @@ function DashboardWithCreditAnimation() {
     }
   };
 
+  // Helper-Funktion zum Hochladen von Dokumenten nach Projekt-Erstellung
+  const uploadProjectDocuments = async (projectId: number, documents: any[]) => {
+    if (!documents || documents.length === 0) {
+      return;
+    }
+
+    console.log('📄 Lade Dokumente ins DMS hoch...', documents.length);
+    
+    for (const uploadFile of documents) {
+      // Nur vollständig kategorisierte Dateien hochladen
+      if (!uploadFile.category || !uploadFile.subcategory) {
+        console.warn(`⚠️ Dokument ${uploadFile.file.name} wurde nicht vollständig kategorisiert und wird übersprungen`);
+        continue;
+      }
+
+      // Sicherstellen, dass File-Objekt vorhanden ist
+      if (!uploadFile.file) {
+        console.warn(`⚠️ Dokument ${uploadFile.id || 'unbekannt'} hat kein File-Objekt und wird übersprungen`);
+        continue;
+      }
+      
+      try {
+        const formData = new FormData();
+        formData.append('project_id', projectId.toString());
+        formData.append('file', uploadFile.file);
+        formData.append('title', uploadFile.file.name.replace(/\.[^/.]+$/, "") || 'Dokument');
+        formData.append('description', '');
+        
+        // Konvertiere Frontend-Kategorie zu Backend-Format (lowercase)
+        const backendCategory = uploadFile.category.toLowerCase();
+        formData.append('category', backendCategory);
+        
+        if (uploadFile.subcategory) {
+          formData.append('subcategory', uploadFile.subcategory);
+        }
+        
+        const documentType = uploadFile.document_type || getDocumentTypeFromFile(uploadFile.file.name);
+        formData.append('document_type', documentType);
+
+        await uploadDocument(formData);
+        console.log(`✅ Dokument ${uploadFile.file.name} erfolgreich hochgeladen`);
+      } catch (error) {
+        console.error(`❌ Fehler beim Upload von ${uploadFile.file.name}:`, error);
+      }
+    }
+    console.log('✅ Alle kategorisierten Dokumente wurden verarbeitet');
+  };
+
+  // Handler für ProjectCreationModal (empfängt projectData mit documents)
+  const handleCreateProjectFromModal = async (projectData: any) => {
+    setIsCreatingProject(true);
+    setCreateProjectError(null);
+
+    try {
+      console.log('🚀 Erstelle neues Projekt mit Daten:', projectData);
+      
+      // Extrahiere documents aus projectData
+      const documents = projectData.documents || [];
+      delete projectData.documents; // Entferne documents aus projectData für API-Call
+
+      // Erstelle Projekt
+      const newProject = await createProject(projectData);
+      console.log('✅ Neues Projekt erstellt:', newProject);
+
+      // Lade Dokumente hoch, falls vorhanden
+      if (documents.length > 0) {
+        await uploadProjectDocuments(newProject.id, documents);
+      }
+
+      // Schließe Modal und lade Projekte neu
+      handleCloseCreateProjectModal();
+      await loadProjects();
+
+      // Navigiere zur Startseite (Dashboard)
+      navigate('/');
+
+    } catch (error) {
+      console.error('❌ Fehler beim Erstellen des Projekts:', error);
+      setCreateProjectError(error instanceof Error ? error.message : 'Unbekannter Fehler beim Erstellen des Projekts');
+    } finally {
+      setIsCreatingProject(false);
+    }
+  };
+
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreatingProject(true);
@@ -791,42 +876,9 @@ function DashboardWithCreditAnimation() {
       const newProject = await createProject(projectData);
       console.log('✅ Neues Projekt erstellt:', newProject);
 
-      // Upload documents if any
+      // Upload documents if any (aus lokalem uploadFiles State)
       if (uploadFiles.length > 0) {
-        console.log('📄 Lade Dokumente ins DMS hoch...');
-        // Setze project_id für alle Upload-Dateien
-        for (let i = 0; i < uploadFiles.length; i++) {
-          const uploadFile = uploadFiles[i];
-          
-          // Nur kategorisierte Dateien hochladen
-          if (!uploadFile.category) {
-            console.warn(`⚠️ Dokument ${uploadFile.file.name} wurde nicht kategorisiert und wird übersprungen`);
-            continue;
-          }
-          
-          try {
-            const formData = new FormData();
-            formData.append('project_id', newProject.id.toString());
-            formData.append('file', uploadFile.file);
-            formData.append('title', uploadFile.file.name.replace(/\.[^/.]+$/, ""));
-            formData.append('description', '');
-            
-            // Konvertiere Frontend-Kategorie zu Backend-Format (lowercase)
-            const backendCategory = uploadFile.category.toLowerCase();
-            formData.append('category', backendCategory);
-            
-            if (uploadFile.subcategory) {
-              formData.append('subcategory', uploadFile.subcategory);
-            }
-            formData.append('document_type', getDocumentTypeFromFile(uploadFile.file.name));
-
-            const response = await uploadDocument(formData);
-            console.log(`✅ Dokument ${uploadFile.file.name} erfolgreich hochgeladen`);
-          } catch (error) {
-            console.error(`❌ Fehler beim Upload von ${uploadFile.file.name}:`, error);
-          }
-        }
-        console.log('✅ Alle kategorisierten Dokumente wurden verarbeitet');
+        await uploadProjectDocuments(newProject.id, uploadFiles);
       }
 
       // Schließe Modal und lade Projekte neu

@@ -334,10 +334,17 @@ export default function ProjectCreationModal({ isOpen, onClose, onSubmit }: Proj
         return;
       }
 
-      // Submit project with documents
+      // Submit project with documents - nur vollständig kategorisierte Dokumente
+      const categorizedDocuments = uploadFiles.filter(f => 
+        f.status === 'categorizing' && 
+        f.category && 
+        f.subcategory && 
+        f.file // Sicherstellen, dass File-Objekt vorhanden ist
+      );
+      
       await onSubmit({
         ...formData,
-        documents: uploadFiles.filter(f => f.status === 'categorizing')
+        documents: categorizedDocuments
       });
 
       onClose();
