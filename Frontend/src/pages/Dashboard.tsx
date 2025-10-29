@@ -205,6 +205,7 @@ interface UploadFile {
   file: File;
   category?: string;
   subcategory?: string;
+  document_type?: string;
   status: 'pending' | 'uploading' | 'success' | 'error';
   progress: number;
   error?: string;
@@ -764,21 +765,36 @@ function DashboardWithCreditAnimation() {
   // Helper-Funktion zum Hochladen von Dokumenten nach Projekt-Erstellung
   const uploadProjectDocuments = async (projectId: number, documents: any[]) => {
     if (!documents || documents.length === 0) {
+      console.warn('⚠️ uploadProjectDocuments: Keine Dokumente zum Hochladen übergeben');
       return;
     }
 
-    console.log('📄 Lade Dokumente ins DMS hoch...', documents.length);
+    console.log(`📄 Lade ${documents.length} Dokument(e) ins DMS hoch für Projekt ${projectId}...`);
     
-    for (const uploadFile of documents) {
+    let successCount = 0;
+    let skippedCount = 0;
+    let errorCount = 0;
+    
+    for (let i = 0; i < documents.length; i++) {
+      const uploadFile = documents[i];
+      const fileName = uploadFile.file?.name || uploadFile.id || `Dokument ${i + 1}`;
+      
+      console.log(`\n📎 Verarbeite Dokument ${i + 1}/${documents.length}: ${fileName}`);
+      console.log(`   - Kategorie: ${uploadFile.category || 'FEHLT'}`);
+      console.log(`   - Unterkategorie: ${uploadFile.subcategory || 'FEHLT'}`);
+      console.log(`   - File-Objekt vorhanden: ${!!uploadFile.file}`);
+      
       // Nur vollständig kategorisierte Dateien hochladen
       if (!uploadFile.category || !uploadFile.subcategory) {
-        console.warn(`⚠️ Dokument ${uploadFile.file.name} wurde nicht vollständig kategorisiert und wird übersprungen`);
+        console.warn(`   ⚠️ Dokument ${fileName} wurde nicht vollständig kategorisiert und wird übersprungen`);
+        skippedCount++;
         continue;
       }
 
       // Sicherstellen, dass File-Objekt vorhanden ist
       if (!uploadFile.file) {
-        console.warn(`⚠️ Dokument ${uploadFile.id || 'unbekannt'} hat kein File-Objekt und wird übersprungen`);
+        console.warn(`   ⚠️ Dokument ${fileName} hat kein File-Objekt und wird übersprungen`);
+        skippedCount++;
         continue;
       }
       
@@ -800,13 +816,22 @@ function DashboardWithCreditAnimation() {
         const documentType = uploadFile.document_type || getDocumentTypeFromFile(uploadFile.file.name);
         formData.append('document_type', documentType);
 
-        await uploadDocument(formData);
-        console.log(`✅ Dokument ${uploadFile.file.name} erfolgreich hochgeladen`);
+        console.log(`   📤 Starte Upload für ${fileName}...`);
+        const result = await uploadDocument(formData);
+        console.log(`   ✅ Dokument ${fileName} erfolgreich hochgeladen:`, result);
+        successCount++;
       } catch (error) {
-        console.error(`❌ Fehler beim Upload von ${uploadFile.file.name}:`, error);
+        console.error(`   ❌ Fehler beim Upload von ${fileName}:`, error);
+        console.error(`   Error Details:`, error instanceof Error ? error.message : String(error));
+        errorCount++;
       }
     }
-    console.log('✅ Alle kategorisierten Dokumente wurden verarbeitet');
+    
+    console.log(`\n📊 Upload-Zusammenfassung für Projekt ${projectId}:`);
+    console.log(`   ✅ Erfolgreich: ${successCount}`);
+    console.log(`   ⚠️ Übersprungen: ${skippedCount}`);
+    console.log(`   ❌ Fehler: ${errorCount}`);
+    console.log(`   📁 Gesamt: ${documents.length}`);
   };
 
   // Handler für ProjectCreationModal (empfängt projectData mit documents)
@@ -817,8 +842,16 @@ function DashboardWithCreditAnimation() {
     try {
       console.log('🚀 Erstelle neues Projekt mit Daten:', projectData);
       
-      // Extrahiere documents aus projectData
-      const documents = projectData.documents || [];
+      // Extrahiere documents aus projectData und sichere sie vor dem Löschen
+      const documents = [...(projectData.documents || [])];
+      console.log('📄 Dokumente aus ProjectCreationModal:', documents.length);
+      console.log('📊 Dokumente Details:', documents.map(d => ({
+        name: d.file?.name,
+        category: d.category,
+        subcategory: d.subcategory,
+        hasFile: !!d.file
+      })));
+      
       delete projectData.documents; // Entferne documents aus projectData für API-Call
 
       // Erstelle Projekt
@@ -827,7 +860,10 @@ function DashboardWithCreditAnimation() {
 
       // Lade Dokumente hoch, falls vorhanden
       if (documents.length > 0) {
+        console.log(`📤 Starte Upload von ${documents.length} Dokumenten für Projekt ${newProject.id} (via ProjectCreationModal)`);
         await uploadProjectDocuments(newProject.id, documents);
+      } else {
+        console.warn('⚠️ Keine Dokumente zum Hochladen gefunden (via ProjectCreationModal)');
       }
 
       // Schließe Modal und lade Projekte neu
@@ -874,18 +910,34 @@ function DashboardWithCreditAnimation() {
 
       console.log('🚀 Erstelle neues Projekt mit Daten:', projectData);
       console.log('📄 UploadFiles State beim Projekt-Erstellen:', uploadFiles);
+      console.log('📊 UploadFiles Details:', uploadFiles.map(f => ({
+        name: f.file?.name,
+        category: f.category,
+        subcategory: f.subcategory,
+        hasFile: !!f.file
+      })));
+      
+      // WICHTIG: Sichere uploadFiles in lokale Variable BEVOR Modal geschlossen wird
+      const documentsToUpload = [...uploadFiles];
+      
       const newProject = await createProject(projectData);
       console.log('✅ Neues Projekt erstellt:', newProject);
 
-      // Upload documents if any (aus lokalem uploadFiles State)
-      if (uploadFiles.length > 0) {
-        console.log(`📤 Starte Upload von ${uploadFiles.length} Dokumenten für Projekt ${newProject.id}`);
-        await uploadProjectDocuments(newProject.id, uploadFiles);
+      // Upload documents if any (aus gesicherter Kopie)
+      if (documentsToUpload.length > 0) {
+        console.log(`📤 Starte Upload von ${documentsToUpload.length} Dokumenten für Projekt ${newProject.id}`);
+        console.log('📋 Dokumente zum Upload:', documentsToUpload.map(d => ({
+          name: d.file?.name,
+          category: d.category,
+          subcategory: d.subcategory,
+          type: d.document_type
+        })));
+        await uploadProjectDocuments(newProject.id, documentsToUpload);
       } else {
-        console.warn('⚠️ Keine Dokumente zum Hochladen gefunden');
+        console.warn('⚠️ Keine Dokumente zum Hochladen gefunden. UploadFiles State war leer.');
       }
 
-      // Schließe Modal und lade Projekte neu
+      // Schließe Modal und lade Projekte neu (resettet uploadFiles)
       handleCloseCreateProjectModal();
       await loadProjects();
 
@@ -1050,29 +1102,55 @@ function DashboardWithCreditAnimation() {
 
   const confirmDocumentCategorization = () => {
     // Prüfe ob alle Dateien vollständig kategorisiert sind (category UND subcategory)
-    const allCategorized = uploadFiles.every(f => f.category && f.subcategory);
+    const allCategorized = uploadFiles.every(f => f.category && f.subcategory && f.file);
+    
+    console.log('🔍 Bestätige Dokumenten-Kategorisierung:', {
+      totalFiles: uploadFiles.length,
+      allCategorized,
+      files: uploadFiles.map(f => ({
+        name: f.file?.name,
+        category: f.category,
+        subcategory: f.subcategory,
+        hasFile: !!f.file
+      }))
+    });
     
     if (!allCategorized) {
-      const uncategorized = uploadFiles.filter(f => !f.category || !f.subcategory);
+      const uncategorized = uploadFiles.filter(f => !f.category || !f.subcategory || !f.file);
       const missingCategory = uncategorized.filter(f => !f.category);
       const missingSubcategory = uncategorized.filter(f => f.category && !f.subcategory);
+      const missingFile = uncategorized.filter(f => !f.file);
       
       let message = 'Bitte kategorisieren Sie alle Dokumente vollständig bevor Sie fortfahren.\n\n';
       if (missingCategory.length > 0) {
         message += `${missingCategory.length} Dokument${missingCategory.length > 1 ? 'e' : ''} ohne Kategorie.\n`;
       }
       if (missingSubcategory.length > 0) {
-        message += `${missingSubcategory.length} Dokument${missingSubcategory.length > 1 ? 'e' : ''} ohne Unterkategorie.`;
+        message += `${missingSubcategory.length} Dokument${missingSubcategory.length > 1 ? 'e' : ''} ohne Unterkategorie.\n`;
+      }
+      if (missingFile.length > 0) {
+        message += `${missingFile.length} Dokument${missingFile.length > 1 ? 'e' : ''} ohne File-Objekt.`;
       }
       alert(message);
+      console.warn('⚠️ Kategorisierung nicht bestätigt - fehlende Informationen:', {
+        missingCategory: missingCategory.length,
+        missingSubcategory: missingSubcategory.length,
+        missingFile: missingFile.length
+      });
       return;
     }
 
-    // Schließe das Modal - die Dokumente werden beim "Projekt erstellen" hochgeladen
+    // Schließe das Modal - die Dokumente bleiben im uploadFiles State für Projekt-Erstellung
     setShowUploadModal(false);
     
-    // Zeige Bestätigungsmeldung
-    console.log('✅ Dokumente kategorisiert und bereit zum Upload beim Projekt erstellen', uploadFiles);
+    // Zeige Bestätigungsmeldung mit Details
+    console.log('✅ Dokumente kategorisiert und bereit zum Upload beim Projekt erstellen');
+    console.log('📋 Gespeicherte Dokumente:', uploadFiles.map(f => ({
+      name: f.file?.name,
+      category: f.category,
+      subcategory: f.subcategory,
+      type: f.document_type
+    })));
   };
 
   // Handler für Create-Actions (können vom RadialMenu oder anderen Komponenten genutzt werden)
