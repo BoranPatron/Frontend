@@ -1040,7 +1040,7 @@ export function RadialMenuAdvanced({
                         {item.label}
                         {item.ring === 1 && (
                           <span className="ml-2 text-xs bg-yellow-500/20 px-2 py-0.5 rounded-full">
-                            WICHTIG
+                            WICHTIG1
                           </span>
                         )}
                       </div>

@@ -3,7 +3,7 @@
  * Wird als Overlay-Layer über dem Dashboard gerendert
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useContextualOnboarding } from '../../context/ContextualOnboardingContext';
 import ContextualTooltip from './ContextualTooltip';
 import InteractiveHotspot from './InteractiveHotspot';
@@ -20,6 +20,9 @@ export default function DashboardOnboardingOverlay() {
     discoveredCount,
     totalFeatures
   } = useContextualOnboarding();
+
+  // Use ref to persist processedMountFeatures across re-renders
+  const processedMountFeaturesRef = useRef<Set<string>>(new Set());
 
   // Debug: Log overlay mount
   useEffect(() => {
@@ -43,16 +46,35 @@ export default function DashboardOnboardingOverlay() {
 
   // Helper function to trigger mount for a feature
   const triggerMountForFeature = (featureId: string, feature: any) => {
+    console.log(`🔍 Checking mount trigger for: ${featureId}`, {
+      shouldShow: shouldShowTooltip(featureId),
+      alreadyProcessed: processedMountFeaturesRef.current.has(featureId),
+      discoveredCount,
+      totalFeatures
+    });
+
     if (!shouldShowTooltip(featureId)) {
       console.log(`ℹ️ Feature ${featureId} already discovered, skipping mount trigger`);
       return;
     }
 
+    if (processedMountFeaturesRef.current.has(featureId)) {
+      console.log(`⚠️ Feature ${featureId} already processed, skipping to prevent duplicate trigger`);
+      return;
+    }
+
+    processedMountFeaturesRef.current.add(featureId);
+
     const delay = feature.delay || 0;
+    console.log(`⏱️ Scheduling mount trigger for ${featureId} with delay: ${delay}ms`);
+    
     setTimeout(() => {
+      // Check again after delay - might have been discovered in the meantime
       if (shouldShowTooltip(featureId)) {
         console.log(`🚀 Triggering mount for feature: ${featureId}`);
         showFeatureTooltip(featureId);
+      } else {
+        console.log(`⚠️ Feature ${featureId} was discovered during delay, not showing tooltip`);
       }
     }, delay);
   };
@@ -60,9 +82,8 @@ export default function DashboardOnboardingOverlay() {
   // Setup event listeners for all features
   useEffect(() => {
     const handlersMap: Map<string, {element: HTMLElement, handler: () => void, event: string}> = new Map();
-    const processedMountFeatures = new Set<string>();
 
-    console.log('🔧 Setting up event listeners for features:', features.map(f => f.id));
+    console.log('🔧 Setting up event listeners for features:', features.map(f => ({ id: f.id, triggerOn: f.triggerOn })));
 
     // Function to process a feature and set up its trigger
     const setupFeatureTrigger = (feature: any, element: HTMLElement) => {
@@ -116,11 +137,13 @@ export default function DashboardOnboardingOverlay() {
           break;
 
         case 'mount':
-          // Don't trigger immediately - will be triggered by MutationObserver
-          // But mark as processed so we don't trigger twice
-          if (!processedMountFeatures.has(feature.id)) {
-            processedMountFeatures.add(feature.id);
+          // For mount features, trigger immediately if element exists
+          // Otherwise, MutationObserver will catch it when it appears later
+          if (!processedMountFeaturesRef.current.has(feature.id)) {
+            console.log(`📌 Mount feature found with element: ${feature.id}`);
             triggerMountForFeature(feature.id, feature);
+          } else {
+            console.log(`⏭️ Mount feature ${feature.id} already processed, skipping initial trigger`);
           }
           break;
       }
@@ -150,10 +173,15 @@ export default function DashboardOnboardingOverlay() {
             if (featureId) {
               const feature = features.find(f => f.id === featureId);
               if (feature && feature.triggerOn === 'mount') {
-                console.log(`🔍 New mount element detected: ${featureId}`);
-                if (!processedMountFeatures.has(featureId)) {
-                  processedMountFeatures.add(featureId);
+                console.log(`🔍 New mount element detected in DOM: ${featureId}`, {
+                  alreadyProcessed: processedMountFeaturesRef.current.has(featureId),
+                  shouldShow: shouldShowTooltip(featureId),
+                  element: element
+                });
+                if (!processedMountFeaturesRef.current.has(featureId)) {
                   triggerMountForFeature(featureId, feature);
+                } else {
+                  console.log(`⏭️ Feature ${featureId} was already processed, skipping`);
                 }
               }
             }
@@ -165,10 +193,14 @@ export default function DashboardOnboardingOverlay() {
               if (childFeatureId) {
                 const feature = features.find(f => f.id === childFeatureId);
                 if (feature && feature.triggerOn === 'mount') {
-                  console.log(`🔍 New mount element detected (child): ${childFeatureId}`);
-                  if (!processedMountFeatures.has(childFeatureId)) {
-                    processedMountFeatures.add(childFeatureId);
+                  console.log(`🔍 New mount element detected (child) in DOM: ${childFeatureId}`, {
+                    alreadyProcessed: processedMountFeaturesRef.current.has(childFeatureId),
+                    shouldShow: shouldShowTooltip(childFeatureId)
+                  });
+                  if (!processedMountFeaturesRef.current.has(childFeatureId)) {
                     triggerMountForFeature(childFeatureId, feature);
+                  } else {
+                    console.log(`⏭️ Feature ${childFeatureId} was already processed, skipping`);
                   }
                 }
               }
