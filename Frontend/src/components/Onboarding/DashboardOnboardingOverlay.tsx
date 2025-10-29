@@ -216,12 +216,40 @@ export default function DashboardOnboardingOverlay() {
       subtree: true
     });
 
+    // Additional check: Poll for mount features that might already exist or appear shortly
+    // This catches cases where MutationObserver misses the addition or element exists before observer starts
+    const pollInterval = setInterval(() => {
+      features.forEach(feature => {
+        if (feature.triggerOn === 'mount' && !processedMountFeaturesRef.current.has(feature.id)) {
+          const element = document.querySelector(`[data-feature-id="${feature.id}"]`) as HTMLElement;
+          if (element && shouldShowTooltip(feature.id)) {
+            console.log(`🔄 Poll check found mount element: ${feature.id}`);
+            triggerMountForFeature(feature.id, feature);
+          }
+        }
+      });
+    }, 1000); // Check every second
+
+    // Also do an immediate check for already-existing mount elements
+    setTimeout(() => {
+      features.forEach(feature => {
+        if (feature.triggerOn === 'mount' && !processedMountFeaturesRef.current.has(feature.id)) {
+          const element = document.querySelector(`[data-feature-id="${feature.id}"]`) as HTMLElement;
+          if (element && shouldShowTooltip(feature.id)) {
+            console.log(`🔍 Immediate check found mount element: ${feature.id}`);
+            triggerMountForFeature(feature.id, feature);
+          }
+        }
+      });
+    }, 100);
+
     // Cleanup
     return () => {
       handlersMap.forEach(({ element, handler, event }) => {
         element.removeEventListener(event, handler);
       });
       observer.disconnect();
+      clearInterval(pollInterval);
     };
   }, [features, shouldShowTooltip, showFeatureTooltip]);
 
