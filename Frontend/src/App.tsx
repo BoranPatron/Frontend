@@ -37,6 +37,7 @@ import RoleSelectionModal from './components/RoleSelectionModal';
 import CompanyAddressModal from './components/CompanyAddressModal';
 import NotificationTab from './components/NotificationTab';
 import BautraegerNotificationTab from './components/BautraegerNotificationTab';
+import CentralTabCluster from './components/CentralTabCluster';
 import { RadialMenuAdvanced } from './components/RadialMenuAdvanced';
 import AccountLockedModal from './components/AccountLockedModal';
 import { checkAccountStatus, type AccountStatus } from './api/buildwiseFeeService';
@@ -440,6 +441,11 @@ function AppContent() {
             }));
           }}
         />
+      )}
+
+      {/* Central Tab Cluster - Desktop only */}
+      {user && (
+        <CentralTabCluster />
       )}
       
       <Routes>

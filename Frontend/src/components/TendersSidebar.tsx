@@ -168,12 +168,19 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
     setIsExpanded(false);
   };
 
+  // Open listener from CentralTabCluster
+  useEffect(() => {
+    const open = () => setIsOpen(true);
+    window.addEventListener('openTendersSidebar', open as EventListener);
+    return () => window.removeEventListener('openTendersSidebar', open as EventListener);
+  }, []);
+
   return (
     <>
        {/* Tab/Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 sm:bottom-[230px] sm:right-[20px] sm:left-auto sm:top-auto z-40 transition-all duration-300 ${
+        className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 sm:bottom-[230px] sm:right-[20px] sm:left-auto sm:top-auto z-40 transition-all duration-300 lg:hidden ${
           isOpen && !isExpanded 
             ? isMobile 
               ? 'right-0' 
