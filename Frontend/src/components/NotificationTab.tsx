@@ -797,7 +797,7 @@ export default function NotificationTab({ userRole, userId, onResponseSent }: No
               markAsSeen(notifications.filter(n => n.isNew).map(n => n.id));
             }
           }}
-          className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 sm:bottom/[20px] sm:right/[20px] sm:left-auto sm:top-auto z-[9999] lg:hidden 
+          className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 sm:bottom/[20px] sm:right/[20px] sm:left-auto sm:top-auto z-[9999] md:hidden 
                      w-14 h-20 rounded-l-xl transition-all duration-300 hover:shadow-2xl
                      flex flex-col items-center justify-center gap-1 ${
             hasNewNotifications 
