@@ -171,17 +171,17 @@ const TendersSidebar: React.FC<TendersSidebarProps> = ({
   return (
     <>
        {/* Tab/Toggle Button */}
-       <button
-         onClick={() => setIsOpen(!isOpen)}
-         className={`fixed right-0 lg:top-[460px] md:top-[380px] sm:bottom-[230px] sm:right-[20px] z-40 transition-all duration-300 ${
-           isOpen && !isExpanded 
-             ? isMobile 
-               ? 'right-0' 
-               : isTablet
-               ? 'right-0'
-               : 'right-[90vw] sm:right-[85vw] md:right-[80vw] lg:right-[75vw] xl:right-[70vw]'
-             : 'right-0'
-         } w-14 h-20 rounded-l-xl hover:shadow-2xl flex flex-col items-center justify-center gap-1 ${
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 sm:bottom-[230px] sm:right-[20px] sm:left-auto sm:top-auto z-40 transition-all duration-300 ${
+          isOpen && !isExpanded 
+            ? isMobile 
+              ? 'right-0' 
+              : isTablet
+              ? 'right-0'
+              : 'right-[90vw] sm:right-[85vw] md:right-[80vw] lg:right-[75vw] xl:right-[70vw]'
+            : ''
+        } w-14 h-20 rounded-l-xl hover:shadow-2xl flex flex-col items-center justify-center gap-1 ${
            combinedTrades.length > 0
              ? 'bg-gradient-to-r from-emerald-500/90 to-green-600/90 shadow-lg shadow-emerald-500/50'
              : 'bg-gradient-to-r from-emerald-500/80 to-green-600/80'

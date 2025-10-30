@@ -409,7 +409,7 @@ export default function ServiceProviderDocumentTab({ userId }: ServiceProviderDo
         {/* Tab Handle - Independent fixed position */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className={`fixed right-0 lg:top-[220px] md:top-[180px] sm:bottom-[90px] sm:right-[20px] z-[9999] 
+          className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 sm:bottom-[90px] sm:right-[20px] sm:left-auto sm:top-auto z-[9999] 
                      w-14 h-20 rounded-l-xl transition-all duration-300 hover:shadow-2xl
                      flex flex-col items-center justify-center gap-1 ${
             hasDocuments 

@@ -800,7 +800,7 @@ Ihr BuildWise Team
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           data-tour-id="notification-tab-bautraeger"
-          className={`fixed right-0 lg:top-[100px] md:top-[80px] sm:bottom-[20px] sm:right-[20px] z-[9999] 
+          className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 sm:bottom-[20px] sm:right-[20px] sm:left-auto sm:top-auto z-[9999] 
                      w-14 h-20 rounded-l-xl transition-all duration-300 hover:shadow-2xl
                      flex flex-col items-center justify-center gap-1 ${
             hasUnhandled 

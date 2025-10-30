@@ -180,7 +180,7 @@ const HelpTab: React.FC<HelpTabProps> = ({ activeTab, isBautraeger, hasAcceptedQ
   return (
     <>
       {/* Help Tab Button - Mobile optimiert */}
-      <div className={`fixed ${isMobile ? 'bottom-4 right-4' : 'left-4 top-1/2 transform -translate-y-1/2'} z-[100]`}>
+      <div className={`fixed ${isMobile ? 'bottom-4 right-4' : 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'} z-[100]`}>
         <button
           data-help-tab
           onClick={() => setIsExpanded(!isExpanded)}
