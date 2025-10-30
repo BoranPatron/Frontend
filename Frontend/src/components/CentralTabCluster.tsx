@@ -44,10 +44,20 @@ export default function CentralTabCluster(_: CentralTabClusterProps) {
 
   if (buttons.length === 0) return null;
 
+  const hasAnyCount = (spNewCount > 0) || (btNewCount > 0);
+
   return (
     <div className="flex fixed top-1/2 right-2 md:right-2 lg:right-4 -translate-y-1/2 z-[10001] pointer-events-none">
-      {/* subtle edge rail for emphasis */}
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 h-64 md:h-72 lg:h-80 w-px bg-gradient-to-b from-transparent via-white/20 to-transparent pointer-events-none" />
+      {/* Edge rail with enhanced glow & blink when notifications exist */}
+      <div className="absolute right-0 top-1/2 -translate-y-1/2 h-64 md:h-72 lg:h-80 w-px bg-gradient-to-b from-transparent via-white/25 to-transparent pointer-events-none" aria-hidden="true" />
+      {hasAnyCount && (
+        <>
+          {/* Bright core glow */}
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 h-64 md:h-72 lg:h-80 w-[3px] rounded-full bg-[#ffbd59] opacity-80 blur-[2px] animate-pulse pointer-events-none" aria-hidden="true" />
+          {/* Soft expanding glow */}
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 h-64 md:h-72 lg:h-80 w-2 rounded-full bg-[#ffbd59]/40 blur-md animate-ping pointer-events-none" style={{ animationDuration: '1.5s' }} aria-hidden="true" />
+        </>
+      )}
       <div className="flex flex-col items-center justify-center gap-3 md:gap-4 lg:gap-6 pointer-events-auto">
         {buttons.map(({ key, label, icon: Icon, event, count }) => {
           const hasCount = typeof count === 'number' && count > 0;
