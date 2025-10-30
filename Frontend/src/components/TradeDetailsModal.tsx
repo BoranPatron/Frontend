@@ -1266,6 +1266,9 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   const [showAcceptConfirm, setShowAcceptConfirm] = useState(false);
   const [quoteIdToAccept, setQuoteIdToAccept] = useState<number | null>(null);
   const [acceptAcknowledged, setAcceptAcknowledged] = useState(false);
+  // UI state for accept flow
+  const [acceptingQuoteId, setAcceptingQuoteId] = useState<number | null>(null);
+  const [justAcceptedQuoteId, setJustAcceptedQuoteId] = useState<number | null>(null);
   
   // States für neue Features
   const [currentProgress, setCurrentProgress] = useState(trade?.progress_percentage || 0);
@@ -1633,10 +1636,18 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
   // Handler für Angebot annehmen
   const handleAcceptQuote = async (quoteId: number) => {
     try {
+      setAcceptingQuoteId(quoteId);
       await onAcceptQuote?.(quoteId);
+      setJustAcceptedQuoteId(quoteId);
       console.log('✅ Angebot angenommen:', quoteId);
+      // Close modal to reflect updated state immediately in parent lists
+      if (onClose) {
+        onClose();
+      }
     } catch (error) {
       console.error('❌ Fehler beim Annehmen des Angebots:', error);
+    } finally {
+      setAcceptingQuoteId(null);
     }
   };
 
@@ -6511,15 +6522,16 @@ function TradeDocumentViewer({ documents, existingQuotes }: DocumentViewerProps)
                                {isMobile ? 'Besichtigung erforderlich' : 'Besichtigung erforderlich'}
                              </button>
                            ) : (
-                             <button
+                            <button
                                onClick={(e) => {
                                  e.stopPropagation();
                                  handleAcceptQuote(quote.id);
                                }}
-                               className={`${isMobile ? 'mobile-touch-button bg-green-500/20 text-green-300 hover:bg-green-500/30 w-full justify-center' : 'px-4 py-2 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition-colors flex items-center gap-2'}`}
+                               disabled={acceptingQuoteId === quote.id}
+                               className={`${isMobile ? 'mobile-touch-button w-full justify-center' : 'px-4 py-2 rounded-lg transition-colors flex items-center gap-2'} ${acceptingQuoteId === quote.id ? 'bg-green-500/10 text-green-400 cursor-not-allowed opacity-70' : 'bg-green-500/20 text-green-300 hover:bg-green-500/30'}`}
                              >
                                <CheckCircle size={isMobile ? 18 : 14} />
-                               {isMobile ? 'Annehmen' : 'Annehmen'}
+                               {acceptingQuoteId === quote.id ? (isMobile ? 'Wird angenommen…' : 'Wird angenommen…') : (isMobile ? 'Annehmen' : 'Annehmen')}
                              </button>
                            )}
                            

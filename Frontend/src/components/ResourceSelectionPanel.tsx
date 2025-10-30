@@ -1379,7 +1379,7 @@ const ResourceSelectionPanel: React.FC<ResourceSelectionPanelProps> = ({
       setSelectedResourceIds([]);
       
       // Success feedback
-      alert(`${selectedResourceIds.length} Ressourcen für Zuweisung vorbereitet. Sie werden beim Speichern des Gewerks zugewiesen.`);
+      alert(`${selectedResourceIds.length} Ressourcen für Zuweisung vorbereitet. Sie werden beim Speichern der Ausschreibung zugewiesen.`);
       return;
     }
 

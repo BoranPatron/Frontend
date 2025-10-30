@@ -193,7 +193,7 @@ export default function CreditAdditionAnimation({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
-        className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+        className="fixed inset-0 z-[10001] flex items-center justify-center pointer-events-none"
       >
         {/* Backdrop with glassmorphism */}
         <motion.div

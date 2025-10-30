@@ -43,7 +43,7 @@ export const BAUTRAEGER_FEATURES: OnboardingFeature[] = [
   {
     id: 'create-trade-button',
     title: 'Ausschreibung starten 📋',
-    description: 'Erstelle Ausschreibungen für verschiedene Gewerke und erhalte Angebote von qualifizierten Dienstleistern.',
+    description: 'Erstelle Ausschreibungen für verschiedene Arbeiten und erhalte Angebote von qualifizierten Dienstleistern. Über den Button "Ressourcen durchsuchen" können Ressourcen vorab in die Auswahl gezogen werden. Die Dienstleister, welche die Ressourcen ausgeschreiben haben können dann eine Erstangebot abgeben. Im unteren Teil können darüber hinaus Dokumente in die Ausschreibung mitgegeben werden. Diese können entweder über die Liste aller Dokumente innherhalb des Projetktes vererbt werden oder über den Upload-Bereich hochgeladen werden.',
     priority: 3,
     userRole: 'BAUTRAEGER',
     placement: 'bottom',
