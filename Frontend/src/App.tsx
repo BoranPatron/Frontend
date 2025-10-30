@@ -38,6 +38,7 @@ import CompanyAddressModal from './components/CompanyAddressModal';
 import NotificationTab from './components/NotificationTab';
 import BautraegerNotificationTab from './components/BautraegerNotificationTab';
 import CentralTabCluster from './components/CentralTabCluster';
+import DocumentSidebar from './components/DocumentSidebar';
 import { RadialMenuAdvanced } from './components/RadialMenuAdvanced';
 import AccountLockedModal from './components/AccountLockedModal';
 import { checkAccountStatus, type AccountStatus } from './api/buildwiseFeeService';
@@ -441,6 +442,9 @@ function AppContent() {
             }));
           }}
         />
+      )}
+      {user && user.user_role === 'BAUTRAEGER' && (
+        <DocumentSidebar />
       )}
 
       {/* Central Tab Cluster - Desktop only */}

@@ -14,6 +14,7 @@ export default function CentralTabCluster(_: CentralTabClusterProps) {
   const buttons = isBautraeger
     ? [
         { key: 'bautraegerNotifications', label: 'Benachrichtigungen', icon: Calendar, event: 'openBautraegerNotificationTab' },
+        { key: 'documents', label: 'Dokumente', icon: FileText, event: 'openDocumentSidebar' },
         { key: 'contacts', label: 'Kontakte', icon: Users, event: 'openContactTab' },
         { key: 'help', label: 'Hilfe', icon: HelpCircle, event: 'openHelpTab' },
       ]

@@ -76,6 +76,13 @@ const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ onDocumentClick }) =>
     }
   }, [isOpen, selectedProject?.id]);
 
+  // Öffnen über Global-Event (für Edge-Cluster)
+  useEffect(() => {
+    const open = () => setIsOpen(true);
+    window.addEventListener('openDocumentSidebar', open as unknown as EventListener);
+    return () => window.removeEventListener('openDocumentSidebar', open as unknown as EventListener);
+  }, []);
+
   // Filter-Effekt
   useEffect(() => {
     let filtered = [...documents];
@@ -207,7 +214,7 @@ const DocumentSidebar: React.FC<DocumentSidebarProps> = ({ onDocumentClick }) =>
       {/* Tab/Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed right-0 lg:top-[220px] md:top-[180px] sm:bottom-[90px] sm:right-[20px] z-40 transition-all duration-300 ${
+        className={`fixed right-0 lg:top-[220px] md:top-[180px] sm:bottom-[90px] sm:right-[20px] z-40 transition-all duration-300 md:hidden ${
           isOpen ? 'right-[420px]' : 'right-0'
         } w-14 h-20 rounded-l-xl hover:shadow-2xl flex flex-col items-center justify-center gap-1 ${
           documents.length > 0
