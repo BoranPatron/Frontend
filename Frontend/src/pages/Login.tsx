@@ -280,10 +280,12 @@ export default function Login() {
                 <span className="font-bold text-blue-400">So funktioniert's:</span> 
                 <br />
                 <span className="text-blue-400 font-semibold">Geo-Suche</span> findet passende Projekte → 
-                Angebote abgeben <span className="text-gray-400">oder</span> 
-                <span className="text-blue-400 font-semibold"> Ressourcen aktiv ausschreiben</span> → 
-                Bauträger sehen dich in der Vorabauswahl → 
-                Aufträge erhalten & verwalten.
+                Angebote abgeben → Aufträge erhalten & verwalten.
+                <br />
+                <span className="text-xs text-gray-400 mt-2 block">
+                  • <span className="text-blue-400 font-semibold">Oder:</span> Ressourcen aktiv ausschreiben → 
+                  Bauträger sehen dich in der Vorabauswahl → Mehr Aufträge!
+                </span>
                 <br />
                 <span className="text-xs text-gray-400 mt-2 block">Proaktiv oder reaktiv – du bestimmst, wie du Aufträge findest. 🎯</span>
               </p>
