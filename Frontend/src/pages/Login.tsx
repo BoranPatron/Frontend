@@ -265,6 +265,7 @@ export default function Login() {
                 <span className="font-bold text-[#ffbd59]">So funktioniert's:</span> 
                 <br />
                 Projekte erstellen → Ausschreibungen posten → 
+                <span className="text-[#ffbd59] font-semibold"> Vorabauswahl</span> aus verfügbaren Dienstleister-Ressourcen → 
                 Angebote vergleichen & annehmen → 
                 <span className="text-[#ffbd59] font-semibold"> Alles digital</span> verwalten.
                 <br />
@@ -279,10 +280,12 @@ export default function Login() {
                 <span className="font-bold text-blue-400">So funktioniert's:</span> 
                 <br />
                 <span className="text-blue-400 font-semibold">Geo-Suche</span> findet passende Projekte → 
-                Angebote abgeben → Aufträge erhalten → 
-                <span className="text-blue-400 font-semibold"> Ressourcen & Rechnungen</span> verwalten.
+                Angebote abgeben <span className="text-gray-400">oder</span> 
+                <span className="text-blue-400 font-semibold"> Ressourcen aktiv ausschreiben</span> → 
+                Bauträger sehen dich in der Vorabauswahl → 
+                Aufträge erhalten & verwalten.
                 <br />
-                <span className="text-xs text-gray-400 mt-2 block">In deiner Nähe, passend zu deinem Gewerk. 🎯</span>
+                <span className="text-xs text-gray-400 mt-2 block">Proaktiv oder reaktiv – du bestimmst, wie du Aufträge findest. 🎯</span>
               </p>
             </div>
           </div>
