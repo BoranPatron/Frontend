@@ -256,18 +256,35 @@ export default function Login() {
           <h1 className="text-3xl font-bold text-[#ffbd59] mb-2">BuildWise</h1>
           <p className="text-gray-300 mb-4">Anmelden zu Ihrem Konto</p>
           
-          {/* Funktionsweise Text */}
-          <div className="bg-gradient-to-r from-[#ffbd59]/10 via-[#ffa726]/10 to-[#ffbd59]/10 rounded-xl p-4 border border-[#ffbd59]/20 backdrop-blur-sm">
-            <p className="text-sm text-white leading-relaxed">
-              <span className="font-bold text-[#ffbd59]">So funktioniert's:</span> 
-              <br />
-              Projekte erstellen → Ausschreibungen posten → 
-              <span className="text-[#ffbd59] font-semibold"> Geo-Suche</span> findet passende Dienstleister → 
-              Angebote vergleichen & annehmen → 
-              <span className="text-[#ffbd59] font-semibold"> Alles digital</span> verwalten.
-              <br />
-              <span className="text-xs text-gray-400 mt-2 block">DMS, Finanzen, Tasks & Canvas – alles in einer Plattform. 🚀</span>
-            </p>
+          {/* Funktionsweise Texte für beide Rollen */}
+          <div className="space-y-3">
+            {/* Bauträger Text */}
+            <div className="bg-gradient-to-r from-[#ffbd59]/10 via-[#ffa726]/10 to-[#ffbd59]/10 rounded-xl p-4 border border-[#ffbd59]/20 backdrop-blur-sm">
+              <p className="text-xs font-semibold text-[#ffbd59] mb-2 uppercase tracking-wide">👷‍♂️ Für Bauträger</p>
+              <p className="text-sm text-white leading-relaxed">
+                <span className="font-bold text-[#ffbd59]">So funktioniert's:</span> 
+                <br />
+                Projekte erstellen → Ausschreibungen posten → 
+                Angebote vergleichen & annehmen → 
+                <span className="text-[#ffbd59] font-semibold"> Alles digital</span> verwalten.
+                <br />
+                <span className="text-xs text-gray-400 mt-2 block">DMS, Finanzen, Tasks & Canvas – alles in einer Plattform. 🚀</span>
+              </p>
+            </div>
+
+            {/* Dienstleister Text */}
+            <div className="bg-gradient-to-r from-blue-500/10 via-blue-400/10 to-blue-500/10 rounded-xl p-4 border border-blue-400/20 backdrop-blur-sm">
+              <p className="text-xs font-semibold text-blue-400 mb-2 uppercase tracking-wide">🔧 Für Dienstleister</p>
+              <p className="text-sm text-white leading-relaxed">
+                <span className="font-bold text-blue-400">So funktioniert's:</span> 
+                <br />
+                <span className="text-blue-400 font-semibold">Geo-Suche</span> findet passende Projekte → 
+                Angebote abgeben → Aufträge erhalten → 
+                <span className="text-blue-400 font-semibold"> Ressourcen & Rechnungen</span> verwalten.
+                <br />
+                <span className="text-xs text-gray-400 mt-2 block">In deiner Nähe, passend zu deinem Gewerk. 🎯</span>
+              </p>
+            </div>
           </div>
         </div>
 
