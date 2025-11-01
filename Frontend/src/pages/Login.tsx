@@ -254,7 +254,21 @@ export default function Login() {
             />
           </div>
           <h1 className="text-3xl font-bold text-[#ffbd59] mb-2">BuildWise</h1>
-          <p className="text-gray-300">Anmelden zu Ihrem Konto</p>
+          <p className="text-gray-300 mb-4">Anmelden zu Ihrem Konto</p>
+          
+          {/* Funktionsweise Text */}
+          <div className="bg-gradient-to-r from-[#ffbd59]/10 via-[#ffa726]/10 to-[#ffbd59]/10 rounded-xl p-4 border border-[#ffbd59]/20 backdrop-blur-sm">
+            <p className="text-sm text-white leading-relaxed">
+              <span className="font-bold text-[#ffbd59]">So funktioniert's:</span> 
+              <br />
+              Projekte erstellen → Ausschreibungen posten → 
+              <span className="text-[#ffbd59] font-semibold"> Geo-Suche</span> findet passende Dienstleister → 
+              Angebote vergleichen & annehmen → 
+              <span className="text-[#ffbd59] font-semibold"> Alles digital</span> verwalten.
+              <br />
+              <span className="text-xs text-gray-400 mt-2 block">DMS, Finanzen, Tasks & Canvas – alles in einer Plattform. 🚀</span>
+            </p>
+          </div>
         </div>
 
         {/* Error Banner */}
