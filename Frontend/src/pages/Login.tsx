@@ -254,7 +254,43 @@ export default function Login() {
             />
           </div>
           <h1 className="text-3xl font-bold text-[#ffbd59] mb-2">BuildWise</h1>
-          <p className="text-gray-300">Anmelden zu Ihrem Konto</p>
+          <p className="text-gray-300 mb-4">Anmelden zu Ihrem Konto</p>
+          
+          {/* Funktionsweise Texte für beide Rollen */}
+          <div className="space-y-3">
+            {/* Bauträger Text */}
+            <div className="bg-gradient-to-r from-[#ffbd59]/10 via-[#ffa726]/10 to-[#ffbd59]/10 rounded-xl p-4 border border-[#ffbd59]/20 backdrop-blur-sm">
+              <p className="text-xs font-semibold text-[#ffbd59] mb-2 uppercase tracking-wide">👷‍♂️ Für Bauträger</p>
+              <p className="text-sm text-white leading-relaxed">
+                <span className="font-bold text-[#ffbd59]">So funktioniert's:</span> 
+                <br />
+                Projekte erstellen → Ausschreibungen posten → 
+                <span className="text-[#ffbd59] font-semibold"> Vorabauswahl</span> aus verfügbaren Dienstleister-Ressourcen → 
+                Angebote vergleichen & annehmen → 
+                <span className="text-[#ffbd59] font-semibold"> Alles digital</span> verwalten.
+                <br />
+                <span className="text-xs text-gray-400 mt-2 block">DMS, Finanzen, Tasks & Canvas – alles in einer Plattform. 🚀</span>
+              </p>
+            </div>
+
+            {/* Dienstleister Text */}
+            <div className="bg-gradient-to-r from-blue-500/10 via-blue-400/10 to-blue-500/10 rounded-xl p-4 border border-blue-400/20 backdrop-blur-sm">
+              <p className="text-xs font-semibold text-blue-400 mb-2 uppercase tracking-wide">🔧 Für Dienstleister</p>
+              <p className="text-sm text-white leading-relaxed">
+                <span className="font-bold text-blue-400">So funktioniert's:</span> 
+                <br />
+                <span className="text-blue-400 font-semibold">Geo-Suche</span> findet passende Projekte → 
+                Angebote abgeben → Aufträge erhalten & verwalten.
+                <br />
+                <span className="text-xs text-gray-400 mt-2 block">
+                  • <span className="text-blue-400 font-semibold">Oder:</span> Ressourcen aktiv ausschreiben → 
+                  Bauträger sehen dich in der Vorabauswahl → Mehr Aufträge!
+                </span>
+                <br />
+                <span className="text-xs text-gray-400 mt-2 block">Proaktiv oder reaktiv – du bestimmst, wie du Aufträge findest. 🎯</span>
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Error Banner */}
